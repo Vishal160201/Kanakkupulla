@@ -5,43 +5,56 @@ export default async function OverviewPage() {
   // --- Data Fetching ---
   const today = new Date();
   
-  // 1. Transactions Data
-  const incomeTransactions = await prisma.transaction.findMany({
-    where: { type: 'INCOME' }
-  });
-  
-  const totalEarnings = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
-  
   const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const monthlyRevenue = incomeTransactions
-    .filter(t => t.date >= currentMonthStart)
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  // 2. Bookings Data
-  const allBookings = await prisma.booking.findMany({
-    include: { order: true, client: true },
-    orderBy: { date: 'asc' }
-  });
-  
-  const totalBookings = allBookings.length;
-  
-  // A shoot is "completed" if its date is in the past.
-  const completedShoots = allBookings.filter(b => b.date < today);
-  const upcomingShoots = allBookings.filter(b => b.date >= today).slice(0, 3);
-  
-  // Pending retouch could be estimated (e.g. recent completed shoots)
-  // For now, let's just use recent completed shoots from the last 14 days
   const twoWeeksAgo = new Date(today);
   twoWeeksAgo.setDate(today.getDate() - 14);
-  const pendingRetouch = completedShoots.filter(b => b.date >= twoWeeksAgo).length;
 
-  // 3. Product Orders (Gift Shop) Data
-  const activeOrders = await prisma.productOrder.findMany({
-    where: { status: { not: 'DELIVERED' } },
-    include: { product: true },
-    orderBy: { createdAt: 'desc' }
-  });
-  const totalActiveOrders = activeOrders.length;
+  const [
+    totalEarningsAgg,
+    monthlyRevenueAgg,
+    totalBookings,
+    completedShootsCount,
+    upcomingShoots,
+    pendingRetouch,
+    activeOrders,
+    totalActiveOrders
+  ] = await Promise.all([
+    prisma.transaction.aggregate({
+      _sum: { amount: true },
+      where: { type: 'INCOME' }
+    }),
+    prisma.transaction.aggregate({
+      _sum: { amount: true },
+      where: { type: 'INCOME', date: { gte: currentMonthStart } }
+    }),
+    prisma.booking.count({
+      where: { deletedAt: null }
+    }),
+    prisma.booking.count({
+      where: { deletedAt: null, date: { lt: today } }
+    }),
+    prisma.booking.findMany({
+      where: { deletedAt: null, date: { gte: today } },
+      include: { order: true, client: true },
+      orderBy: { date: 'asc' },
+      take: 3
+    }),
+    prisma.booking.count({
+      where: { deletedAt: null, date: { lt: today, gte: twoWeeksAgo } }
+    }),
+    prisma.productOrder.findMany({
+      where: { status: { not: 'DELIVERED' } },
+      include: { product: true },
+      orderBy: { createdAt: 'desc' },
+      take: 1
+    }),
+    prisma.productOrder.count({
+      where: { status: { not: 'DELIVERED' } }
+    })
+  ]);
+
+  const totalEarnings = totalEarningsAgg._sum.amount || 0;
+  const monthlyRevenue = monthlyRevenueAgg._sum.amount || 0;
   const topOrder = activeOrders[0];
 
   return (
@@ -58,7 +71,7 @@ export default async function OverviewPage() {
           <div className="flex gap-8">
             <div className="flex flex-col gap-1">
               <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[0.5px]">Shoots Completed</span>
-              <span className="text-[1.2rem] font-extrabold text-white">{completedShoots.length}</span>
+              <span className="text-[1.2rem] font-extrabold text-white">{completedShootsCount}</span>
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[0.5px]">Pending Retouch</span>
@@ -112,7 +125,10 @@ export default async function OverviewPage() {
           </div>
           <div>
             <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">Gallery Deliveries</div>
-            <div className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{pendingRetouch} Due</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{pendingRetouch}</span>
+              <span className="text-[1rem] font-bold text-slate-500">Due</span>
+            </div>
           </div>
         </div>
 

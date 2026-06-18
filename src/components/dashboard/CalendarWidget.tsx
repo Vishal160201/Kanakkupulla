@@ -5,9 +5,10 @@ import { useBookings } from "../providers/BookingProvider";
 import MonthYearPicker from "../ui/MonthYearPicker";
 import WeekPicker from "../ui/WeekPicker";
 import DayPicker from "../ui/DayPicker";
+import { Booking } from "@/types";
 
-export default function CalendarWidget() {
-  const { bookings, setActiveDetailsId, setIsAddModalOpen, setSelectedDateForNew } = useBookings();
+export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
+  const { setActiveDetailsBooking, setIsAddModalOpen, setSelectedDateForNew } = useBookings();
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // June 2026 default
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -78,7 +79,7 @@ export default function CalendarWidget() {
           )}
           
           {dayBookings.map(b => (
-            <div key={b.id} className={`calendar-event ${getCategoryClass(b.category)}`} onClick={(e) => { e.stopPropagation(); setActiveDetailsId(b.id); }}>
+            <div key={b.id} className={`calendar-event ${getCategoryClass(b.category)}`} onClick={(e) => { e.stopPropagation(); setActiveDetailsBooking(b); }}>
               <i className="ph-fill ph-calendar-star"></i> {b.title.substring(0, 10)}...
             </div>
           ))}
@@ -110,7 +111,7 @@ export default function CalendarWidget() {
         else if (b.category === 'Corporate') { bg = '#e6f4ea'; color = '#137333'; } // Green
 
         return (
-          <div key={b.id} className="event-block" style={{ top: topOffset, height: 50, backgroundColor: bg, color }} onClick={(e) => { e.stopPropagation(); setActiveDetailsId(b.id); }}>
+          <div key={b.id} className="event-block" style={{ top: topOffset, height: 50, backgroundColor: bg, color }} onClick={(e) => { e.stopPropagation(); setActiveDetailsBooking(b); }}>
             <div className="event-block-title">{b.title}</div>
             <div className="event-block-time">{b.time}</div>
           </div>

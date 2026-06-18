@@ -1,9 +1,30 @@
-"use client";
-
 import CalendarWidget from '@/components/dashboard/CalendarWidget';
 import UpcomingShoots from '@/components/dashboard/UpcomingShoots';
+import prisma from "@/lib/prisma";
+import { Booking } from "@/types";
 
-export default function BookingsOverviewPage() {
+export default async function BookingsOverviewPage() {
+  const dbBookings = await prisma.booking.findMany({
+    where: { deletedAt: null },
+    include: { client: true, order: true },
+    orderBy: { date: 'desc' }
+  });
+
+  const bookings: Booking[] = dbBookings.map(b => ({
+    id: b.id,
+    title: b.client.name,
+    category: b.category,
+    date: b.date.toISOString().split('T')[0],
+    time: b.time,
+    location: b.location,
+    phone: b.client.phone,
+    email: b.client.email || '',
+    package: b.order?.package.toString() || '',
+    advance: b.order?.advance.toString() || '',
+    due: b.order?.due.toString() || '',
+    status: b.status as any
+  }));
+
   return (
     <>
       {/* Stats Grid */}
@@ -62,9 +83,9 @@ export default function BookingsOverviewPage() {
       </div>
 
       <div className="grid grid-cols-[1.5fr_1fr] gap-6">
-        <CalendarWidget />
+        <CalendarWidget bookings={bookings} />
         <div>
-          <UpcomingShoots />
+          <UpcomingShoots bookings={bookings} />
         </div>
       </div>
     </>

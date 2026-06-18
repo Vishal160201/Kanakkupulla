@@ -4,6 +4,7 @@ import { z } from "zod";
 import { bookingSchema } from "@/lib/validations/booking";
 import { Booking } from "@/types";
 import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export async function saveBookingAction(formData: FormData) {
   try {
@@ -40,6 +41,12 @@ export async function saveBookingAction(formData: FormData) {
               data: { bookingId: validatedData.id, package: pkg, advance: adv, due: due }
             });
          }
+         
+         await prisma.systemLog.create({
+           data: { action: "BOOKING_UPDATED", details: `Updated booking ID: ${validatedData.id}` }
+         });
+
+         revalidatePath('/', 'layout');
          return { success: true, data: validatedData as Booking };
        }
     }
@@ -68,6 +75,12 @@ export async function saveBookingAction(formData: FormData) {
       data: { bookingId: newBooking.id, package: pkg, advance: adv, due: due }
     });
 
+    await prisma.systemLog.create({
+      data: { action: "BOOKING_CREATED", details: `Created booking ID: ${newBooking.id} for client ${client.name}` }
+    });
+
+    revalidatePath('/', 'layout');
+
     return { 
       success: true, 
       data: { ...validatedData, id: newBooking.id } as Booking 
@@ -82,8 +95,16 @@ export async function saveBookingAction(formData: FormData) {
 
 export async function deleteBookingAction(id: string) {
   try {
-    await prisma.order.deleteMany({ where: { bookingId: id } });
-    await prisma.booking.delete({ where: { id } });
+    await prisma.booking.update({ 
+      where: { id },
+      data: { deletedAt: new Date() }
+    });
+    
+    await prisma.systemLog.create({
+      data: { action: "BOOKING_SOFT_DELETED", details: `Soft deleted booking ID: ${id}` }
+    });
+    
+    revalidatePath('/', 'layout');
     return { success: true };
   } catch (e) {
     return { success: false, error: "Failed to delete booking" };

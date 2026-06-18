@@ -4,23 +4,23 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Booking, FilterState } from '@/types';
 
 interface BookingContextType {
-  bookings: Booking[];
-  setBookings: React.Dispatch<React.SetStateAction<Booking[]>>;
   filters: FilterState;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
-  addBooking: (booking: Booking) => void;
-  updateBooking: (id: string, booking: Booking) => void;
-  deleteBooking: (id: string) => void;
   
   // Modal States
   isAddModalOpen: boolean;
   setIsAddModalOpen: (open: boolean) => void;
   isFilterModalOpen: boolean;
   setIsFilterModalOpen: (open: boolean) => void;
-  activeDetailsId: string | null;
-  setActiveDetailsId: (id: string | null) => void;
-  activeEditId: string | null;
-  setActiveEditId: (id: string | null) => void;
+  
+  activeDetailsBooking: Booking | null;
+  setActiveDetailsBooking: (booking: Booking | null) => void;
+  activeEditBooking: Booking | null;
+  setActiveEditBooking: (booking: Booking | null) => void;
+  
+  isDeleteConfirmOpen: boolean;
+  setIsDeleteConfirmOpen: (open: boolean) => void;
+
   selectedDateForNew: string | null;
   setSelectedDateForNew: (date: string | null) => void;
 }
@@ -38,33 +38,24 @@ const defaultFilters: FilterState = {
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
-export function BookingProvider({ children, initialBookings = [] }: { children: ReactNode, initialBookings?: Booking[] }) {
-  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
+export function BookingProvider({ children }: { children: ReactNode }) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [activeDetailsId, setActiveDetailsId] = useState<string | null>(null);
-  const [activeEditId, setActiveEditId] = useState<string | null>(null);
+  const [activeDetailsBooking, setActiveDetailsBooking] = useState<Booking | null>(null);
+  const [activeEditBooking, setActiveEditBooking] = useState<Booking | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [selectedDateForNew, setSelectedDateForNew] = useState<string | null>(null);
-
-  const addBooking = (booking: Booking) => setBookings((prev) => [booking, ...prev]);
-  const updateBooking = (id: string, newBooking: Booking) => {
-    setBookings((prev) => prev.map((b) => (b.id === id ? newBooking : b)));
-  };
-  const deleteBooking = (id: string) => {
-    setBookings((prev) => prev.filter((b) => b.id !== id));
-  };
 
   return (
     <BookingContext.Provider value={{ 
-      bookings, setBookings, 
       filters, setFilters, 
-      addBooking, updateBooking, deleteBooking,
       isAddModalOpen, setIsAddModalOpen,
       isFilterModalOpen, setIsFilterModalOpen,
-      activeDetailsId, setActiveDetailsId,
-      activeEditId, setActiveEditId,
+      activeDetailsBooking, setActiveDetailsBooking,
+      activeEditBooking, setActiveEditBooking,
+      isDeleteConfirmOpen, setIsDeleteConfirmOpen,
       selectedDateForNew, setSelectedDateForNew
     }}>
       {children}

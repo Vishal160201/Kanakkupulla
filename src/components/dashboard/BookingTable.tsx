@@ -1,9 +1,18 @@
 "use client";
 
 import { useBookings } from '../providers/BookingProvider';
+import { Booking } from '@/types';
+import { useRouter } from 'next/navigation';
 
-export default function BookingTable() {
-  const { bookings, filters, setActiveDetailsId } = useBookings();
+interface BookingTableProps {
+  bookings: Booking[];
+  currentPage?: number;
+  totalPages?: number;
+}
+
+export default function BookingTable({ bookings, currentPage = 1, totalPages = 1 }: BookingTableProps) {
+  const { filters, setActiveDetailsBooking } = useBookings();
+  const router = useRouter();
 
   // Sort and filter logic
   const filteredBookings = bookings.filter(b => {
@@ -45,7 +54,7 @@ export default function BookingTable() {
             else if (b.status === 'Partial') { statusDotClass = 'bg-orange-500'; statusTextClass = 'text-orange-700'; }
 
             return (
-              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" onClick={() => setActiveDetailsId(b.id)}>
+              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" onClick={() => setActiveDetailsBooking(b)}>
                 <div className="flex-[2] flex items-center gap-3">
                   <div className="w-[35px] h-[35px] rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[0.85rem] shrink-0">{b.title.charAt(0).toUpperCase()}</div>
                   <div className="flex flex-col justify-center">
@@ -76,6 +85,29 @@ export default function BookingTable() {
             );
           })}
         </div>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-4 border-t border-gray-100 mt-2">
+            <span className="text-sm text-slate-500 font-medium">Page {currentPage} of {totalPages}</span>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => router.push(`/bookings/allBookings?page=${currentPage - 1}`)}
+                disabled={currentPage <= 1}
+                className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-gray-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <button 
+                onClick={() => router.push(`/bookings/allBookings?page=${currentPage + 1}`)}
+                disabled={currentPage >= totalPages}
+                className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-gray-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
