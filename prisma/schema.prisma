@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  bookings  Booking[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  bookingId   String   @unique
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  package     Float    @default(0)
+  advance     Float    @default(0)
+  due         Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Booking {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  category    String   @default("Wedding")
+  date        DateTime
+  time        String
+  location    String
+  status      String   @default("Confirmed") // "Confirmed" | "Pending" | "Partial"
+  galleryUrl  String?  @db.Text
+  contractUrl String?  @db.Text
+  order       Order?
+  transactions Transaction[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([date])
+  @@index([clientId])
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  amount        Float
+  type          String   // "INCOME" | "EXPENSE"
+  date          DateTime
+  category      String
+  paymentMode   String
+  description   String?  @db.Text
+  status        String   @default("SETTLED") // "SETTLED" | "PENDING"
+  attachmentUrl String?  @db.Text
+  bookingId     String?
+  booking       Booking? @relation(fields: [bookingId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([date])
+  @@index([category])
+  @@index([type])
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Product {
+  id          String         @id @default(cuid())
+  name        String
+  description String?        @db.Text
+  price       Float
+  stock       Int            @default(0)
+  orders      ProductOrder[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model ProductOrder {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int      @default(1)
+  status      String   @default("PENDING") // "PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED"
+  clientName  String
+  clientPhone String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
