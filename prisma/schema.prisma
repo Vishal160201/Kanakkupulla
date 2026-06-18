@@ -38,6 +38,7 @@ model Booking {
   status      String   @default("Confirmed") // "Confirmed" | "Pending" | "Partial"
   galleryUrl  String?  @db.Text
   contractUrl String?  @db.Text
+  deletedAt   DateTime? // Soft delete flag
   order       Order?
   transactions Transaction[]
   createdAt    DateTime @default(now())
@@ -45,6 +46,15 @@ model Booking {
 
   @@index([date])
   @@index([clientId])
+  @@index([deletedAt])
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
 }
 
 model Transaction {
@@ -59,12 +69,16 @@ model Transaction {
   attachmentUrl String?  @db.Text
   bookingId     String?
   booking       Booking? @relation(fields: [bookingId], references: [id])
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([date])
   @@index([category])
   @@index([type])
+  @@index([paymentMode])
+  @@index([userId])
 }
 
 model Account {
@@ -94,6 +108,12 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+enum Role {
+  ADMIN
+  STAFF
+  PHOTOGRAPHER
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -101,8 +121,10 @@ model User {
   emailVerified DateTime?
   password      String?
   image         String?
+  role          Role      @default(STAFF)
   accounts      Account[]
   sessions      Session[]
+  transactions  Transaction[]
 }
 
 model VerificationToken {

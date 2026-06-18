@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { TRANSACTION_CATEGORIES } from "@/lib/transactionConstants";
 
 const categoryColors: Record<string, { bg: string, stroke: string }> = {
   "Photography Session": { bg: "bg-emerald-500", stroke: "#10b981" },
-  "Equipment": { bg: "bg-amber-500", stroke: "#f59e0b" },
-  "Utilities": { bg: "bg-slate-700", stroke: "#334155" },
-  "Rent": { bg: "bg-slate-900", stroke: "#0f172a" },
-  "Misc": { bg: "bg-slate-300", stroke: "#cbd5e1" }
+  "Equipment":           { bg: "bg-amber-500",   stroke: "#f59e0b" },
+  "Utilities":           { bg: "bg-slate-700",   stroke: "#334155" },
+  "Rent":                { bg: "bg-slate-900",   stroke: "#0f172a" },
+  "Software":            { bg: "bg-violet-500",  stroke: "#8b5cf6" },
+  "Travel":              { bg: "bg-sky-500",     stroke: "#0ea5e9" },
+  "Marketing":           { bg: "bg-rose-500",    stroke: "#f43f5e" },
+  "Misc":                { bg: "bg-slate-300",   stroke: "#cbd5e1" }
 };
 
 const defaultColor = { bg: "bg-slate-400", stroke: "#94a3b8" };
@@ -19,11 +23,20 @@ export default function OverviewPage() {
   const fetchTransactions = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/transactions`); // Fetch all-time data or default month for overview
-      if (res.ok) {
+      // The overview always needs all records for aggregation — cursor-walk all pages
+      let all: any[] = [];
+      let cursor: string | null = null;
+      do {
+        const params = new URLSearchParams();
+        if (cursor) params.set('cursor', cursor);
+        const res = await fetch(`/api/transactions?${params.toString()}`);
+        if (!res.ok) break;
         const data = await res.json();
-        setTransactions(data);
-      }
+        const items = Array.isArray(data) ? data : (data.items ?? []);
+        all = [...all, ...items];
+        cursor = Array.isArray(data) ? null : (data.nextCursor ?? null);
+      } while (cursor);
+      setTransactions(all);
     } catch (e) { console.error(e); }
     setIsLoading(false);
   };

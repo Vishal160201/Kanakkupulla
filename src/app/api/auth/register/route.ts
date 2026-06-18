@@ -22,7 +22,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(user);
+    // Never return the hashed password to the client
+    const { password: _pw, ...safeUser } = user;
+    return NextResponse.json(safeUser);
   } catch (error: any) {
     console.log(error, "REGISTRATION_ERROR");
     return new NextResponse("Internal Error", { status: 500 });

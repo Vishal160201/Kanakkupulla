@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useBookings } from '../providers/BookingProvider';
+import { Booking } from '@/types';
 
-export default function UpcomingShoots() {
-  const { bookings, setActiveDetailsId } = useBookings();
+export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
+  const { setActiveDetailsBooking } = useBookings();
   const upcomingBookings = bookings.slice(0, 2); // Show the first two for demonstration
 
   return (
@@ -24,7 +25,7 @@ export default function UpcomingShoots() {
           <div 
             key={b.id} 
             className="bg-white border border-gray-200 rounded-[16px] p-4 mb-4 shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-md hover:border-slate-300"
-            onClick={() => setActiveDetailsId(b.id)}
+            onClick={() => setActiveDetailsBooking(b)}
           >
             
             {/* Header: Badge & ID */}
