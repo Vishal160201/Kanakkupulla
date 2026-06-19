@@ -3,6 +3,8 @@ import UpcomingShoots from '@/components/dashboard/UpcomingShoots';
 import prisma from "@/lib/prisma";
 import { Booking } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function BookingsOverviewPage() {
   const dbBookings = await prisma.booking.findMany({
     where: { deletedAt: null },
