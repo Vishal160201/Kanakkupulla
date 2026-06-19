@@ -1,6 +1,9 @@
 import BookingTable from '@/components/dashboard/BookingTable';
 import prisma from "@/lib/prisma";
 import { Booking } from "@/types";
+import type { Prisma } from "@prisma/client";
+
+type DbBooking = Prisma.BookingGetPayload<{ include: { client: true; order: true } }>;
 
 export default async function AllBookingsPage({
   searchParams,
