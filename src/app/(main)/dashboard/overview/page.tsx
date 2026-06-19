@@ -1,6 +1,8 @@
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 const CATEGORY_ICONS: Record<string, string> = {
   "Photography Session": "ph-camera",
   "Equipment": "ph-wrench",
