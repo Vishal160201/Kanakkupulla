@@ -26,7 +26,7 @@ export default async function AllBookingsPage({
     prisma.booking.count({ where: { deletedAt: null } })
   ]);
 
-  const bookings: Booking[] = dbBookings.map(b => ({
+  const bookings: Booking[] = dbBookings.map((b: DbBooking) => ({
     id: b.id,
     title: b.client.name,
     category: b.category,
