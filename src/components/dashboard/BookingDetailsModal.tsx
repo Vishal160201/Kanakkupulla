@@ -1122,14 +1122,14 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                </div>
                <div className="border-l-[3px] border-gray-300 pl-5 pt-1">
                   <h1 className="text-[2.2rem] font-black text-[#1F2937] tracking-[0.1em] uppercase leading-none">Invoice</h1>
-                  <p className="text-[#B66D42] font-bold mt-3 text-sm">Booking {booking.bookingNumber?.startsWith('#') ? '' : '#'}{booking.bookingNumber || booking.id.substring(0, 8)}</p>
+                  <p className="text-[#B66D42] font-bold mt-3 text-sm">Booking {booking?.bookingNumber?.startsWith('#') ? '' : '#'}{booking?.bookingNumber || booking?.id?.substring(0, 8)}</p>
                </div>
             </div>
 
             <div className="grid grid-cols-4 gap-4 mt-12 border-t border-gray-200 pt-6">
               <div className="flex flex-col border-r border-gray-200">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice No.</span>
-                <span className="font-bold text-[#1F2937] text-[0.95rem]">{booking.bookingNumber || booking.id.substring(0, 8)}-INV</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">{booking?.bookingNumber || booking?.id?.substring(0, 8)}-INV</span>
               </div>
               <div className="flex flex-col border-r border-gray-200 pl-4">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice Date</span>
@@ -1137,21 +1137,21 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
               </div>
               <div className="flex flex-col border-r border-gray-200 pl-4">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Event Date</span>
-                <span className="font-bold text-[#1F2937] text-[0.95rem]">{booking.date ? new Date(booking.date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : 'TBD'}</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">{booking?.date ? new Date(booking.date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : 'TBD'}</span>
               </div>
               <div className="flex flex-col pl-4">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Status</span>
-                <span className="font-bold text-[#1F2937] text-[0.95rem] uppercase">{booking.due > 0 ? 'DRAFT' : 'PAID'}</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem] uppercase">{Number(booking?.due || 0) > 0 ? 'DRAFT' : 'PAID'}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 mt-8 bg-[#F8F9FA] border-y border-gray-200">
               <div className="p-5 pr-6 flex flex-col gap-2">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-1">Billed To</span>
-                <span className="text-[0.9rem] text-[#1F2937]">{booking.title || 'Client Name'}</span>
-                <span className="text-[0.9rem] text-[#1F2937]">Phone: {booking.phone || booking.customData?.fld_b_phone || 'N/A'}</span>
-                <span className="text-[0.9rem] text-[#1F2937]">Email: {booking.email || booking.customData?.fld_b_email || 'N/A'}</span>
-                <span className="text-[0.9rem] text-[#1F2937]">Event: {booking.category || 'Event'} — {booking.location || 'Location'}</span>
+                <span className="text-[0.9rem] text-[#1F2937]">{booking?.title || 'Client Name'}</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Phone: {booking?.phone || booking?.customData?.fld_b_phone || 'N/A'}</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Email: {booking?.email || booking?.customData?.fld_b_email || 'N/A'}</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Event: {booking?.category || 'Event'} — {booking?.location || 'Location'}</span>
               </div>
               <div className="p-5 pl-6 flex flex-col gap-2 border-l border-gray-200">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-1">From</span>
@@ -1175,21 +1175,21 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.isArray(booking.inclusions) && booking.inclusions.length > 0 ? booking.inclusions.map((item, idx) => (
+                  {Array.isArray(booking?.inclusions) && booking!.inclusions.length > 0 ? booking!.inclusions.map((item, idx) => (
                     <tr key={idx} className="border-b border-gray-100">
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx + 1}</td>
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{item}</td>
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking.package || 0).toFixed(2) : "0.00"}</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking.package || 0).toFixed(2) : "0.00"}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking?.package || 0).toFixed(2) : "0.00"}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking?.package || 0).toFixed(2) : "0.00"}</td>
                     </tr>
                   )) : (
                     <tr className="border-b border-gray-100">
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{booking.category || 'Standard'} Package</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{booking?.category || 'Standard'} Package</td>
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking.package || 0).toFixed(2)}</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking.package || 0).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking?.package || 0).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking?.package || 0).toFixed(2)}</td>
                     </tr>
                   )}
                 </tbody>
@@ -1200,7 +1200,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
               <div className="w-[320px] flex flex-col">
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
                   <span>Subtotal</span>
-                  <span>₹{Number(booking.package || 0).toFixed(2)}</span>
+                  <span>₹{Number(booking?.package || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
                   <span>Tax / GST (0%)</span>
@@ -1208,18 +1208,18 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                 </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
                   <span className="text-[#1F2937]">Total Amount</span>
-                  <span className="text-[#B66D42]">₹{Number(booking.package || 0).toFixed(2)}</span>
+                  <span className="text-[#B66D42]">₹{Number(booking?.package || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
                   <span>Paid</span>
-                  <span>₹{Number(booking.advance || 0).toFixed(2)}</span>
+                  <span>₹{Number(booking?.advance || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
                   <span className="text-[#1F2937]">Balance Due</span>
-                  <span className="text-[#B66D42]">₹{Number(booking.due || 0).toFixed(2)}</span>
+                  <span className="text-[#B66D42]">₹{Number(booking?.due || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-end pt-3 text-[0.65rem] font-bold text-[#B66D42] tracking-wider uppercase">
-                  PAYMENT PROGRESS: <span className="ml-2">{Math.round(((Number(booking.advance || 0)) / (Number(booking.package || 1) || 1)) * 100)}% Paid</span>
+                  PAYMENT PROGRESS: <span className="ml-2">{Math.round(((Number(booking?.advance || 0)) / (Number(booking?.package || 1) || 1)) * 100)}% Paid</span>
                 </div>
               </div>
             </div>
