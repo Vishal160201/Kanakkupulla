@@ -5,6 +5,7 @@ import { bookingSchema } from "@/lib/validations/booking";
 import { Booking } from "@/types";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { broadcastNotification } from "@/lib/notifications";
 
 export async function saveBookingAction(formData: FormData) {
   try {
@@ -65,6 +66,14 @@ export async function saveBookingAction(formData: FormData) {
          await prisma.systemLog.create({
            data: { action: "BOOKING_UPDATED", details: `Updated booking ID: ${validatedData.id}` }
          });
+
+         // Fire and forget notification to prevent blocking UI
+         broadcastNotification(
+           "Booking Updated",
+           `The booking ${existingBooking.bookingNumber || ''} has been updated.`,
+           "BOOKING",
+           `/bookings/details/${validatedData.id}`
+         ).catch(e => console.error("Notification error:", e));
 
          revalidatePath('/', 'layout');
          return { success: true, data: validatedData as Booking };
@@ -135,6 +144,14 @@ export async function saveBookingAction(formData: FormData) {
       data: { action: "BOOKING_CREATED", details: `Created booking ID: ${newBooking.id} for client ${client.name}` }
     });
 
+    // Fire and forget notification
+    broadcastNotification(
+      "New Booking Received!",
+      `A new booking has been created for ${client.name}.`,
+      "BOOKING",
+      `/bookings/details/${newBooking.id}`
+    ).catch(e => console.error("Notification error:", e));
+
     revalidatePath('/', 'layout');
 
     return { 
@@ -170,7 +187,7 @@ export async function deleteBookingAction(id: string) {
 
 export async function updateBookingStatusAction(id: string, status: string) {
   try {
-    await prisma.booking.update({
+    const updated = await prisma.booking.update({
       where: { id },
       data: { status }
     });
@@ -179,6 +196,14 @@ export async function updateBookingStatusAction(id: string, status: string) {
       data: { action: "BOOKING_STATUS_UPDATED", details: `Updated booking ID: ${id} status to ${status}` }
     });
     
+    // Fire and forget notification
+    broadcastNotification(
+      "Booking Status Changed",
+      `The status for booking ${updated.bookingNumber || id.substring(0,6)} has changed to ${status}.`,
+      "BOOKING",
+      `/bookings/details/${id}`
+    ).catch(e => console.error("Notification error:", e));
+
     revalidatePath('/', 'layout');
     return { success: true };
   } catch (e) {

@@ -3,14 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import InviteUserModal from "./InviteUserModal";
-import DeleteUserModal from "./DeleteUserModal";
-import ToggleStatusModal from "./ToggleStatusModal";
+import EditUserModal from "./EditUserModal";
 import { toast } from "sonner";
 
 interface User {
   id: string;
+  idNumber: number;
   name: string | null;
   email: string | null;
+  phone: string | null;
   role: "ADMIN" | "STAFF" | "PHOTOGRAPHER";
   status: "ACTIVE" | "PENDING" | "INACTIVE";
   invitedAt: string | null;
@@ -57,9 +58,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
-  const [toggleStatusTarget, setToggleStatusTarget] = useState<User | null>(null);
-  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<User | null>(null);
 
   const currentUserId = (session?.user as any)?.id;
 
@@ -79,60 +78,6 @@ export default function UserManagement() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    try {
-      const res = await fetch(`/api/users/${userId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update role");
-      }
-      toast.success("Role updated successfully");
-      setEditingRoleId(null);
-      fetchUsers();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const handleToggleStatus = async (user: User) => {
-    const newStatus = user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    try {
-      const res = await fetch(`/api/users/${user.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update status");
-      }
-      toast.success(`User ${newStatus === "ACTIVE" ? "enabled" : "disabled"} successfully`);
-      setToggleStatusTarget(null);
-      fetchUsers();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      const res = await fetch(`/api/users/${userId}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete user");
-      }
-      toast.success("User deleted successfully");
-      setDeleteTarget(null);
-      fetchUsers();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
 
   const getInitials = (name: string | null) => {
     if (!name) return "??";
@@ -191,9 +136,11 @@ export default function UserManagement() {
               return (
                 <div
                   key={user.id}
-                  className={`px-4 py-2.5 flex items-center gap-3 transition-colors group rounded-xl border ${
-                    isCurrentUser ? "bg-[#fcfaff] border-purple-100 shadow-sm" : "bg-white border-gray-100 shadow-sm"
+                  onClick={() => setEditTarget(user)}
+                  className={`px-4 py-2.5 flex items-center gap-3 transition-all group rounded-xl border cursor-pointer hover:-translate-y-[1px] hover:shadow-md ${
+                    isCurrentUser ? "bg-[#fcfaff] border-purple-100 shadow-sm hover:border-purple-200" : "bg-white border-gray-100 shadow-sm hover:border-orange-100"
                   }`}
+                  title="Click to edit user"
                 >
                   {/* Avatar */}
                   <div className={`w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-sm shrink-0 relative ${getAvatarColor(user.name)}`}>
@@ -222,19 +169,25 @@ export default function UserManagement() {
                       )}
                     </div>
                     <div className="flex flex-col">
-                      {user.email && (
-                        <span className="text-[0.7rem] text-slate-500">
-                          {user.email}
+                      <div className="flex items-center gap-2">
+                        {user.email && (
+                          <span className="text-[0.7rem] text-slate-500">
+                            {user.email}
+                          </span>
+                        )}
+                        <span className="text-[0.65rem] font-mono text-slate-400">
+                          • #MDuser-{String(user.idNumber).padStart(3, '0')}
                         </span>
-                      )}
+                      </div>
                     </div>
                     {user.tempPassword && (
-                      <div className="mt-1 flex items-center gap-2">
+                      <div className="mt-1 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <span className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider">Reset Code:</span>
                         <div className="flex items-center gap-1 bg-orange-50 border border-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[0.65rem] font-mono font-bold">
                           {user.tempPassword}
                           <button 
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               navigator.clipboard.writeText(user.tempPassword!);
                               toast.success("Code copied!");
                             }}
@@ -249,57 +202,13 @@ export default function UserManagement() {
                   </div>
 
                   {/* Status Badge */}
-                  <button 
-                    onClick={() => !isCurrentUser && setToggleStatusTarget(user)}
-                    disabled={isCurrentUser}
-                    className={`flex items-center gap-1.5 text-[0.75rem] font-semibold px-3 py-1 rounded-full border transition-all ${statusStyle.bg} ${!isCurrentUser ? 'cursor-pointer hover:shadow-sm hover:-translate-y-[1px]' : 'cursor-default opacity-80'}`}
-                    title={!isCurrentUser ? "Click to toggle status" : "Cannot change your own status"}
-                  >
+                  <div className={`flex items-center gap-1.5 text-[0.75rem] font-semibold px-3 py-1 rounded-full border ${statusStyle.bg}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
                     <span className={statusStyle.text}>{user.status}</span>
-                  </button>
+                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center justify-end gap-1 w-[72px] opacity-0 group-hover:opacity-100 transition-opacity">
-                    {!isCurrentUser && (
-                      <>
-                        {/* Role Dropdown */}
-                      <div className="relative">
-                        <button
-                          onClick={() => setEditingRoleId(editingRoleId === user.id ? null : user.id)}
-                          className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                          title="Change role"
-                        >
-                          <i className="ph ph-pencil-simple text-base"></i>
-                        </button>
-                        {editingRoleId === user.id && (
-                          <div className="absolute top-full right-0 mt-1 w-[180px] bg-white rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-1.5 z-50">
-                            {Object.entries(ROLE_LABELS).map(([roleKey, roleLabel]) => (
-                              <button
-                                key={roleKey}
-                                onClick={() => handleRoleChange(user.id, roleKey)}
-                                className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between ${
-                                  user.role === roleKey ? "font-bold text-orange-600" : "text-slate-700"
-                                }`}
-                              >
-                                {roleLabel}
-                                {user.role === roleKey && <i className="ph-fill ph-check text-orange-500"></i>}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Delete */}
-                      <button
-                        onClick={() => setDeleteTarget(user)}
-                        className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Remove user"
-                      >
-                        <i className="ph ph-trash text-base"></i>
-                      </button>
-                      </>
-                    )}
+                  <div className="pl-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <i className="ph ph-caret-right text-slate-300 group-hover:text-slate-500"></i>
                   </div>
                 </div>
               );
@@ -319,19 +228,15 @@ export default function UserManagement() {
         />
       )}
 
-      {deleteTarget && (
-        <DeleteUserModal
-          user={deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-          onConfirm={() => handleDeleteUser(deleteTarget.id)}
-        />
-      )}
-
-      {toggleStatusTarget && (
-        <ToggleStatusModal
-          user={toggleStatusTarget}
-          onClose={() => setToggleStatusTarget(null)}
-          onConfirm={() => handleToggleStatus(toggleStatusTarget)}
+      {editTarget && (
+        <EditUserModal
+          user={editTarget}
+          isCurrentUser={editTarget.id === currentUserId}
+          onClose={() => setEditTarget(null)}
+          onSuccess={() => {
+            setEditTarget(null);
+            fetchUsers();
+          }}
         />
       )}
     </>

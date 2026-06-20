@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { broadcastNotification } from "@/lib/notifications";
 
 export async function GET(
   request: Request,
@@ -76,6 +77,14 @@ export async function PUT(
         userId: (session.user as any).id,
       }
     });
+
+    // Notify admins about the update
+    await broadcastNotification(
+      "Booking Updated",
+      `The booking ${updated.bookingNumber || ''} has been updated.`,
+      "BOOKING",
+      `/bookings/details/${updated.id}`
+    );
 
     return NextResponse.json(updated, {
       headers: { "Cache-Control": "private, no-store" },

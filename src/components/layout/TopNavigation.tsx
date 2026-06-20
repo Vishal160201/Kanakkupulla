@@ -27,18 +27,126 @@ export default function TopNavigation() {
     fetcher
   );
 
+  const { data: session } = useSession();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+
+  const { data: notificationsData, mutate: mutateNotifications } = useSWR(
+    session ? "/api/notifications?limit=20" : null,
+    fetcher,
+    { refreshInterval: 30000 }
+  );
+
+  const notifications = notificationsData?.notifications || [];
+  const unreadCount = notificationsData?.unreadCount || 0;
+  const prevUnreadCount = useRef(unreadCount);
+
+  const isAdminOrOwner = (session?.user as any)?.role === "STUDIO_OWNER" || (session?.user as any)?.role === "ADMIN";
+
+  const { data: waStatusData, mutate: mutateWA } = useSWR(
+    isAdminOrOwner ? "/api/whatsapp/status" : null,
+    fetcher,
+    { refreshInterval: 5000 }
+  );
+
+  const [emailNotifs, setEmailNotifs] = useState(true);
+  const [pushNotifs, setPushNotifs] = useState(true);
+  const [soundNotifs, setSoundNotifs] = useState(true);
+
+  // Load sound preference from localStorage on mount
+  useEffect(() => {
+    const savedSound = localStorage.getItem("soundNotifs");
+    if (savedSound !== null) {
+      setSoundNotifs(savedSound === "true");
+    }
+  }, []);
+
+  const toggleSound = () => {
+    const newVal = !soundNotifs;
+    setSoundNotifs(newVal);
+    localStorage.setItem("soundNotifs", String(newVal));
+  };
+
+  // Ding Sound Effect
+  useEffect(() => {
+    if (unreadCount > prevUnreadCount.current && soundNotifs) {
+      // iPhone-style Bamboo sound
+      const audio = new Audio("/sounds/bamboo.mp3");
+      audio.volume = 1.0;
+      audio.play().catch(e => console.log("Audio play blocked by browser interaction rules"));
+    }
+    prevUnreadCount.current = unreadCount;
+  }, [unreadCount, soundNotifs]);
+
+  const updatePreferences = async (email: boolean, push: boolean) => {
+    setEmailNotifs(email);
+    setPushNotifs(push);
+    await fetch("/api/users/me/preferences", {
+      method: "PATCH",
+      body: JSON.stringify({ emailNotifications: email, pushNotifications: push }),
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+
+  const subscribeToPush = async () => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: "BM7mYrnONkCPpx7wemRCy4R7r7eD8ZuDGAU9NOE-K1gvS7apjLkhRTfYgJ_LonMla20uX61yHvbt1yUak20CXiI"
+          });
+          await fetch('/api/notifications/push', {
+            method: 'POST',
+            body: JSON.stringify(subscription),
+            headers: { 'Content-Type': 'application/json' }
+          });
+          updatePreferences(emailNotifs, true);
+        } else {
+          updatePreferences(emailNotifs, false);
+        }
+      } catch (e) {
+        console.error('Push error:', e);
+      }
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setIsSearchFocused(false);
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        setIsNotificationsOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  const { data: session } = useSession();
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   
+  const handleMarkAsRead = async (id: string, link?: string) => {
+    try {
+      await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
+      mutateNotifications();
+      setIsNotificationsOpen(false);
+      if (link) router.push(link);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await fetch(`/api/notifications/read-all`, { method: "POST" });
+      mutateNotifications();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const userName = session?.user?.name || "Studio User";
   const userEmail = session?.user?.email || "user@example.com";
   const userRole = (session?.user as any)?.role || "STAFF";
@@ -156,10 +264,72 @@ export default function TopNavigation() {
           )}
         </div>
         
-        <button className="bg-white border border-gray-200 rounded-full w-[45px] h-[45px] flex items-center justify-center relative cursor-pointer shadow-sm hover:bg-slate-50 transition-colors">
-          <i className="ph-fill ph-bell text-slate-600 text-[1.4rem]"></i>
-          <span className="absolute top-[10px] right-[12px] w-2 h-2 bg-red-500 rounded-full border-2 border-white box-content"></span>
-        </button>
+        <div className="relative" ref={notificationsRef}>
+          <button 
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            className="bg-white border border-gray-200 rounded-full w-[45px] h-[45px] flex items-center justify-center relative cursor-pointer shadow-sm hover:bg-slate-50 transition-colors"
+          >
+            <i className="ph-fill ph-bell text-slate-600 text-[1.4rem]"></i>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[0.65rem] font-bold px-1.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center border-2 border-white box-content shadow-sm">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {isNotificationsOpen && (
+            <div className="absolute top-[calc(100%+10px)] right-0 w-[350px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 z-50 overflow-hidden flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-slate-50/50">
+                <h3 className="font-bold text-slate-900 text-[0.95rem]">Notifications</h3>
+                {unreadCount > 0 && (
+                  <button 
+                    onClick={handleMarkAllAsRead}
+                    className="text-[0.75rem] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+              
+              <div className="max-h-[400px] overflow-y-auto no-scrollbar">
+                {notifications.length === 0 ? (
+                  <div className="py-10 flex flex-col items-center justify-center text-slate-400">
+                    <i className="ph-fill ph-bell-slash text-3xl mb-2 text-slate-300"></i>
+                    <p className="text-sm">No notifications yet</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    {notifications.map((notification: any) => (
+                      <div 
+                        key={notification.id}
+                        onClick={() => handleMarkAsRead(notification.id, notification.link)}
+                        className={`p-4 border-b border-gray-50 flex gap-3 cursor-pointer transition-colors ${notification.isRead ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/30 hover:bg-blue-50/60'}`}
+                      >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${notification.isRead ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-600'}`}>
+                          <i className={`ph-fill ${notification.type === 'BOOKING' ? 'ph-calendar-check' : notification.type === 'PAYMENT' ? 'ph-receipt' : notification.type === 'ALERT' ? 'ph-warning-circle' : 'ph-bell'} text-[1.1rem]`}></i>
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <div className="flex justify-between items-start gap-2 mb-1">
+                            <span className={`text-[0.85rem] truncate ${notification.isRead ? 'font-semibold text-slate-700' : 'font-bold text-slate-900'}`}>{notification.title}</span>
+                            <span className="text-[0.65rem] text-slate-400 shrink-0 whitespace-nowrap mt-0.5">
+                              {new Date(notification.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <p className={`text-[0.8rem] line-clamp-2 ${notification.isRead ? 'text-slate-500' : 'text-slate-700'}`}>
+                            {notification.message}
+                          </p>
+                        </div>
+                        {!notification.isRead && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0"></div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="relative">
           <div 
@@ -200,6 +370,76 @@ export default function TopNavigation() {
                   <span className="text-[0.65rem] text-slate-500 mt-1 truncate">Role: <strong className="text-slate-700">{roleLabels[userRole] || userRole}</strong></span>
                 </div>
               </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3">
+                <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Notification Preferences</div>
+                
+                <div className="flex items-center p-1.5 bg-slate-100/80 rounded-2xl shadow-inner border border-slate-200/60 mt-2 gap-1.5">
+                  <button 
+                    onClick={(e) => { e.preventDefault(); updatePreferences(!emailNotifs, pushNotifs); }}
+                    className={`relative flex flex-col items-center justify-center w-full py-3 rounded-xl transition-all duration-300 ease-out group ${emailNotifs ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] ring-1 ring-slate-200/50' : 'bg-transparent hover:bg-slate-200/50'}`}
+                    title="Toggle Email Alerts"
+                  >
+                    <i className={`text-[1.4rem] mb-1.5 transition-transform duration-300 ${emailNotifs ? 'ph-fill ph-envelope-simple text-orange-500 scale-110 drop-shadow-sm' : 'ph ph-envelope-simple text-slate-400 group-hover:text-slate-600 group-hover:scale-110'}`}></i>
+                    <span className={`text-[0.6rem] font-bold uppercase tracking-widest transition-colors ${emailNotifs ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-500'}`}>Email</span>
+                  </button>
+
+                  <button 
+                    onClick={(e) => { 
+                      e.preventDefault(); 
+                      if (!pushNotifs) subscribeToPush();
+                      else updatePreferences(emailNotifs, false);
+                    }}
+                    className={`relative flex flex-col items-center justify-center w-full py-3 rounded-xl transition-all duration-300 ease-out group ${pushNotifs ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] ring-1 ring-slate-200/50' : 'bg-transparent hover:bg-slate-200/50'}`}
+                    title="Toggle Push Alerts"
+                  >
+                    <i className={`text-[1.4rem] mb-1.5 transition-transform duration-300 ${pushNotifs ? 'ph-fill ph-device-mobile text-blue-500 scale-110 drop-shadow-sm' : 'ph ph-device-mobile text-slate-400 group-hover:text-slate-600 group-hover:scale-110'}`}></i>
+                    <span className={`text-[0.6rem] font-bold uppercase tracking-widest transition-colors ${pushNotifs ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-500'}`}>Push</span>
+                  </button>
+
+                  <button 
+                    onClick={(e) => { 
+                      e.preventDefault(); 
+                      toggleSound();
+                    }}
+                    className={`relative flex flex-col items-center justify-center w-full py-3 rounded-xl transition-all duration-300 ease-out group ${soundNotifs ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] ring-1 ring-slate-200/50' : 'bg-transparent hover:bg-slate-200/50'}`}
+                    title="Toggle Sound Alerts"
+                  >
+                    <i className={`text-[1.4rem] mb-1.5 transition-transform duration-300 ${soundNotifs ? 'ph-fill ph-speaker-high text-emerald-500 scale-110 drop-shadow-sm' : 'ph ph-speaker-slash text-slate-400 group-hover:text-slate-600 group-hover:scale-110'}`}></i>
+                    <span className={`text-[0.6rem] font-bold uppercase tracking-widest transition-colors ${soundNotifs ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-500'}`}>Sound</span>
+                  </button>
+                </div>
+              </div>
+
+              {isAdminOrOwner && waStatusData && (
+                <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">WhatsApp Bot</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${waStatusData.status === 'READY' ? 'bg-green-500' : waStatusData.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`}></div>
+                      <span className="text-[0.65rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Scan QR' : 'Disconnected'}</span>
+                    </div>
+                  </div>
+                  
+                  {waStatusData.status === 'READY' ? (
+                     <button 
+                       onClick={async () => {
+                         await fetch('/api/whatsapp/logout', { method: 'POST' });
+                         mutateWA();
+                       }}
+                       className="w-full py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-bold hover:bg-red-50 transition-colors"
+                     >
+                       Disconnect Bot
+                     </button>
+                  ) : waStatusData.qrCode ? (
+                     <div className="flex flex-col items-center p-2 bg-slate-50 rounded-xl border border-gray-200">
+                       <img src={waStatusData.qrCode} alt="WhatsApp Login QR" className="w-full max-w-[150px] rounded-lg" />
+                       <span className="text-[0.65rem] text-slate-500 mt-2 text-center">Open WhatsApp &gt; Linked Devices &gt; Scan QR</span>
+                     </div>
+                  ) : null}
+                </div>
+              )}
+
             </div>
           )}
         </div>

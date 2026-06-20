@@ -20,7 +20,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { role, status } = body;
+    const { role, status, name, phone } = body;
 
     const validRoles = ["ADMIN", "STAFF", "PHOTOGRAPHER"];
     const validStatuses = ["ACTIVE", "PENDING", "INACTIVE"];
@@ -33,6 +33,12 @@ export async function PUT(
     if (status) {
       if (!validStatuses.includes(status)) return NextResponse.json({ error: "Invalid status" }, { status: 422 });
       updateData.status = status;
+    }
+    if (name !== undefined) {
+      updateData.name = name;
+    }
+    if (phone !== undefined) {
+      updateData.phone = phone;
     }
 
     if (Object.keys(updateData).length === 0) {
