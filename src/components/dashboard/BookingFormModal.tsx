@@ -58,7 +58,9 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
 
   const { data: layoutData } = useSWR("/api/settings/layouts/BOOKING_FORM", fetcher);
   const { data: usersData } = useSWR("/api/users", fetcher);
-  const { data: bookingsData } = useSWR("/api/bookings", fetcher);
+  
+  const selectedDateStr = watch('date');
+  const { data: bookingsData } = useSWR(selectedDateStr ? `/api/bookings?startDate=${selectedDateStr}&endDate=${selectedDateStr}` : null, fetcher);
 
   useEffect(() => {
     if (layoutData?.schema?.sections) {

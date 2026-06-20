@@ -67,6 +67,8 @@ function TransactionsList() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   // F5/P2: Pagination state
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -137,29 +139,68 @@ function TransactionsList() {
     setIsFilterModalOpen(false);
   };
 
-  const exportToCSV = () => {
+  const handleExport = async (format: 'csv' | 'pdf') => {
     if (transactions.length === 0) return;
-    const headers = ['Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount'];
-    const rows = transactions.map(tx => [
-      new Date(tx.date).toLocaleDateString('en-IN'),
-      tx.type,
-      tx.category,
-      `"${tx.description ? tx.description.replace(/"/g, '""') : ''}"`,
-      tx.paymentMode,
-      tx.status,
-      tx.amount
-    ]);
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel UTF-8
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `kanakkupulla-ledger-${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    // Bug fix: Always revoke object URL to prevent memory leaks
-    URL.revokeObjectURL(url);
+    setExportMenuOpen(false);
+    setIsExporting(true);
+    try {
+      if (format === 'csv') {
+        const escapeCsv = (val: any) => {
+          if (val === null || val === undefined || val === '') return '""';
+          let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+          return `"${str.replace(/"/g, '""')}"`;
+        };
+        const headers = ['ID', 'Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount', 'Attachment URL', 'Custom Data', 'Booking ID'];
+        const rows = transactions.map(tx => [
+          escapeCsv(tx.id),
+          escapeCsv(new Date(tx.date).toLocaleDateString('en-IN')),
+          escapeCsv(tx.type),
+          escapeCsv(tx.category),
+          escapeCsv(tx.description),
+          escapeCsv(tx.paymentMode),
+          escapeCsv(tx.status),
+          escapeCsv(tx.amount),
+          escapeCsv(tx.attachmentUrl),
+          escapeCsv(tx.customData),
+          escapeCsv(tx.bookingId)
+        ]);
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel UTF-8
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `kanakkupulla-ledger-${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        const { jsPDF } = await import("jspdf");
+        const autoTable = (await import("jspdf-autotable")).default;
+        const doc = new jsPDF();
+        doc.text("Transactions Ledger", 14, 15);
+        const tableData = transactions.map(tx => [
+          new Date(tx.date).toLocaleDateString('en-IN'),
+          tx.type,
+          tx.category,
+          tx.description || '',
+          tx.paymentMode,
+          tx.status,
+          tx.amount.toString()
+        ]);
+        autoTable(doc, {
+          head: [['Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount']],
+          body: tableData,
+          startY: 20,
+        });
+        doc.save(`kanakkupulla-ledger-${new Date().toISOString().split('T')[0]}.pdf`);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Export failed");
+    } finally {
+      setIsExporting(false);
+    }
   };
   
   const handleViewChange = (view: string) => {
@@ -291,9 +332,35 @@ function TransactionsList() {
             <button onClick={openFilterModal} className={`h-[45px] px-4 rounded-xl border bg-white shadow-sm font-bold text-[0.95rem] flex items-center gap-2 transition-all hover:shadow-md hover:border-slate-300 active:scale-95 ${(filterParams.type || filterParams.paymentMode || filterParams.amountMin || filterParams.amountMax || filterParams.categories) ? 'border-orange-400 text-orange-600' : 'border-slate-200 text-slate-700'}`}>
               <i className="ph-bold ph-faders"></i> Filters
             </button>
-            <button onClick={exportToCSV} className="h-[45px] px-4 rounded-xl border border-slate-200 bg-white shadow-sm font-bold text-[0.95rem] text-slate-700 flex items-center gap-2 transition-all hover:shadow-md hover:border-slate-300 active:scale-95">
-              <i className="ph-bold ph-download-simple"></i> Export CSV
-            </button>
+            {transactions.length > 0 && (
+              <div className="relative">
+                <button 
+                  onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                  disabled={isExporting}
+                  className="h-[45px] px-4 rounded-xl border border-slate-200 bg-white shadow-sm font-bold text-[0.95rem] text-slate-700 flex items-center gap-2 transition-all hover:shadow-md hover:border-slate-300 active:scale-95"
+                >
+                  {isExporting ? (
+                    <i className="ph ph-circle-notch animate-spin"></i>
+                  ) : (
+                    <i className="ph-bold ph-download-simple"></i>
+                  )}
+                  Export
+                </button>
+                {exportMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)}></div>
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden py-1">
+                      <button onClick={() => handleExport('csv')} className="w-full text-left px-4 py-2.5 text-[0.85rem] font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                        <i className="ph-bold ph-file-csv text-lg text-emerald-500"></i> Export as CSV
+                      </button>
+                      <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2.5 text-[0.85rem] font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                        <i className="ph-bold ph-file-pdf text-lg text-rose-500"></i> Export as PDF
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             <ViewSelectorCard 
               value={activeView}
               onChange={(val) => handleViewChange(val)}

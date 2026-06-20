@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { TRANSACTION_CATEGORIES } from "@/lib/transactionConstants";
+import React from "react";
+import useSWR from "swr";
 
 const categoryColors: Record<string, { bg: string, stroke: string }> = {
   "Photography Session": { bg: "bg-emerald-500", stroke: "#10b981" },
@@ -16,52 +16,25 @@ const categoryColors: Record<string, { bg: string, stroke: string }> = {
 
 const defaultColor = { bg: "bg-slate-400", stroke: "#94a3b8" };
 
+const fetcher = (url: string) => fetch(url).then(res => res.json());
+
 export default function OverviewPage() {
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, error, isLoading } = useSWR('/api/transactions/overview', fetcher);
 
-  const fetchTransactions = async () => {
-    setIsLoading(true);
-    try {
-      // The overview always needs all records for aggregation — cursor-walk all pages
-      let all: any[] = [];
-      let cursor: string | null = null;
-      do {
-        const params = new URLSearchParams();
-        if (cursor) params.set('cursor', cursor);
-        const res = await fetch(`/api/transactions?${params.toString()}`);
-        if (!res.ok) break;
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : (data.items ?? []);
-        all = [...all, ...items];
-        cursor = Array.isArray(data) ? null : (data.nextCursor ?? null);
-      } while (cursor);
-      setTransactions(all);
-    } catch (e) { console.error(e); }
-    setIsLoading(false);
-  };
+  if (isLoading || !data) {
+    return <div className="flex justify-center items-center h-64"><div className="animate-pulse w-8 h-8 rounded-full bg-orange-500"></div></div>;
+  }
 
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
-
-  const totalIncome = transactions.filter(t => t.type === 'INCOME').reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = transactions.filter(t => t.type === 'EXPENSE').reduce((sum, t) => sum + t.amount, 0);
+  const { totalIncome = 0, totalExpenses = 0, expensesByCategory = {}, recentTransactions: transactions = [] } = data;
   const netSurplus = totalIncome - totalExpenses;
 
   // --- Dynamic Heatmap Logic ---
-  const expenseTransactions = transactions.filter(t => t.type === 'EXPENSE');
-  const expensesByCategory = expenseTransactions.reduce((acc, t) => {
-    acc[t.category] = (acc[t.category] || 0) + t.amount;
-    return acc;
-  }, {} as Record<string, number>);
-
   const heatmapData = Object.entries(expensesByCategory)
     .map(([category, amount]) => ({ category, amount: amount as number, pct: totalExpenses > 0 ? (amount as number) / totalExpenses : 0 }))
     .sort((a, b) => b.amount - a.amount);
 
   let cumulativePct = 0;
-  const donutSegments = heatmapData.map((data, idx) => {
+  const donutSegments = heatmapData.map((data: any, idx: number) => {
     const dasharray = 251.2;
     const dashoffset = dasharray - (data.pct * dasharray);
     const rotation = cumulativePct * 360;
@@ -75,7 +48,7 @@ export default function OverviewPage() {
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const actualFlow = new Array(7).fill(0);
   
-  transactions.filter(t => t.type === 'INCOME').forEach(t => {
+  transactions.filter((t: any) => t.type === 'INCOME').forEach((t: any) => {
     const d = new Date(t.date);
     let day = d.getDay() - 1; // 0=Mon, -1=Sun
     if (day === -1) day = 6; 
@@ -83,10 +56,6 @@ export default function OverviewPage() {
   });
 
   const maxFlow = Math.max(...actualFlow, 1000); 
-
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-64"><div className="animate-pulse w-8 h-8 rounded-full bg-orange-500"></div></div>;
-  }
 
   return (
     <div className="animate-fade-in w-full">
@@ -170,7 +139,7 @@ export default function OverviewPage() {
             <div className="relative w-48 h-48 mb-8 animate-float">
               <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 overflow-visible">
                 <circle cx="50" cy="50" r="40" fill="none" stroke="#f1f5f9" strokeWidth="12" />
-                {totalExpenses > 0 ? donutSegments.map((seg, i) => (
+                {totalExpenses > 0 ? donutSegments.map((seg: any, i: number) => (
                   <circle 
                     key={seg.category}
                     cx="50" cy="50" r="40" fill="none" 
@@ -189,7 +158,7 @@ export default function OverviewPage() {
 
             {/* Legend */}
             <div className="w-full grid grid-cols-2 gap-y-4 gap-x-2 px-2 max-h-[100px] overflow-y-auto">
-              {donutSegments.map(seg => (
+              {donutSegments.map((seg: any) => (
                 <div key={seg.category} className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${seg.color.bg}`}></div>
                   <span className="text-[11px] font-medium text-slate-600 truncate">{seg.category} ({Math.round(seg.pct * 100)}%)</span>
@@ -264,13 +233,13 @@ export default function OverviewPage() {
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
           </div>
           <div className="flex flex-col gap-3 max-h-[200px] overflow-y-auto pr-2">
-            {transactions.filter(t => new Date(t.date).toDateString() === new Date().toDateString()).length === 0 ? (
+            {transactions.filter((t: any) => new Date(t.date).toDateString() === new Date().toDateString()).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-slate-400">
                 <i className="ph ph-receipt text-3xl mb-2 opacity-50"></i>
                 <p className="font-medium text-xs">No transactions recorded today.</p>
               </div>
             ) : (
-              transactions.filter(t => new Date(t.date).toDateString() === new Date().toDateString()).map((tx) => (
+              transactions.filter((t: any) => new Date(t.date).toDateString() === new Date().toDateString()).map((tx: any) => (
                 <div key={tx.id} className="flex items-center justify-between p-3 rounded-2xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-all">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'INCOME' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>

@@ -12,9 +12,19 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const includeDeleted = searchParams.get("includeDeleted") === "true";
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    const whereClause: any = includeDeleted ? {} : { deletedAt: null };
+    
+    if (startDate || endDate) {
+      whereClause.date = {};
+      if (startDate) whereClause.date.gte = new Date(startDate);
+      if (endDate) whereClause.date.lte = new Date(endDate);
+    }
 
     const bookings = await prisma.booking.findMany({
-      where: includeDeleted ? undefined : { deletedAt: null },
+      where: whereClause,
       include: {
         client: true,
         order: true,
