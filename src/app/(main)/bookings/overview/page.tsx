@@ -3,9 +3,9 @@ import UpcomingShoots from '@/components/dashboard/UpcomingShoots';
 import prisma from "@/lib/prisma";
 import { Booking } from "@/types";
 
-export const dynamic = "force-dynamic";
 
-export default async function BookingsOverviewPage() {
+
+async function BookingsDataView() {
   const dbBookings = await prisma.booking.findMany({
     where: { deletedAt: null },
     include: { client: true, order: true },
@@ -169,3 +169,33 @@ export default async function BookingsOverviewPage() {
   );
 }
 
+
+import { Suspense } from "react";
+
+export const dynamic = "force-dynamic";
+
+function BookingsSkeleton() {
+  return (
+    <div className="flex flex-col gap-8 w-full animate-pulse">
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="bg-white rounded-2xl h-[120px] border border-gray-100"></div>
+        ))}
+      </div>
+      <div className="grid grid-cols-[1.5fr_1fr] gap-6">
+        <div className="bg-white rounded-2xl h-[500px]"></div>
+        <div className="bg-white rounded-2xl h-[500px]"></div>
+      </div>
+    </div>
+  );
+}
+
+export default function BookingsOverviewPage() {
+  return (
+    <section className="w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-20">
+      <Suspense fallback={<BookingsSkeleton />}>
+        <BookingsDataView />
+      </Suspense>
+    </section>
+  );
+}

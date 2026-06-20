@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Booking } from "@/types";
 import { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -15,6 +16,9 @@ import DatePickerInput from "../ui/DatePickerInput";
 import MultiUserPicklist from "../ui/MultiUserPicklist";
 import { deleteBookingAction, updateBookingStatusAction, saveBookingAction } from "@/app/actions";
 import { toast } from "sonner";
+
+
+const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 interface BookingDetailsModalProps {
   booking: Booking | null;
@@ -170,29 +174,13 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
     setIsAddAttachmentOpen(true);
   };
 
+  const { data: layoutRes } = useSWR("/api/settings/layouts/BOOKING_FORM", fetcher);
+  const { data: usersRes } = useSWR("/api/users", fetcher);
+
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const [layoutRes, usersRes] = await Promise.all([
-          fetch("/api/settings/layouts/BOOKING_FORM", { cache: 'no-store' }),
-          fetch("/api/team", { cache: 'no-store' })
-        ]);
-        
-        if (layoutRes.ok) {
-          const layout = await layoutRes.json();
-          setLayoutSchema(layout?.schema || null);
-        }
-        
-        if (usersRes.ok) {
-          const users = await usersRes.json();
-          setTeamUsers(users);
-        }
-      } catch (e) {
-        console.error("Failed to fetch data", e);
-      }
-    }
-    fetchData();
-  }, []);
+    if (layoutRes?.schema) setLayoutSchema(layoutRes.schema);
+    if (usersRes) setTeamUsers(usersRes);
+  }, [layoutRes, usersRes]);
 
   const getCustomFieldLabel = (fieldId: string) => {
     if (!layoutSchema || !layoutSchema.sections) return fieldId;
@@ -345,6 +333,9 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                    </div>
 
                    <div className="flex items-center gap-3">
+                      <button onClick={handleDeleteClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-200 rounded-xl font-bold text-[0.9rem] text-red-500 hover:bg-red-50 hover:border-red-300 shadow-sm transition-colors">
+                         <i className="ph-bold ph-trash text-lg"></i> Delete
+                      </button>
                       <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl font-bold text-[0.9rem] text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
                          <i className="ph-bold ph-share-network text-lg"></i> Export
                       </button>
@@ -503,12 +494,17 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                                <i className="ph-fill ph-bookmark-simple text-orange-500 text-[1.1rem]"></i>
                             </div>
                             {isEditing ? (
-                                <select className="font-bold text-[#0B1E40] text-[0.95rem] border-b border-gray-300 focus:outline-none bg-transparent w-full" value={editData.category} onChange={e => setEditData({...editData, category: e.target.value})}>
-                                   <option value="Wedding">Wedding</option>
-                                   <option value="Fashion">Fashion</option>
-                                   <option value="Baby & Kids">Baby & Kids</option>
-                                   <option value="Corporate">Corporate</option>
-                                </select>
+                                 <Select value={editData.category} onValueChange={v => setEditData({...editData, category: v})}>
+                                    <SelectTrigger className="w-full font-bold text-[#0B1E40] text-[0.95rem] border-b border-gray-300 bg-transparent rounded-none px-0 shadow-none focus:ring-0">
+                                       <SelectValue placeholder="Select category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                       <SelectItem value="Wedding">Wedding</SelectItem>
+                                       <SelectItem value="Fashion">Fashion</SelectItem>
+                                       <SelectItem value="Baby & Kids">Baby & Kids</SelectItem>
+                                       <SelectItem value="Corporate">Corporate</SelectItem>
+                                    </SelectContent>
+                                 </Select>
                             ) : (
                               <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.category || booking.customData?.fld_b_category || 'N/A'}</span>
                             )}

@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
+
 
 const CATEGORY_ICONS: Record<string, string> = {
   "Photography Session": "ph-camera",
@@ -21,7 +21,7 @@ const MODE_ICONS: Record<string, string> = {
   "Card": "ph-credit-card",
 };
 
-export default async function OverviewPage() {
+async function DashboardMetrics() {
   // --- Data Fetching ---
   const today = new Date();
   
@@ -84,7 +84,7 @@ export default async function OverviewPage() {
   const todayNet = todayIncome - todayExpense;
 
   return (
-    <section id="view-dashboard" className="flex flex-col gap-8 w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-20">
+    <>
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-4 gap-6 mb-4">
         <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200 lg:col-span-1 md:col-span-2">
@@ -324,6 +324,37 @@ export default async function OverviewPage() {
           )}
         </div>
       </div>
+    </>
+  );
+}
+
+import { Suspense } from "react";
+
+export const dynamic = "force-dynamic";
+
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-8 w-full animate-pulse">
+      <div className="grid grid-cols-4 gap-6 mb-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-white rounded-2xl h-[120px] border border-gray-100 lg:col-span-1 md:col-span-2"></div>
+        ))}
+      </div>
+      <div className="rounded-[24px] bg-slate-900 h-[300px] w-full"></div>
+      <div className="grid grid-cols-[1.5fr_1fr] gap-6">
+        <div className="bg-white rounded-2xl h-[400px]"></div>
+        <div className="bg-white rounded-2xl h-[400px]"></div>
+      </div>
+    </div>
+  );
+}
+
+export default function OverviewPage() {
+  return (
+    <section id="view-dashboard" className="flex flex-col gap-8 w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-20">
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardMetrics />
+      </Suspense>
     </section>
   );
 }

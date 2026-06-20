@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import useSWR from "swr";
 import flatpickr from "flatpickr";
 
 import { Booking } from "@/types";
@@ -18,6 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import DatePickerInput from "../ui/DatePickerInput";
 
 import { useRouter, useSearchParams } from "next/navigation";
+
+const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export default function BookingFormModal({ booking }: { booking: Booking | null }) {
   const router = useRouter();
@@ -53,69 +56,38 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     fld_b_location: 'location', fld_b_status: 'status', fld_b_package: 'package', fld_b_advance: 'advance'
   };
 
+  const { data: layoutData } = useSWR("/api/settings/layouts/BOOKING_FORM", fetcher);
+  const { data: usersData } = useSWR("/api/users", fetcher);
+  const { data: bookingsData } = useSWR("/api/bookings", fetcher);
+
   useEffect(() => {
-    async function fetchLayout() {
-      try {
-        const res = await fetch("/api/settings/layouts/BOOKING_FORM", {
-          cache: 'no-store'
+    if (layoutData?.schema?.sections) {
+      setLayoutSchema(layoutData.schema);
+      layoutData.schema.sections.forEach((section: any) => {
+        section.fields.forEach((field: any) => {
+          if (field.id === "fld_b_category" && field.options?.length > 0) {
+            setCategoryOptions(field.options);
+          }
+          if (field.id === "fld_b_status" && field.options?.length > 0) {
+            setStatusOptions(field.options);
+          }
         });
-        if (!res.ok) return; // Fallback to initial useState values if API fails
-        
-        const bookingLayout = await res.json();
-        
-        if (bookingLayout && bookingLayout.schema && bookingLayout.schema.sections) {
-          setLayoutSchema(bookingLayout.schema);
-          bookingLayout.schema.sections.forEach((section: any) => {
-            section.fields.forEach((field: any) => {
-              if (field.id === "fld_b_category" && field.options && field.options.length > 0) {
-                setCategoryOptions(field.options);
-              }
-              if (field.id === "fld_b_status" && field.options && field.options.length > 0) {
-                setStatusOptions(field.options);
-              }
-            });
-          });
-        }
-      } catch (e) {
-        console.error("Failed to fetch layout", e);
-      }
+      });
     }
+  }, [layoutData]);
 
-    async function fetchUsers() {
-      try {
-        const res = await fetch("/api/users");
-        if (res.ok) {
-          const data = await res.json();
-          // Filter to show staff/photographers for the picklists
-          const staff = data.filter((u: any) => u.role !== 'CLIENT');
-          setTeamUsers(staff.map((u: any) => ({
-            id: u.id,
-            name: u.name || 'Unknown',
-            image: u.image,
-            role: u.role
-          })));
-        }
-      } catch (e) {
-        console.error("Failed to fetch users", e);
-      }
+  useEffect(() => {
+    if (usersData) {
+      const staff = usersData.filter((u: any) => u.role !== 'CLIENT');
+      setTeamUsers(staff.map((u: any) => ({
+        id: u.id, name: u.name || 'Unknown', image: u.image, role: u.role
+      })));
     }
+  }, [usersData]);
 
-    async function fetchBookings() {
-      try {
-        const res = await fetch("/api/bookings");
-        if (res.ok) {
-          const data = await res.json();
-          setAllBookings(data);
-        }
-      } catch (e) {
-        console.error("Failed to fetch bookings", e);
-      }
-    }
-
-    fetchLayout();
-    fetchUsers();
-    fetchBookings();
-  }, []);
+  useEffect(() => {
+    if (bookingsData) setAllBookings(bookingsData);
+  }, [bookingsData]);
 
   useEffect(() => {
     if (isAddModalOpen) {
@@ -287,10 +259,43 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
         <input type="text" autoComplete="off" className="flex h-[45px] w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-[0.95rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" {...register(fieldName as any, { required: field.mandatory })} ref={(e) => { register(fieldName as any).ref(e); (timeInputRef as any).current = e; }} placeholder={field.placeholder || "Select Time..."} />
       );
     }
-    if (field.type === 'PICK_LIST' || field.type === 'MULTI_SELECT') {
+    if (field.type === 'PICK_LIST') {
       const opts = field.options || [];
       return (
         <CustomSelect options={opts} value={watch(fieldName as any) || (opts.length > 0 ? opts[0] : '')} onChange={(val) => setValue(fieldName as any, val as any, { shouldValidate: true })} className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 ${isError ? 'border-red-500' : 'border-gray-200'}`} />
+      );
+    }
+
+    if (field.type === 'MULTI_SELECT') {
+      const opts = field.options || [];
+      const currentSelected = watch(fieldName as any) || '';
+      const selectedArray = typeof currentSelected === 'string' && currentSelected.trim() ? currentSelected.split(',').map((s:string) => s.trim()) : (Array.isArray(currentSelected) ? currentSelected : []);
+      
+      return (
+        <div className="flex flex-wrap gap-2 w-full pt-1">
+          {opts.map((opt: any) => {
+            const label = opt.label || opt.value || opt;
+            const isSelected = selectedArray.includes(label);
+            return (
+              <button
+                type="button"
+                key={label}
+                onClick={() => {
+                  let newSelected = [...selectedArray];
+                  if (isSelected) {
+                    newSelected = newSelected.filter(s => s !== label);
+                  } else {
+                    newSelected.push(label);
+                  }
+                  setValue(fieldName as any, newSelected.join(', '), { shouldValidate: true });
+                }}
+                className={`px-3 py-1.5 text-[0.8rem] font-bold rounded-lg border transition-all ${isSelected ? 'bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-500/20' : 'bg-white text-slate-600 border-gray-200 hover:bg-slate-50'}`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       );
     }
 
