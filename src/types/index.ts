@@ -1,5 +1,6 @@
 export interface Booking {
   id: string;
+  bookingNumber?: string | null;
   title: string;
   category: string;
   date: string;
@@ -10,7 +11,13 @@ export interface Booking {
   package: string;
   advance: string;
   due: string;
-  status: 'Confirmed' | 'Pending' | 'Partial';
+  status: string;
+  customData?: Record<string, any> | null;
+  packageName?: string | null;
+  inclusions?: any | null;
+  notes?: string | null;
+  attachments?: any | null;
+  photographers?: any | null;
 }
 
 export interface FilterState {

@@ -1,82 +1,142 @@
 "use client";
 
 import Link from 'next/link';
-import { useBookings } from '../providers/BookingProvider';
+import { useRouter } from "next/navigation";
 import { Booking } from '@/types';
 
 export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
-  const { setActiveDetailsBooking } = useBookings();
-  const upcomingBookings = bookings.slice(0, 2); // Show the first two for demonstration
+  const router = useRouter();
+
+  // Parse dates carefully to avoid timezone issues
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const startOfTodayMs = today.getTime();
+  const startOfTomorrowMs = tomorrow.getTime();
+
+  // Find bound for next week (7 days from tomorrow)
+  const endOfNextWeekMs = startOfTomorrowMs + (7 * 24 * 60 * 60 * 1000);
+
+  const grouped = bookings.reduce((acc, booking) => {
+    const [year, month, day] = booking.date.split('-').map(Number);
+    const bookingDate = new Date(year, month - 1, day);
+    bookingDate.setHours(0, 0, 0, 0);
+    const ms = bookingDate.getTime();
+
+    if (ms === startOfTodayMs) {
+      acc.today.push(booking);
+    } else if (ms === startOfTomorrowMs) {
+      acc.tomorrow.push(booking);
+    } else if (ms > startOfTomorrowMs && ms <= endOfNextWeekMs) {
+      acc.nextWeek.push(booking);
+    }
+    return acc;
+  }, { today: [] as Booking[], tomorrow: [] as Booking[], nextWeek: [] as Booking[] });
+
+  // Sort ascending chronologically
+  grouped.today.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  grouped.tomorrow.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  grouped.nextWeek.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const renderGroup = (title: string, groupBookings: Booking[], emptyMessage: string) => {
+    if (groupBookings.length === 0) return null;
+
+    return (
+      <div className="mb-7 last:mb-2 relative">
+        <div className="flex items-center justify-between mb-4 pl-1">
+          <h4 className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-[2px] flex items-center gap-2">
+            {title}
+            <span className="w-[18px] h-[18px] flex items-center justify-center bg-slate-100 text-slate-500 rounded-full text-[0.6rem] font-extrabold shadow-inner">
+              {groupBookings.length}
+            </span>
+          </h4>
+        </div>
+        
+        <div className="flex flex-col gap-3">
+          {groupBookings.map(b => (
+              <div 
+                key={b.id} 
+                className="group relative flex items-center justify-between bg-white/70 backdrop-blur-md border border-white/80 rounded-2xl p-4 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:bg-white"
+                onClick={() => router.push(`/bookings/details/${b.id}`)}
+              >
+                {/* Modern subtle background glow on hover */}
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-500/0 via-orange-500/0 to-orange-500/[0.03] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                
+                {title === "Today" && (
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-400 to-orange-600 shadow-[0_0_10px_rgba(249,115,22,0.4)]"></div>
+                )}
+                
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center font-black text-[1.1rem] shadow-sm transition-all duration-300 ${
+                    title === "Today" 
+                      ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-500/20 group-hover:shadow-orange-500/40' 
+                      : 'bg-gradient-to-br from-slate-100 to-slate-50 text-slate-600 group-hover:from-orange-50 group-hover:to-orange-100 group-hover:text-orange-600'
+                  }`}>
+                    {(b.title || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  
+                  <div className="flex flex-col">
+                    <h4 className="font-extrabold text-[0.95rem] text-slate-800 leading-tight group-hover:text-orange-600 transition-colors">{b.title}</h4>
+                    <span className="font-semibold text-[0.65rem] text-slate-400 uppercase tracking-widest mt-0.5 group-hover:text-slate-500 transition-colors">
+                      {b.bookingNumber || b.id.substring(0, 8)}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-end relative z-10">
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[0.65rem] font-bold uppercase tracking-wider mb-1.5 backdrop-blur-sm ${
+                    b.status === 'Confirmed' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 
+                    b.status === 'Pending' ? 'bg-red-500/10 text-red-600 border border-red-500/20' : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
+                  }`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      b.status === 'Confirmed' ? 'bg-emerald-500' : 
+                      b.status === 'Pending' ? 'bg-red-500' : 'bg-orange-500'
+                    }`}></div>
+                    {b.status}
+                  </div>
+                  <span className="text-[0.75rem] font-black text-slate-600">
+                    {new Date(b.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+      </div>
+    );
+  };
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-[1.2rem] font-extrabold text-slate-900 tracking-tight">Upcoming Shoots</h3>
-        <Link href="/bookings/allBookings" className="text-[0.75rem] font-bold text-orange-500 uppercase tracking-[1px] hover:text-orange-600 transition-colors">View All</Link>
+    <div className="relative">
+      {/* Decorative subtle background elements */}
+      <div className="absolute -top-10 -right-10 w-40 h-40 bg-orange-500/5 rounded-full blur-3xl pointer-events-none"></div>
+      
+      <div className="flex justify-between items-center mb-8 relative z-10">
+        <h3 className="text-[1.3rem] font-black text-slate-900 tracking-tight flex items-center gap-2">
+          Upcoming Shoots
+        </h3>
+        <Link 
+          href="/bookings/upcoming" 
+          className="text-[0.75rem] font-black text-orange-500 uppercase tracking-[1.5px] hover:text-orange-600 transition-colors bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg"
+        >
+          View All
+        </Link>
       </div>
       
-      {upcomingBookings.map(b => {
-        const isFashion = b.category.toUpperCase() === 'FASHION';
-        const badgeClasses = isFashion 
-          ? "bg-green-50 text-green-700 px-2 py-0.5 rounded-md text-[0.65rem] font-extrabold" 
-          : "bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-[0.65rem] font-extrabold"; 
-
-        return (
-          <div 
-            key={b.id} 
-            className="bg-white border border-gray-200 rounded-[16px] p-4 mb-4 shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-md hover:border-slate-300"
-            onClick={() => setActiveDetailsBooking(b)}
-          >
-            
-            {/* Header: Badge & ID */}
-            <div className="flex justify-between items-center mb-3">
-              <span className={badgeClasses}>{b.category.toUpperCase()}</span>
-              <span className="text-[0.75rem] font-bold text-slate-500">ID: {b.id}</span>
-            </div>
-            
-            {/* Title */}
-            <div className="text-[1.1rem] font-extrabold text-slate-900 mb-3 leading-tight">{b.title}</div>
-            
-            {/* Info Grid */}
-            <div className="grid grid-cols-2 gap-2.5 mb-4 text-[0.8rem] text-slate-500 font-medium">
-              <div className="flex items-center gap-2"><i className="ph-fill ph-clock text-[1rem]"></i> {new Date(b.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})} - {b.time}</div>
-              <div className="flex items-center gap-2"><i className="ph-fill ph-map-pin text-[1rem]"></i> {b.location || 'TBD'}</div>
-              {b.phone && <div className="flex items-center gap-2"><i className="ph-fill ph-phone text-[1rem]"></i> {b.phone}</div>}
-              {b.email && <div className="flex items-center gap-2 text-ellipsis overflow-hidden whitespace-nowrap"><i className="ph-fill ph-envelope text-[1rem]"></i> {b.email}</div>}
-            </div>
-
-            {/* Financials (if package is present) */}
-            {b.package && (
-              <div className="flex justify-between bg-stone-50 rounded-xl p-3 mb-4 border border-slate-100">
-                <div>
-                  <div className="text-[0.65rem] font-extrabold text-slate-500 mb-1 tracking-[0.5px]">PACKAGE</div>
-                  <div className="font-extrabold text-slate-900 text-[0.9rem]">₹{b.package}</div>
-                </div>
-                <div>
-                  <div className="text-[0.65rem] font-extrabold text-slate-500 mb-1 tracking-[0.5px]">ADVANCE</div>
-                  <div className="font-extrabold text-slate-900 text-[0.9rem]">₹{b.advance || '0'}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[0.65rem] font-extrabold text-slate-500 mb-1 tracking-[0.5px]">DUE</div>
-                  <div className="font-extrabold text-slate-900 text-[0.9rem]">₹{b.due || '0'}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Footer: Avatars & Status */}
-            <div className="flex justify-between items-center">
-              <div className="flex -space-x-2">
-                <div className="w-[24px] h-[24px] rounded-full bg-slate-900 text-white flex items-center justify-center text-[0.7rem] font-bold border-2 border-white z-10">{b.title.charAt(0).toUpperCase()}</div>
-                <div className="w-[24px] h-[24px] rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-[0.9rem] border-2 border-white z-0"><i className="ph-fill ph-user"></i></div>
-              </div>
-              <div className={`flex items-center gap-1.5 text-[0.8rem] font-bold ${b.status === 'Confirmed' ? 'text-emerald-500' : (b.status === 'Pending' ? 'text-red-500' : 'text-amber-500')}`}>
-                <div className={`w-2 h-2 rounded-full ${b.status === 'Confirmed' ? 'bg-emerald-500' : (b.status === 'Pending' ? 'bg-red-500' : 'bg-amber-500')}`}></div>
-                {b.status}
-              </div>
-            </div>
+      <div className="relative z-10">
+        {renderGroup("Today", grouped.today, "No shoots scheduled for today")}
+        {renderGroup("Tomorrow", grouped.tomorrow, "No shoots scheduled for tomorrow")}
+        {renderGroup("Next 7 Days", grouped.nextWeek, "No shoots scheduled for next week")}
+        
+        {grouped.today.length === 0 && grouped.tomorrow.length === 0 && grouped.nextWeek.length === 0 && (
+          <div className="bg-white/40 border border-dashed border-slate-200 rounded-2xl p-6 text-center backdrop-blur-sm">
+             <i className="ph ph-calendar-x text-3xl text-slate-300 mb-2"></i>
+             <p className="text-sm font-bold text-slate-400">No upcoming shoots</p>
           </div>
-        );
-      })}
-    </>
+        )}
+      </div>
+    </div>
   );
 }

@@ -35,7 +35,8 @@ export default async function AllBookingsPage({
     package: b.order?.package.toString() || '',
     advance: b.order?.advance.toString() || '',
     due: b.order?.due.toString() || '',
-    status: b.status as any
+    status: b.status as any,
+    customData: b.customData as Record<string, any> | null
   }));
 
   const totalPages = Math.ceil(totalCount / limit);

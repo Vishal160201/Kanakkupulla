@@ -3,6 +3,7 @@
 import { useBookings } from '../providers/BookingProvider';
 import { Booking } from '@/types';
 import { useRouter } from 'next/navigation';
+import { useSystem } from '@/components/providers/SystemProvider';
 
 interface BookingTableProps {
   bookings: Booking[];
@@ -11,7 +12,8 @@ interface BookingTableProps {
 }
 
 export default function BookingTable({ bookings, currentPage = 1, totalPages = 1 }: BookingTableProps) {
-  const { filters, setActiveDetailsBooking } = useBookings();
+  const { filters } = useBookings();
+  const { preferences } = useSystem();
   const router = useRouter();
 
   // Sort and filter logic
@@ -47,19 +49,29 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
             let badgeClass = 'bg-slate-100 text-slate-600 border border-slate-200';
             if (b.category === 'Fashion') badgeClass = 'bg-green-50 text-green-700 border-none';
             
-            let statusDotClass = 'bg-blue-500';
-            let statusTextClass = 'text-blue-700';
-            if (b.status === 'Confirmed') { statusDotClass = 'bg-emerald-500'; statusTextClass = 'text-emerald-700'; }
-            else if (b.status === 'Pending') { statusDotClass = 'bg-red-500'; statusTextClass = 'text-red-700'; }
-            else if (b.status === 'Partial') { statusDotClass = 'bg-orange-500'; statusTextClass = 'text-orange-700'; }
+            let statusDotClass = 'bg-slate-300';
+            let statusTextClass = 'text-slate-500';
+            let customStatusStyle = {};
+            if (preferences?.statusColors?.[b.status]) {
+              customStatusStyle = {
+                '--status-bg': preferences.statusColors[b.status].bg,
+                '--status-text': preferences.statusColors[b.status].text
+              };
+              statusDotClass = '';
+              statusTextClass = '';
+            } else {
+              if (b.status === 'Confirmed') { statusDotClass = 'bg-emerald-500'; statusTextClass = 'text-emerald-700'; }
+              else if (b.status === 'Pending') { statusDotClass = 'bg-red-500'; statusTextClass = 'text-red-700'; }
+              else if (b.status === 'Partial') { statusDotClass = 'bg-orange-500'; statusTextClass = 'text-orange-700'; }
+            }
 
             return (
-              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" onClick={() => setActiveDetailsBooking(b)}>
+              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/bookings/details/${b.id}`)}>
                 <div className="flex-[2] flex items-center gap-3">
-                  <div className="w-[35px] h-[35px] rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[0.85rem] shrink-0">{b.title.charAt(0).toUpperCase()}</div>
+                  <div className="w-[35px] h-[35px] rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[0.85rem] shrink-0">{(b.title || 'U').charAt(0).toUpperCase()}</div>
                   <div className="flex flex-col justify-center">
                     <h4 className="font-extrabold text-[0.95rem] text-slate-900 leading-tight">{b.title}</h4>
-                    <p className="font-bold text-[0.7rem] text-slate-500 tracking-[0.5px] uppercase">{b.id}</p>
+                    <p className="font-bold text-[0.7rem] text-slate-500 tracking-[0.5px] uppercase">{b.bookingNumber || b.id}</p>
                   </div>
                 </div>
                 <div className="flex-[1.5] flex items-center">
@@ -72,10 +84,15 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
                 <div className="flex-[1.5] flex items-center gap-1.5 font-semibold text-[0.85rem] text-slate-600">
                   <i className="ph-fill ph-map-pin text-slate-400"></i> <span className="truncate pr-4">{b.location || 'TBD'}</span>
                 </div>
-                <div className="flex-[1] flex items-center font-extrabold text-[0.9rem] text-slate-900">₹{b.package || '0.00'}</div>
                 <div className="flex-[1] flex items-center">
-                  <div className={`flex items-center gap-2 font-bold text-[0.85rem] ${statusTextClass}`}>
-                    <div className={`w-2 h-2 rounded-full ${statusDotClass}`}></div> {b.status}
+                  <div className="text-[0.85rem] font-bold text-slate-800">
+                      {preferences?.currencySymbol || '₹'} {parseFloat(b.package || '0').toLocaleString('en-IN')}
+                  </div>
+                </div>
+                <div className="flex-[1] flex items-center">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-100" style={customStatusStyle}>
+                    <div className={`w-2 h-2 rounded-full ${statusDotClass}`} style={customStatusStyle && {'backgroundColor': 'var(--status-bg)'}}></div>
+                    <span className={`text-[0.7rem] font-bold ${statusTextClass}`} style={customStatusStyle && {'color': 'var(--status-text)'}}>{b.status}</span>
                   </div>
                 </div>
                 <div className="w-[40px] text-center text-slate-400 flex items-center justify-center hover:text-slate-900 transition-colors">

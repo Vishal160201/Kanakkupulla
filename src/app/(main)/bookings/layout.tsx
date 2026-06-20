@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Modals from '@/components/dashboard/Modals';
 import { useBookings } from '@/components/providers/BookingProvider';
 
@@ -11,9 +11,11 @@ export default function BookingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { setIsAddModalOpen, setIsFilterModalOpen, filters, setFilters } = useBookings();
+  const router = useRouter();
+  const { setIsFilterModalOpen, filters, setFilters } = useBookings();
 
   const isOverview = pathname === '/bookings/overview';
+  const isUpcoming = pathname === '/bookings/upcoming';
   const isTable = pathname === '/bookings/allBookings';
   const hasActiveFilters = filters.categories.length > 0 || filters.statuses.length > 0 || filters.clientName || filters.location || filters.dateStart || filters.dateEnd || filters.amountMin || filters.amountMax;
 
@@ -23,14 +25,21 @@ export default function BookingsLayout({
         <Link 
           href="/bookings/overview"
           className={`btn ${isOverview ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
-          style={{ borderRadius: "20px", borderColor: isTable ? "transparent" : "", textDecoration: "none" }}
+          style={{ borderRadius: "20px", borderColor: isTable || isUpcoming ? "transparent" : "", textDecoration: "none" }}
         >
           Overview
         </Link>
         <Link 
+          href="/bookings/upcoming"
+          className={`btn ${isUpcoming ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
+          style={{ borderRadius: "20px", borderColor: isOverview || isTable ? "transparent" : "", textDecoration: "none" }}
+        >
+          Upcoming Shoots
+        </Link>
+        <Link 
           href="/bookings/allBookings"
           className={`btn ${isTable ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
-          style={{ borderRadius: "20px", borderColor: isOverview ? "transparent" : "", textDecoration: "none" }}
+          style={{ borderRadius: "20px", borderColor: isOverview || isUpcoming ? "transparent" : "", textDecoration: "none" }}
         >
           All bookings
         </Link>
@@ -61,7 +70,7 @@ export default function BookingsLayout({
       </div>
 
       {/* FAB */}
-      <div className="fab interactive" onClick={() => setIsAddModalOpen(true)}>
+      <div className="fab interactive" onClick={() => router.push("/bookings/new")}>
         <i className="ph-fill ph-camera"></i>
       </div>
 
