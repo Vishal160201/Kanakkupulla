@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { TRANSACTION_CATEGORIES, PAYMENT_MODES } from "@/lib/transactionConstants";
+import { broadcastNotification } from "@/lib/notifications";
 
 const PAGE_SIZE = 50;
 
@@ -166,6 +167,15 @@ export async function POST(request: Request) {
         ...(userId ? { user: { connect: { id: userId } } } : {}),
       },
     });
+
+    if (type === "INCOME") {
+      await broadcastNotification(
+        "Payment Received",
+        `A payment of ₹${parsedAmount} was logged via ${paymentMode}.`,
+        "PAYMENT",
+        `/transactions`
+      );
+    }
 
     return NextResponse.json(newTransaction, {
       status: 201,

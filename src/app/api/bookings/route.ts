@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { broadcastNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -96,6 +97,14 @@ export async function POST(request: Request) {
         userId: (session.user as any).id,
       }
     });
+
+    // Notify Admins about the new booking
+    await broadcastNotification(
+      "New Booking Request",
+      `A new ${category || 'Wedding'} booking for ${newBooking.client?.name || 'a client'} has been created!`,
+      "BOOKING",
+      `/bookings/details/${newBooking.id}`
+    );
 
     return NextResponse.json(newBooking, {
       status: 201,

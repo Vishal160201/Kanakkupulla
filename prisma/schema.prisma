@@ -130,18 +130,25 @@ enum UserStatus {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  name          String?
-  email         String?       @unique
-  emailVerified DateTime?
-  password      String?
-  image         String?
-  role          Role          @default(STAFF)
-  status        UserStatus    @default(ACTIVE)
-  invitedAt     DateTime?
-  accounts      Account[]
-  sessions      Session[]
-  transactions  Transaction[]
+  id                 String             @id @default(cuid())
+  idNumber           Int                @default(autoincrement())
+  name               String?
+  email              String?            @unique
+  emailVerified      DateTime?
+  password           String?
+  image              String?
+  role               Role               @default(STAFF)
+  status             UserStatus         @default(ACTIVE)
+  invitedAt          DateTime?
+  accounts           Account[]
+  sessions           Session[]
+  transactions       Transaction[]
+  notifications      Notification[]
+  pushSubscriptions  PushSubscription[]
+  emailNotifications Boolean            @default(true)
+  pushNotifications  Boolean            @default(true)
+  phone              String?
+  whatsappNotifs     Boolean            @default(false)
 }
 
 model RolePermission {
@@ -170,7 +177,6 @@ model PasswordResetToken {
 
   @@unique([email, token])
 }
-
 
 model Product {
   id          String         @id @default(cuid())
@@ -211,4 +217,33 @@ model SystemSetting {
   value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // e.g., "BOOKING", "PAYMENT", "SYSTEM", "ALERT"
+  title     String
+  message   String   @db.Text
+  link      String? // Optional URL to navigate to when clicked
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
