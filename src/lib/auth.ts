@@ -53,10 +53,6 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials");
         }
 
-        if (user.status === "PENDING") {
-          throw new Error("Approval pending");
-        }
-
         if (user.status === "INACTIVE") {
           throw new Error("Account deactivated");
         }

@@ -1,7 +1,8 @@
-import prisma from "@/lib/prisma";
+"use client";
+
 import Link from "next/link";
-
-
+import useSWR from "swr";
+import { Suspense } from "react";
 
 const CATEGORY_ICONS: Record<string, string> = {
   "Photography Session": "ph-camera",
@@ -21,67 +22,26 @@ const MODE_ICONS: Record<string, string> = {
   "Card": "ph-credit-card",
 };
 
-async function DashboardMetrics() {
-  // --- Data Fetching ---
+const fetcher = (url: string) => fetch(url).then(res => res.json());
+
+function DashboardMetrics() {
+  const { data, error, isLoading } = useSWR('/api/dashboard/overview', fetcher);
   const today = new Date();
-  
-  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const twoWeeksAgo = new Date(today);
-  twoWeeksAgo.setDate(today.getDate() - 14);
 
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
-  const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+  if (isLoading) return <DashboardSkeleton />;
+  if (error || !data) return <div>Failed to load dashboard data</div>;
 
-  const [
+  const {
     totalBookings,
     upcomingShoots,
     pendingRetouch,
-    activeOrders,
+    topOrder,
     totalActiveOrders,
     todayTransactions,
-    todayIncomeAgg,
-    todayExpenseAgg
-  ] = await Promise.all([
-    prisma.booking.count({
-      where: { deletedAt: null }
-    }),
-    prisma.booking.findMany({
-      where: { deletedAt: null, date: { gte: today } },
-      include: { order: true, client: true },
-      orderBy: { date: 'asc' },
-      take: 3
-    }),
-    prisma.booking.count({
-      where: { deletedAt: null, date: { lt: today, gte: twoWeeksAgo } }
-    }),
-    prisma.productOrder.findMany({
-      where: { status: { not: 'DELIVERED' } },
-      include: { product: true },
-      orderBy: { createdAt: 'desc' },
-      take: 1
-    }),
-    prisma.productOrder.count({
-      where: { status: { not: 'DELIVERED' } }
-    }),
-    prisma.transaction.findMany({
-      where: { date: { gte: todayStart, lte: todayEnd } },
-      orderBy: { date: 'desc' },
-      take: 10
-    }),
-    prisma.transaction.aggregate({
-      _sum: { amount: true },
-      where: { type: 'INCOME', date: { gte: todayStart, lte: todayEnd } }
-    }),
-    prisma.transaction.aggregate({
-      _sum: { amount: true },
-      where: { type: 'EXPENSE', date: { gte: todayStart, lte: todayEnd } }
-    })
-  ]);
-
-  const topOrder = activeOrders[0];
-  const todayIncome = todayIncomeAgg._sum.amount || 0;
-  const todayExpense = todayExpenseAgg._sum.amount || 0;
-  const todayNet = todayIncome - todayExpense;
+    todayIncome,
+    todayExpense,
+    todayNet
+  } = data;
 
   return (
     <>
@@ -197,7 +157,7 @@ async function DashboardMetrics() {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {todayTransactions.map((txn, idx) => (
+              {todayTransactions.map((txn: any, idx: number) => (
                 <div
                   key={txn.id}
                   className="group/item flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-5 py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer"
@@ -233,7 +193,7 @@ async function DashboardMetrics() {
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-slate-500 text-[0.7rem] font-semibold">
-                      {txn.date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                      {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </span>
                     <span className={`text-[1.05rem] font-extrabold tracking-tight ${
                       txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
@@ -264,7 +224,7 @@ async function DashboardMetrics() {
                  <p className="font-medium">No upcoming shoots found.</p>
                  <Link href="/bookings/overview" className="text-orange-500 text-sm font-bold mt-2 inline-block">Add Booking</Link>
                </div>
-            ) : upcomingShoots.map(shoot => (
+            ) : upcomingShoots.map((shoot: any) => (
               <div key={shoot.id} className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 flex items-center justify-between cursor-pointer shadow-sm transition-all hover:translate-x-1 hover:shadow-md hover:bg-orange-100/50">
                 <div className="flex items-center gap-4">
                   <div className="w-[40px] h-[40px] rounded-xl bg-orange-100 text-orange-500 flex items-center justify-center text-[1.2rem]">
@@ -273,7 +233,7 @@ async function DashboardMetrics() {
                   <div className="flex flex-col">
                     <span className="bg-orange-100 text-orange-700 w-max px-2 py-0.5 rounded-md text-[0.6rem] font-extrabold uppercase tracking-[0.5px] mb-1">{shoot.category}</span>
                     <h4 className="text-[1rem] font-extrabold text-slate-900 leading-tight tracking-tight mb-0.5">{shoot.client.name}</h4>
-                    <p className="text-slate-500 text-[0.8rem] font-medium mt-0.5">{shoot.date.toLocaleDateString()} at {shoot.time} - {shoot.location}</p>
+                    <p className="text-slate-500 text-[0.8rem] font-medium mt-0.5">{new Date(shoot.date).toLocaleDateString()} at {shoot.time} - {shoot.location}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-5 pl-4 border-l border-orange-200">
@@ -327,11 +287,6 @@ async function DashboardMetrics() {
     </>
   );
 }
-
-import { Suspense } from "react";
-
-export const dynamic = "force-dynamic";
-
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-8 w-full animate-pulse">

@@ -1,89 +1,27 @@
+"use client";
+
 import CalendarWidget from '@/components/dashboard/CalendarWidget';
 import UpcomingShoots from '@/components/dashboard/UpcomingShoots';
-import prisma from "@/lib/prisma";
-import { Booking } from "@/types";
+import useSWR from 'swr';
 
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
+function BookingsDataView() {
+  const { data, error, isLoading } = useSWR('/api/bookings/overview', fetcher);
 
-async function BookingsDataView() {
-  const dbBookings = await prisma.booking.findMany({
-    where: { deletedAt: null },
-    include: { client: true, order: true },
-    orderBy: { date: 'desc' }
-  });
+  if (isLoading) return <BookingsSkeleton />;
+  if (error || !data) return <div>Failed to load bookings data</div>;
 
-  const systemSetting = await prisma.systemSetting.findUnique({
-    where: { key: "UI_PREFERENCES" }
-  });
-  const prefs = systemSetting?.value as any || { currencySymbol: "₹", hotDateThreshold: 50000 };
-
-  const bookings: Booking[] = dbBookings.map(b => ({
-    id: b.id,
-    bookingNumber: b.bookingNumber,
-    title: b.client.name,
-    category: b.category,
-    date: b.date.toISOString().split('T')[0],
-    time: b.time,
-    location: b.location,
-    phone: b.client.phone,
-    email: b.client.email || '',
-    package: b.order?.package.toString() || '',
-    advance: b.order?.advance.toString() || '',
-    due: b.order?.due.toString() || '',
-    status: b.status as any
-  }));
-
-  // Calculate Metrics
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const msPerDay = 1000 * 60 * 60 * 24;
-
-  let immediateShoots = 0; // Today and Tomorrow
-  let thisWeekShoots = 0; // Next 7 days
-  let pendingDueAmount = 0; // Due amounts in next 14 days
-  let unconfirmedShoots = 0; // Pending status in next 14 days
-  // Hot Date calculation based on highest combined package value
-  const upcomingDateStats: Record<string, { count: number, totalPackage: number }> = {};
-  let hotDateStr = "";
-  let maxPackageValue = 0;
-  let hotDateCount = 0;
-
-  bookings.forEach(booking => {
-    const [year, month, day] = booking.date.split('-').map(Number);
-    const bookingDate = new Date(year, month - 1, day);
-    bookingDate.setHours(0, 0, 0, 0);
-
-    const diffDays = Math.floor((bookingDate.getTime() - today.getTime()) / msPerDay);
-
-    if (diffDays >= 0) {
-      if (diffDays <= 1) immediateShoots++;
-      if (diffDays <= 7) thisWeekShoots++;
-      
-      if (diffDays <= 14) {
-        if (booking.status === 'PENDING') unconfirmedShoots++;
-        
-        const due = parseFloat(booking.due || "0");
-        if (due > 0) pendingDueAmount += due;
-      }
-      
-      // Track stats for hot date
-      const dStr = booking.date; // already YYYY-MM-DD
-      const pkgValue = parseFloat(booking.package || '0');
-      
-      if (!upcomingDateStats[dStr]) {
-        upcomingDateStats[dStr] = { count: 0, totalPackage: 0 };
-      }
-      upcomingDateStats[dStr].count += 1;
-      upcomingDateStats[dStr].totalPackage += pkgValue;
-
-      // Update max logic
-      if (upcomingDateStats[dStr].totalPackage > maxPackageValue) {
-        maxPackageValue = upcomingDateStats[dStr].totalPackage;
-        hotDateStr = dStr;
-        hotDateCount = upcomingDateStats[dStr].count;
-      }
-    }
-  });
+  const { bookings, prefs, metrics } = data;
+  const {
+    immediateShoots,
+    thisWeekShoots,
+    pendingDueAmount,
+    unconfirmedShoots,
+    hotDateStr,
+    maxPackageValue,
+    hotDateCount
+  } = metrics;
 
   // Decide what to show on the 4th card
   let card4Title = "No Upcoming Dates";
@@ -160,7 +98,7 @@ async function BookingsDataView() {
       </div>
 
       <div className="grid grid-cols-[1.5fr_1fr] gap-6">
-        <CalendarWidget bookings={bookings} />
+        <CalendarWidget />
         <div>
           <UpcomingShoots bookings={bookings} />
         </div>
@@ -171,8 +109,6 @@ async function BookingsDataView() {
 
 
 import { Suspense } from "react";
-
-export const dynamic = "force-dynamic";
 
 function BookingsSkeleton() {
   return (

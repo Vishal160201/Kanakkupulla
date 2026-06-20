@@ -7,14 +7,51 @@ import WeekPicker from "../ui/WeekPicker";
 import DayPicker from "../ui/DayPicker";
 import { Booking } from "@/types";
 import { useSystem } from "@/components/providers/SystemProvider";
+import useSWR from "swr";
 
-export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
+const fetcher = (url: string) => fetch(url).then(r => r.json());
+
+export default function CalendarWidget() {
   const router = useRouter();
   const { preferences } = useSystem();
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // June 2026 default
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [popupDate, setPopupDate] = useState<string | null>(null);
+
+  // Calculate bounds
+  let startDate = new Date(currentDate);
+  let endDate = new Date(currentDate);
+  if (view === 'month') {
+    startDate.setDate(1);
+    startDate.setMonth(startDate.getMonth() - 1); // fetch a bit of prev month
+    endDate.setMonth(endDate.getMonth() + 2); // fetch a bit of next month
+    endDate.setDate(0);
+  } else if (view === 'week') {
+    startDate.setDate(startDate.getDate() - startDate.getDay() - 7);
+    endDate.setDate(startDate.getDate() + 21);
+  } else {
+    startDate.setDate(startDate.getDate() - 2);
+    endDate.setDate(endDate.getDate() + 2);
+  }
+
+  const startDateStr = startDate.toISOString().split('T')[0];
+  const endDateStr = endDate.toISOString().split('T')[0];
+
+  const { data: dbBookings, isLoading } = useSWR(`/api/bookings?startDate=${startDateStr}&endDate=${endDateStr}`, fetcher);
+
+  const bookings: Booking[] = (dbBookings || []).map((b: any) => ({
+    id: b.id,
+    bookingNumber: b.bookingNumber,
+    title: b.client?.name || 'Unknown',
+    category: b.category,
+    date: new Date(b.date).toISOString().split('T')[0],
+    time: b.time,
+    location: b.location,
+    package: b.order?.package?.toString() || '',
+    status: b.status
+  }));
+
 
   const nextRange = () => {
     const d = new Date(currentDate);
@@ -70,7 +107,7 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
       const paddedDay = String(i).padStart(2, '0');
       const dateString = `${year}-${paddedMonth}-${paddedDay}`;
       
-      const dayBookings = bookings.filter(b => b.date === dateString);
+      const dayBookings = bookings.filter((b: Booking) => b.date === dateString);
       const isToday = i === today.getDate() && month === today.getMonth() && year === today.getFullYear();
       
       const handleCellClick = () => {
@@ -85,7 +122,7 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
             <div className="calendar-date" style={{ fontWeight: dayBookings.length > 0 ? 800 : 400 }}>{i}</div>
           )}
           
-          {dayBookings.slice(0, 2).map(b => {
+          {dayBookings.slice(0, 2).map((b: Booking) => {
             const styles = getTierStyles(b.package);
             return (
               <div key={b.id} className="calendar-event" style={{ backgroundColor: styles.bg, color: styles.color, border: 'none', marginBottom: '2px', padding: '3px 6px', fontSize: '0.65rem', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); router.push(`/bookings/details/${b.id}`); }}>
@@ -116,7 +153,7 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
                 </div>
               </div>
               <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto no-scrollbar">
-                {dayBookings.map(b => {
+                {dayBookings.map((b: Booking) => {
                   const styles = getTierStyles(b.package);
                   return (
                     <div 
@@ -141,8 +178,8 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
 
   // Vertical layout logic
   const getVerticalEvents = (dateString: string) => {
-    const dayBookings = bookings.filter(b => b.date === dateString);
-    return dayBookings.map(b => {
+    const dayBookings = bookings.filter((b: Booking) => b.date === dateString);
+    return dayBookings.map((b: Booking) => {
       let startHour = 10;
       if (b.time) {
         const match = b.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -297,7 +334,7 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
         </div>
       </div>
       
-      <div id="calendar-container">
+      <div id="calendar-container" className={isLoading ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}>
         {view === 'month' && (
           <div className="calendar-grid">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="calendar-day-header">{d}</div>)}

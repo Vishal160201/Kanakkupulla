@@ -81,9 +81,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
     }
 
-    // Generate temporary password
+    // Generate temporary password to be used as a token
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
-    const hashedPassword = await bcrypt.hash(tempPassword, 12);
+    
+    // Create an impossible random password for the actual user record so they cannot log in directly
+    const impossiblePassword = Math.random().toString(36) + Math.random().toString(36) + Math.random().toString(36);
+    const hashedPassword = await bcrypt.hash(impossiblePassword, 12);
 
     const newUser = await prisma.user.create({
       data: {
@@ -91,7 +94,7 @@ export async function POST(request: Request) {
         email: email.trim().toLowerCase(),
         password: hashedPassword,
         role,
-        status: "PENDING",
+        status: "ACTIVE", // Removed approval concept
         invitedAt: new Date(),
       },
       select: {
@@ -102,6 +105,16 @@ export async function POST(request: Request) {
         status: true,
         invitedAt: true,
       },
+    });
+
+    // Create a PasswordResetToken containing the temporary password
+    // This allows the auth system to detect it and force a password reset
+    await prisma.passwordResetToken.create({
+      data: {
+        email: email.trim().toLowerCase(),
+        token: tempPassword,
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days valid
+      }
     });
 
     return NextResponse.json({ user: newUser, tempPassword }, { status: 201 });

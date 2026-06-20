@@ -1,11 +1,41 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export default function TopNavigation() {
   const pathname = usePathname() || "";
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  const { data: searchResults, isLoading: isSearchLoading } = useSWR(
+    debouncedQuery.length >= 2 ? `/api/search?q=${encodeURIComponent(debouncedQuery)}` : null,
+    fetcher
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const { data: session } = useSession();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
@@ -30,7 +60,7 @@ export default function TopNavigation() {
   else if (pathname.includes("settings")) title = "Settings";
   
   return (
-    <header className={`flex ${title ? 'justify-between' : 'justify-end'} items-center px-10 py-5 bg-slate-50 z-[5]`}>
+    <header className={`relative flex ${title ? 'justify-between' : 'justify-end'} items-center px-10 py-5 bg-slate-50 z-50`}>
       {title && title === "Moondot studio" ? (
         <div className="relative">
           <style>{`
@@ -72,9 +102,58 @@ export default function TopNavigation() {
       )}
       
       <div className="flex items-center gap-5">
-        <div className="bg-white border border-gray-200 rounded-full px-4 py-2 flex items-center gap-2.5 w-[300px] shadow-sm transition-all focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-transparent">
-          <input type="text" placeholder="Search dashboard insights..." className="border-none outline-none bg-transparent w-full font-sans text-[0.9rem] text-slate-900 placeholder:text-slate-400" />
-          <i className="ph-fill ph-magnifying-glass text-slate-400 text-[1.2rem]"></i>
+        <div ref={searchRef} className="relative">
+          <div className="bg-white border border-gray-200 rounded-full px-4 py-2 flex items-center gap-2.5 w-[300px] shadow-sm transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+            <input 
+              type="text" 
+              placeholder="Search bookings, transactions..." 
+              className="border-none outline-none bg-transparent w-full font-sans text-[0.9rem] text-slate-900 placeholder:text-slate-400" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+            />
+            {isSearchLoading ? (
+              <i className="ph-bold ph-spinner animate-spin text-blue-500 text-[1.2rem]"></i>
+            ) : (
+              <i className="ph-bold ph-magnifying-glass text-slate-400 text-[1.2rem]"></i>
+            )}
+          </div>
+          
+          {isSearchFocused && searchQuery.length >= 2 && (
+            <div className="absolute top-[calc(100%+8px)] left-0 w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[400px] overflow-y-auto no-scrollbar">
+              <div className="px-4 pb-2 text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Search Results</div>
+              
+              {!isSearchLoading && (!searchResults?.results || searchResults.results.length === 0) ? (
+                <div className="px-4 py-6 text-center flex flex-col items-center justify-center text-slate-400">
+                  <i className="ph-fill ph-ghost text-3xl mb-2 text-slate-300"></i>
+                  <p className="text-sm">No results found for "{searchQuery}"</p>
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  {searchResults?.results?.map((item: any) => (
+                    <div 
+                      key={item.id}
+                      onClick={() => {
+                        setIsSearchFocused(false);
+                        setSearchQuery("");
+                        router.push(item.link);
+                      }}
+                      className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors group"
+                    >
+                      <div className={`w-10 h-10 rounded-xl bg-${item.color}-50 text-${item.color}-500 flex items-center justify-center group-hover:bg-${item.color}-500 group-hover:text-white transition-colors shrink-0`}>
+                        <i className={`ph-fill ${item.icon} text-lg`}></i>
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-[0.9rem] font-bold text-slate-900 truncate">{item.title}</span>
+                        <span className="text-[0.75rem] text-slate-500 truncate">{item.subtitle}</span>
+                      </div>
+                      <i className="ph-bold ph-caret-right text-slate-300 group-hover:text-slate-500 transition-colors"></i>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         <button className="bg-white border border-gray-200 rounded-full w-[45px] h-[45px] flex items-center justify-center relative cursor-pointer shadow-sm hover:bg-slate-50 transition-colors">

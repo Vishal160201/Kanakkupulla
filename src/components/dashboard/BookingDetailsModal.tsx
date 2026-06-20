@@ -46,6 +46,102 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
   const [installments, setInstallments] = useState<{amount: string, date: string}[]>([]);
   const timeInputRef = useRef<HTMLInputElement>(null);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    if (!booking) return;
+    setIsExportMenuOpen(false);
+    try {
+      if (format === 'csv') {
+        const escapeCsv = (val: any) => {
+          if (val === null || val === undefined || val === '') return '""';
+          let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+          return `"${str.replace(/"/g, '""')}"`;
+        };
+        const headers = ['ID', 'Client', 'Phone', 'Email', 'Category', 'Date', 'Time', 'Location', 'Status', 'Package Amount', 'Advance', 'Due', 'Installments', 'Inclusions', 'Notes', 'Custom Data'];
+        const rows = [[
+          escapeCsv(booking.bookingNumber || booking.id.substring(0, 8)),
+          escapeCsv(booking.title),
+          escapeCsv(booking.phone || booking.customData?.fld_b_phone),
+          escapeCsv(booking.email || booking.customData?.fld_b_email),
+          escapeCsv(booking.category),
+          escapeCsv(booking.date ? new Date(booking.date).toLocaleDateString() : ''),
+          escapeCsv(booking.time),
+          escapeCsv(booking.location),
+          escapeCsv(booking.status),
+          escapeCsv(booking.package || (booking as any).order?.package || booking.customData?.fld_b_package),
+          escapeCsv(booking.advance || (booking as any).order?.advance || booking.customData?.fld_b_advance),
+          escapeCsv(booking.due || (booking as any).order?.due),
+          escapeCsv((booking as any).order?.installments),
+          escapeCsv(booking.inclusions),
+          escapeCsv(booking.notes),
+          escapeCsv(booking.customData)
+        ]];
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `booking-${booking.bookingNumber || booking.id.substring(0, 8)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        const { jsPDF } = await import("jspdf");
+        const html2canvas = (await import("html2canvas")).default;
+        
+        const element = document.getElementById('pdf-content');
+        if (!element) {
+          toast.error("Could not generate PDF");
+          return;
+        }
+
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#F5F6F8' });
+        const imgData = canvas.toDataURL('image/png');
+        
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`booking-${booking.bookingNumber || booking.id.substring(0, 8)}.pdf`);
+      }
+      toast.success("Export successful!");
+    } catch (e) {
+      console.error(e);
+      toast.error("Export failed");
+    }
+  };
+
+  const generateInvoice = async () => {
+    setIsGeneratingInvoice(true);
+    setTimeout(async () => {
+      try {
+        const element = document.getElementById('invoice-template');
+        if (!element) return;
+        const html2canvas = (await import("html2canvas")).default;
+        const { jsPDF } = await import("jspdf");
+        
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`invoice-${booking?.bookingNumber || booking?.id?.substring(0, 8)}.pdf`);
+        toast.success("Invoice generated successfully!");
+      } catch (error) {
+        toast.error("Failed to generate invoice");
+        console.error(error);
+      } finally {
+        setIsGeneratingInvoice(false);
+      }
+    }, 100);
+  };
 
   const handleEditToggle = () => {
     if (!isEditing) {
@@ -258,7 +354,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
              
              
              {/* New Revamped Layout Begins Here */}
-             <div className="max-w-[1100px] mx-auto flex flex-col gap-6">
+             <div id="pdf-content" className="max-w-[1100px] mx-auto flex flex-col gap-6 p-4">
                 
                 {/* Header Row */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-transparent">
@@ -279,7 +375,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                       <div className="flex items-center gap-4 mt-1">
                          <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                               <i className="ph-regular ph-circles-three-plus text-indigo-500 text-lg"></i>
+                               <i className="ph-fill ph-squares-four text-indigo-500 text-lg"></i>
                             </div>
                             <div className="flex flex-col">
                                <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-wider leading-tight">Category</span>
@@ -332,15 +428,30 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                       </div>
                    </div>
 
-                   <div className="flex items-center gap-3">
+                   <div className="flex items-center gap-3" data-html2canvas-ignore="true">
                       <button onClick={handleDeleteClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-200 rounded-xl font-bold text-[0.9rem] text-red-500 hover:bg-red-50 hover:border-red-300 shadow-sm transition-colors">
                          <i className="ph-bold ph-trash text-lg"></i> Delete
                       </button>
-                      <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl font-bold text-[0.9rem] text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
-                         <i className="ph-bold ph-share-network text-lg"></i> Export
-                      </button>
-                      <button className="flex items-center gap-2 px-6 py-2.5 bg-[#0B1E40] text-white rounded-xl font-bold text-[0.9rem] hover:bg-[#152a52] shadow-md transition-colors">
-                         <i className="ph-bold ph-printer text-lg"></i> Invoice
+                      <div className="relative z-50">
+                        <button onClick={() => setIsExportMenuOpen(!isExportMenuOpen)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl font-bold text-[0.9rem] text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
+                           <i className="ph-bold ph-share-network text-lg"></i> Export
+                        </button>
+                        {isExportMenuOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsExportMenuOpen(false)}></div>
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden py-1">
+                              <button onClick={() => handleExport('csv')} className="w-full text-left px-4 py-2.5 text-[0.85rem] font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                <i className="ph-bold ph-file-csv text-lg text-emerald-500"></i> Export as CSV
+                              </button>
+                              <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2.5 text-[0.85rem] font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                <i className="ph-bold ph-file-pdf text-lg text-rose-500"></i> Export as PDF
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <button onClick={generateInvoice} disabled={isGeneratingInvoice} className="flex items-center gap-2 px-6 py-2.5 bg-[#0B1E40] text-white rounded-xl font-bold text-[0.9rem] hover:bg-[#152a52] shadow-md transition-colors disabled:opacity-50">
+                         <i className={`ph-bold ${isGeneratingInvoice ? 'ph-spinner animate-spin' : 'ph-printer'} text-lg`}></i> {isGeneratingInvoice ? 'Generating...' : 'Invoice'}
                       </button>
                    </div>
                 </div>
@@ -401,7 +512,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                             <i className="ph-duotone ph-user text-indigo-500 text-xl"></i>
                             <h3 className="text-[1.05rem] font-black text-[#0B1E40]">Client Information</h3>
                          </div>
-                         <button onClick={handleEditToggle} className="flex items-center gap-1.5 text-blue-500 font-bold text-[0.8rem] hover:text-blue-600 transition-colors">
+                         <button onClick={handleEditToggle} data-html2canvas-ignore="true" className="flex items-center gap-1.5 text-blue-500 font-bold text-[0.8rem] hover:text-blue-600 transition-colors">
                            <i className="ph-bold ph-pencil-simple"></i> {isEditing ? 'Editing...' : 'Edit'}
                          </button>
                       </div>
@@ -987,7 +1098,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
              </div>
            </div>
            <div className="flex gap-3 mt-8">
-             <button className="flex-1 px-5 py-2.5 rounded-xl font-bold text-slate-500 bg-gray-50 hover:bg-gray-100 transition-colors" onClick={() => setIsAddAttachmentOpen(false)} disabled={isLoading}>Cancel</button>
+              <button className="flex-1 px-5 py-2.5 rounded-xl font-bold text-slate-500 bg-gray-50 hover:bg-gray-100 transition-colors" onClick={() => setIsAddAttachmentOpen(false)} disabled={isLoading}>Cancel</button>
              <button className="flex-1 px-5 py-2.5 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors disabled:opacity-50" onClick={() => {
                 if(!newAttachmentUrl || !newAttachmentName) return;
                 const existingAttachments = Array.isArray(booking?.attachments) ? booking?.attachments : 
@@ -999,6 +1110,132 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
            </div>
          </DialogContent>
       </Dialog>
+
+      {/* Off-screen Invoice Template */}
+      <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: '800px', backgroundColor: '#ffffff', zIndex: -10 }}>
+         <div id="invoice-template" className="w-[800px] bg-white pt-6 px-12 pb-12 text-[#1F2937]" style={{ fontFamily: 'sans-serif' }}>
+            <div className="flex justify-between items-start">
+               <div className="flex items-center">
+                  <style dangerouslySetInnerHTML={{__html: "@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');"}} />
+                  <span className="text-[#1F2937] leading-none" style={{ fontFamily: '"Great Vibes", cursive', fontSize: '4.5rem', fontWeight: 400 }}>Moondot</span>
+                  <span className="ml-3 text-[0.8rem] text-[#B66D42] tracking-[0.35em] font-medium uppercase mt-4" style={{ fontFamily: 'Inter, sans-serif' }}>STUDIO</span>
+               </div>
+               <div className="border-l-[3px] border-gray-300 pl-5 pt-1">
+                  <h1 className="text-[2.2rem] font-black text-[#1F2937] tracking-[0.1em] uppercase leading-none">Invoice</h1>
+                  <p className="text-[#B66D42] font-bold mt-3 text-sm">Booking {booking.bookingNumber?.startsWith('#') ? '' : '#'}{booking.bookingNumber || booking.id.substring(0, 8)}</p>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4 mt-12 border-t border-gray-200 pt-6">
+              <div className="flex flex-col border-r border-gray-200">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice No.</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">{booking.bookingNumber || booking.id.substring(0, 8)}-INV</span>
+              </div>
+              <div className="flex flex-col border-r border-gray-200 pl-4">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice Date</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">{new Date().toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</span>
+              </div>
+              <div className="flex flex-col border-r border-gray-200 pl-4">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Event Date</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">{booking.date ? new Date(booking.date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : 'TBD'}</span>
+              </div>
+              <div className="flex flex-col pl-4">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Status</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem] uppercase">{booking.due > 0 ? 'DRAFT' : 'PAID'}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 mt-8 bg-[#F8F9FA] border-y border-gray-200">
+              <div className="p-5 pr-6 flex flex-col gap-2">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-1">Billed To</span>
+                <span className="text-[0.9rem] text-[#1F2937]">{booking.title || 'Client Name'}</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Phone: {booking.phone || booking.customData?.fld_b_phone || 'N/A'}</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Email: {booking.email || booking.customData?.fld_b_email || 'N/A'}</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Event: {booking.category || 'Event'} — {booking.location || 'Location'}</span>
+              </div>
+              <div className="p-5 pl-6 flex flex-col gap-2 border-l border-gray-200">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-1">From</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Moondot Studio</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Photography & Videography</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Chennai, Tamil Nadu, India</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Email: hello@moondotstudio.in</span>
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <h3 className="text-[0.7rem] font-black text-[#1F2937] tracking-[0.15em] uppercase mb-3">Package & Services</h3>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#1F2937] text-white">
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[5%]">#</th>
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[55%]">DESCRIPTION</th>
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[10%]">QTY</th>
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[15%]">RATE (₹)</th>
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[15%]">AMOUNT (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.isArray(booking.inclusions) && booking.inclusions.length > 0 ? booking.inclusions.map((item, idx) => (
+                    <tr key={idx} className="border-b border-gray-100">
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx + 1}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{item}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking.package || 0).toFixed(2) : "0.00"}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking.package || 0).toFixed(2) : "0.00"}</td>
+                    </tr>
+                  )) : (
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{booking.category || 'Standard'} Package</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking.package || 0).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking.package || 0).toFixed(2)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-8 flex justify-end">
+              <div className="w-[320px] flex flex-col">
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
+                  <span>Subtotal</span>
+                  <span>₹{Number(booking.package || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
+                  <span>Tax / GST (0%)</span>
+                  <span>₹0.00</span>
+                </div>
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
+                  <span className="text-[#1F2937]">Total Amount</span>
+                  <span className="text-[#B66D42]">₹{Number(booking.package || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
+                  <span>Paid</span>
+                  <span>₹{Number(booking.advance || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
+                  <span className="text-[#1F2937]">Balance Due</span>
+                  <span className="text-[#B66D42]">₹{Number(booking.due || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-end pt-3 text-[0.65rem] font-bold text-[#B66D42] tracking-wider uppercase">
+                  PAYMENT PROGRESS: <span className="ml-2">{Math.round(((Number(booking.advance || 0)) / (Number(booking.package || 1) || 1)) * 100)}% Paid</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-16">
+              <h3 className="text-[0.7rem] font-black text-[#1F2937] tracking-[0.15em] uppercase mb-4 text-right">Terms & Notes</h3>
+              <div className="text-[0.85rem] text-[#1F2937] space-y-2.5">
+                <p className="flex items-start gap-2"><span className="text-[#B66D42] font-bold">—</span> A 50% advance is required to confirm the booking; the balance is due on or before the event date.</p>
+                <p className="flex items-start gap-2"><span className="text-[#B66D42] font-bold">—</span> Edited photos and the highlight film will be delivered within 6–8 weeks of the event.</p>
+                <p className="flex items-start gap-2"><span className="text-[#B66D42] font-bold">—</span> Final printed album delivery timelines depend on the album size and design revisions chosen.</p>
+                <p className="flex items-start gap-2"><span className="text-[#B66D42] font-bold">—</span> Cancellations within 15 days of the event date are non-refundable.</p>
+              </div>
+              <p className="text-[#B66D42] italic text-[0.95rem] mt-6" style={{ fontFamily: 'Georgia, serif' }}>Thank you for choosing Moondot Studio to capture your celebration.</p>
+            </div>
+         </div>
+      </div>
     </Dialog>
   );
 }
