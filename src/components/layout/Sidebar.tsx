@@ -1,32 +1,41 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
+  const { data: session } = useSession();
+  
+  // Default to STAFF if role is undefined, or handle safely
+  const userRole = (session?.user as any)?.role || "STAFF";
 
   const navItems = [
-    { name: "Dashboard", path: "/dashboard/overview", icon: "ph-house" },
-    { name: "Bookings", path: "/bookings/overview", icon: "ph-calendar-blank" },
-    { name: "Transactions", path: "/dashboard/transactions/overview", icon: "ph-file-text" },
-    { name: "Gifts & Frames", path: "/dashboard/gifts", icon: "ph-gift" },
-    { name: "Analytics", path: "/dashboard/analytics", icon: "ph-chart-bar" },
+    { name: "Dashboard", path: "/dashboard/overview", icon: "ph-house", roles: ["ADMIN", "STAFF", "PHOTOGRAPHER"] },
+    { name: "Bookings", path: "/bookings/overview", icon: "ph-calendar-blank", roles: ["ADMIN", "STAFF", "PHOTOGRAPHER"] },
+    { name: "Transactions", path: "/transactions/overview", icon: "ph-file-text", roles: ["ADMIN", "STAFF"] },
+    { name: "Gifts & Frames", path: "/gifts", icon: "ph-gift", roles: ["ADMIN", "STAFF"] },
+    { name: "Analytics", path: "/analytics", icon: "ph-chart-bar", roles: ["ADMIN"] },
   ];
+
+  const visibleNavItems = navItems.filter(item => item.roles.includes(userRole));
 
   return (
     <aside className="w-[220px] bg-white border-r border-gray-200 flex flex-col py-8 px-4 z-10 shadow-[4px_0_15px_-3px_rgba(0,0,0,0.05)]">
-      <div className="hover:scale-105 transition-transform cursor-pointer mb-2 px-1 flex justify-center">
-        <img src="/assets/logo.png" alt="Kanakkupulla Logo" className="w-[150px] object-contain drop-shadow-sm" />
+      <div className="hover:scale-105 transition-transform cursor-pointer mb-2 flex justify-center w-full">
+        <Image src="/assets/logo.png" alt="Kanakkupulla Logo" width={220} height={60} priority className="object-contain drop-shadow-sm w-[200px] h-auto scale-125 origin-center" />
       </div>
       
       <ul className="list-none mt-10 flex flex-col gap-2">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = pathname.startsWith(item.path) || (item.name === "Bookings" && pathname.startsWith("/bookings"));
           return (
             <li key={item.path}>
               <Link 
                 href={item.path} 
+                prefetch={true}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl no-underline font-bold text-[0.9rem] transition-all duration-150 ${
                   isActive 
                     ? 'bg-orange-500 text-white shadow-[0_4px_10px_rgba(249,115,22,0.3)]' 
@@ -40,6 +49,21 @@ export default function Sidebar() {
         })}
       </ul>
       
+      <div className="mt-auto flex flex-col gap-3">
+        {userRole === "ADMIN" && (
+          <Link 
+            href="/settings" 
+            prefetch={true}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl no-underline font-bold text-[0.9rem] transition-all duration-150 ${
+              pathname.startsWith('/settings')
+                ? 'bg-orange-500 text-white shadow-[0_4px_10px_rgba(249,115,22,0.3)]'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
+            }`}
+          >
+            <i className={`ph-fill ph-gear text-lg ${pathname.startsWith('/settings') ? 'text-white' : 'text-slate-400'}`}></i> Settings
+          </Link>
+        )}
+      </div>
     </aside>
   );
 }

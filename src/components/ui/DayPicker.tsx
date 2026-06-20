@@ -13,6 +13,16 @@ interface DayPickerProps {
 export default function DayPicker({ currentDate, onChange, onClose, mode = 'day', align = 'left' }: DayPickerProps) {
   const [viewDate, setViewDate] = useState(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
   const containerRef = useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom');
+
+  useEffect(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.bottom > window.innerHeight) {
+        setPlacement('top');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -71,7 +81,7 @@ export default function DayPicker({ currentDate, onChange, onClose, mode = 'day'
   return (
     <div 
       ref={containerRef}
-      className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2 bg-white border border-gray-200 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] z-[1000] w-[320px] p-5`}
+      className={`absolute ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0' : 'left-0'} bg-white border border-gray-200 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] z-[1000] w-[320px] p-5`}
     >
       {mode === 'month' ? (
         <>

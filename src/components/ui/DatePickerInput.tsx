@@ -9,9 +9,10 @@ interface DatePickerInputProps {
   placeholder?: string;
   hasError?: boolean;
   mode?: 'day' | 'week' | 'month';
+  className?: string;
 }
 
-export default function DatePickerInput({ value, onChange, placeholder, hasError, mode = 'day' }: DatePickerInputProps) {
+export default function DatePickerInput({ value, onChange, placeholder, hasError, mode = 'day', className }: DatePickerInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,17 +53,19 @@ export default function DatePickerInput({ value, onChange, placeholder, hasError
       const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       return `${startStr} - ${endStr}`;
     }
-    
-    return value; // 'day' mode, just return the date string, or we could format it
+    const d = String(parsedDate.getDate()).padStart(2, '0');
+    const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+    const y = String(parsedDate.getFullYear()).slice(-2);
+    return `${d}/${m}/${y}`;
   };
 
   return (
     <div ref={containerRef} className="relative w-full">
       <div 
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] transition-all duration-300 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 active:scale-95 ${hasError ? 'border-red-50 ring-2 ring-red-500/20' : isOpen ? 'border-orange-300 ring-2 ring-orange-500/20' : 'border-gray-200'}`}
+        className={className || `flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] transition-all duration-300 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 active:scale-95 ${hasError ? 'border-red-50 ring-2 ring-red-500/20' : isOpen ? 'border-orange-300 ring-2 ring-orange-500/20' : 'border-gray-200'}`}
       >
-        <span className={`flex-1 transition-colors duration-300 ${value ? 'text-slate-900 font-bold' : 'text-slate-400 font-medium'}`}>
+        <span className={`flex-1 truncate transition-colors duration-300 ${value ? 'text-slate-900 font-bold' : 'text-slate-400 font-medium'}`}>
           {getDisplayValue()}
         </span>
         <i className={`ph-bold ph-calendar-blank text-[1.1rem] transition-colors duration-300 ${isOpen ? 'text-orange-500' : 'text-slate-400'}`}></i>

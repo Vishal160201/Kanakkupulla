@@ -5,13 +5,13 @@ export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const isAuth = !!token;
-    const isAuthPage = req.nextUrl.pathname.startsWith('/login') || req.nextUrl.pathname.startsWith('/signup');
+    const isAuthPage = req.nextUrl.pathname.startsWith('/login');
     
     if (isAuthPage) {
       if (isAuth) {
         return NextResponse.redirect(new URL('/dashboard/overview', req.url));
       }
-      return null;
+      return NextResponse.next();
     }
 
     if (!isAuth) {
@@ -19,11 +19,13 @@ export default withAuth(
     }
 
     // Role-based Access Control
-    const isAdminRoute = req.nextUrl.pathname.startsWith('/dashboard/analytics');
-    if (isAdminRoute && token.role !== 'ADMIN') {
+    const isAdminRoute = req.nextUrl.pathname.startsWith('/analytics');
+    if (isAdminRoute && token?.role !== 'ADMIN') {
       // If a non-admin tries to access admin routes, redirect to dashboard overview
       return NextResponse.redirect(new URL('/dashboard/overview', req.url));
     }
+    
+    return NextResponse.next();
   },
   {
     callbacks: {
@@ -32,10 +34,10 @@ export default withAuth(
     pages: {
       signIn: "/login",
     },
-    secret: process.env.NEXTAUTH_SECRET || "super-secret-fallback-key-for-development",
+    secret: process.env.NEXTAUTH_SECRET as string,
   }
 );
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/bookings/:path*", "/login", "/signup"],
+  matcher: ["/dashboard/:path*", "/bookings/:path*", "/transactions/:path*", "/analytics/:path*", "/gifts/:path*", "/settings/:path*", "/login"],
 };

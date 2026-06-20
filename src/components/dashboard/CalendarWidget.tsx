@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useBookings } from "../providers/BookingProvider";
+import { useRouter } from "next/navigation";
 import MonthYearPicker from "../ui/MonthYearPicker";
 import WeekPicker from "../ui/WeekPicker";
 import DayPicker from "../ui/DayPicker";
 import { Booking } from "@/types";
+import { useSystem } from "@/components/providers/SystemProvider";
 
 export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
-  const { setActiveDetailsBooking, setIsAddModalOpen, setSelectedDateForNew } = useBookings();
+  const router = useRouter();
+  const { preferences } = useSystem();
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // June 2026 default
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [popupDate, setPopupDate] = useState<string | null>(null);
 
   const nextRange = () => {
     const d = new Date(currentDate);
@@ -30,11 +33,16 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
   };
 
   // Helper to format category for rendering
-  const getCategoryClass = (cat: string) => {
-    if (cat === 'Fashion') return 'orange';
-    if (cat === 'Wedding') return 'blue';
-    if (cat === 'Corporate') return 'green';
-    return '';
+  const getTierStyles = (pkgAmountStr: string | null | undefined) => {
+    const pkgAmount = parseFloat(pkgAmountStr || "0");
+    if (preferences?.calendarTiers) {
+      for (const tier of preferences.calendarTiers) {
+        if (pkgAmount <= tier.max) {
+          return { bg: tier.bg, color: tier.text };
+        }
+      }
+    }
+    return { bg: '#ffedd5', color: '#ea580c' }; // fallback
   };
 
   const renderMonthGrid = () => {
@@ -66,23 +74,64 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
       const isToday = i === today.getDate() && month === today.getMonth() && year === today.getFullYear();
       
       const handleCellClick = () => {
-        setSelectedDateForNew(dateString);
-        setIsAddModalOpen(true);
+        router.push(`/bookings/new?date=${dateString}`);
       };
 
       cells.push(
-        <div key={i} className="calendar-cell interactive" style={{ cursor: 'pointer' }} onClick={handleCellClick}>
+        <div key={i} className="calendar-cell interactive" style={{ cursor: 'pointer', position: 'relative' }} onClick={handleCellClick}>
           {isToday ? (
             <div className="calendar-date" style={{ color: "var(--brand-orange)", fontWeight: 800 }}>{i} <span style={{ fontSize: "0.7rem", marginLeft: "5px" }}>Today</span></div>
           ) : (
             <div className="calendar-date" style={{ fontWeight: dayBookings.length > 0 ? 800 : 400 }}>{i}</div>
           )}
           
-          {dayBookings.map(b => (
-            <div key={b.id} className={`calendar-event ${getCategoryClass(b.category)}`} onClick={(e) => { e.stopPropagation(); setActiveDetailsBooking(b); }}>
-              <i className="ph-fill ph-calendar-star"></i> {b.title.substring(0, 10)}...
+          {dayBookings.slice(0, 2).map(b => {
+            const styles = getTierStyles(b.package);
+            return (
+              <div key={b.id} className="calendar-event" style={{ backgroundColor: styles.bg, color: styles.color, border: 'none', marginBottom: '2px', padding: '3px 6px', fontSize: '0.65rem', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); router.push(`/bookings/details/${b.id}`); }}>
+                <i className="ph-fill ph-calendar-star"></i> {b.title.substring(0, 10)}...
+              </div>
+            );
+          })}
+
+          {dayBookings.length > 2 && (
+            <div 
+              className="calendar-event-more" 
+              style={{ fontSize: '0.6rem', color: '#94a3b8', textAlign: 'center', cursor: 'pointer', fontWeight: 800, padding: '2px', borderRadius: '4px', background: 'transparent', margin: '2px 0 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}
+              onClick={(e) => { e.stopPropagation(); setPopupDate(popupDate === dateString ? null : dateString); }}
+            >
+              +{dayBookings.length - 2} more <i className="ph-bold ph-caret-down text-[0.5rem]"></i>
             </div>
-          ))}
+          )}
+
+          {popupDate === dateString && (
+            <div className="absolute z-[100] bg-white shadow-2xl border border-gray-200 rounded-xl p-2.5 top-[70%] left-1/2 -translate-x-1/2 min-w-[160px]" style={{ width: 'max-content' }}>
+              <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-1 border-b border-gray-100 pb-1 flex justify-between items-center">
+                <span>{new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</span>
+                <div 
+                  className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-slate-200 text-slate-500"
+                  onClick={(e) => { e.stopPropagation(); setPopupDate(null); }}
+                >
+                  <i className="ph-bold ph-x text-[0.6rem]"></i>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto no-scrollbar">
+                {dayBookings.map(b => {
+                  const styles = getTierStyles(b.package);
+                  return (
+                    <div 
+                      key={b.id} 
+                      className="px-2.5 py-1.5 rounded-lg text-[0.75rem] font-extrabold cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-sm" 
+                      style={{ backgroundColor: styles.bg, color: styles.color }} 
+                      onClick={(e) => { e.stopPropagation(); router.push(`/bookings/details/${b.id}`); setPopupDate(null); }}
+                    >
+                      <i className="ph-fill ph-calendar-star mr-1"></i> {b.title}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -106,14 +155,12 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
       }
       const topOffset = (startHour - 8) * 60;
       if (topOffset >= 0 && topOffset < 12 * 60) {
-        let bg = '#fef2eb', color = '#e65100'; // Default Orange
-        if (b.category === 'Wedding') { bg = '#e8f0fe'; color = '#1a73e8'; } // Blue
-        else if (b.category === 'Corporate') { bg = '#e6f4ea'; color = '#137333'; } // Green
+        const styles = getTierStyles(b.package);
 
         return (
-          <div key={b.id} className="event-block" style={{ top: topOffset, height: 50, backgroundColor: bg, color }} onClick={(e) => { e.stopPropagation(); setActiveDetailsBooking(b); }}>
-            <div className="event-block-title">{b.title}</div>
-            <div className="event-block-time">{b.time}</div>
+          <div key={b.id} className="event-block" style={{ top: topOffset, height: 50, backgroundColor: styles.bg, color: styles.color, border: 'none', borderLeft: '3px solid rgba(0,0,0,0.1)' }} onClick={(e) => { e.stopPropagation(); router.push(`/bookings/details/${b.id}`); }}>
+            <div className="event-block-title" style={{ fontWeight: 800 }}>{b.title}</div>
+            <div className="event-block-time" style={{ opacity: 0.9 }}>{b.time}</div>
           </div>
         );
       }
@@ -141,8 +188,7 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
       const isToday = loopDate.toDateString() === new Date().toDateString();
 
       const handleColClick = () => {
-        setSelectedDateForNew(dateString);
-        setIsAddModalOpen(true);
+        router.push(`/bookings/new?date=${dateString}`);
       };
 
       return {
@@ -177,8 +223,7 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
     const isToday = currentDate.toDateString() === new Date().toDateString();
 
     const handleColClick = () => {
-      setSelectedDateForNew(dateString);
-      setIsAddModalOpen(true);
+      router.push(`/bookings/new?date=${dateString}`);
     };
 
     return (
@@ -261,6 +306,24 @@ export default function CalendarWidget({ bookings }: { bookings: Booking[] }) {
         )}
         {view === 'week' && <div className="calendar-time-grid">{renderWeekGrid()}</div>}
         {view === 'day' && <div className="calendar-time-grid">{renderDayGrid()}</div>}
+      </div>
+
+      <div className="flex justify-end items-center gap-4 pt-4 px-2 mt-auto border-t border-gray-100">
+        <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mr-2">Package Value:</div>
+        {preferences?.calendarTiers?.map((tier: any, index: number) => {
+          const prevMax = index > 0 ? preferences.calendarTiers[index - 1].max : 0;
+          let label = "";
+          if (index === 0) label = `< ${tier.max / 1000}k`;
+          else if (index === preferences.calendarTiers.length - 1) label = `${prevMax / 1000}k+`;
+          else label = `${prevMax / 1000}k - ${tier.max / 1000}k`;
+
+          return (
+            <div key={index} className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tier.bg }}></div>
+              <span className="text-[0.7rem] font-semibold text-slate-500">{label}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

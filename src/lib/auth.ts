@@ -8,7 +8,7 @@ import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  secret: process.env.NEXTAUTH_SECRET || "super-secret-fallback-key-for-development",
+  secret: process.env.NEXTAUTH_SECRET as string,
   session: {
     strategy: "jwt",
   },
@@ -17,12 +17,12 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "mock-google-client-id",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "mock-google-client-secret",
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     }),
     AppleProvider({
-      clientId: process.env.APPLE_ID || "mock-apple-id",
-      clientSecret: process.env.APPLE_SECRET || "mock-apple-secret",
+      clientId: process.env.APPLE_ID as string,
+      clientSecret: process.env.APPLE_SECRET as string,
     }),
     CredentialsProvider({
       name: "credentials",
@@ -37,12 +37,20 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email,
+            email: credentials.email.toLowerCase(),
           },
         });
 
         if (!user || !user?.password) {
           throw new Error("Invalid credentials");
+        }
+
+        if (user.status === "PENDING") {
+          throw new Error("Approval pending");
+        }
+
+        if (user.status === "INACTIVE") {
+          throw new Error("Account deactivated");
         }
 
         const isCorrectPassword = await bcrypt.compare(
@@ -51,6 +59,17 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isCorrectPassword) {
+          // Check if the entered password matches an active temporary password
+          const tempToken = await prisma.passwordResetToken.findUnique({
+            where: { token: credentials.password },
+          });
+
+          if (tempToken && tempToken.email.toLowerCase() === credentials.email.toLowerCase()) {
+            const hasExpired = new Date(tempToken.expires) < new Date();
+            if (!hasExpired) {
+              throw new Error(`TEMPORARY_PASSWORD:${tempToken.token}`);
+            }
+          }
           throw new Error("Invalid credentials");
         }
 

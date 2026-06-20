@@ -7,10 +7,9 @@ import PillSelect from "@/components/ui/PillSelect";
 import { toast } from "sonner";
 import { TRANSACTION_CATEGORIES, PAYMENT_MODES } from "@/lib/transactionConstants";
 
+import { useRouter } from "next/navigation";
+
 interface TransactionModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
   /** Pass a transaction object to enter edit mode */
   editTransaction?: {
     id: string;
@@ -37,7 +36,12 @@ const EMPTY_FORM = {
   status: "SETTLED",
 };
 
-export default function TransactionModal({ isOpen, onClose, onSuccess, editTransaction }: TransactionModalProps) {
+export default function TransactionModal({ editTransaction }: TransactionModalProps) {
+  const router = useRouter();
+  const isOpen = true;
+  const onClose = () => router.back();
+  const onSuccess = () => router.refresh();
+
   const [form, setForm] = useState(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});

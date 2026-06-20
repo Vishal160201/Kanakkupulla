@@ -17,32 +17,40 @@ model Client {
 }
 
 model Order {
-  id          String   @id @default(cuid())
-  bookingId   String   @unique
-  booking     Booking  @relation(fields: [bookingId], references: [id])
-  package     Float    @default(0)
-  advance     Float    @default(0)
-  due         Float    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  bookingId    String   @unique
+  booking      Booking  @relation(fields: [bookingId], references: [id])
+  package      Float    @default(0)
+  advance      Float    @default(0)
+  due          Float    @default(0)
+  installments Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Booking {
-  id          String   @id @default(cuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
-  category    String   @default("Wedding")
-  date        DateTime
-  time        String
-  location    String
-  status      String   @default("Confirmed") // "Confirmed" | "Pending" | "Partial"
-  galleryUrl  String?  @db.Text
-  contractUrl String?  @db.Text
-  deletedAt   DateTime? // Soft delete flag
-  order       Order?
-  transactions Transaction[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String        @id @default(cuid())
+  bookingNumber String?       @unique
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id])
+  category      String        @default("Wedding")
+  date          DateTime
+  time          String
+  location      String
+  status        String        @default("Confirmed") // "Confirmed" | "Pending" | "Partial"
+  galleryUrl    String?       @db.Text
+  contractUrl   String?       @db.Text
+  customData    Json? // Stores dynamic form fields
+  packageName   String?
+  inclusions    Json? // Array of inclusion strings
+  notes         String?       @db.Text
+  attachments   Json? // Array of attachment objects/urls
+  photographers Json? // Array of user IDs assigned
+  deletedAt     DateTime? // Soft delete flag
+  order         Order?
+  transactions  Transaction[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([date])
   @@index([clientId])
@@ -60,13 +68,14 @@ model SystemLog {
 model Transaction {
   id            String   @id @default(cuid())
   amount        Float
-  type          String   // "INCOME" | "EXPENSE"
+  type          String // "INCOME" | "EXPENSE"
   date          DateTime
   category      String
   paymentMode   String
   description   String?  @db.Text
   status        String   @default("SETTLED") // "SETTLED" | "PENDING"
   attachmentUrl String?  @db.Text
+  customData    Json? // Stores dynamic form fields
   bookingId     String?
   booking       Booking? @relation(fields: [bookingId], references: [id])
   userId        String?
@@ -82,18 +91,18 @@ model Transaction {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.Text
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -114,17 +123,35 @@ enum Role {
   PHOTOGRAPHER
 }
 
+enum UserStatus {
+  ACTIVE
+  PENDING
+  INACTIVE
+}
+
 model User {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?       @unique
   emailVerified DateTime?
   password      String?
   image         String?
-  role          Role      @default(STAFF)
+  role          Role          @default(STAFF)
+  status        UserStatus    @default(ACTIVE)
+  invitedAt     DateTime?
   accounts      Account[]
   sessions      Session[]
   transactions  Transaction[]
+}
+
+model RolePermission {
+  id         String  @id @default(cuid())
+  role       Role
+  permission String
+  enabled    Boolean @default(false)
+
+  @@unique([role, permission])
+  @@index([role])
 }
 
 model VerificationToken {
@@ -134,6 +161,16 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model PasswordResetToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
 
 model Product {
   id          String         @id @default(cuid())
@@ -156,4 +193,22 @@ model ProductOrder {
   clientPhone String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model FormLayout {
+  id          String   @id @default(cuid())
+  formKey     String   @unique // e.g., "BOOKING_FORM", "TRANSACTION_FORM"
+  name        String
+  description String?
+  schema      Json // Stores sections, fields, types, and mandatory rules
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

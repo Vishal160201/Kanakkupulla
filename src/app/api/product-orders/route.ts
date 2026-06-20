@@ -1,0 +1,72 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+
+export async function GET(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const productOrders = await prisma.productOrder.findMany({
+      include: {
+        product: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(productOrders, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  } catch (error) {
+    console.error("Error fetching product orders:", error);
+    return NextResponse.json({ error: "Failed to fetch product orders" }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { productId, quantity, status, clientName, clientPhone } = body;
+
+    if (!productId || !clientName) {
+      return NextResponse.json({ error: "Product ID and client name are required" }, { status: 422 });
+    }
+
+    const newProductOrder = await prisma.productOrder.create({
+      data: {
+        productId,
+        quantity: parseInt(quantity || "1", 10),
+        status: status || "PENDING",
+        clientName: clientName.trim(),
+        clientPhone: clientPhone?.trim(),
+      },
+      include: {
+        product: true,
+      }
+    });
+
+    await prisma.systemLog.create({
+      data: {
+        action: "PRODUCT_ORDER_CREATED",
+        details: `Created product order ID: ${newProductOrder.id} for product ${newProductOrder.product.name}`,
+        userId: (session.user as any).id,
+      }
+    });
+
+    return NextResponse.json(newProductOrder, {
+      status: 201,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  } catch (error) {
+    console.error("Error creating product order:", error);
+    return NextResponse.json({ error: "Failed to create product order" }, { status: 500 });
+  }
+}

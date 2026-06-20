@@ -4,15 +4,16 @@ export const bookingSchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, "Client name is required"),
   category: z.string(),
-  date: z.string(),
-  time: z.string(),
-  location: z.string().min(1, "Location is required"),
-  phone: z.string().min(1, "Phone number is required"),
+  date: z.string().optional().or(z.literal("")),
+  time: z.string().optional().or(z.literal("")),
+  location: z.string().optional().or(z.literal("")),
+  phone: z.string().optional().or(z.literal("")),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   package: z.string().optional(),
   advance: z.string().optional(),
   due: z.string().optional(),
-  status: z.enum(['Confirmed', 'Pending', 'Partial']),
-});
+  installments: z.string().optional(),
+  status: z.string(),
+}).catchall(z.any());
 
 export type BookingFormData = z.infer<typeof bookingSchema>;
