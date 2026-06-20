@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface FormField {
   id: string;
@@ -1101,16 +1102,16 @@ export default function LayoutsFieldsBuilder() {
             <div className="space-y-4 mb-6">
               <div>
                 <label className="text-[0.7rem] font-bold text-slate-500 uppercase tracking-wider mb-2 block">Replacement Value</label>
-                <select
-                  value={migrationValue}
-                  onChange={(e) => setMigrationValue(e.target.value)}
-                  className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-orange-400 focus:bg-white transition-colors"
-                >
-                  <option value="" disabled>Select an option...</option>
-                  {usageModalData.availableOptions.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
+                <Select value={migrationValue} onValueChange={(val) => setMigrationValue(val || "")}>
+                  <SelectTrigger className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 h-[46px] outline-none focus:border-orange-400 focus:bg-white transition-colors">
+                    <SelectValue placeholder="Select an option..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usageModalData.availableOptions.map(opt => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="flex gap-3">
