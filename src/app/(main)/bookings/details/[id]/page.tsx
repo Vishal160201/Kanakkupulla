@@ -27,7 +27,13 @@ export default async function BookingDetailsPage({ params }: { params: Promise<{
     advance: booking.order?.advance.toString() || '',
     due: booking.order?.due.toString() || '',
     status: booking.status as any,
-    customData: booking.customData as Record<string, any> | null
+    customData: booking.customData as Record<string, any> | null,
+    createdAt: booking.createdAt.toISOString(),
+    updatedAt: booking.updatedAt.toISOString(),
+    inclusions: booking.inclusions,
+    notes: booking.notes,
+    attachments: booking.attachments,
+    photographers: booking.photographers,
   };
 
   return (
