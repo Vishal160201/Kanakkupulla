@@ -439,7 +439,8 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                                        {booking.status === opt.label && <i className="ph-bold ph-check ml-auto text-slate-400"></i>}
                                      </button>
                                    ))}
-                                </div>
+                                 </div>
+                                </>
                               )}
                             </div>
                          )}
