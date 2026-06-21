@@ -10,9 +10,10 @@ interface UserPicklistProps {
   onChange: (val: string) => void;
   placeholder?: string;
   error?: boolean;
+  showAvailability?: boolean;
 }
 
-export default function UserPicklist({ users, value, onChange, placeholder = "Select user...", error }: UserPicklistProps) {
+export default function UserPicklist({ users, value, onChange, placeholder = "Select user...", error, showAvailability = false }: UserPicklistProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -85,20 +86,24 @@ export default function UserPicklist({ users, value, onChange, placeholder = "Se
                 >
                   <div className="flex items-center gap-3">
                     {u.image ? (
-                      <img src={u.image} alt={u.name} className={`w-8 h-8 rounded-full object-cover shadow-sm border border-white ${u.isBusy ? 'grayscale opacity-60' : ''}`} />
+                      <img src={u.image} alt={u.name} className={`w-8 h-8 rounded-full object-cover shadow-sm border border-white ${showAvailability && u.isBusy ? 'grayscale opacity-60' : ''}`} />
                     ) : (
-                      <div className={`w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[0.7rem] font-bold shadow-sm border border-white shrink-0 ${u.isBusy ? 'text-slate-400' : 'text-slate-600'}`}>
+                      <div className={`w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[0.7rem] font-bold shadow-sm border border-white shrink-0 ${showAvailability && u.isBusy ? 'text-slate-400' : 'text-slate-600'}`}>
                         {getInitials(u.name)}
                       </div>
                     )}
                     <div className="flex flex-col">
-                      <span className={`text-[0.85rem] font-bold ${isSelected ? 'text-orange-700' : (u.isBusy ? 'text-slate-400 line-through' : 'text-slate-700')}`}>{u.name}</span>
+                      <span className={`text-[0.85rem] font-bold ${isSelected ? 'text-orange-700' : (showAvailability && u.isBusy ? 'text-slate-400 line-through' : 'text-slate-700')}`}>{u.name}</span>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="text-[0.6rem] font-semibold text-slate-400 uppercase tracking-wider">{u.role}</span>
-                        <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-                        <span className={`text-[0.6rem] font-bold uppercase tracking-wider ${u.isBusy ? 'text-red-500' : 'text-emerald-500'}`}>
-                          {u.isBusy ? 'Busy' : 'Available'}
-                        </span>
+                        {showAvailability && (
+                          <>
+                            <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                            <span className={`text-[0.6rem] font-bold uppercase tracking-wider ${u.isBusy ? 'text-red-500' : 'text-emerald-500'}`}>
+                              {u.isBusy ? 'Busy' : 'Available'}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

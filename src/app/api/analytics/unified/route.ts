@@ -40,7 +40,8 @@ export async function GET(req: Request) {
       completedShootsCount,
       pendingRetouch,
       totalExpensesAgg,
-      upcomingShootsCount
+      upcomingShootsCount,
+      upcomingDuesAgg
     ] = await Promise.all([
       // 1. Total all-time earnings
       prisma.transaction.aggregate({
@@ -90,11 +91,23 @@ export async function GET(req: Request) {
           }
         }
       }),
-      // 6. Upcoming shoots
       prisma.booking.count({
         where: {
           deletedAt: null,
           date: { gte: today }
+        }
+      }),
+      // 7. Upcoming Dues (14d)
+      prisma.order.aggregate({
+        _sum: { due: true },
+        where: {
+          booking: {
+            deletedAt: null,
+            date: {
+              gte: today,
+              lte: new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000)
+            }
+          }
         }
       })
     ]);
@@ -113,7 +126,8 @@ export async function GET(req: Request) {
         completedShoots: completedShootsCount,
         pendingRetouch: pendingRetouch,
         upcomingShoots: upcomingShootsCount,
-        growthVelocity: growthVelocity
+        growthVelocity: growthVelocity,
+        pendingDueAmount: upcomingDuesAgg?._sum?.due ? Number(upcomingDuesAgg._sum.due) : 0
       }
     });
 

@@ -17,7 +17,7 @@ export default function Sidebar() {
   const navItems = [
     { name: "Dashboard", path: "/dashboard/overview", icon: "ph-house", roles: ["ADMIN", "STAFF", "PHOTOGRAPHER"] },
     { name: "Bookings", path: "/bookings/overview", icon: "ph-calendar-blank", roles: ["ADMIN", "STAFF", "PHOTOGRAPHER"] },
-    { name: "Transactions", path: "/transactions/overview", icon: "ph-file-text", roles: ["ADMIN", "STAFF"] },
+    { name: "Daily kanakku", path: "/transactions/overview", icon: "ph-file-text", roles: ["ADMIN", "STAFF"] },
     { name: "Gifts & Frames", path: "/gifts", icon: "ph-gift", roles: ["ADMIN", "STAFF"] },
     { name: "Analytics", path: "/analytics", icon: "ph-chart-bar", roles: ["ADMIN"] },
   ];

@@ -31,7 +31,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
   const clientSuggestions: string[] = [];
   const locationSuggestions: string[] = [];
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<BookingFormData>({
+  const { register, handleSubmit, reset, setValue, watch, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
       title: '', category: 'Wedding', date: '', time: '10:00 AM', 
@@ -90,6 +90,19 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
   useEffect(() => {
     if (bookingsData) setAllBookings(bookingsData);
   }, [bookingsData]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (statusDropdownOpen) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.custom-dropdown-container')) {
+          setStatusDropdownOpen(null);
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [statusDropdownOpen]);
 
   useEffect(() => {
     if (isAddModalOpen) {
@@ -177,20 +190,107 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     }
   }, [watch('package'), watch('advance'), installments, setValue, watch]);
 
-  useEffect(() => {
+  // The previous useEffect that registered all mandatory fields was removed to support dynamic visibility.
+  // We now register mandatory fields manually inside `renderField` and handle custom component validation inside `onSubmit`.
+  
+  const formValues = watch();
+
+  const evaluateVisibility = (rule: any) => {
+    if (!rule || !rule.fieldId) return true;
+    const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
+    const depValue = formValues[depFieldName as keyof BookingFormData];
+    
+    if (rule.operator === 'EQUALS') {
+      return depValue === rule.value;
+    } else if (rule.operator === 'NOT_EQUALS') {
+      return depValue !== rule.value;
+    } else if (rule.operator === 'CONTAINS') {
+      if (typeof depValue === 'string') {
+        return depValue.includes(rule.value);
+      }
+      if (Array.isArray(depValue)) {
+        return depValue.includes(rule.value);
+      }
+      return false;
+    }
+    return true;
+  };
+
+  const onSubmit = async (data: BookingFormData) => {
+    let hasManualErrors = false;
+    clearErrors();
+
+    // Evaluate visibility and apply manual validation for custom/hidden fields
     if (layoutSchema && layoutSchema.sections) {
       layoutSchema.sections.forEach((section: any) => {
+        const secVisible = evaluateVisibility(section.visibilityRule);
+        if (!secVisible) return;
+        
         section.fields.forEach((field: any) => {
+          const fieldVisible = evaluateVisibility(field.visibilityRule);
+          if (!fieldVisible) return;
+          
           const fieldName = standardFieldMap[field.id] || field.id;
-          if (field.mandatory) {
-            register(fieldName as any, { required: `${field.name} is required` });
+          
+          // Manual required check for fields that use setValue (not natively registered with required)
+          // or fields that bypassed native validation
+          if (field.mandatory && (!data[fieldName as keyof BookingFormData] || (Array.isArray(data[fieldName as keyof BookingFormData]) && data[fieldName as keyof BookingFormData].length === 0))) {
+             setError(fieldName as any, { type: 'manual', message: `${field.name} is required` });
+             hasManualErrors = true;
           }
         });
       });
     }
-  }, [layoutSchema, register]);
 
-  const onSubmit = async (data: BookingFormData) => {
+    if (hasManualErrors) {
+      // Find the first manual error field to scroll to
+      let firstErrField = null;
+      if (layoutSchema && layoutSchema.sections) {
+        for (const section of layoutSchema.sections) {
+          if (firstErrField) break;
+          if (!evaluateVisibility(section.visibilityRule)) continue;
+          
+          for (const field of section.fields) {
+            if (!evaluateVisibility(field.visibilityRule)) continue;
+            const fieldName = standardFieldMap[field.id] || field.id;
+            if (field.mandatory && (!data[fieldName as keyof BookingFormData] || (Array.isArray(data[fieldName as keyof BookingFormData]) && data[fieldName as keyof BookingFormData].length === 0))) {
+              firstErrField = fieldName;
+              break;
+            }
+          }
+        }
+      }
+
+      if (firstErrField) {
+        setTimeout(() => {
+          const element = document.getElementById(`field-container-${firstErrField}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Flash red background momentarily for better UX
+            element.classList.add('bg-red-50', 'p-2', 'rounded-xl', 'transition-colors', 'duration-500');
+            setTimeout(() => {
+              element.classList.remove('bg-red-50', 'p-2', 'rounded-xl');
+            }, 1500);
+          }
+        }, 50);
+      }
+      return;
+    }
+
+    // Filter out hidden fields from submission
+    if (layoutSchema && layoutSchema.sections) {
+      layoutSchema.sections.forEach((section: any) => {
+        const secVisible = evaluateVisibility(section.visibilityRule);
+        section.fields.forEach((field: any) => {
+          const fieldVisible = secVisible && evaluateVisibility(field.visibilityRule);
+          const fieldName = standardFieldMap[field.id] || field.id;
+          if (!fieldVisible) {
+             delete data[fieldName as keyof BookingFormData];
+          }
+        });
+      });
+    }
+
     const formDataObj = new FormData();
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) formDataObj.append(key, value as string);
@@ -272,31 +372,54 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
       const opts = field.options || [];
       const currentSelected = watch(fieldName as any) || '';
       const selectedArray = typeof currentSelected === 'string' && currentSelected.trim() ? currentSelected.split(',').map((s:string) => s.trim()) : (Array.isArray(currentSelected) ? currentSelected : []);
+      const isDropdownOpen = statusDropdownOpen === fieldName;
       
       return (
-        <div className="flex flex-wrap gap-2 w-full pt-1">
-          {opts.map((opt: any) => {
-            const label = opt.label || opt.value || opt;
-            const isSelected = selectedArray.includes(label);
-            return (
-              <button
-                type="button"
-                key={label}
-                onClick={() => {
-                  let newSelected = [...selectedArray];
-                  if (isSelected) {
-                    newSelected = newSelected.filter(s => s !== label);
-                  } else {
-                    newSelected.push(label);
-                  }
-                  setValue(fieldName as any, newSelected.join(', '), { shouldValidate: true });
-                }}
-                className={`px-3 py-1.5 text-[0.8rem] font-bold rounded-lg border transition-all ${isSelected ? 'bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-500/20' : 'bg-white text-slate-600 border-gray-200 hover:bg-slate-50'}`}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div className="relative custom-dropdown-container">
+          <button 
+            type="button" 
+            onClick={() => setStatusDropdownOpen(isDropdownOpen ? null : fieldName)}
+            className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] font-medium transition-all hover:bg-slate-50 hover:border-slate-300 ${isError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200'} ${selectedArray.length > 0 ? 'text-slate-800' : 'text-slate-400'}`}
+          >
+            <div className="flex-1 truncate text-left pr-2">
+              {selectedArray.length > 0 ? selectedArray.join(', ') : `Select ${field.name}...`}
+            </div>
+            <i className={`ph-bold ph-caret-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}></i>
+          </button>
+          
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 animate-in fade-in slide-in-from-top-2 max-h-[250px] overflow-y-auto">
+               {opts.map((opt: any, idx: number) => {
+                 const label = opt.label || opt.value || opt;
+                 const isSelected = selectedArray.includes(label);
+                 return (
+                   <label
+                     key={idx}
+                     className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-left text-[0.9rem] font-semibold cursor-pointer transition-colors hover:bg-slate-50 group"
+                   >
+                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-orange-500 border-orange-500' : 'bg-white border-gray-300 group-hover:border-orange-400'}`}>
+                       {isSelected && <i className="ph-bold ph-check text-white text-[0.7rem]"></i>}
+                     </div>
+                     <input 
+                       type="checkbox" 
+                       className="hidden"
+                       checked={isSelected}
+                       onChange={(e) => {
+                         let newSelected = [...selectedArray];
+                         if (e.target.checked) {
+                           newSelected.push(label);
+                         } else {
+                           newSelected = newSelected.filter(s => s !== label);
+                         }
+                         setValue(fieldName as any, newSelected.join(', '), { shouldValidate: true });
+                       }}
+                     />
+                     <span className={`${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>{label}</span>
+                   </label>
+                 );
+               })}
+            </div>
+          )}
         </div>
       );
     }
@@ -307,15 +430,34 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
       const currentOpt = opts.find((o: any) => o.label === currentValue);
       const isDropdownOpen = statusDropdownOpen === fieldName;
 
+      // Handle future date restriction
+      let isRestrictedDate = false;
+      if (field.futureDateRestriction?.enabled && field.futureDateRestriction?.dateFieldId) {
+        const dependentDateFieldName = standardFieldMap[field.futureDateRestriction.dateFieldId] || field.futureDateRestriction.dateFieldId;
+        const dependentDateVal = watch(dependentDateFieldName as any);
+        if (dependentDateVal) {
+          const dateObj = new Date(dependentDateVal);
+          dateObj.setHours(0,0,0,0);
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          if (dateObj > today) {
+            isRestrictedDate = true;
+          }
+        }
+      }
+
       return (
-        <div className="relative">
+        <div className="relative custom-dropdown-container">
           <button 
             type="button" 
             onClick={() => setStatusDropdownOpen(isDropdownOpen ? null : fieldName)}
             className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-300 ${isError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200'}`}
           >
             <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${currentOpt?.color || 'bg-slate-400'}`}></div>
+              <div 
+                className={`w-3 h-3 rounded-full ${!currentOpt?.color?.startsWith('#') ? (currentOpt?.color || 'bg-slate-400') : ''}`}
+                style={currentOpt?.color?.startsWith('#') ? { backgroundColor: currentOpt.color } : {}}
+              ></div>
               <span>{currentValue || 'Select Status'}</span>
             </div>
             <i className={`ph-bold ph-caret-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}></i>
@@ -323,21 +465,29 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
           
           {isDropdownOpen && (
             <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 animate-in fade-in slide-in-from-top-2 max-h-[250px] overflow-y-auto">
-               {opts.map((opt: any, idx: number) => (
+               {opts.map((opt: any, idx: number) => {
+                 const isRestrictedOpt = isRestrictedDate && field.futureDateRestriction?.restrictedStatuses?.includes(opt.label);
+                 return (
                  <button
                    key={idx}
                    type="button"
+                   disabled={isRestrictedOpt}
                    onClick={() => {
                      setValue(fieldName as any, opt.label, { shouldValidate: true });
                      setStatusDropdownOpen(null);
                    }}
-                   className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-left text-[0.9rem] font-bold transition-colors ${currentValue === opt.label ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                   className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-left text-[0.9rem] font-bold transition-colors ${currentValue === opt.label ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'} ${isRestrictedOpt ? 'opacity-50 cursor-not-allowed' : ''}`}
                  >
-                   <div className={`w-3 h-3 rounded-full ${opt.color}`}></div>
+                   <div 
+                     className={`w-3 h-3 rounded-full ${!opt.color?.startsWith('#') ? opt.color : ''} ${isRestrictedOpt ? 'grayscale' : ''}`}
+                     style={opt.color?.startsWith('#') ? { backgroundColor: opt.color } : {}}
+                   ></div>
                    {opt.label}
-                   {currentValue === opt.label && <i className="ph-bold ph-check ml-auto text-slate-400"></i>}
+                   {isRestrictedOpt && <i className="ph-fill ph-lock-key ml-auto text-slate-400" title="Restricted for future dates"></i>}
+                   {!isRestrictedOpt && currentValue === opt.label && <i className="ph-bold ph-check ml-auto text-slate-400"></i>}
                  </button>
-               ))}
+                 );
+               })}
             </div>
           )}
         </div>
@@ -356,12 +506,12 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
 
       if (field.type === 'USER_PICKLIST') {
         return (
-          <UserPicklist users={filteredUsers} value={watch(fieldName as any) || ''} onChange={(val) => setValue(fieldName as any, val, { shouldValidate: true })} placeholder={`Select ${field.name}...`} error={!!isError} />
+          <UserPicklist users={filteredUsers} value={watch(fieldName as any) || ''} onChange={(val) => setValue(fieldName as any, val, { shouldValidate: true })} placeholder={`Select ${field.name}...`} error={!!isError} showAvailability={field.userPicklistConfig?.showAvailability} />
         );
       }
       
       return (
-        <MultiUserPicklist users={filteredUsers} value={watch(fieldName as any) || ''} onChange={(val) => setValue(fieldName as any, val, { shouldValidate: true })} placeholder={`Select ${field.name}...`} error={!!isError} />
+        <MultiUserPicklist users={filteredUsers} value={watch(fieldName as any) || ''} onChange={(val) => setValue(fieldName as any, val, { shouldValidate: true })} placeholder={`Select ${field.name}...`} error={!!isError} showAvailability={field.userPicklistConfig?.showAvailability} />
       );
     }
     if (field.type === 'MULTI_LINE') {
@@ -466,7 +616,12 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
             <input type="hidden" {...register('installments' as any)} value={JSON.stringify(installments)} />
           </form>
           {layoutSchema && layoutSchema.sections ? (
-            layoutSchema.sections.map((section: any) => (
+            layoutSchema.sections.map((section: any) => {
+              if (section.visibilityRule && !evaluateVisibility(section.visibilityRule)) {
+                return null;
+              }
+
+              return (
               <div key={section.id} className="bg-slate-50 rounded-2xl p-6 mb-8 border border-gray-100 relative">
                 <div className="flex flex-col mb-6">
                   <div className="flex items-center gap-2.5 font-extrabold text-[1.1rem] text-slate-900 tracking-tight">
@@ -481,6 +636,10 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
                     const statusF = layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.type === 'STATUS_PICKER');
                     let fieldName = standardFieldMap[field.id] || field.id;
                     if (statusF && field.id === statusF.id) fieldName = 'status';
+
+                    if (field.visibilityRule && !evaluateVisibility(field.visibilityRule)) {
+                      return null;
+                    }
 
                     const isError = errors[fieldName as keyof BookingFormData];
                     
@@ -517,7 +676,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
                   )}
                 </div>
               </div>
-            ))
+            )})
           ) : (
             <div className="flex items-center justify-center h-40 text-slate-500">
                <div className="w-5 h-5 border-2 border-slate-300 border-t-orange-500 rounded-full animate-spin mr-3"></div> Loading form layout...

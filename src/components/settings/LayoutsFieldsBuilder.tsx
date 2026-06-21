@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ColorPicker } from "../ui/color-picker";
 
-interface FormField {
+export interface FormField {
   id: string;
   name: string;
   type: string;
@@ -17,6 +18,17 @@ interface FormField {
     mode: 'ALL' | 'ROLES' | 'USERS';
     roles?: string[];
     userIds?: string[];
+    showAvailability?: boolean;
+  };
+  visibilityRule?: {
+    fieldId: string;
+    operator: 'EQUALS' | 'NOT_EQUALS' | 'CONTAINS';
+    value: string;
+  };
+  futureDateRestriction?: {
+    enabled: boolean;
+    dateFieldId: string;
+    restrictedStatuses: string[];
   };
 }
 
@@ -26,6 +38,11 @@ interface FormSection {
   description?: string;
   icon?: string;
   fields: FormField[];
+  visibilityRule?: {
+    fieldId: string;
+    operator: 'EQUALS' | 'NOT_EQUALS' | 'CONTAINS';
+    value: string;
+  };
 }
 
 interface FormSchema {
@@ -93,6 +110,21 @@ const DEFAULT_LAYOUTS: FormLayout[] = [
               { label: "Completed", color: "bg-blue-500" },
               { label: "Cancelled", color: "bg-slate-500" }
             ] },
+          ]
+        },
+        {
+          id: "sec_booking_album",
+          title: "Album Details",
+          description: "Details regarding the album design and delivery.",
+          icon: "ph-book-open",
+          fields: [
+            { id: "fld_b_album_type", name: "Album Type", type: "PICK_LIST", mandatory: false, options: ["Standard", "Premium", "Mini", "None"] },
+            { id: "fld_b_album_status", name: "Album Status", type: "STATUS_PICKER", mandatory: false, statusOptions: [
+              { label: "Pending", color: "#f43f5e" },
+              { label: "Designing", color: "#f59e0b" },
+              { label: "Printing", color: "#3b82f6" },
+              { label: "Delivered", color: "#10b981" }
+            ] }
           ]
         },
         {
@@ -943,46 +975,66 @@ export default function LayoutsFieldsBuilder() {
                       </label>
                     </div>
                     
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1.5">
                       {(selectedField.statusOptions || []).map((opt, idx) => (
-                        <div key={idx} className="flex flex-col gap-2 bg-slate-50 p-3 rounded-xl border border-gray-200">
-                          <div className="flex items-center gap-2">
-                            <i className="ph-bold ph-dots-six-vertical text-slate-400 cursor-grab"></i>
-                            <input 
-                              type="text" 
-                              value={opt.label} 
-                              onChange={(e) => {
-                                const newOpts = [...(selectedField.statusOptions || [])];
-                                newOpts[idx].label = e.target.value;
-                                updateSelectedField({ statusOptions: newOpts });
-                              }}
-                              className="flex-1 bg-white px-2 py-1.5 border border-gray-200 rounded-lg outline-none focus:border-orange-300 text-[0.85rem] font-medium text-slate-800"
-                              placeholder={`Status ${idx + 1}`}
-                            />
-                            <button 
-                              type="button" 
-                              onClick={() => {
-                                const newOpts = (selectedField.statusOptions || []).filter((_, i) => i !== idx);
-                                updateSelectedField({ statusOptions: newOpts });
-                              }}
-                              className="w-7 h-7 rounded-md bg-white hover:bg-red-100 border border-gray-200 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors"
-                            >
-                              <i className="ph-bold ph-trash text-[0.85rem]"></i>
-                            </button>
+                        <div 
+                          key={idx} 
+                          draggable
+                          onDragStart={(e) => {
+                            setDraggedOptionIdx(idx);
+                            e.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (draggedOptionIdx === null || draggedOptionIdx === idx) return;
+                            const newOpts = [...(selectedField?.statusOptions || [])];
+                            const [moved] = newOpts.splice(draggedOptionIdx, 1);
+                            newOpts.splice(idx, 0, moved);
+                            updateSelectedField({ statusOptions: newOpts });
+                            setDraggedOptionIdx(null);
+                          }}
+                          onDragEnd={() => setDraggedOptionIdx(null)}
+                          className={`flex items-center gap-1.5 bg-white p-1 rounded-lg border border-gray-200 transition-opacity shadow-sm ${draggedOptionIdx === idx ? 'opacity-50' : ''}`}
+                        >
+                          <i className="ph-bold ph-dots-six-vertical text-slate-400 cursor-grab active:cursor-grabbing text-[0.95rem] hover:text-slate-600 transition-colors ml-1"></i>
+                          
+                          <div className="relative shrink-0 flex items-center justify-center">
+                             <ColorPicker 
+                               className="!w-5 !h-5 border-2"
+                               color={opt.color || '#cbd5e1'} 
+                               onChange={(newColor) => {
+                                 const newOpts = [...(selectedField.statusOptions || [])];
+                                 newOpts[idx].color = newColor;
+                                 updateSelectedField({ statusOptions: newOpts });
+                               }}
+                             />
                           </div>
-                          <div className="flex items-center gap-1.5 pl-6 flex-wrap">
-                            {['bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500', 'bg-blue-500', 'bg-violet-500', 'bg-slate-500', 'bg-rose-500'].map(colorClass => (
-                               <button
-                                 key={colorClass}
-                                 onClick={() => {
-                                   const newOpts = [...(selectedField.statusOptions || [])];
-                                   newOpts[idx].color = colorClass;
-                                   updateSelectedField({ statusOptions: newOpts });
-                                 }}
-                                 className={`w-6 h-6 rounded-full border-2 ${opt.color === colorClass ? 'border-slate-800 scale-110' : 'border-transparent'} ${colorClass} hover:scale-110 transition-transform`}
-                               />
-                            ))}
-                          </div>
+
+                          <input 
+                            type="text" 
+                            value={opt.label} 
+                            onChange={(e) => {
+                              const newOpts = [...(selectedField.statusOptions || [])];
+                              newOpts[idx].label = e.target.value;
+                              updateSelectedField({ statusOptions: newOpts });
+                            }}
+                            className="flex-1 bg-transparent px-1.5 py-0.5 outline-none focus:border-orange-500 focus:ring-0 text-[0.8rem] font-bold text-slate-700 transition-all"
+                            placeholder={`Status ${idx + 1}`}
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              const newOpts = (selectedField.statusOptions || []).filter((_, i) => i !== idx);
+                              updateSelectedField({ statusOptions: newOpts });
+                            }}
+                            className="w-6 h-6 shrink-0 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 flex items-center justify-center transition-colors mr-0.5"
+                          >
+                            <i className="ph-bold ph-trash text-[0.85rem]"></i>
+                          </button>
                         </div>
                       ))}
                       
@@ -1000,7 +1052,117 @@ export default function LayoutsFieldsBuilder() {
                   </div>
                 )}
 
-                {/* Options for USER_PICKLIST or MULTI_USER_PICKLIST */}
+                {/* Status Field Future Date Restrictions */}
+                {selectedField.type === "STATUS_PICKER" && (
+                  <div className="pt-4 mt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mb-2 border border-blue-200 bg-blue-50/50 p-3 rounded-lg relative">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 shrink-0 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                          <i className="ph-fill ph-shield-check text-lg"></i>
+                        </div>
+                        <div className="flex-1 min-w-0 flex items-center">
+                          <h4 className="text-[0.8rem] font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                            Restrict Updating Status for Future Dates
+                            <div className="group relative flex items-center">
+                              <i className="ph-fill ph-info text-slate-400 hover:text-blue-500 cursor-help transition-colors text-[1.1rem]"></i>
+                              <div className="absolute bottom-full -left-4 mb-2 w-64 p-2.5 bg-slate-800 text-white text-[0.75rem] font-medium rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none text-left leading-relaxed">
+                                Prevent changing status to a value that represents a future stage.
+                                <div className="mt-1.5 pt-1.5 border-t border-slate-700/50 text-slate-300 italic text-[0.7rem]">
+                                  Example: If the event date is tomorrow, "Shoot completed" cannot be selected today.
+                                </div>
+                                <div className="absolute top-full left-5 border-4 border-transparent border-t-slate-800"></div>
+                              </div>
+                            </div>
+                          </h4>
+                        </div>
+                      </div>
+                      <div 
+                        onClick={() => {
+                          const currentEnabled = !!selectedField.futureDateRestriction?.enabled;
+                          updateSelectedField({
+                            futureDateRestriction: {
+                              enabled: !currentEnabled,
+                              dateFieldId: selectedField.futureDateRestriction?.dateFieldId || '',
+                              restrictedStatuses: selectedField.futureDateRestriction?.restrictedStatuses || []
+                            }
+                          });
+                        }}
+                        className={`relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer shrink-0 ml-4 ${selectedField.futureDateRestriction?.enabled ? 'bg-blue-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${selectedField.futureDateRestriction?.enabled ? 'translate-x-4' : 'translate-x-0'}`}></span>
+                      </div>
+                    </div>
+
+                    {selectedField.futureDateRestriction?.enabled && (
+                      <div className="bg-white border border-gray-200 rounded-xl p-4 mt-3">
+                        <div className="mb-4">
+                          <label className="text-[0.75rem] font-bold text-slate-600 flex items-center gap-1 mb-2">
+                            Based on date field:
+                          </label>
+                          <Select 
+                            value={selectedField.futureDateRestriction.dateFieldId} 
+                            onValueChange={(val) => updateSelectedField({
+                              futureDateRestriction: {
+                                ...selectedField.futureDateRestriction!,
+                                dateFieldId: val || ''
+                              }
+                            })}
+                          >
+                            <SelectTrigger className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg h-10 outline-none focus:border-blue-400 transition-colors">
+                              <SelectValue placeholder="Select Date Field">
+                                {activeLayout?.schema.sections.flatMap(s => s.fields).find(f => f.id === selectedField.futureDateRestriction?.dateFieldId)?.name || selectedField.futureDateRestriction?.dateFieldId || "Select Date Field"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {activeLayout?.schema.sections.flatMap(s => s.fields)
+                                .filter(f => f.type === "DATE")
+                                .map(f => (
+                                  <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <label className="text-[0.75rem] font-bold text-slate-600 flex items-center gap-1 mb-2">
+                            Select restricted statuses:
+                          </label>
+                          <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto no-scrollbar p-1">
+                            {(selectedField.statusOptions || []).map(opt => {
+                              const isRestricted = selectedField.futureDateRestriction?.restrictedStatuses?.includes(opt.label);
+                              return (
+                                <label key={opt.label} className="flex items-center gap-2 cursor-pointer group">
+                                  <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isRestricted ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300 bg-white text-transparent group-hover:border-blue-400'}`}>
+                                    <i className="ph-bold ph-check text-[0.6rem]"></i>
+                                  </div>
+                                  <input 
+                                    type="checkbox" 
+                                    className="hidden"
+                                    checked={isRestricted}
+                                    onChange={(e) => {
+                                      const currentStatuses = selectedField.futureDateRestriction?.restrictedStatuses || [];
+                                      const newStatuses = e.target.checked 
+                                        ? [...currentStatuses, opt.label]
+                                        : currentStatuses.filter(s => s !== opt.label);
+                                        
+                                      updateSelectedField({
+                                        futureDateRestriction: {
+                                          ...selectedField.futureDateRestriction!,
+                                          restrictedStatuses: newStatuses
+                                        }
+                                      });
+                                    }}
+                                  />
+                                  <span className="text-sm font-semibold text-slate-700">{opt.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {(selectedField.type === "USER_PICKLIST" || selectedField.type === "MULTI_USER_PICKLIST") && (
                   <div className="pt-4 border-t border-gray-100">
                     <label className="text-[0.75rem] font-bold text-slate-600 flex items-center gap-1 mb-3">
@@ -1019,6 +1181,24 @@ export default function LayoutsFieldsBuilder() {
                         <input type="radio" name="upConfigMode" className="accent-orange-500 w-4 h-4" checked={selectedField.userPicklistConfig?.mode === 'USERS'} onChange={() => updateSelectedField({ userPicklistConfig: { mode: 'USERS', roles: [], userIds: selectedField?.userPicklistConfig?.userIds || [] }})} />
                         <span className="text-sm font-semibold text-slate-700">Select Users</span>
                       </label>
+                    </div>
+
+                    <div className="flex items-center justify-between py-3 border-y border-gray-100 mb-4">
+                      <span className="text-[0.8rem] font-bold text-slate-700">Show User Availability</span>
+                      <div 
+                        onClick={() => {
+                          const currentConfig = selectedField.userPicklistConfig || { mode: 'ALL', roles: [], userIds: [] };
+                          updateSelectedField({ 
+                            userPicklistConfig: { 
+                              ...currentConfig, 
+                              showAvailability: !currentConfig.showAvailability 
+                            } 
+                          });
+                        }}
+                        className={`relative w-10 h-5 rounded-full transition-colors duration-200 cursor-pointer ${selectedField.userPicklistConfig?.showAvailability ? 'bg-orange-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${selectedField.userPicklistConfig?.showAvailability ? 'translate-x-5' : 'translate-x-0'}`}></span>
+                      </div>
                     </div>
 
                     {(!selectedField.userPicklistConfig || selectedField.userPicklistConfig.mode === 'ALL') && (
@@ -1072,6 +1252,73 @@ export default function LayoutsFieldsBuilder() {
                     )}
                   </div>
                 )}
+                
+                {/* Conditional Visibility Rule */}
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-[0.75rem] font-bold text-slate-600 flex items-center gap-1">
+                      Conditional Visibility
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-3 cursor-pointer group mb-3">
+                    <div 
+                      onClick={() => {
+                        if (selectedField.visibilityRule) {
+                          const { visibilityRule, ...rest } = selectedField;
+                          updateSelectedField({ visibilityRule: undefined } as any); // hack to delete
+                        } else {
+                          updateSelectedField({ visibilityRule: { fieldId: '', operator: 'EQUALS', value: '' } });
+                        }
+                      }}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${selectedField.visibilityRule ? 'bg-orange-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${selectedField.visibilityRule ? 'translate-x-5' : 'translate-x-0'}`}></span>
+                    </div>
+                    <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Show conditionally</span>
+                  </div>
+
+                  {selectedField.visibilityRule && (
+                    <div className="bg-slate-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-3">
+                      <div>
+                        <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Depends on Field</label>
+                        <select
+                          value={selectedField.visibilityRule.fieldId}
+                          onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, fieldId: e.target.value } })}
+                          className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-orange-500 transition-all"
+                        >
+                          <option value="">-- Select Field --</option>
+                          {activeLayout.schema.sections.flatMap(s => s.fields).filter(f => f.id !== selectedField.id).map(f => (
+                            <option key={f.id} value={f.id}>{f.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="w-1/3">
+                          <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Operator</label>
+                          <select
+                            value={selectedField.visibilityRule.operator}
+                            onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, operator: e.target.value as any } })}
+                            className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-orange-500 transition-all"
+                          >
+                            <option value="EQUALS">Equals</option>
+                            <option value="NOT_EQUALS">Not Equals</option>
+                            <option value="CONTAINS">Contains</option>
+                          </select>
+                        </div>
+                        <div className="w-2/3">
+                          <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Value</label>
+                          <input
+                            type="text"
+                            value={selectedField.visibilityRule.value}
+                            onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, value: e.target.value } })}
+                            placeholder="e.g. Wedding"
+                            className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-orange-500 transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           ) : (
