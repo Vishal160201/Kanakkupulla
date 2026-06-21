@@ -13,6 +13,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ENV CHROME_BIN=/usr/bin/google-chrome
+ENV NODE_OPTIONS="--max-old-space-size=256"
 
 # Create app directory
 WORKDIR /usr/src/app
