@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { ColorPicker } from "../ui/color-picker";
 
 export default function SystemPreferences() {
   const [loading, setLoading] = useState(true);
@@ -129,32 +130,28 @@ export default function SystemPreferences() {
                     className="w-full text-sm font-semibold text-slate-800 border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:border-orange-500"
                   />
                 </div>
-                <div className="col-span-3 flex items-center gap-2">
-                  <input 
-                    type="color" 
-                    value={tier.bg} 
-                    onChange={(e) => updateTiers(index, "bg", e.target.value)}
-                    className="w-8 h-8 rounded cursor-pointer border-none p-0"
+                <div className="col-span-3 flex items-center gap-3">
+                  <ColorPicker 
+                    color={tier.bg || '#ffffff'} 
+                    onChange={(color) => updateTiers(index, "bg", color)}
                   />
                   <input 
                     type="text" 
                     value={tier.bg} 
                     onChange={(e) => updateTiers(index, "bg", e.target.value)}
-                    className="w-full text-xs font-semibold text-slate-800 border border-gray-300 rounded-lg px-2 py-1.5"
+                    className="w-full text-xs font-semibold text-slate-800 border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-orange-500"
                   />
                 </div>
-                <div className="col-span-3 flex items-center gap-2">
-                  <input 
-                    type="color" 
-                    value={tier.text} 
-                    onChange={(e) => updateTiers(index, "text", e.target.value)}
-                    className="w-8 h-8 rounded cursor-pointer border-none p-0"
+                <div className="col-span-3 flex items-center gap-3">
+                  <ColorPicker 
+                    color={tier.text || '#000000'} 
+                    onChange={(color) => updateTiers(index, "text", color)}
                   />
                   <input 
                     type="text" 
                     value={tier.text} 
                     onChange={(e) => updateTiers(index, "text", e.target.value)}
-                    className="w-full text-xs font-semibold text-slate-800 border border-gray-300 rounded-lg px-2 py-1.5"
+                    className="w-full text-xs font-semibold text-slate-800 border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-orange-500"
                   />
                 </div>
               </div>
@@ -177,37 +174,33 @@ export default function SystemPreferences() {
                   {status}
                 </div>
                 <div className="flex gap-3">
-                  <div className="flex-1 flex flex-col gap-1">
-                    <span className="text-[0.65rem] font-bold text-slate-400 uppercase">Background</span>
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wide">Background</span>
                     <div className="flex items-center gap-2">
-                      <input 
-                        type="color" 
-                        value={colors.bg} 
-                        onChange={(e) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, bg: e.target.value } } })}
-                        className="w-6 h-6 rounded cursor-pointer border-none p-0"
+                      <ColorPicker 
+                        color={colors.bg || '#ffffff'} 
+                        onChange={(color) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, bg: color } } })}
                       />
                       <input 
                         type="text" 
                         value={colors.bg} 
                         onChange={(e) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, bg: e.target.value } } })}
-                        className="w-full text-[0.7rem] font-semibold text-slate-800 border border-gray-300 rounded px-1.5 py-1"
+                        className="w-full text-[0.7rem] font-semibold text-slate-800 border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-orange-500"
                       />
                     </div>
                   </div>
-                  <div className="flex-1 flex flex-col gap-1">
-                    <span className="text-[0.65rem] font-bold text-slate-400 uppercase">Text</span>
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wide">Text</span>
                     <div className="flex items-center gap-2">
-                      <input 
-                        type="color" 
-                        value={colors.text} 
-                        onChange={(e) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, text: e.target.value } } })}
-                        className="w-6 h-6 rounded cursor-pointer border-none p-0"
+                      <ColorPicker 
+                        color={colors.text || '#000000'} 
+                        onChange={(color) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, text: color } } })}
                       />
                       <input 
                         type="text" 
                         value={colors.text} 
                         onChange={(e) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, text: e.target.value } } })}
-                        className="w-full text-[0.7rem] font-semibold text-slate-800 border border-gray-300 rounded px-1.5 py-1"
+                        className="w-full text-[0.7rem] font-semibold text-slate-800 border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-orange-500"
                       />
                     </div>
                   </div>

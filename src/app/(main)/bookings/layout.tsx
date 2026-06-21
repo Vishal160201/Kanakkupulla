@@ -17,6 +17,7 @@ export default function BookingsLayout({
 
   const isOverview = pathname === '/bookings/overview';
   const isUpcoming = pathname === '/bookings/upcoming';
+  const isAlbumStatus = pathname === '/bookings/album-status';
   const isTable = pathname === '/bookings/allBookings';
   const hasActiveFilters = filters.categories.length > 0 || filters.statuses.length > 0 || filters.clientName || filters.location || filters.dateStart || filters.dateEnd || filters.amountMin || filters.amountMax;
 
@@ -131,21 +132,28 @@ export default function BookingsLayout({
           <Link 
           href="/bookings/overview"
           className={`btn ${isOverview ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
-          style={{ borderRadius: "20px", borderColor: isTable || isUpcoming ? "transparent" : "", textDecoration: "none" }}
+          style={{ borderRadius: "20px", borderColor: isTable || isUpcoming || isAlbumStatus ? "transparent" : "", textDecoration: "none" }}
         >
           Overview
         </Link>
         <Link 
           href="/bookings/upcoming"
           className={`btn ${isUpcoming ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
-          style={{ borderRadius: "20px", borderColor: isOverview || isTable ? "transparent" : "", textDecoration: "none" }}
+          style={{ borderRadius: "20px", borderColor: isOverview || isTable || isAlbumStatus ? "transparent" : "", textDecoration: "none" }}
         >
           Upcoming Shoots
         </Link>
         <Link 
+          href="/bookings/album-status"
+          className={`btn ${isAlbumStatus ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
+          style={{ borderRadius: "20px", borderColor: isOverview || isTable || isUpcoming ? "transparent" : "", textDecoration: "none" }}
+        >
+          Album status
+        </Link>
+        <Link 
           href="/bookings/allBookings"
           className={`btn ${isTable ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
-          style={{ borderRadius: "20px", borderColor: isOverview || isUpcoming ? "transparent" : "", textDecoration: "none" }}
+          style={{ borderRadius: "20px", borderColor: isOverview || isUpcoming || isAlbumStatus ? "transparent" : "", textDecoration: "none" }}
         >
           All bookings
         </Link>
@@ -214,6 +222,13 @@ export default function BookingsLayout({
 
       {/* Shared Modals */}
       <Modals />
+
+      {/* FAB (Camera Booking Icon) */}
+      {!isOverview && (
+        <div className="fab interactive" onClick={() => router.push("/bookings/new")}>
+          <i className="ph-fill ph-camera text-2xl"></i>
+        </div>
+      )}
     </div>
   );
 }

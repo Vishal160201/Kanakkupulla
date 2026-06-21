@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-green-50 text-green-600 flex items-center justify-center">
@@ -97,6 +97,19 @@ export default function AnalyticsPage() {
           <div>
             <div className="text-slate-400 font-bold text-[0.75rem] mb-0.5">Net Profit</div>
             <div className="text-[1.5rem] font-extrabold text-white leading-none tracking-tight">₹{isLoading ? "..." : (metrics.netProfit/1000).toFixed(1) + "k"}</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-green-200 cursor-pointer group">
+          <div className="flex justify-between items-start">
+            <div className="w-[32px] h-[32px] rounded-lg bg-green-50 text-green-600 flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors">
+              <i className="ph-fill ph-wallet text-[1.1rem]"></i>
+            </div>
+            {(metrics.pendingDueAmount || 0) > 0 && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Collect</span>}
+          </div>
+          <div>
+            <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">Upcoming Dues (14d)</div>
+            <div className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">₹{isLoading ? "..." : (metrics.pendingDueAmount || 0).toLocaleString('en-IN')}</div>
           </div>
         </div>
       </div>

@@ -40,7 +40,8 @@ export async function GET() {
       package: b.order?.package.toString() || '',
       advance: b.order?.advance.toString() || '',
       due: b.order?.due.toString() || '',
-      status: b.status as any
+      status: b.status as any,
+      customData: (b as any).customData || {}
     }));
 
     // Calculate Metrics
@@ -57,6 +58,8 @@ export async function GET() {
     let hotDateStr = "";
     let maxPackageValue = 0;
     let hotDateCount = 0;
+    let albumInProgressCount = 0;
+    let pendingAlbumWorksCount = 0;
 
     bookings.forEach(booking => {
       const [year, month, day] = booking.date.split('-').map(Number);
@@ -75,7 +78,7 @@ export async function GET() {
           const due = parseFloat(booking.due || "0");
           if (due > 0) pendingDueAmount += due;
         }
-        
+
         // Track stats for hot date
         const dStr = booking.date; // already YYYY-MM-DD
         const pkgValue = parseFloat(booking.package || '0');
@@ -93,6 +96,21 @@ export async function GET() {
           hotDateCount = upcomingDateStats[dStr].count;
         }
       }
+
+      // Album metrics - calculated for all bookings (including past)
+      const isAlbum = booking.category === 'Album' || 
+                     booking.customData?.fld_b_inclusions?.includes('Album') || 
+                     booking.customData?.album_status;
+      
+      const bStatus = (booking.status || '').trim().toLowerCase();
+
+      if (bStatus === 'shoot completed' || (isAlbum && bStatus === 'pending')) {
+        pendingAlbumWorksCount++;
+      } else if (bStatus === 'designing' || bStatus === 'printing' || bStatus === 'album work in progress') {
+        albumInProgressCount++;
+      } else if (isAlbum && bStatus !== 'delivered' && bStatus !== 'shoot completed' && bStatus !== 'pending') {
+        albumInProgressCount++;
+      }
     });
 
     return NextResponse.json({
@@ -105,7 +123,9 @@ export async function GET() {
         unconfirmedShoots,
         hotDateStr,
         maxPackageValue,
-        hotDateCount
+        hotDateCount,
+        albumInProgressCount,
+        pendingAlbumWorksCount
       }
     });
 

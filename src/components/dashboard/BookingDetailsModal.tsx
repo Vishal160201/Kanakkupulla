@@ -197,12 +197,35 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
   const handleSaveEdit = async () => {
     setIsLoading(true);
     try {
-    const errors: Record<string, boolean> = {};
+    const errors: Record<string, any> = {};
     if (!editData.title?.trim()) errors.title = true;
     
+    // Evaluate mandatory custom fields
+    if (layoutSchema && layoutSchema.sections) {
+      const evaluateVisibility = (rule: any) => {
+        if (!rule || !rule.fieldId) return true;
+        const depValue = editData[rule.fieldId];
+        if (rule.operator === 'EQUALS') return depValue === rule.value;
+        if (rule.operator === 'NOT_EQUALS') return depValue !== rule.value;
+        if (rule.operator === 'CONTAINS') return typeof depValue === 'string' && depValue.includes(rule.value);
+        return true;
+      };
+
+      layoutSchema.sections.forEach((section: any) => {
+        if (!evaluateVisibility(section.visibilityRule)) return;
+        section.fields.forEach((field: any) => {
+          if (!evaluateVisibility(field.visibilityRule)) return;
+          const fieldName = field.id;
+          if (field.mandatory && (!editData[fieldName] || (Array.isArray(editData[fieldName]) && editData[fieldName].length === 0))) {
+            errors[fieldName] = true;
+          }
+        });
+      });
+    }
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      toast.error("Please fill in the highlighted mandatory fields.");
+      toast.error("Please fill in all mandatory fields.");
       setIsLoading(false);
       return;
     }
@@ -326,6 +349,22 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
   const currentOpt = isStatusPicker ? statusOptions.find((o: any) => o.label === booking?.status) : null;
   const statusColor = currentOpt ? currentOpt.color : (booking?.status === 'Confirmed' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : booking?.status === 'Pending' ? 'bg-red-500' : 'bg-orange-500');
 
+  // Handle future date restriction
+  let isRestrictedDate = false;
+  if (statusField?.futureDateRestriction?.enabled && statusField?.futureDateRestriction?.dateFieldId) {
+    const dependentDateFieldName = standardFieldMap[statusField.futureDateRestriction.dateFieldId] || statusField.futureDateRestriction.dateFieldId;
+    const dependentDateVal = (booking as any)?.[dependentDateFieldName] || booking?.customData?.[dependentDateFieldName];
+    if (dependentDateVal) {
+      const dateObj = new Date(dependentDateVal);
+      dateObj.setHours(0,0,0,0);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      if (dateObj > today) {
+        isRestrictedDate = true;
+      }
+    }
+  }
+
   const changeStatus = async (newStatus: string) => {
     if (!booking) return;
     setIsUpdatingStatus(true);
@@ -420,7 +459,10 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                                 disabled={isUpdatingStatus}
                                 className={`flex items-center gap-2.5 bg-white px-4 py-2 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all shadow-sm cursor-pointer ${isUpdatingStatus ? 'opacity-50' : ''}`}
                               >
-                                <div className={`w-2.5 h-2.5 rounded-full ${statusColor}`}></div>
+                                <div 
+                                  className={`w-2.5 h-2.5 rounded-full ${!statusColor?.startsWith('#') ? statusColor : ''}`}
+                                  style={statusColor?.startsWith('#') ? { backgroundColor: statusColor, boxShadow: `0 0 8px ${statusColor}80` } : {}}
+                                ></div>
                                 <span className="font-bold text-[0.9rem] text-[#0B1E40]">{booking.status}</span>
                                 <i className={`ph-bold ph-caret-down text-slate-400 transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`}></i>
                               </button>
@@ -428,17 +470,24 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                                 <>
                                   <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setIsStatusDropdownOpen(false); }}></div>
                                   <div className="absolute top-full left-0 mt-2 p-1.5 bg-white rounded-2xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-top-2 w-64 max-h-[250px] overflow-y-auto z-50">
-                                   {statusOptions.map((opt: any, idx: number) => (
+                                   {statusOptions.map((opt: any, idx: number) => {
+                                     const isRestrictedOpt = isRestrictedDate && statusField?.futureDateRestriction?.restrictedStatuses?.includes(opt.label);
+                                     return (
                                      <button
                                        key={idx}
-                                       onClick={() => changeStatus(opt.label)}
-                                       className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[0.9rem] font-bold transition-colors ${booking.status === opt.label ? 'bg-slate-50 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                                       disabled={isRestrictedOpt}
+                                       onClick={() => {
+                                         if (!isRestrictedOpt) changeStatus(opt.label);
+                                       }}
+                                       className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[0.9rem] font-bold transition-colors ${booking.status === opt.label ? 'bg-slate-50 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'} ${isRestrictedOpt ? 'opacity-50 cursor-not-allowed' : ''}`}
                                      >
-                                       <div className={`w-2.5 h-2.5 rounded-full ${opt.color}`}></div>
+                                       <div className={`w-2.5 h-2.5 rounded-full ${opt.color} ${isRestrictedOpt ? 'grayscale' : ''}`}></div>
                                        <span className="truncate">{opt.label}</span>
-                                       {booking.status === opt.label && <i className="ph-bold ph-check ml-auto text-slate-400"></i>}
+                                       {isRestrictedOpt && <i className="ph-fill ph-lock-key ml-auto text-slate-400" title="Restricted for future dates"></i>}
+                                       {!isRestrictedOpt && booking.status === opt.label && <i className="ph-bold ph-check ml-auto text-slate-400"></i>}
                                      </button>
-                                   ))}
+                                     );
+                                   })}
                                  </div>
                                 </>
                               )}
@@ -690,6 +739,8 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                       </div>
                    </div>
                 </div>
+
+
 
                 {/* Package & Payment */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col mt-2">
@@ -1037,9 +1088,14 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                  </>
                ) : (
                  <>
-                   <button onClick={handleEditToggle} className="text-[#0B1E40] text-[0.95rem] font-bold hover:text-blue-600 transition-colors flex items-center gap-2">
-                     <i className="ph-bold ph-pencil-simple text-lg"></i> Edit Booking
-                   </button>
+                   <button onClick={() => {
+                        setIsClosing(true);
+                        setTimeout(() => {
+                           router.push(`/bookings/${booking.id}/edit`);
+                        }, 200);
+                    }} className="text-[#0B1E40] text-[0.95rem] font-bold hover:text-blue-600 transition-colors flex items-center gap-2">
+                      <i className="ph-bold ph-pencil-simple text-lg"></i> Edit Booking
+                    </button>
                    <button onClick={() => router.back()} className="px-8 py-2.5 bg-[#0B1E40] text-[0.95rem] text-white font-bold rounded-xl hover:bg-[#152a52] transition-colors ml-2">
                      Close
                    </button>

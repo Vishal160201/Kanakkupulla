@@ -3,6 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { Suspense } from "react";
+import { useRouter } from "next/navigation";
 
 const CATEGORY_ICONS: Record<string, string> = {
   "Photography Session": "ph-camera",
@@ -25,6 +26,7 @@ const MODE_ICONS: Record<string, string> = {
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 function DashboardMetrics() {
+  const router = useRouter();
   const { data, error, isLoading } = useSWR('/api/dashboard/overview', fetcher);
   const today = new Date();
 
@@ -225,7 +227,7 @@ function DashboardMetrics() {
                  <Link href="/bookings/overview" className="text-orange-500 text-sm font-bold mt-2 inline-block">Add Booking</Link>
                </div>
             ) : upcomingShoots.map((shoot: any) => (
-              <div key={shoot.id} className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 cursor-pointer shadow-sm transition-all hover:translate-x-1 hover:shadow-md hover:bg-orange-100/50">
+              <div key={shoot.id} onClick={() => router.push(`/bookings/details/${shoot.id}`)} className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 cursor-pointer shadow-sm transition-all hover:translate-x-1 hover:shadow-md hover:bg-orange-100/50">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
                   <div className="w-[40px] h-[40px] rounded-xl bg-orange-100 text-orange-500 flex items-center justify-center text-[1.2rem] shrink-0">
                     <i className="ph-fill ph-camera"></i>
@@ -260,7 +262,7 @@ function DashboardMetrics() {
           </div>
           
           {topOrder ? (
-            <div className="bg-white border border-gray-200 rounded-[20px] p-5 shadow-sm transition-all hover:border-orange-200 hover:-translate-y-1 hover:shadow-md cursor-pointer">
+            <div onClick={() => router.push('/gifts')} className="bg-white border border-gray-200 rounded-[20px] p-5 shadow-sm transition-all hover:border-orange-200 hover:-translate-y-1 hover:shadow-md cursor-pointer">
               <div className="flex flex-col">
                 <div className="flex justify-between items-end mb-2.5">
                   <span className="font-extrabold text-slate-900 text-[0.95rem]">{topOrder.product.name} ({topOrder.quantity}x)</span>

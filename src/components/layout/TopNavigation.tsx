@@ -57,6 +57,7 @@ export default function TopNavigation() {
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(true);
   const [soundNotifs, setSoundNotifs] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
   const [waPhoneNumber, setWaPhoneNumber] = useState("");
   const [isPairingLoading, setIsPairingLoading] = useState(false);
@@ -89,6 +90,7 @@ export default function TopNavigation() {
     if (savedSound !== null) {
       setSoundNotifs(savedSound === "true");
     }
+    setIsMounted(true);
   }, []);
 
   // Load email and push preferences from API
@@ -112,14 +114,14 @@ export default function TopNavigation() {
 
   // Ding Sound Effect
   useEffect(() => {
-    if (unreadCount > prevUnreadCount.current && soundNotifs) {
+    if (isMounted && unreadCount > prevUnreadCount.current && soundNotifs) {
       // iPhone-style Bamboo sound
       const audio = new Audio("/sounds/bamboo.mp3");
       audio.volume = 1.0;
       audio.play().catch(e => console.log("Audio play blocked by browser interaction rules"));
     }
     prevUnreadCount.current = unreadCount;
-  }, [unreadCount, soundNotifs]);
+  }, [unreadCount, soundNotifs, isMounted]);
 
   const updatePreferences = async (email: boolean, push: boolean) => {
     setEmailNotifs(email);

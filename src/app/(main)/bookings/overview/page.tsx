@@ -20,7 +20,9 @@ function BookingsDataView() {
     unconfirmedShoots,
     hotDateStr,
     maxPackageValue,
-    hotDateCount
+    hotDateCount,
+    albumInProgressCount,
+    pendingAlbumWorksCount
   } = metrics;
 
   // Decide what to show on the 4th card
@@ -42,7 +44,7 @@ function BookingsDataView() {
   return (
     <>
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
         <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-red-200 cursor-pointer group">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-red-50 text-red-500 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors">
@@ -69,19 +71,6 @@ function BookingsDataView() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-green-200 cursor-pointer group">
-          <div className="flex justify-between items-start">
-            <div className="w-[32px] h-[32px] rounded-lg bg-green-50 text-green-600 flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors">
-              <i className="ph-fill ph-wallet text-[1.1rem]"></i>
-            </div>
-            {pendingDueAmount > 0 && <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Collect</span>}
-          </div>
-          <div>
-            <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">Upcoming Dues (14d)</div>
-            <div className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{prefs.currencySymbol}{pendingDueAmount.toLocaleString()}</div>
-          </div>
-        </div>
-
         <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200 cursor-pointer group">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-colors">
@@ -93,6 +82,32 @@ function BookingsDataView() {
             <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">{card4Title}</div>
             <div className="text-[1.3rem] font-extrabold text-slate-900 leading-none tracking-tight">{card4Value}</div>
             {card4Subtitle && <div className="text-[0.75rem] font-bold text-orange-500 mt-1 truncate">{card4Subtitle}</div>}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-purple-200 cursor-pointer group">
+          <div className="flex justify-between items-start">
+            <div className="w-[32px] h-[32px] rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <i className="ph-fill ph-book-open text-[1.1rem]"></i>
+            </div>
+            {albumInProgressCount > 0 && <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">In Progress</span>}
+          </div>
+          <div>
+            <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">Album In Progress</div>
+            <div className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{albumInProgressCount} <span className="text-[0.8rem] text-slate-400 font-semibold">albums</span></div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-pink-200 cursor-pointer group">
+          <div className="flex justify-between items-start">
+            <div className="w-[32px] h-[32px] rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center group-hover:bg-pink-600 group-hover:text-white transition-colors">
+              <i className="ph-fill ph-clock-countdown text-[1.1rem]"></i>
+            </div>
+            {pendingAlbumWorksCount > 0 && <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Pending</span>}
+          </div>
+          <div>
+            <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">Pending Album Works</div>
+            <div className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{pendingAlbumWorksCount} <span className="text-[0.8rem] text-slate-400 font-semibold">albums</span></div>
           </div>
         </div>
       </div>
@@ -113,8 +128,8 @@ import { Suspense } from "react";
 function BookingsSkeleton() {
   return (
     <div className="flex flex-col gap-8 w-full animate-pulse">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-        {[1, 2, 3, 4].map(i => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
+        {[1, 2, 3, 4, 5].map(i => (
           <div key={i} className="bg-white rounded-2xl h-[120px] border border-gray-100"></div>
         ))}
       </div>
