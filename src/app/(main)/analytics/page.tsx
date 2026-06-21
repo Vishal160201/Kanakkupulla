@@ -27,7 +27,7 @@ export default function AnalyticsPage() {
     <div className="flex flex-col gap-8 w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out]">
       
       {/* Hero Card */}
-      <div className="bg-slate-900 rounded-[20px] p-8 text-white relative overflow-hidden shadow-2xl transition-transform duration-300 hover:-translate-y-1 flex justify-between items-center group">
+      <div className="bg-slate-900 rounded-[20px] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl transition-transform duration-300 hover:-translate-y-1 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 md:gap-0 group">
         <div className="absolute -top-[50px] -right-[50px] w-[250px] h-[250px] bg-orange-500 rounded-full blur-[90px] opacity-20 group-hover:opacity-30 transition-opacity"></div>
         <div className="relative z-10">
           <div className="text-slate-400 text-[0.75rem] font-bold tracking-[1px] mb-1.5 uppercase">Total Combined Earnings</div>
@@ -35,7 +35,7 @@ export default function AnalyticsPage() {
             {isLoading ? "..." : `₹${metrics.totalEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           </div>
           
-          <div className="flex gap-8">
+          <div className="flex flex-wrap gap-6 md:gap-8">
             <div className="flex flex-col gap-1">
               <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[0.5px]">Shoots Completed</span>
               <span className="text-[1.2rem] font-extrabold text-white">{isLoading ? "-" : metrics.completedShoots}</span>
@@ -51,7 +51,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
         
-        <div className="flex flex-col items-end relative z-10 bg-white/5 backdrop-blur-sm px-5 py-4 rounded-xl border border-white/10 group-hover:bg-white/10 transition-colors">
+        <div className="flex flex-col items-start md:items-end w-full md:w-auto relative z-10 bg-white/5 backdrop-blur-sm px-5 py-4 rounded-xl border border-white/10 group-hover:bg-white/10 transition-colors">
           <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[0.5px]">Growth Velocity</span>
           <span className="text-[1.8rem] font-extrabold text-white flex items-center gap-2">
             +{isLoading ? "-" : metrics.growthVelocity}% <i className="ph-bold ph-trend-up text-orange-400"></i>
@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
         <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-green-50 text-green-600 flex items-center justify-center">

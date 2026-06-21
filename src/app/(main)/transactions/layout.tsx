@@ -11,10 +11,10 @@ function TransactionsLayoutContent({ children }: { children: React.ReactNode }) 
   const isAll = pathname === "/transactions/allTransactions";
 
   return (
-    <div className="p-8 pb-20 animate-fade-in w-full max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 pb-20 animate-fade-in w-full max-w-7xl mx-auto">
       {/* Tab Navigation */}
-      <div className="flex items-center gap-3 mb-7">
-        <div className="flex items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-7">
+        <div className="flex items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm overflow-x-auto no-scrollbar w-full sm:w-auto">
           <Link
             href="/transactions/overview"
             className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
@@ -37,10 +37,10 @@ function TransactionsLayoutContent({ children }: { children: React.ReactNode }) 
           </Link>
         </div>
 
-        <div className="ml-auto">
+        <div className="sm:ml-auto w-full sm:w-auto">
           <button
             onClick={() => router.push("/transactions/new")}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-6 h-[44px] rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 hover:shadow-orange-500/40 active:scale-95"
+            className="bg-orange-500 hover:bg-orange-600 text-white w-full sm:w-auto px-6 h-[44px] rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 hover:shadow-orange-500/40 active:scale-95 whitespace-nowrap"
           >
             <i className="ph-bold ph-plus text-base"></i>
             Add Transaction

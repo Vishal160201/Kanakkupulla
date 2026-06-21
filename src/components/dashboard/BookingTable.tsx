@@ -54,18 +54,19 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
 
   return (
     <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm overflow-hidden flex flex-col">
-      <div className="overflow-x-auto w-full">
-        <div className="flex px-4 py-3 border-b border-gray-200 text-slate-500 font-extrabold text-[0.7rem] uppercase tracking-[1px]">
-          <div className="flex-[2]">Client</div>
-          <div className="flex-[1.5]">Category</div>
-          <div className="flex-[1.5]">Date & Time</div>
-          <div className="flex-[1.5]">Location</div>
-          <div className="flex-[1]">Amount</div>
-          <div className="flex-[1]">Status</div>
-          <div className="w-[40px] text-center"><i className="ph-bold ph-gear text-[1.1rem]"></i></div>
-        </div>
-        
-        <div id="dynamic-bookings-table" className="flex flex-col">
+      <div className="overflow-x-auto w-full no-scrollbar">
+        <div className="min-w-[900px]">
+          <div className="flex px-4 py-3 border-b border-gray-200 text-slate-500 font-extrabold text-[0.7rem] uppercase tracking-[1px]">
+            <div className="flex-[2]">Client</div>
+            <div className="flex-[1.5]">Category</div>
+            <div className="flex-[1.5]">Date & Time</div>
+            <div className="flex-[1.5]">Location</div>
+            <div className="flex-[1]">Amount</div>
+            <div className="flex-[1]">Status</div>
+            <div className="w-[40px] text-center"><i className="ph-bold ph-gear text-[1.1rem]"></i></div>
+          </div>
+          
+          <div id="dynamic-bookings-table" className="flex flex-col">
           {sorted.map(b => {
             const d = new Date(b.date);
             const displayDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -136,6 +137,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
               </div>
             );
           })}
+          </div>
         </div>
         
         {/* Pagination Controls */}

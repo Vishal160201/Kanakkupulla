@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const pino = require('pino');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -13,183 +13,145 @@ app.use(cors());
 app.use(express.json());
 
 // Global state
-let waClient = null;
+let waSocket = null;
 let waStatus = 'DISCONNECTED'; // 'DISCONNECTED' | 'INITIALIZING' | 'AWAITING_QR' | 'READY' | 'ERROR'
 let waQrDataUrl = null;
-let waPairingCode = null;
 let waError = null;
 
-const initWhatsApp = () => {
-  if (waClient && waStatus !== 'ERROR' && waStatus !== 'DISCONNECTED') {
+const initWhatsApp = async () => {
+  if (waSocket && waStatus !== 'ERROR' && waStatus !== 'DISCONNECTED') {
     return;
   }
 
   waStatus = 'INITIALIZING';
   waError = null;
   waQrDataUrl = null;
-  waPairingCode = null;
-  
-  const client = new Client({
-    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
-    webVersionCache: {
-      type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-    },
-    puppeteer: {
-      headless: true,
-      executablePath: process.env.CHROME_BIN || null,
-      args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox', 
-        '--disable-dev-shm-usage', 
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-accelerated-2d-canvas',
-        '--disable-software-rasterizer',
-        '--disable-features=site-per-process',
-        '--js-flags="--max-old-space-size=256"',
-        '--mute-audio',
-        '--disable-extensions',
-        '--disable-background-networking',
-        '--disable-default-apps',
-        '--disable-sync',
-        '--disable-translate'
-      ],
-    }
-  });
 
-  client.on('qr', async (qr) => {
-    try {
-      const url = await qrcode.toDataURL(qr);
-      waQrDataUrl = url;
-      waStatus = 'AWAITING_QR';
-      console.log("QR Code received");
-    } catch (e) {
-      console.error("Failed to generate QR code", e);
-    }
-  });
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState('./.baileys_auth');
 
-  client.on('ready', () => {
-    waStatus = 'READY';
-    waQrDataUrl = null;
-    waPairingCode = null;
-    console.log("WhatsApp is READY");
-  });
+    waSocket = makeWASocket({
+      auth: state,
+      printQRInTerminal: false,
+      logger: pino({ level: 'silent' }), // Suppress excessive logs
+      browser: ['Kanakkupulla Bot', 'Chrome', '1.0.0']
+    });
 
-  client.on('authenticated', () => {
-    console.log("WhatsApp Authenticated");
-  });
+    waSocket.ev.on('creds.update', saveCreds);
 
-  client.on('auth_failure', msg => {
-    console.error('AUTHENTICATION FAILURE', msg);
-    waStatus = 'ERROR';
-    waError = 'Authentication failure: ' + msg;
-  });
+    waSocket.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
 
-  client.on('disconnected', (reason) => {
-    console.log('WhatsApp Disconnected', reason);
-    waStatus = 'DISCONNECTED';
-    waClient = null;
-  });
+      if (qr) {
+        // Baileys provides the raw QR string, we convert it to a data URL for the frontend
+        const qrcode = require('qrcode');
+        waQrDataUrl = await qrcode.toDataURL(qr);
+        waStatus = 'AWAITING_QR';
+        console.log('QR Code received');
+      }
 
-  client.initialize().catch(err => {
+      if (connection === 'close') {
+        const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+        console.log('connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
+        
+        waStatus = 'DISCONNECTED';
+        waSocket = null;
+
+        // Reconnect if not explicitly logged out
+        if (shouldReconnect) {
+          setTimeout(initWhatsApp, 2000);
+        } else {
+          // Explicitly logged out, clear auth folder
+          const fs = require('fs');
+          if (fs.existsSync('./.baileys_auth')) {
+             fs.rmSync('./.baileys_auth', { recursive: true, force: true });
+          }
+        }
+      } else if (connection === 'open') {
+        console.log('WhatsApp is READY');
+        waStatus = 'READY';
+        waQrDataUrl = null;
+      }
+    });
+
+    // Handle incoming messages
+    waSocket.ev.on('messages.upsert', async (m) => {
+      // Future: add auto-reply logic here if needed
+      // const msg = m.messages[0];
+      // if (!msg.key.fromMe && m.type === 'notify') {
+      //    console.log('replying to', msg.key.remoteJid);
+      //    await waSocket.sendMessage(msg.key.remoteJid, { text: 'Hello there!' });
+      // }
+    });
+
+  } catch (err) {
     console.error("WhatsApp Initialization Error:", err);
     waStatus = 'ERROR';
-    waClient = null;
+    waSocket = null;
     waError = err instanceof Error ? err.message : String(err);
-  });
-
-  waClient = client;
+  }
 };
 
 // Start initialization immediately
 initWhatsApp();
 
 // API Endpoints
+
 app.get('/', (req, res) => {
-  res.send('WhatsApp Bot Server is running perfectly!');
+  res.send('WhatsApp Bot Server (Baileys) is running perfectly!');
 });
 
 app.get('/api/status', (req, res) => {
   res.json({
     status: waStatus,
     qrCode: waQrDataUrl,
-    pairingCode: waPairingCode,
+    pairingCode: null, // Baileys supports pairing codes, but we stick to QR for simplicity
     error: waError
   });
 });
 
-app.post('/api/pair', async (req, res) => {
-  const { phoneNumber } = req.body;
-  
-  if (!phoneNumber) {
-    return res.status(400).json({ error: "Phone number is required" });
-  }
-
-  if (waClient && waStatus !== 'READY') {
-    try {
-      let cleanPhone = phoneNumber.replace(/\D/g, '');
-      if (cleanPhone.length === 10) {
-        cleanPhone = '91' + cleanPhone; // Default to India if 10 digits
-      }
-      
-      const codePromise = waClient.requestPairingCode(cleanPhone);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Timeout getting pairing code from WhatsApp Web JS. The client may be in an unresponsive state.")), 15000)
-      );
-      
-      const code = await Promise.race([codePromise, timeoutPromise]);
-      waPairingCode = code;
-      
-      return res.json({ success: true, code });
-    } catch (e) {
-      console.error("Error requesting pairing code:", e);
-      return res.status(500).json({ error: e instanceof Error ? e.message : "Failed to request pairing code" });
-    }
-  }
-  
-  return res.status(400).json({ error: "WhatsApp client not available or already connected" });
-});
-
 app.post('/api/logout', async (req, res) => {
-  if (waClient) {
+  if (waSocket && waStatus === 'READY') {
     try {
-      await waClient.logout();
+      await waSocket.logout();
       waStatus = 'DISCONNECTED';
-      waClient = null;
-      waQrDataUrl = null;
-      waPairingCode = null;
-      waError = null;
-      // Re-initialize for next login
-      initWhatsApp();
-      return res.json({ success: true });
-    } catch (e) {
-      console.error("Logout Error:", e);
-      return res.status(500).json({ error: "Failed to logout" });
+      waSocket = null;
+      res.json({ success: true, message: 'Logged out successfully' });
+      
+      // Auto-restart to generate new QR
+      setTimeout(initWhatsApp, 3000);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to logout' });
     }
+  } else {
+    res.json({ success: true, message: 'Already disconnected' });
+    setTimeout(initWhatsApp, 1000);
   }
-  return res.json({ success: true });
 });
 
-// Future endpoint to send messages
 app.post('/api/send', async (req, res) => {
-  const { to, message } = req.body;
-  if (!waClient || waStatus !== 'READY') {
-    return res.status(400).json({ error: "WhatsApp is not connected" });
+  if (waStatus !== 'READY' || !waSocket) {
+    return res.status(400).json({ error: 'WhatsApp is not ready' });
   }
+
+  const { number, message } = req.body;
   
+  if (!number || !message) {
+    return res.status(400).json({ error: 'Phone number and message are required' });
+  }
+
   try {
-    const formattedNumber = to.replace(/\D/g, '') + "@c.us";
-    await waClient.sendMessage(formattedNumber, message);
+    // Baileys requires the jid format: number@s.whatsapp.net
+    const jid = number.includes('@s.whatsapp.net') ? number : `${number}@s.whatsapp.net`;
+    
+    await waSocket.sendMessage(jid, { text: message });
     res.json({ success: true });
   } catch (error) {
     console.error("Failed to send message:", error);
-    res.status(500).json({ error: "Failed to send message" });
+    res.status(500).json({ error: 'Failed to send message' });
   }
 });
 
 app.listen(port, () => {
-  console.log(`WhatsApp Bot Server running on port ${port}`);
+  console.log(`WhatsApp Bot server listening on port ${port}`);
 });

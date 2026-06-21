@@ -8,7 +8,7 @@ export default async function BookingDetailsPage({ params }: { params: Promise<{
   const { id } = await params;
   const booking = await prisma.booking.findUnique({
     where: { id },
-    include: { client: true, order: true }
+    include: { client: true, order: true, createdBy: true, updatedBy: true }
   });
 
   if (!booking) notFound();
@@ -34,6 +34,8 @@ export default async function BookingDetailsPage({ params }: { params: Promise<{
     notes: booking.notes,
     attachments: booking.attachments,
     photographers: booking.photographers,
+    createdBy: booking.createdBy,
+    updatedBy: booking.updatedBy,
   };
 
   return (

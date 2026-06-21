@@ -51,6 +51,10 @@ model Booking {
   transactions  Transaction[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  createdById   String?
+  createdBy     User?         @relation("BookingCreatedBy", fields: [createdById], references: [id])
+  updatedById   String?
+  updatedBy     User?         @relation("BookingUpdatedBy", fields: [updatedById], references: [id])
 
   @@index([date])
   @@index([clientId])
@@ -149,6 +153,8 @@ model User {
   pushNotifications  Boolean            @default(true)
   phone              String?
   whatsappNotifs     Boolean            @default(false)
+  createdBookings    Booking[]          @relation("BookingCreatedBy")
+  updatedBookings    Booking[]          @relation("BookingUpdatedBy")
 }
 
 model RolePermission {

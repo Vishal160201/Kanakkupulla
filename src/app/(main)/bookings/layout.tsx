@@ -126,8 +126,9 @@ export default function BookingsLayout({
 
   return (
     <div className="view-section active">
-      <div style={{ display: "flex", gap: "15px", marginBottom: "25px" }}>
-        <Link 
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", flexWrap: "wrap", gap: "15px" }}>
+        <div style={{ display: "flex", gap: "15px" }}>
+          <Link 
           href="/bookings/overview"
           className={`btn ${isOverview ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
           style={{ borderRadius: "20px", borderColor: isTable || isUpcoming ? "transparent" : "", textDecoration: "none" }}
@@ -148,9 +149,11 @@ export default function BookingsLayout({
         >
           All bookings
         </Link>
+        </div>
         
-        {isTable && (
-          <div style={{ marginLeft: "auto", display: "flex", gap: "15px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+          {isTable && (
+            <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
             {hasActiveFilters ? (
               <div style={{ display: "flex", alignItems: "center", gap: "8px", backgroundColor: "#fff7ed", padding: "6px 12px", borderRadius: "20px", border: "1px solid #ffedd5" }}>
                 <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#ea580c" }}>Filtered by:</span>
@@ -194,17 +197,19 @@ export default function BookingsLayout({
                 )}
               </div>
             )}
-          </div>
-        )}
+            </div>
+          )}
+          
+          {isOverview && (
+            <Link href="/bookings/new" className="btn btn-primary" style={{ borderRadius: "20px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <i className="ph-bold ph-plus"></i> Add Booking
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="sub-view active">
         {children}
-      </div>
-
-      {/* FAB */}
-      <div className="fab interactive" onClick={() => router.push("/bookings/new")}>
-        <i className="ph-fill ph-camera"></i>
       </div>
 
       {/* Shared Modals */}

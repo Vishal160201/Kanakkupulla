@@ -293,8 +293,8 @@ export default function CalendarWidget() {
   }
 
   return (
-    <div className="calendar-wrapper">
-      <div className="calendar-header">
+    <div className="calendar-wrapper overflow-x-auto no-scrollbar">
+      <div className="calendar-header flex-col sm:flex-row gap-4 sm:gap-0">
         <div className="calendar-title">
           <div style={{ position: "relative" }}>
             <div style={{ cursor: "pointer", display: "flex", alignItems: "center" }} title="Select Month & Year" onClick={() => setIsPickerOpen(!isPickerOpen)}>
@@ -336,7 +336,7 @@ export default function CalendarWidget() {
       
       <div id="calendar-container" className={isLoading ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}>
         {view === 'month' && (
-          <div className="calendar-grid">
+          <div className="calendar-grid min-w-[500px]">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="calendar-day-header">{d}</div>)}
             {renderMonthGrid()}
           </div>
@@ -345,8 +345,8 @@ export default function CalendarWidget() {
         {view === 'day' && <div className="calendar-time-grid">{renderDayGrid()}</div>}
       </div>
 
-      <div className="flex justify-end items-center gap-4 pt-4 px-2 mt-auto border-t border-gray-100">
-        <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mr-2">Package Value:</div>
+      <div className="flex justify-start sm:justify-end flex-wrap items-center gap-2 sm:gap-4 pt-4 px-2 mt-auto border-t border-gray-100">
+        <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mr-0 sm:mr-2 w-full sm:w-auto">Package Value:</div>
         {preferences?.calendarTiers?.map((tier: any, index: number) => {
           const prevMax = index > 0 ? preferences.calendarTiers[index - 1].max : 0;
           let label = "";

@@ -104,7 +104,7 @@ export default function UserManagement() {
     <>
       <div className="flex flex-col gap-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
           <div>
             <h2 className="text-[1.75rem] font-bold text-slate-900 tracking-tight">Studio Access</h2>
             <p className="text-slate-500 text-sm mt-1">
@@ -152,7 +152,7 @@ export default function UserManagement() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
                       <span className="font-bold text-[0.85rem] text-slate-900 truncate tracking-tight">
                         {user.name || "Unnamed User"}
                       </span>
@@ -169,14 +169,17 @@ export default function UserManagement() {
                       )}
                     </div>
                     <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                         {user.email && (
-                          <span className="text-[0.7rem] text-slate-500">
+                          <span className="text-[0.7rem] text-slate-500 truncate max-w-full">
                             {user.email}
                           </span>
                         )}
-                        <span className="text-[0.65rem] font-mono text-slate-400">
-                          • #MDuser-{String(user.idNumber).padStart(3, '0')}
+                        <span className="text-[0.65rem] font-mono text-slate-400 whitespace-nowrap hidden sm:inline">
+                          • 
+                        </span>
+                        <span className="text-[0.65rem] font-mono text-slate-400 whitespace-nowrap">
+                          #MDuser-{String(user.idNumber).padStart(3, '0')}
                         </span>
                       </div>
                     </div>
@@ -202,12 +205,12 @@ export default function UserManagement() {
                   </div>
 
                   {/* Status Badge */}
-                  <div className={`flex items-center gap-1.5 text-[0.75rem] font-semibold px-3 py-1 rounded-full border ${statusStyle.bg}`}>
+                  <div className={`flex items-center gap-1.5 text-[0.75rem] font-semibold px-3 py-1 rounded-full border ${statusStyle.bg} shrink-0`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
                     <span className={statusStyle.text}>{user.status}</span>
                   </div>
 
-                  <div className="pl-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <div className="hidden sm:flex pl-3 opacity-0 group-hover:opacity-100 transition-opacity items-center justify-center">
                     <i className="ph ph-caret-right text-slate-300 group-hover:text-slate-500"></i>
                   </div>
                 </div>
