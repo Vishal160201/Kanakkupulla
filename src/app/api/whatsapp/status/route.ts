@@ -7,7 +7,7 @@ const BOT_URL = process.env.WHATSAPP_BOT_URL || "http://localhost:3001";
 export async function GET() {
   const session = await getServerSession(authOptions);
   const userRole = (session?.user as any)?.role;
-  if (!session || (userRole !== "SUPER_ADMIN" && userRole !== "STUDIO_OWNER")) {
+  if (!session || (userRole !== "SUPER_ADMIN" && userRole !== "STUDIO_OWNER" && userRole !== "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
