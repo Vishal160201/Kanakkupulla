@@ -462,12 +462,21 @@ export default function TopNavigation() {
                   <div className="flex justify-between items-center">
                     <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">WhatsApp Bot</div>
                     <div className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${waStatusData.status === 'READY' ? 'bg-green-500' : waStatusData.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`}></div>
-                      <span className="text-[0.65rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Login' : 'Disconnected'}</span>
+                      <div className={`w-2 h-2 rounded-full ${waStatusData.status === 'READY' ? 'bg-green-500' : waStatusData.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : waStatusData.status === 'ERROR' ? 'bg-red-600' : 'bg-red-500'}`}></div>
+                      <span className="text-[0.65rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Login' : waStatusData.status === 'ERROR' ? 'Error' : 'Disconnected'}</span>
                     </div>
                   </div>
                   
-                  {waStatusData.status === 'READY' ? (
+                  {waStatusData.status === 'ERROR' ? (
+                     <div className="flex flex-col items-center p-3 bg-red-50 rounded-xl border border-red-100 gap-2">
+                       <i className="ph-fill ph-warning-circle text-red-500 text-2xl"></i>
+                       <span className="text-[0.65rem] text-red-600 text-center font-semibold">Failed to start WhatsApp Bot in this environment.</span>
+                       <span className="text-[0.55rem] text-red-400 text-center break-all">{waStatusData.error || "Unknown Error"}</span>
+                       <button onClick={() => { fetch('/api/whatsapp/status'); mutateWA(); }} className="mt-1 px-3 py-1 bg-red-100 text-red-600 text-[0.65rem] font-bold rounded hover:bg-red-200 transition-colors">
+                         Retry Connection
+                       </button>
+                     </div>
+                  ) : waStatusData.status === 'READY' ? (
                      <button 
                        onClick={async () => {
                          await fetch('/api/whatsapp/logout', { method: 'POST' });
