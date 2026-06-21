@@ -86,6 +86,10 @@ const initWhatsApp = () => {
 initWhatsApp();
 
 // API Endpoints
+app.get('/', (req, res) => {
+  res.send('WhatsApp Bot Server is running perfectly!');
+});
+
 app.get('/api/status', (req, res) => {
   res.json({
     status: waStatus,
