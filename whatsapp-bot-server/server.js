@@ -34,7 +34,25 @@ const initWhatsApp = () => {
     puppeteer: {
       headless: true,
       executablePath: process.env.CHROME_BIN || null,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--disable-dev-shm-usage', 
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-accelerated-2d-canvas',
+        '--disable-software-rasterizer',
+        '--disable-features=site-per-process',
+        '--js-flags="--max-old-space-size=256"',
+        '--mute-audio',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-default-apps',
+        '--disable-sync',
+        '--disable-translate'
+      ],
     }
   });
 

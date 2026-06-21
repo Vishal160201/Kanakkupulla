@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-const BOT_URL = process.env.WHATSAPP_BOT_URL || "http://localhost:3001";
-
 export async function POST() {
+  const BOT_URL = process.env.WHATSAPP_BOT_URL || "http://localhost:3001";
   const session = await getServerSession(authOptions);
   const userRole = (session?.user as any)?.role;
   if (!session || (userRole !== "SUPER_ADMIN" && userRole !== "STUDIO_OWNER" && userRole !== "ADMIN")) {

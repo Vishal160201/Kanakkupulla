@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
-const BOT_URL = process.env.WHATSAPP_BOT_URL || "http://localhost:3001";
-
 export async function POST(request: Request) {
+  const BOT_URL = process.env.WHATSAPP_BOT_URL || "http://localhost:3001";
   try {
     const { phoneNumber } = await request.json();
 
