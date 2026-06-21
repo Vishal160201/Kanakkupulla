@@ -6,6 +6,7 @@ const globalForWA = globalThis as unknown as {
   waClient: Client | undefined;
   waStatus: 'DISCONNECTED' | 'INITIALIZING' | 'AWAITING_QR' | 'READY';
   waQrDataUrl: string | undefined;
+  waPairingCode: string | undefined;
 };
 
 // Initialize status on first load
@@ -41,18 +42,21 @@ export const initWhatsApp = () => {
     console.log('WhatsApp Client is READY!');
     globalForWA.waStatus = 'READY';
     globalForWA.waQrDataUrl = undefined;
+    globalForWA.waPairingCode = undefined;
   });
 
   client.on('authenticated', () => {
     console.log('WhatsApp Client Authenticated');
     globalForWA.waStatus = 'INITIALIZING';
     globalForWA.waQrDataUrl = undefined;
+    globalForWA.waPairingCode = undefined;
   });
 
   client.on('auth_failure', (msg) => {
     console.error('WhatsApp Authentication failure', msg);
     globalForWA.waStatus = 'DISCONNECTED';
     globalForWA.waQrDataUrl = undefined;
+    globalForWA.waPairingCode = undefined;
   });
 
   client.on('disconnected', (reason) => {
@@ -60,6 +64,7 @@ export const initWhatsApp = () => {
     globalForWA.waClient = undefined;
     globalForWA.waStatus = 'DISCONNECTED';
     globalForWA.waQrDataUrl = undefined;
+    globalForWA.waPairingCode = undefined;
   });
 
   client.initialize().catch(err => {
@@ -74,8 +79,34 @@ export const initWhatsApp = () => {
 export const getWhatsAppStatus = () => {
   return {
     status: globalForWA.waStatus,
-    qrCode: globalForWA.waQrDataUrl
+    qrCode: globalForWA.waQrDataUrl,
+    pairingCode: globalForWA.waPairingCode
   };
+};
+
+export const requestWAPairingCode = async (phoneNumber: string) => {
+  if (globalForWA.waClient && globalForWA.waStatus !== 'READY') {
+    try {
+      // whatsapp-web.js requires the phone number without '+'
+      let cleanPhone = phoneNumber.replace(/\D/g, '');
+      if (cleanPhone.length === 10) {
+        cleanPhone = '91' + cleanPhone; // Default to India if 10 digits
+      }
+      
+      const codePromise = globalForWA.waClient.requestPairingCode(cleanPhone);
+      const timeoutPromise = new Promise<string>((_, reject) => 
+        setTimeout(() => reject(new Error("Timeout getting pairing code from WhatsApp Web JS. The client may be in an unresponsive state.")), 15000)
+      );
+      
+      const code = await Promise.race([codePromise, timeoutPromise]);
+      globalForWA.waPairingCode = code;
+      return code;
+    } catch (e) {
+      console.error(e);
+      throw new Error("Failed to request pairing code");
+    }
+  }
+  throw new Error("WhatsApp client not available or already connected");
 };
 
 export const disconnectWhatsApp = async () => {
@@ -88,6 +119,7 @@ export const disconnectWhatsApp = async () => {
     globalForWA.waClient = undefined;
     globalForWA.waStatus = 'DISCONNECTED';
     globalForWA.waQrDataUrl = undefined;
+    globalForWA.waPairingCode = undefined;
   }
 };
 
@@ -98,7 +130,6 @@ export const sendWhatsAppMessage = async (toPhoneNumber: string, message: string
   }
 
   try {
-    // Format: 919876543210@c.us
     const numericOnly = toPhoneNumber.replace(/\D/g, '');
     const chatId = `${numericOnly}@c.us`;
     await globalForWA.waClient.sendMessage(chatId, message);

@@ -1,2 +1,3 @@
-2026/06/20-22:59:38.996 4b9fb7 Creating DB /Users/nithya-22218/Kanakkupulla/.wwebjs_auth/session/Default/Sync Data/LevelDB since it was missing.
-2026/06/20-22:59:39.007 4b9fb7 Reusing MANIFEST /Users/nithya-22218/Kanakkupulla/.wwebjs_auth/session/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/06/21-08:44:27.067 793b Reusing MANIFEST /Users/nithya-22218/Kanakkupulla/.wwebjs_auth/session/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/06/21-08:44:27.072 793b Recovering log #3
+2026/06/21-08:44:27.072 793b Reusing old log /Users/nithya-22218/Kanakkupulla/.wwebjs_auth/session/Default/Sync Data/LevelDB/000003.log 
