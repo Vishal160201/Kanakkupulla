@@ -172,7 +172,7 @@ function ShootCard({ booking, router, group }: { booking: Booking, router: any, 
       </div>
 
       {/* Logistics & Payment */}
-      <div className="grid grid-cols-2 gap-3 bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-slate-100/50 ml-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-slate-100/50 ml-0 sm:ml-2">
         <div className="flex flex-col gap-1">
           <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider">Location</span>
           <div className="text-[0.8rem] font-semibold text-slate-700 truncate flex items-center gap-1">
@@ -199,21 +199,21 @@ function ShootCard({ booking, router, group }: { booking: Booking, router: any, 
       </div>
 
       {/* Client Contact Details */}
-      <div className="flex items-center justify-between mt-2 ml-2 pt-3 border-t border-slate-100/60">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-2 ml-0 sm:ml-2 pt-3 border-t border-slate-100/60 gap-3 sm:gap-0">
+        <div className="flex flex-wrap items-center gap-2">
           <div 
-            className="flex items-center gap-1.5 text-[0.75rem] font-semibold text-slate-600 bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-lg hover:border-orange-200 hover:text-orange-600 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-[0.75rem] font-semibold text-slate-600 bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-lg hover:border-orange-200 hover:text-orange-600 transition-colors cursor-pointer whitespace-nowrap"
             onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${booking.phone}`; }}
           >
             <i className="ph-fill ph-phone text-slate-400 group-hover:text-orange-500 transition-colors"></i> {booking.phone}
           </div>
           {booking.email && (
-            <div className="flex items-center gap-1.5 text-[0.75rem] font-semibold text-slate-600 bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-lg truncate max-w-[160px]">
+            <div className="flex items-center gap-1.5 text-[0.75rem] font-semibold text-slate-600 bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-lg truncate max-w-full sm:max-w-[160px] whitespace-nowrap">
               <i className="ph-fill ph-envelope text-slate-400"></i> {booking.email}
             </div>
           )}
         </div>
-        <div className="text-[0.65rem] font-black text-slate-300 flex items-center gap-1 uppercase tracking-widest group-hover:text-orange-400 transition-colors">
+        <div className="text-[0.65rem] font-black text-slate-300 flex items-center self-end sm:self-auto gap-1 uppercase tracking-widest group-hover:text-orange-400 transition-colors">
           Details <i className="ph-bold ph-arrow-right"></i>
         </div>
       </div>

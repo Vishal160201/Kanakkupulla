@@ -84,6 +84,8 @@ export async function POST(request: Request) {
         galleryUrl,
         contractUrl,
         customData,
+        createdById: (session.user as any).id,
+        updatedById: (session.user as any).id,
       },
       include: {
         client: true,

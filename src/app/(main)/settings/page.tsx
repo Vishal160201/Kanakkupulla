@@ -24,12 +24,12 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-8">
         {/* Top Nav */}
         <div className="w-full">
-          <nav className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex">
+          <nav className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto no-scrollbar flex">
             {SECTIONS.map((section) => (
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
-                className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-4 text-[0.95rem] font-semibold transition-all duration-150 border-b-[3px] ${
+                className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-4 text-[0.95rem] font-semibold transition-all duration-150 border-b-[3px] whitespace-nowrap min-w-max ${
                   activeSection === section.id
                     ? "bg-orange-50 text-orange-600 border-b-orange-500"
                     : "text-slate-600 border-b-transparent hover:bg-slate-50 hover:text-slate-900"

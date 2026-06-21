@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
+import { useMobileNav } from "../providers/MobileNavProvider";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -13,7 +14,9 @@ export default function TopNavigation() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const { toggleSidebar } = useMobileNav();
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -170,8 +173,19 @@ export default function TopNavigation() {
         setIsProfileOpen(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsSearchFocused(false);
+        setIsNotificationsOpen(false);
+        setIsProfileOpen(false);
+      }
+    };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
   
   const handleMarkAsRead = async (id: string, link?: string) => {
@@ -215,50 +229,73 @@ export default function TopNavigation() {
   else if (pathname.includes("settings")) title = "Settings";
   
   return (
-    <header className={`relative flex ${title ? 'justify-between' : 'justify-end'} items-center px-10 py-5 bg-slate-50 z-50`}>
-      {title && title === "Moondot studio" ? (
-        <div className="relative">
-          <style>{`
-            @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Montserrat:wght@300;400;600&display=swap');
-            .studio-brand {
-              font-family: 'Alex Brush', cursive;
-              font-weight: 400;
-              font-size: 5.8rem;
-              line-height: 1.1;
-              background: linear-gradient(135deg, #0f172a 0%, #334155 50%, #020617 100%);
-              -webkit-background-clip: text;
-              -webkit-text-fill-color: transparent;
-              display: flex;
-              align-items: center;
-              gap: 15px;
-              padding-left: 20px;
-              padding-right: 20px;
-              margin-top: -15px;
-              margin-bottom: -10px;
-            }
-            .studio-brand-accent {
-              font-family: 'Montserrat', sans-serif;
-              font-weight: 500;
-              font-size: 1.2rem;
-              text-transform: uppercase;
-              letter-spacing: 0.35em;
-              background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-              -webkit-background-clip: text;
-              -webkit-text-fill-color: transparent;
-              margin-top: 40px;
-            }
-          `}</style>
-          <div className="studio-brand">
-            Moondot <span className="studio-brand-accent">Studio</span>
+    <header className={`relative flex ${title ? 'justify-between' : 'justify-end'} items-center px-4 md:px-10 py-4 md:py-5 bg-slate-50 z-50`}>
+      <div className="flex items-center gap-3">
+        {/* Hamburger Menu (Mobile Only) */}
+        <button 
+          onClick={toggleSidebar}
+          className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+        >
+          <i className="ph-bold ph-list text-[1.4rem]"></i>
+        </button>
+
+        {title && title === "Moondot studio" ? (
+          <div className="relative hidden sm:block">
+            <style>{`
+              @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Montserrat:wght@300;400;600&display=swap');
+              .studio-brand {
+                font-family: 'Alex Brush', cursive;
+                font-weight: 400;
+                font-size: 5.8rem;
+                line-height: 1.1;
+                background: linear-gradient(135deg, #0f172a 0%, #334155 50%, #020617 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                padding-left: 20px;
+                padding-right: 20px;
+                margin-top: -15px;
+                margin-bottom: -10px;
+              }
+              .studio-brand-accent {
+                font-family: 'Montserrat', sans-serif;
+                font-weight: 500;
+                font-size: 1.2rem;
+                text-transform: uppercase;
+                letter-spacing: 0.35em;
+                background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                margin-top: 40px;
+              }
+            `}</style>
+            <div className="studio-brand">
+              Moondot <span className="studio-brand-accent hidden md:inline">Studio</span>
+            </div>
           </div>
-        </div>
-      ) : (
-        title && <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">{title}</h1>
-      )}
+        ) : (
+          title && <h1 className="text-xl md:text-4xl font-extrabold text-slate-900 tracking-tight hidden sm:block">{title}</h1>
+        )}
+      </div>
       
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-3 md:gap-5">
+        {/* Search Bar - Responsive */}
         <div ref={searchRef} className="relative">
-          <div className="bg-white border border-gray-200 rounded-full px-4 py-2 flex items-center gap-2.5 w-[300px] shadow-sm transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+          {/* Mobile Search Icon */}
+          <button 
+            className="md:hidden w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white border border-gray-200 text-slate-600 shadow-sm"
+            onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+          >
+            <i className="ph-bold ph-magnifying-glass text-[1.4rem]"></i>
+          </button>
+
+          {/* Desktop Search Bar or Expanded Mobile Search */}
+          <div className={`
+            absolute right-0 top-14 md:top-auto md:relative md:flex bg-white border border-gray-200 rounded-2xl md:rounded-full px-4 py-2 items-center gap-2.5 w-[calc(100vw-32px)] sm:w-[300px] shadow-lg md:shadow-sm transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent z-[100]
+            ${isMobileSearchOpen ? 'flex' : 'hidden'}
+          `}>
             <input 
               type="text" 
               placeholder="Search bookings, transactions..." 
@@ -266,16 +303,17 @@ export default function TopNavigation() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
+              autoFocus={isMobileSearchOpen}
             />
             {isSearchLoading ? (
               <i className="ph-bold ph-spinner animate-spin text-blue-500 text-[1.2rem]"></i>
             ) : (
-              <i className="ph-bold ph-magnifying-glass text-slate-400 text-[1.2rem]"></i>
+              <i className="ph-bold ph-magnifying-glass text-slate-400 text-[1.2rem] hidden md:block"></i>
             )}
           </div>
           
           {isSearchFocused && searchQuery.length >= 2 && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[400px] overflow-y-auto no-scrollbar">
+            <div className="absolute top-[calc(100%+8px)] right-0 md:left-0 w-[calc(100vw-32px)] sm:w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[400px] overflow-y-auto no-scrollbar">
               <div className="px-4 pb-2 text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Search Results</div>
               
               {!isSearchLoading && (!searchResults?.results || searchResults.results.length === 0) ? (
@@ -325,7 +363,7 @@ export default function TopNavigation() {
           </button>
 
           {isNotificationsOpen && (
-            <div className="absolute top-[calc(100%+10px)] right-0 w-[350px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 z-50 overflow-hidden flex flex-col">
+            <div className="absolute top-[calc(100%+10px)] right-0 w-[calc(100vw-32px)] sm:w-[350px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 z-50 overflow-hidden flex flex-col">
               <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-slate-50/50">
                 <h3 className="font-bold text-slate-900 text-[0.95rem]">Notifications</h3>
                 {unreadCount > 0 && (
@@ -387,7 +425,7 @@ export default function TopNavigation() {
           </div>
 
           {isProfileOpen && (
-            <div className="absolute top-[calc(100%+10px)] right-0 w-[260px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 p-5 z-50">
+            <div className="absolute top-[calc(100%+10px)] right-0 w-[calc(100vw-32px)] sm:w-[260px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 p-5 z-50">
               <div className="flex justify-between items-center mb-5">
                 <button 
                   onClick={() => signOut({ callbackUrl: '/login' })}

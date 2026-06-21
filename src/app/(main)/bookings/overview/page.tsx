@@ -42,7 +42,7 @@ function BookingsDataView() {
   return (
     <>
       {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
         <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-red-200 cursor-pointer group">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-red-50 text-red-500 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors">
@@ -97,7 +97,7 @@ function BookingsDataView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[1.5fr_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
         <CalendarWidget />
         <div>
           <UpcomingShoots bookings={bookings} />
@@ -113,12 +113,12 @@ import { Suspense } from "react";
 function BookingsSkeleton() {
   return (
     <div className="flex flex-col gap-8 w-full animate-pulse">
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
         {[1, 2, 3, 4].map(i => (
           <div key={i} className="bg-white rounded-2xl h-[120px] border border-gray-100"></div>
         ))}
       </div>
-      <div className="grid grid-cols-[1.5fr_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
         <div className="bg-white rounded-2xl h-[500px]"></div>
         <div className="bg-white rounded-2xl h-[500px]"></div>
       </div>

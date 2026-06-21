@@ -4,10 +4,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useMobileNav } from "../providers/MobileNavProvider";
 
 export default function Sidebar() {
   const pathname = usePathname() || "";
   const { data: session } = useSession();
+  const { isSidebarOpen, closeSidebar } = useMobileNav();
   
   // Default to STAFF if role is undefined, or handle safely
   const userRole = (session?.user as any)?.role || "STAFF";
@@ -23,7 +25,21 @@ export default function Sidebar() {
   const visibleNavItems = navItems.filter(item => item.roles.includes(userRole));
 
   return (
-    <aside className="w-[220px] bg-white border-r border-gray-200 flex flex-col py-8 px-4 z-10 shadow-[4px_0_15px_-3px_rgba(0,0,0,0.05)]">
+    <>
+      {/* Mobile Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[90] lg:hidden animate-[fadeIn_0.2s_ease-out]"
+          onClick={closeSidebar}
+        />
+      )}
+      
+      {/* Sidebar Content */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-[100] w-[220px] bg-white border-r border-gray-200 flex flex-col py-8 px-4 shadow-[4px_0_15px_-3px_rgba(0,0,0,0.05)]
+        transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
       <div className="hover:scale-105 transition-transform cursor-pointer mb-2 flex justify-center w-full">
         <Image src="/assets/logo.png" alt="Kanakkupulla Logo" width={220} height={60} priority className="object-contain drop-shadow-sm w-[200px] h-auto scale-125 origin-center" />
       </div>
@@ -65,5 +81,6 @@ export default function Sidebar() {
         )}
       </div>
     </aside>
+    </>
   );
 }

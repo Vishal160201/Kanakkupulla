@@ -49,6 +49,20 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isStatusDropdownOpen || isExportMenuOpen) {
+          e.stopPropagation();
+          setIsStatusDropdownOpen(false);
+          setIsExportMenuOpen(false);
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [isStatusDropdownOpen, isExportMenuOpen]);
+
   const handleExport = async (format: 'csv' | 'pdf') => {
     if (!booking) return;
     setIsExportMenuOpen(false);
@@ -201,6 +215,8 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
           // parse comma separated string to JSON string array for inclusions
           const arr = String(v).split(',').map(s => s.trim()).filter(Boolean);
           formData.append(k, JSON.stringify(arr));
+        } else if (typeof v === 'object' && v !== null) {
+          formData.append(k, JSON.stringify(v));
         } else {
           formData.append(k, String(v));
         }
@@ -409,7 +425,9 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                                 <i className={`ph-bold ph-caret-down text-slate-400 transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`}></i>
                               </button>
                               {isStatusDropdownOpen && (
-                                <div className="absolute top-full left-0 mt-2 p-1.5 bg-white rounded-2xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-top-2 w-64 max-h-[250px] overflow-y-auto">
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setIsStatusDropdownOpen(false); }}></div>
+                                  <div className="absolute top-full left-0 mt-2 p-1.5 bg-white rounded-2xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-top-2 w-64 max-h-[250px] overflow-y-auto z-50">
                                    {statusOptions.map((opt: any, idx: number) => (
                                      <button
                                        key={idx}
@@ -457,7 +475,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                 </div>
 
                 {/* Top Info Bar */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-4 px-6 flex flex-wrap md:flex-nowrap items-center justify-between gap-6 overflow-hidden relative">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 flex flex-col md:flex-row flex-wrap md:flex-nowrap gap-4 md:gap-8 items-start md:items-center divide-y md:divide-y-0 md:divide-x divide-gray-100">
                    <div className="flex items-center gap-4 flex-1">
                       <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
                          <i className="ph-fill ph-file-text text-orange-500 text-xl"></i>
@@ -467,28 +485,30 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                          <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.bookingNumber || booking.id.substring(0, 8)}</span>
                       </div>
                    </div>
-                   <div className="w-px h-10 bg-gray-100 hidden md:block"></div>
-                   <div className="flex items-center gap-4 flex-1">
+                   <div className="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
+                   <div className="flex items-center gap-4 flex-1 min-w-[200px] pt-4 md:pt-0">
                       <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                         <i className="ph-fill ph-calendar-blank text-blue-500 text-xl"></i>
+                         <i className="ph-fill ph-user-plus text-blue-500 text-xl"></i>
                       </div>
                       <div className="flex flex-col">
-                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Created On</span>
-                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{(booking as any).createdAt ? new Date((booking as any).createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown'}</span>
+                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Created By</span>
+                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{(booking as any).createdBy?.name || 'System'}</span>
+                         <span className="text-[0.7rem] font-medium text-slate-500">{(booking as any).createdAt ? new Date((booking as any).createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</span>
                       </div>
                    </div>
-                   <div className="w-px h-10 bg-gray-100 hidden md:block"></div>
-                   <div className="flex items-center gap-4 flex-1">
+                   <div className="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
+                   <div className="flex items-center gap-4 flex-1 min-w-[200px] pt-4 md:pt-0">
                       <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                         <i className="ph-fill ph-clock-counter-clockwise text-orange-500 text-xl"></i>
+                         <i className="ph-fill ph-pencil-simple text-orange-500 text-xl"></i>
                       </div>
                       <div className="flex flex-col">
-                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Last Updated</span>
-                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{(booking as any).updatedAt ? new Date((booking as any).updatedAt).toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) : 'Unknown'}</span>
+                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Last Updated By</span>
+                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{(booking as any).updatedBy?.name || 'System'}</span>
+                         <span className="text-[0.7rem] font-medium text-slate-500">{(booking as any).updatedAt ? new Date((booking as any).updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + new Date((booking as any).updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}</span>
                       </div>
                    </div>
-                   <div className="w-px h-10 bg-gray-100 hidden md:block"></div>
-                   <div className="flex items-center gap-4 flex-1">
+                   <div className="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
+                   <div className="flex items-center gap-4 flex-1 min-w-[150px] pt-4 md:pt-0">
                       <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0 overflow-hidden">
                          {booking.customData?.fld_b_assigned_to ? (
                              <span className="font-black text-purple-700 text-[0.8rem]">{(teamUsers.find(u => u.id === booking.customData?.fld_b_assigned_to)?.name || 'UN').substring(0,2).toUpperCase()}</span>
@@ -504,7 +524,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                 </div>
 
                 {/* 3 Main Columns */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                    {/* Client Information */}
                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
                       <div className="flex justify-between items-center mb-6">

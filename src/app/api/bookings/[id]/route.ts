@@ -21,6 +21,8 @@ export async function GET(
         client: true,
         order: true,
         transactions: true,
+        createdBy: { select: { name: true, email: true } },
+        updatedBy: { select: { name: true, email: true } },
       },
     });
 
@@ -67,6 +69,7 @@ export async function PUT(
         notes,
         attachments,
         photographers,
+        updatedById: (session.user as any).id,
       },
     });
 

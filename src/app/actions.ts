@@ -6,9 +6,12 @@ import { Booking } from "@/types";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { broadcastNotification } from "@/lib/notifications";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function saveBookingAction(formData: FormData) {
   try {
+    const session = await getServerSession(authOptions);
     const rawData = Object.fromEntries(formData.entries());
     const validatedData = bookingSchema.parse(rawData);
     
@@ -42,6 +45,7 @@ export async function saveBookingAction(formData: FormData) {
              attachments: rawData.attachments ? JSON.parse(String(rawData.attachments)) : undefined,
              photographers: rawData.photographers ? JSON.parse(String(rawData.photographers)) : undefined,
              customData: Object.keys(customData).length > 0 ? customData : undefined,
+             updatedById: (session?.user as any)?.id,
            }
          });
          const pkg = parseFloat((validatedData.package || '0').toString().replace(/,/g, '')) || 0;
@@ -119,6 +123,8 @@ export async function saveBookingAction(formData: FormData) {
         attachments: rawData.attachments ? JSON.parse(String(rawData.attachments)) : undefined,
         photographers: rawData.photographers ? JSON.parse(String(rawData.photographers)) : undefined,
         customData: Object.keys(customData).length > 0 ? customData : undefined,
+        createdById: (session?.user as any)?.id,
+        updatedById: (session?.user as any)?.id,
       }
     });
 

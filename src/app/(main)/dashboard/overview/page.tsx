@@ -46,8 +46,8 @@ function DashboardMetrics() {
   return (
     <>
       {/* Quick Stats Grid */}
-      <div className="grid grid-cols-4 gap-6 mb-4">
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200 lg:col-span-1 md:col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-4">
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-green-50 text-green-500 flex items-center justify-center">
               <i className="ph-fill ph-address-book text-[1.1rem]"></i>
@@ -97,23 +97,23 @@ function DashboardMetrics() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500 rounded-full blur-[160px] opacity-[0.04]" />
 
         {/* Header Bar */}
-        <div className="relative z-10 flex items-center justify-between px-8 pt-7 pb-0">
+        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 sm:px-8 pt-5 sm:pt-7 pb-0 gap-3 sm:gap-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
               <i className="ph-bold ph-receipt text-white text-lg" />
             </div>
             <div>
-              <h3 className="text-white text-[1.15rem] font-extrabold tracking-tight leading-tight">Today&apos;s Transactions</h3>
-              <p className="text-slate-400 text-[0.7rem] font-semibold tracking-wide uppercase">{today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              <h3 className="text-white text-[1rem] sm:text-[1.15rem] font-extrabold tracking-tight leading-tight">Today&apos;s Transactions</h3>
+              <p className="text-slate-400 text-[0.65rem] sm:text-[0.7rem] font-semibold tracking-wide uppercase">{today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</p>
             </div>
           </div>
-          <Link href="/transactions" className="text-[0.8rem] font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 bg-white/5 hover:bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10">
+          <Link href="/transactions" className="text-[0.75rem] sm:text-[0.8rem] font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 bg-white/5 hover:bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10 self-end sm:self-auto">
             View All <i className="ph-bold ph-arrow-right" />
           </Link>
         </div>
 
         {/* Summary Strip */}
-        <div className="relative z-10 grid grid-cols-3 gap-4 px-8 py-5">
+        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 px-5 sm:px-8 py-5">
           <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">
@@ -146,7 +146,7 @@ function DashboardMetrics() {
         </div>
 
         {/* Transaction List */}
-        <div className="relative z-10 px-8 pb-7">
+        <div className="relative z-10 px-5 sm:px-8 pb-5 sm:pb-7">
           {todayTransactions.length === 0 ? (
             <div className="bg-white/5 backdrop-blur-sm border border-dashed border-white/10 rounded-2xl p-10 text-center">
               <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-3">
@@ -160,7 +160,7 @@ function DashboardMetrics() {
               {todayTransactions.map((txn: any, idx: number) => (
                 <div
                   key={txn.id}
-                  className="group/item flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-5 py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer"
+                  className="group/item flex flex-col sm:flex-row sm:items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer gap-2 sm:gap-0"
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
                   <div className="flex items-center gap-4">
@@ -191,7 +191,7 @@ function DashboardMetrics() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 border-t border-white/10 sm:border-0 pt-2 sm:pt-0">
                     <span className="text-slate-500 text-[0.7rem] font-semibold">
                       {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </span>
@@ -209,7 +209,7 @@ function DashboardMetrics() {
       </div>
 
       {/* Bottom Split Section */}
-      <div className="grid grid-cols-[1.5fr_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
         <div>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-[1.2rem] font-extrabold text-slate-900 tracking-tight">Upcoming Shoots</h3>
@@ -225,18 +225,18 @@ function DashboardMetrics() {
                  <Link href="/bookings/overview" className="text-orange-500 text-sm font-bold mt-2 inline-block">Add Booking</Link>
                </div>
             ) : upcomingShoots.map((shoot: any) => (
-              <div key={shoot.id} className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 flex items-center justify-between cursor-pointer shadow-sm transition-all hover:translate-x-1 hover:shadow-md hover:bg-orange-100/50">
-                <div className="flex items-center gap-4">
-                  <div className="w-[40px] h-[40px] rounded-xl bg-orange-100 text-orange-500 flex items-center justify-center text-[1.2rem]">
+              <div key={shoot.id} className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 cursor-pointer shadow-sm transition-all hover:translate-x-1 hover:shadow-md hover:bg-orange-100/50">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <div className="w-[40px] h-[40px] rounded-xl bg-orange-100 text-orange-500 flex items-center justify-center text-[1.2rem] shrink-0">
                     <i className="ph-fill ph-camera"></i>
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col flex-1 min-w-0">
                     <span className="bg-orange-100 text-orange-700 w-max px-2 py-0.5 rounded-md text-[0.6rem] font-extrabold uppercase tracking-[0.5px] mb-1">{shoot.category}</span>
-                    <h4 className="text-[1rem] font-extrabold text-slate-900 leading-tight tracking-tight mb-0.5">{shoot.client.name}</h4>
-                    <p className="text-slate-500 text-[0.8rem] font-medium mt-0.5">{new Date(shoot.date).toLocaleDateString()} at {shoot.time} - {shoot.location}</p>
+                    <h4 className="text-[1rem] font-extrabold text-slate-900 leading-tight tracking-tight mb-0.5 truncate">{shoot.client.name}</h4>
+                    <p className="text-slate-500 text-[0.8rem] font-medium mt-0.5 truncate">{new Date(shoot.date).toLocaleDateString()} at {shoot.time} - {shoot.location}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-5 pl-4 border-l border-orange-200">
+                <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto sm:pl-4 border-t sm:border-t-0 sm:border-l border-orange-200 pt-3 sm:pt-0">
                   <div className="flex flex-col items-end">
                     <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-[0.5px] mb-0.5">Amount</span>
                     <span className="text-[1rem] font-extrabold text-slate-900 leading-tight">₹{shoot.order?.package.toLocaleString('en-IN') || '0'}</span>
@@ -290,13 +290,13 @@ function DashboardMetrics() {
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-8 w-full animate-pulse">
-      <div className="grid grid-cols-4 gap-6 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-4">
         {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white rounded-2xl h-[120px] border border-gray-100 lg:col-span-1 md:col-span-2"></div>
+          <div key={i} className="bg-white rounded-2xl h-[120px] border border-gray-100"></div>
         ))}
       </div>
       <div className="rounded-[24px] bg-slate-900 h-[300px] w-full"></div>
-      <div className="grid grid-cols-[1.5fr_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
         <div className="bg-white rounded-2xl h-[400px]"></div>
         <div className="bg-white rounded-2xl h-[400px]"></div>
       </div>
