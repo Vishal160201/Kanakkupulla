@@ -31,6 +31,7 @@ export default function TopNavigation() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const { data: notificationsData, mutate: mutateNotifications } = useSWR(
     session ? "/api/notifications?limit=20" : null,
@@ -54,6 +55,31 @@ export default function TopNavigation() {
   const [pushNotifs, setPushNotifs] = useState(true);
   const [soundNotifs, setSoundNotifs] = useState(true);
 
+  const [waPhoneNumber, setWaPhoneNumber] = useState("");
+  const [isPairingLoading, setIsPairingLoading] = useState(false);
+
+  const requestPairingCode = async () => {
+    if (!waPhoneNumber) return;
+    setIsPairingLoading(true);
+    try {
+      const res = await fetch('/api/whatsapp/pair', {
+        method: 'POST',
+        body: JSON.stringify({ phoneNumber: waPhoneNumber }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        alert("Failed to get pairing code: " + (data.error || "Please try again or check your server logs. WhatsApp may have rate-limited this number."));
+      }
+      mutateWA();
+    } catch (e) {
+      console.error(e);
+      alert("Failed to get pairing code. Please try again.");
+    } finally {
+      setIsPairingLoading(false);
+    }
+  };
+
   // Load sound preference from localStorage on mount
   useEffect(() => {
     const savedSound = localStorage.getItem("soundNotifs");
@@ -61,6 +87,19 @@ export default function TopNavigation() {
       setSoundNotifs(savedSound === "true");
     }
   }, []);
+
+  // Load email and push preferences from API
+  useEffect(() => {
+    if (session) {
+      fetch("/api/users/me/preferences")
+        .then(res => res.json())
+        .then(data => {
+          if (data.emailNotifications !== undefined) setEmailNotifs(data.emailNotifications);
+          if (data.pushNotifications !== undefined) setPushNotifs(data.pushNotifications);
+        })
+        .catch(console.error);
+    }
+  }, [session]);
 
   const toggleSound = () => {
     const newVal = !soundNotifs;
@@ -90,27 +129,32 @@ export default function TopNavigation() {
   };
 
   const subscribeToPush = async () => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          const registration = await navigator.serviceWorker.register('/sw.js');
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: "BM7mYrnONkCPpx7wemRCy4R7r7eD8ZuDGAU9NOE-K1gvS7apjLkhRTfYgJ_LonMla20uX61yHvbt1yUak20CXiI"
-          });
-          await fetch('/api/notifications/push', {
-            method: 'POST',
-            body: JSON.stringify(subscription),
-            headers: { 'Content-Type': 'application/json' }
-          });
-          updatePreferences(emailNotifs, true);
-        } else {
-          updatePreferences(emailNotifs, false);
-        }
-      } catch (e) {
-        console.error('Push error:', e);
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert("Push notifications are not supported in this browser (or require HTTPS/localhost). Preference saved but push is disabled.");
+      updatePreferences(emailNotifs, true);
+      return;
+    }
+    
+    updatePreferences(emailNotifs, true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: "BM7mYrnONkCPpx7wemRCy4R7r7eD8ZuDGAU9NOE-K1gvS7apjLkhRTfYgJ_LonMla20uX61yHvbt1yUak20CXiI"
+        });
+        await fetch('/api/notifications/push', {
+          method: 'POST',
+          body: JSON.stringify(subscription),
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        alert("Push notification permission was denied in browser settings.");
       }
+    } catch (e) {
+      console.error('Push error:', e);
+      alert("Failed to subscribe to push notifications. Ensure you are on HTTPS or localhost.");
     }
   };
 
@@ -121,6 +165,9 @@ export default function TopNavigation() {
       }
       if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
         setIsNotificationsOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -331,7 +378,7 @@ export default function TopNavigation() {
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={profileRef}>
           <div 
             onClick={() => setIsProfileOpen(!isProfileOpen)}
             className="w-[45px] h-[45px] rounded-full bg-slate-900 text-white flex items-center justify-center font-extrabold text-base cursor-pointer shadow-sm transition-colors hover:bg-slate-800"
@@ -371,42 +418,41 @@ export default function TopNavigation() {
                 </div>
               </div>
               
-              <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3">
+              <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                 <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Notification Preferences</div>
                 
-                <div className="flex items-center p-1.5 bg-slate-100/80 rounded-2xl shadow-inner border border-slate-200/60 mt-2 gap-1.5">
+                <div className="flex items-center gap-1">
                   <button 
-                    onClick={(e) => { e.preventDefault(); updatePreferences(!emailNotifs, pushNotifs); }}
-                    className={`relative flex flex-col items-center justify-center w-full py-3 rounded-xl transition-all duration-300 ease-out group ${emailNotifs ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] ring-1 ring-slate-200/50' : 'bg-transparent hover:bg-slate-200/50'}`}
-                    title="Toggle Email Alerts"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); updatePreferences(!emailNotifs, pushNotifs); }}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${emailNotifs ? 'bg-orange-50 text-orange-500 hover:bg-orange-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                    title={emailNotifs ? "Disable Email Alerts" : "Enable Email Alerts"}
                   >
-                    <i className={`text-[1.4rem] mb-1.5 transition-transform duration-300 ${emailNotifs ? 'ph-fill ph-envelope-simple text-orange-500 scale-110 drop-shadow-sm' : 'ph ph-envelope-simple text-slate-400 group-hover:text-slate-600 group-hover:scale-110'}`}></i>
-                    <span className={`text-[0.6rem] font-bold uppercase tracking-widest transition-colors ${emailNotifs ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-500'}`}>Email</span>
+                    <i className={`text-[1.3rem] transition-transform duration-300 ${emailNotifs ? 'ph-fill ph-envelope-simple scale-110' : 'ph ph-envelope-simple'}`}></i>
                   </button>
 
                   <button 
                     onClick={(e) => { 
                       e.preventDefault(); 
+                      e.stopPropagation();
                       if (!pushNotifs) subscribeToPush();
                       else updatePreferences(emailNotifs, false);
                     }}
-                    className={`relative flex flex-col items-center justify-center w-full py-3 rounded-xl transition-all duration-300 ease-out group ${pushNotifs ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] ring-1 ring-slate-200/50' : 'bg-transparent hover:bg-slate-200/50'}`}
-                    title="Toggle Push Alerts"
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${pushNotifs ? 'bg-blue-50 text-blue-500 hover:bg-blue-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                    title={pushNotifs ? "Disable Push Alerts" : "Enable Push Alerts"}
                   >
-                    <i className={`text-[1.4rem] mb-1.5 transition-transform duration-300 ${pushNotifs ? 'ph-fill ph-device-mobile text-blue-500 scale-110 drop-shadow-sm' : 'ph ph-device-mobile text-slate-400 group-hover:text-slate-600 group-hover:scale-110'}`}></i>
-                    <span className={`text-[0.6rem] font-bold uppercase tracking-widest transition-colors ${pushNotifs ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-500'}`}>Push</span>
+                    <i className={`text-[1.3rem] transition-transform duration-300 ${pushNotifs ? 'ph-fill ph-device-mobile scale-110' : 'ph ph-device-mobile'}`}></i>
                   </button>
 
                   <button 
                     onClick={(e) => { 
                       e.preventDefault(); 
+                      e.stopPropagation();
                       toggleSound();
                     }}
-                    className={`relative flex flex-col items-center justify-center w-full py-3 rounded-xl transition-all duration-300 ease-out group ${soundNotifs ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)] ring-1 ring-slate-200/50' : 'bg-transparent hover:bg-slate-200/50'}`}
-                    title="Toggle Sound Alerts"
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${soundNotifs ? 'bg-emerald-50 text-emerald-500 hover:bg-emerald-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                    title={soundNotifs ? "Disable Sound Alerts" : "Enable Sound Alerts"}
                   >
-                    <i className={`text-[1.4rem] mb-1.5 transition-transform duration-300 ${soundNotifs ? 'ph-fill ph-speaker-high text-emerald-500 scale-110 drop-shadow-sm' : 'ph ph-speaker-slash text-slate-400 group-hover:text-slate-600 group-hover:scale-110'}`}></i>
-                    <span className={`text-[0.6rem] font-bold uppercase tracking-widest transition-colors ${soundNotifs ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-500'}`}>Sound</span>
+                    <i className={`text-[1.3rem] transition-transform duration-300 ${soundNotifs ? 'ph-fill ph-speaker-high scale-110' : 'ph ph-speaker-slash'}`}></i>
                   </button>
                 </div>
               </div>
@@ -417,7 +463,7 @@ export default function TopNavigation() {
                     <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">WhatsApp Bot</div>
                     <div className="flex items-center gap-1.5">
                       <div className={`w-2 h-2 rounded-full ${waStatusData.status === 'READY' ? 'bg-green-500' : waStatusData.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`}></div>
-                      <span className="text-[0.65rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Scan QR' : 'Disconnected'}</span>
+                      <span className="text-[0.65rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Login' : 'Disconnected'}</span>
                     </div>
                   </div>
                   
@@ -431,10 +477,25 @@ export default function TopNavigation() {
                      >
                        Disconnect Bot
                      </button>
+                  ) : waStatusData.pairingCode ? (
+                     <div className="flex flex-col items-center p-3 bg-slate-50 rounded-xl border border-gray-200">
+                       <span className="text-[1.5rem] font-mono font-bold tracking-[0.2em] text-slate-800">{waStatusData.pairingCode.match(/.{1,4}/g)?.join('-') || waStatusData.pairingCode}</span>
+                       <span className="text-[0.65rem] text-slate-500 mt-2 text-center">Open WhatsApp &gt; Linked Devices &gt; Link with Phone Number</span>
+                     </div>
                   ) : waStatusData.qrCode ? (
                      <div className="flex flex-col items-center p-2 bg-slate-50 rounded-xl border border-gray-200">
                        <img src={waStatusData.qrCode} alt="WhatsApp Login QR" className="w-full max-w-[150px] rounded-lg" />
                        <span className="text-[0.65rem] text-slate-500 mt-2 text-center">Open WhatsApp &gt; Linked Devices &gt; Scan QR</span>
+                       
+                       <div className="w-full mt-3 pt-3 border-t border-gray-200 flex flex-col gap-2">
+                         <span className="text-[0.65rem] font-bold text-slate-500 uppercase text-center">OR Link with Phone</span>
+                         <div className="flex gap-2">
+                           <input type="text" value={waPhoneNumber} onChange={e => setWaPhoneNumber(e.target.value)} placeholder="+919876543210" className="flex-1 text-xs px-2 py-1.5 border border-gray-200 rounded-lg outline-none focus:border-blue-500 bg-white" />
+                           <button onClick={requestPairingCode} disabled={isPairingLoading} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 disabled:opacity-50">
+                             {isPairingLoading ? '...' : 'Get Code'}
+                           </button>
+                         </div>
+                       </div>
                      </div>
                   ) : null}
                 </div>
