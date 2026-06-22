@@ -5,17 +5,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 const getFieldIcon = (field: any) => {
   const name = (field.name || '').toLowerCase();
+  
+  // High priority specific matches
+  if (name.includes('email') || name.includes('mail')) return 'ph-envelope-simple text-blue-500';
+  if (name.includes('name') || name.includes('client')) return 'ph-identification-card text-indigo-500';
+  if (name.includes('location') || name.includes('address') || name.includes('city') || name.includes('venue')) return 'ph-map-pin text-rose-500';
+  if (name.includes('inclusion') || name.includes('deliverable') || name.includes('feature')) return 'ph-package text-emerald-500';
+  if (name.includes('pad') || name.includes('cover') || name.includes('material')) return 'ph-swatches text-amber-500';
+  if (name.includes('note') || name.includes('remark') || name.includes('description')) return 'ph-note text-yellow-600';
+
+  // Standard matches
   if (name.includes('date')) return 'ph-calendar-blank text-blue-500';
   if (name.includes('time')) return 'ph-clock text-purple-500';
-  if (name.includes('user') || name.includes('person') || name.includes('designer') || name.includes('photographer')) return 'ph-user text-indigo-500';
-  if (name.includes('status')) return 'ph-chart-pie-slice text-orange-500';
+  if (name.includes('user') || name.includes('person') || name.includes('designer') || name.includes('photographer')) return 'ph-user-circle text-indigo-500';
+  if (name.includes('status') || name.includes('state')) return 'ph-chart-pie-slice text-orange-500';
   if (name.includes('amount') || name.includes('price') || name.includes('cost')) return 'ph-currency-inr text-emerald-500';
   if (name.includes('sheet') || name.includes('page')) return 'ph-files text-cyan-500';
   if (name.includes('type') || name.includes('category') || name.includes('size')) return 'ph-tag text-rose-500';
   if (name.includes('album') || name.includes('book')) return 'ph-book-open text-teal-500';
   if (name.includes('link') || name.includes('url')) return 'ph-link text-blue-500';
-  if (name.includes('phone') || name.includes('contact')) return 'ph-phone text-emerald-500';
-  return 'ph-text-aa text-slate-400';
+  if (name.includes('phone') || name.includes('contact') || name.includes('mobile')) return 'ph-phone text-emerald-500';
+  
+  // Ultimate fallback (better than text-aa)
+  return 'ph-info text-slate-400';
 };
 
 import { useRouter } from "next/navigation";
@@ -577,8 +589,8 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                    </div>
                 </div>
 
-                {/* 3 Main Columns for Dynamic Sections */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* 4 Main Columns for Dynamic Sections + Timeline */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {layoutSchema && layoutSchema.sections && layoutSchema.sections.map((section: any) => {
                     // Evaluate section visibility
                     if (section.visibilityRule && section.visibilityRule.fieldId) {

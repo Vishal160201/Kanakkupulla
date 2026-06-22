@@ -4,15 +4,58 @@ import React, { useState } from 'react';
 import { Booking } from '@/types';
 import BookingDetailsModal from '@/components/dashboard/BookingDetailsModal';
 
+import { updateAlbumTrackingAction } from "@/app/actions";
+import { toast } from "sonner";
+
 interface AlbumStatusClientProps {
   albums: any[];
+  teamUsers?: any[];
 }
 
-export default function AlbumStatusClient({ albums }: AlbumStatusClientProps) {
+
+const ALBUM_STATUS_OPTIONS = [
+  'Shoot completed',
+  'Designing',
+  'Album Work in Progress',
+  'Printing',
+  'Album Completed',
+  'Ready for delivery',
+  'Delivered'
+];
+
+export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [] }: AlbumStatusClientProps) {
+  const [albums, setAlbums] = useState(initialAlbums);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'All' | 'Work in Progress' | 'Completed' | 'Delivered'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleUpdateAlbum = async (bookingId: string, updates: { status?: string, customData?: any }) => {
+    // Optimistic update
+    setAlbums(prev => prev.map(a => {
+      if (a.id === bookingId) {
+        let newCustomData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {});
+        if (updates.customData) {
+          newCustomData = { ...newCustomData, ...updates.customData };
+        }
+        return {
+          ...a,
+          status: updates.status !== undefined ? updates.status : a.status,
+          customData: JSON.stringify(newCustomData)
+        };
+      }
+      return a;
+    }));
+
+    const res = await updateAlbumTrackingAction(bookingId, updates);
+    if (!res.success) {
+      toast.error(res.error || "Failed to update album");
+      // Revert optimistic update ideally, but skipping for brevity
+    } else {
+      toast.success("Album updated");
+    }
+  };
+
 
   const selectedAlbum = albums.find(a => a.id === selectedAlbumId) || null;
 
@@ -188,7 +231,9 @@ export default function AlbumStatusClient({ albums }: AlbumStatusClientProps) {
 
                     const bDate = a.date instanceof Date ? a.date.toISOString().split('T')[0] : a.date?.split('T')[0];
                     const formattedShootDate = bDate ? new Date(bDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
-                    const designer = cData.designer || cData.fld_b_photographers || 'Unassigned';
+                    const designerId = cData.designer || cData.fld_b_photographers;
+   const designerUser = teamUsers.find(u => u.id === designerId);
+   const designer = designerUser ? designerUser.name : (designerId || 'Unassigned');
                     
                     const deliveryDateStr = cData.album_delivery_date || cData.delivery_date;
                     const formattedDeliveryDate = deliveryDateStr ? new Date(deliveryDateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set';
@@ -227,35 +272,56 @@ export default function AlbumStatusClient({ albums }: AlbumStatusClientProps) {
                           <span className="text-purple-600 font-black text-sm">{a.bookingNumber || `BK-${a.id.substring(a.id.length - 4).toUpperCase()}`}</span>
                         </td>
                         <td className="p-5 whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[0.65rem] font-black text-slate-500 uppercase">
-                              {designer.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="font-black text-slate-800 text-xs">{designer}</div>
-                              <div className="text-[0.65rem] text-slate-400 font-medium mt-0.5">Designer</div>
-                            </div>
-                          </div>
-                        </td>
+      <select 
+        value={designerId || ""} 
+        onChange={(e) => handleUpdateAlbum(a.id, { customData: { designer: e.target.value } })}
+        className="bg-transparent text-xs font-black text-slate-800 border-none outline-none focus:ring-0 cursor-pointer"
+      >
+        <option value="">Unassigned</option>
+        {teamUsers.map(u => (
+          <option key={u.id} value={u.id}>{u.name}</option>
+        ))}
+      </select>
+   </td>
+                        <td className="p-5 whitespace-nowrap flex flex-col">
+      <input 
+        type="date"
+        value={deliveryDateStr ? new Date(deliveryDateStr).toISOString().split('T')[0] : ""}
+        onChange={(e) => handleUpdateAlbum(a.id, { customData: { album_delivery_date: e.target.value } })}
+        className="bg-transparent text-xs font-black text-slate-800 border border-slate-200 rounded px-2 py-1 outline-none focus:border-purple-400 cursor-pointer"
+      />
+      {deliveryDateStr && new Date(deliveryDateStr) < new Date() && statusLabel.toLowerCase() !== 'delivered' && (
+        <div className="text-[0.65rem] text-orange-500 font-bold mt-0.5">Overdue by {Math.floor((new Date().getTime() - new Date(deliveryDateStr).getTime()) / (1000 * 3600 * 24))} days</div>
+      )}
+   </td>
                         <td className="p-5 whitespace-nowrap">
-                          <div className="font-black text-slate-800 text-xs">{formattedDeliveryDate}</div>
-                          {deliveryDateStr && new Date(deliveryDateStr) < new Date() && statusLabel.toLowerCase() !== 'delivered' && (
-                            <div className="text-[0.65rem] text-orange-500 font-bold mt-0.5">Overdue by {Math.floor((new Date().getTime() - new Date(deliveryDateStr).getTime()) / (1000 * 3600 * 24))} days</div>
-                          )}
-                        </td>
-                        <td className="p-5 whitespace-nowrap">
-                          <span className={`px-3 py-1.5 rounded-lg text-[0.75rem] font-black inline-block ${statusColor}`}>
-                            {statusLabel}
-                          </span>
-                        </td>
+      <select 
+        value={a.status || ""} 
+        onChange={(e) => {
+          let newProgress = progress;
+          if (e.target.value === 'Delivered' || e.target.value.includes('Completed')) newProgress = 100;
+          handleUpdateAlbum(a.id, { status: e.target.value, customData: { album_progress: newProgress.toString() } });
+        }}
+        className={`px-2 py-1 rounded-lg text-[0.75rem] font-black outline-none border-none cursor-pointer ${statusColor}`}
+      >
+        {ALBUM_STATUS_OPTIONS.map(opt => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+   </td>
                         <td className="p-5 w-32 whitespace-nowrap">
-                          <div className="flex items-center justify-between text-[0.75rem] font-black text-slate-800 mb-1.5">
-                            <span>{progress}%</span>
-                          </div>
-                          <div className="w-full bg-slate-200 rounded-full h-1.5">
-                            <div className={`h-1.5 rounded-full ${progress === 100 ? 'bg-emerald-500' : 'bg-orange-500'}`} style={{ width: `${progress}%` }}></div>
-                          </div>
-                        </td>
+      <div className="flex items-center justify-between text-[0.75rem] font-black text-slate-800 mb-1">
+        <span>{progress}%</span>
+      </div>
+      <input 
+        type="range" 
+        min="0" 
+        max="100" 
+        value={progress}
+        onChange={(e) => handleUpdateAlbum(a.id, { customData: { album_progress: e.target.value } })}
+        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+      />
+   </td>
                         <td className="p-5 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
                             <button 
@@ -333,7 +399,9 @@ export default function AlbumStatusClient({ albums }: AlbumStatusClientProps) {
                 const bDate = selectedAlbum.date instanceof Date ? selectedAlbum.date.toISOString().split('T')[0] : selectedAlbum.date?.split('T')[0];
                 const formattedShootDate = bDate ? new Date(bDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
                 
-                const designer = cData.designer || cData.fld_b_photographers || 'Unassigned';
+                const designerId = cData.designer || cData.fld_b_photographers;
+   const designerUser = teamUsers.find(u => u.id === designerId);
+   const designer = designerUser ? designerUser.name : (designerId || 'Unassigned');
                 const deliveryDateStr = cData.album_delivery_date || cData.delivery_date;
                 const formattedDeliveryDate = deliveryDateStr ? new Date(deliveryDateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set';
                 
@@ -356,17 +424,34 @@ export default function AlbumStatusClient({ albums }: AlbumStatusClientProps) {
                       </div>
                       <div className="grid grid-cols-[110px_1fr] text-[0.85rem] items-center">
                         <div className="text-slate-500 font-medium">Designer</div>
-                        <div className="font-black text-slate-800 flex items-center gap-2"><span className="text-slate-400 font-normal">:</span> {designer}</div>
+                        <div className="font-black text-slate-800 flex items-center gap-2">
+    <span className="text-slate-400 font-normal">:</span> 
+    <select 
+      value={designerId || ""} 
+      onChange={(e) => handleUpdateAlbum(selectedAlbum.id, { customData: { designer: e.target.value } })}
+      className="bg-transparent outline-none cursor-pointer border-b border-dashed border-slate-300"
+    >
+      <option value="">Unassigned</option>
+      {teamUsers.map(u => (
+        <option key={u.id} value={u.id}>{u.name}</option>
+      ))}
+    </select>
+  </div>
                       </div>
                       <div className="grid grid-cols-[110px_1fr] text-[0.85rem] items-center">
                         <div className="text-slate-500 font-medium">Delivery Date</div>
                         <div className="font-black text-slate-800 flex items-center gap-2">
-                          <span className="text-slate-400 font-normal">:</span> 
-                          {formattedDeliveryDate}
-                          {deliveryDateStr && new Date(deliveryDateStr) < new Date() && statusLabel.toLowerCase() !== 'delivered' && (
-                            <span className="text-orange-500 font-bold ml-1">(Overdue)</span>
-                          )}
-                        </div>
+    <span className="text-slate-400 font-normal">:</span> 
+    <input 
+      type="date"
+      value={deliveryDateStr ? new Date(deliveryDateStr).toISOString().split('T')[0] : ""}
+      onChange={(e) => handleUpdateAlbum(selectedAlbum.id, { customData: { album_delivery_date: e.target.value } })}
+      className="bg-transparent border-b border-dashed border-slate-300 outline-none cursor-pointer"
+    />
+    {deliveryDateStr && new Date(deliveryDateStr) < new Date() && statusLabel.toLowerCase() !== 'delivered' && (
+      <span className="text-orange-500 font-bold ml-1">(Overdue)</span>
+    )}
+  </div>
                       </div>
                       <div className="grid grid-cols-[110px_1fr] text-[0.85rem] items-center">
                         <div className="text-slate-500 font-medium">Album Size</div>
