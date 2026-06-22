@@ -82,7 +82,8 @@ function TransactionsList() {
     amountMin: searchParams.get('amountMin'),
     amountMax: searchParams.get('amountMax'),
     type: searchParams.get('type'),
-    paymentMode: searchParams.get('paymentMode')
+    paymentMode: searchParams.get('paymentMode'),
+    month: searchParams.get('month')
   };
 
   const hasCustomDateRange = filterParams.dateFrom || filterParams.dateTo;
@@ -270,6 +271,7 @@ function TransactionsList() {
       if (filterParams.amountMax) params.append('amountMax', filterParams.amountMax);
       if (filterParams.type) params.append('type', filterParams.type);
       if (filterParams.paymentMode) params.append('paymentMode', filterParams.paymentMode);
+      if (filterParams.month && filterParams.view === 'month' && !hasCustomDateRange) params.append('month', filterParams.month);
       if (cursor) params.append('cursor', cursor);
 
       const res = await fetch(`/api/transactions?${params.toString()}`);
@@ -369,7 +371,7 @@ function TransactionsList() {
             {activeView === 'day' && (
               <div className="w-[140px]">
                 <DatePickerInput 
-                  value={filterParams.dateFrom && filterParams.dateFrom === filterParams.dateTo ? filterParams.dateFrom : null}
+                  value={(filterParams.dateFrom && filterParams.dateFrom === filterParams.dateTo) ? filterParams.dateFrom : new Date().toISOString().split('T')[0]}
                   onChange={(val) => {
                     const params = new URLSearchParams(searchParams.toString());
                     params.set('view', 'day');
@@ -386,7 +388,7 @@ function TransactionsList() {
             {activeView === 'week' && (
               <div className="w-[200px]">
                 <DatePickerInput 
-                  value={filterParams.dateFrom && filterParams.dateTo ? filterParams.dateFrom : null}
+                  value={(filterParams.dateFrom && filterParams.dateTo) ? filterParams.dateFrom : new Date().toISOString().split('T')[0]}
                   onChange={handleSpecificWeekFromDate}
                   placeholder="Select Week"
                   mode="week"
@@ -397,7 +399,7 @@ function TransactionsList() {
             {activeView === 'month' && (
               <div className="w-[160px]">
                 <DatePickerInput 
-                  value={searchParams.get('month') ? `${searchParams.get('month')}-01` : null}
+                  value={searchParams.get('month') ? `${searchParams.get('month')}-01` : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`}
                   onChange={handleSpecificMonthFromDate}
                   placeholder="Select Month"
                   mode="month"
@@ -457,19 +459,70 @@ function TransactionsList() {
               )}
             </div>
           ) : (
-            transactions.map((tx) => (
+            transactions.map((tx) => {
+              const getRelatableIcon = (cat: string) => {
+                const lowerCat = cat.toLowerCase();
+                if (lowerCat.includes('photo') || lowerCat === 'pp') return 'ph-camera';
+                if (lowerCat.includes('xerox') || lowerCat.includes('print')) return 'ph-printer';
+                if (lowerCat.includes('bus') || lowerCat.includes('travel') || lowerCat.includes('fare') || lowerCat.includes('transport')) return 'ph-bus';
+                if (lowerCat.includes('salary') || lowerCat.includes('pay') || lowerCat.includes('wage')) return 'ph-money';
+                if (lowerCat.includes('tea') || lowerCat.includes('snack') || lowerCat.includes('food') || lowerCat.includes('coffee')) return 'ph-coffee';
+                if (lowerCat.includes('chit') || lowerCat.includes('fund') || lowerCat.includes('invest') || lowerCat.includes('save') || lowerCat.includes('bank')) return 'ph-piggy-bank';
+                if (lowerCat.includes('sevai') || lowerCat.includes('service') || lowerCat.includes('online') || lowerCat.includes('bill') || lowerCat.includes('tax')) return 'ph-desktop';
+                if (lowerCat.includes('equip') || lowerCat.includes('tool') || lowerCat.includes('repair') || lowerCat.includes('maint')) return 'ph-wrench';
+                if (lowerCat.includes('rent') || lowerCat.includes('office') || lowerCat.includes('shop') || lowerCat.includes('room')) return 'ph-house';
+                if (lowerCat.includes('fuel') || lowerCat.includes('gas') || lowerCat.includes('petrol') || lowerCat.includes('diesel')) return 'ph-gas-pump';
+                if (lowerCat.includes('courier') || lowerCat.includes('post') || lowerCat.includes('delivery')) return 'ph-package';
+                if (lowerCat.includes('market') || lowerCat.includes('ad')) return 'ph-megaphone';
+                if (lowerCat.includes('book') || lowerCat.includes('advance')) return 'ph-calendar-check';
+                if (lowerCat.includes('album') || lowerCat.includes('frame')) return 'ph-book-open';
+                if (lowerCat.includes('other') || lowerCat.includes('misc')) return 'ph-dots-three-circle';
+                return 'ph-tag';
+              };
+
+              const getConsistentColorClasses = (cat: string) => {
+                const colorMap: Record<string, { bg: string, text: string }> = {
+                  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+                  amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
+                  slate: { bg: 'bg-slate-50', text: 'text-slate-600' },
+                  violet: { bg: 'bg-violet-50', text: 'text-violet-600' },
+                  sky: { bg: 'bg-sky-50', text: 'text-sky-600' },
+                  rose: { bg: 'bg-rose-50', text: 'text-rose-600' },
+                  blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
+                  pink: { bg: 'bg-pink-50', text: 'text-pink-600' },
+                  orange: { bg: 'bg-orange-50', text: 'text-orange-600' },
+                  red: { bg: 'bg-red-50', text: 'text-red-600' },
+                  indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+                  purple: { bg: 'bg-purple-50', text: 'text-purple-600' },
+                  teal: { bg: 'bg-teal-50', text: 'text-teal-600' },
+                  cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600' },
+                  fuchsia: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-600' }
+                };
+                
+                const colorValues = Object.values(colorMap).filter(c => c.text !== 'text-slate-600');
+                let hash = 0;
+                for (let i = 0; i < cat.length; i++) {
+                  hash = cat.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                return colorValues[Math.abs(hash) % colorValues.length];
+              };
+
+              const colorClass = getConsistentColorClasses(tx.category);
+              const iconClass = getRelatableIcon(tx.category);
+
+              return (
               <div key={tx.id} className="flex items-center justify-between p-4 rounded-2xl border border-transparent hover:border-slate-200 hover:shadow-md hover:bg-slate-50 transition-all group">
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${tx.type === 'INCOME' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                    <i className={`ph-bold ${tx.type === 'INCOME' ? 'ph-money' : 'ph-credit-card'} text-xl`}></i>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${colorClass.bg} ${colorClass.text}`}>
+                    <i className={`ph-bold ${iconClass} text-xl`}></i>
                   </div>
                   <div>
                     <div className="font-bold text-slate-900 text-sm mb-1">
                       {tx.description ? tx.description.split(' - ')[0] : tx.category}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-extrabold bg-slate-100 text-slate-600 px-2 py-0.5 rounded tracking-wider uppercase">{tx.category}</span>
-                      <span className="text-[11px] text-slate-400 font-medium">{new Date(tx.date).toLocaleDateString()} &middot; {tx.paymentMode}</span>
+                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded tracking-wider uppercase ${colorClass.bg} ${colorClass.text}`}>{tx.category}</span>
+                      <span className="text-[11px] text-slate-400 font-medium">{new Date(tx.date).toLocaleDateString('en-GB')} &middot; {tx.paymentMode}</span>
                     </div>
                   </div>
                 </div>
@@ -496,7 +549,8 @@ function TransactionsList() {
                   </button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -549,7 +603,7 @@ function TransactionsList() {
 
       {/* Advanced Filter Modal */}
       <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
-        <DialogContent className="max-w-[500px] p-0 bg-white rounded-3xl border-0 shadow-2xl overflow-hidden !rounded-3xl">
+        <DialogContent showCloseButton={false} className="max-w-[500px] p-0 bg-white rounded-3xl border-0 shadow-2xl overflow-hidden !rounded-3xl">
           <div className="px-8 py-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
             <DialogTitle className="text-xl font-extrabold text-slate-900">Advanced Filters</DialogTitle>
             <button onClick={() => setIsFilterModalOpen(false)} className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors">

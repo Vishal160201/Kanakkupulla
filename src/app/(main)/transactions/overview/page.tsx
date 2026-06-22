@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 
@@ -59,8 +59,63 @@ const MODE_ICONS: Record<string, string> = {
 
 const defaultColor = { bg: "bg-slate-400", stroke: "#94a3b8" };const fetcher = (url: string) => fetch(url).then(res => res.json());
 
+const getRelatableIcon = (cat: string) => {
+  const lowerCat = cat.toLowerCase();
+  if (lowerCat.includes('photo') || lowerCat === 'pp') return 'ph-camera';
+  if (lowerCat.includes('xerox') || lowerCat.includes('print')) return 'ph-printer';
+  if (lowerCat.includes('bus') || lowerCat.includes('travel') || lowerCat.includes('fare') || lowerCat.includes('transport')) return 'ph-bus';
+  if (lowerCat.includes('salary') || lowerCat.includes('pay') || lowerCat.includes('wage')) return 'ph-money';
+  if (lowerCat.includes('tea') || lowerCat.includes('snack') || lowerCat.includes('food') || lowerCat.includes('coffee')) return 'ph-coffee';
+  if (lowerCat.includes('chit') || lowerCat.includes('fund') || lowerCat.includes('invest') || lowerCat.includes('save') || lowerCat.includes('bank')) return 'ph-piggy-bank';
+  if (lowerCat.includes('sevai') || lowerCat.includes('service') || lowerCat.includes('online') || lowerCat.includes('bill') || lowerCat.includes('tax')) return 'ph-desktop';
+  if (lowerCat.includes('equip') || lowerCat.includes('tool') || lowerCat.includes('repair') || lowerCat.includes('maint')) return 'ph-wrench';
+  if (lowerCat.includes('rent') || lowerCat.includes('office') || lowerCat.includes('shop') || lowerCat.includes('room')) return 'ph-house';
+  if (lowerCat.includes('fuel') || lowerCat.includes('gas') || lowerCat.includes('petrol') || lowerCat.includes('diesel')) return 'ph-gas-pump';
+  if (lowerCat.includes('courier') || lowerCat.includes('post') || lowerCat.includes('delivery')) return 'ph-package';
+  if (lowerCat.includes('market') || lowerCat.includes('ad')) return 'ph-megaphone';
+  if (lowerCat.includes('book') || lowerCat.includes('advance')) return 'ph-calendar-check';
+  if (lowerCat.includes('album') || lowerCat.includes('frame')) return 'ph-book-open';
+  if (lowerCat.includes('other') || lowerCat.includes('misc')) return 'ph-dots-three-circle';
+  return 'ph-tag';
+};
+
+const getConsistentColorClasses = (cat: string, predefinedColorName?: string) => {
+  const colorMap: Record<string, { bg: string, text: string, stroke: string }> = {
+    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', stroke: '#34d399' },
+    amber: { bg: 'bg-amber-50', text: 'text-amber-600', stroke: '#fbbf24' },
+    slate: { bg: 'bg-slate-50', text: 'text-slate-600', stroke: '#94a3b8' },
+    violet: { bg: 'bg-violet-50', text: 'text-violet-600', stroke: '#a78bfa' },
+    sky: { bg: 'bg-sky-50', text: 'text-sky-600', stroke: '#38bdf8' },
+    rose: { bg: 'bg-rose-50', text: 'text-rose-600', stroke: '#fb7185' },
+    blue: { bg: 'bg-blue-50', text: 'text-blue-600', stroke: '#60a5fa' },
+    pink: { bg: 'bg-pink-50', text: 'text-pink-600', stroke: '#f472b6' },
+    orange: { bg: 'bg-orange-50', text: 'text-orange-600', stroke: '#fb923c' },
+    red: { bg: 'bg-red-50', text: 'text-red-600', stroke: '#f87171' },
+    indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', stroke: '#818cf8' },
+    purple: { bg: 'bg-purple-50', text: 'text-purple-600', stroke: '#c084fc' },
+    teal: { bg: 'bg-teal-50', text: 'text-teal-600', stroke: '#2dd4bf' },
+    cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600', stroke: '#22d3ee' },
+    fuchsia: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-600', stroke: '#e879f9' }
+  };
+  
+  if (predefinedColorName && colorMap[predefinedColorName]) {
+    return colorMap[predefinedColorName];
+  }
+  
+  const colorValues = Object.values(colorMap).filter(c => c.text !== 'text-slate-600');
+  let hash = 0;
+  for (let i = 0; i < cat.length; i++) {
+    hash = cat.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colorValues[Math.abs(hash) % colorValues.length];
+};
+
 export default function OverviewPage() {
+  const [hoveredIncCat, setHoveredIncCat] = useState<string | null>(null);
+  const [hoveredExpCat, setHoveredExpCat] = useState<string | null>(null);
+
   const { data, error, isLoading } = useSWR('/api/transactions/overview', fetcher);
+  const { data: layoutRes } = useSWR('/api/settings/layouts/TRANSACTION_FORM', fetcher);
 
   if (isLoading || !data) {
     return <div className="flex justify-center items-center h-64"><div className="animate-pulse w-8 h-8 rounded-full bg-orange-500"></div></div>;
@@ -129,18 +184,51 @@ export default function OverviewPage() {
     const dashoffset = dasharray - (data.pct * dasharray);
     const rotation = curIncPct * 360 - 90; // Start from top
     curIncPct += data.pct;
-    return { ...data, dashoffset, rotation, color: categoryColors[data.category] || defaultColor };
+    return { ...data, dashoffset, rotation, color: getConsistentColorClasses(data.category) };
   });
 
-  const quickAddIcons = [
-    { label: "Booking Advance", icon: "ph-calendar-check", color: "text-emerald-600", bg: "bg-emerald-50", type: "INCOME" },
-    { label: "Passport Photo", icon: "ph-user", color: "text-purple-600", bg: "bg-purple-50", type: "INCOME" },
-    { label: "Tea & Snacks", icon: "ph-coffee", color: "text-orange-500", bg: "bg-orange-50", type: "EXPENSE" },
-    { label: "Fuel", icon: "ph-gas-pump", color: "text-red-500", bg: "bg-red-50", type: "EXPENSE" },
-    { label: "Bus Fare", icon: "ph-bus", color: "text-blue-600", bg: "bg-blue-50", type: "EXPENSE" },
-    { label: "Printing", icon: "ph-printer", color: "text-teal-600", bg: "bg-teal-50", type: "EXPENSE" },
-    { label: "Other Expense", icon: "ph-dots-three-circle", color: "text-slate-600", bg: "bg-slate-50", type: "EXPENSE" },
-  ];
+  let curExpPct = 0;
+  const todayExpenseSegments = sortedTodayExpenses.map((data: any) => {
+    const dasharray = 251.2; // 2 * pi * r (r=40)
+    const dashoffset = dasharray - (data.pct * dasharray);
+    const rotation = curExpPct * 360 - 90; // Start from top
+    curExpPct += data.pct;
+    return { ...data, dashoffset, rotation, color: getConsistentColorClasses(data.category) };
+  });
+
+  const layoutSchema = layoutRes?.schema;
+  let dynamicCategories: string[] = [];
+  if (layoutSchema?.sections) {
+    for (const sec of layoutSchema.sections) {
+      for (const f of sec.fields) {
+        if (f.id === "fld_tx_category" && f.options) {
+          dynamicCategories = f.options;
+        }
+      }
+    }
+  }
+
+  const baseCategories = dynamicCategories.length > 0 ? dynamicCategories : Object.keys(CATEGORY_ICONS);
+
+  const getConsistentColorClassesLocal = (cat: string) => {
+    // Left empty since it's now outside, but leaving this space to safely replace
+  };
+
+  const allCategoriesList = baseCategories.map(cat => {
+    const isIncome = ["Photography Session", "Booking Advance", "Passport Photo", "Frame Sales", "Editing Charges", "Album Payment", "PP", "Xerox", "Printout", "E-Sevai", "Others"].includes(cat);
+    
+    const definedBg = categoryColors[cat]?.bg;
+    const colorName = definedBg ? definedBg.split('-')[1] : undefined;
+    const classes = getConsistentColorClasses(cat, colorName);
+    
+    return {
+      label: cat,
+      icon: CATEGORY_ICONS[cat] || getRelatableIcon(cat),
+      color: classes.text,
+      bg: classes.bg,
+      type: isIncome ? "INCOME" : "EXPENSE"
+    };
+  });
 
 
   return (
@@ -224,123 +312,169 @@ export default function OverviewPage() {
         </Link>
       </div>
 
-      {/* 3 New UI Cards (Row 2) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-start">
-        {/* Card 1: Income Sources */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "300ms" }}>
-          <div className="p-5 pb-2">
-            <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Income Sources (Today)</h3>
-          </div>
-          <div className="flex-1 p-5 flex flex-col md:flex-row items-center gap-6">
-            {todayIncome === 0 ? (
-               <div className="w-full text-center text-slate-400 py-10 text-sm">No income recorded today</div>
-            ) : (
-            <>
-            <div className="relative w-32 h-32 shrink-0">
-               <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                 {todayIncomeSegments.map((seg, i) => (
-                   <circle
-                     key={i}
-                     cx="50"
-                     cy="50"
-                     r="40"
-                     fill="none"
-                     stroke={seg.color.stroke}
-                     strokeWidth="16"
-                     strokeDasharray="251.2"
-                     strokeDashoffset={seg.dashoffset}
-                     transform={`rotate(${seg.rotation + 90} 50 50)`}
-                     className="transition-all duration-1000 ease-out"
-                   />
-                 ))}
-               </svg>
-               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                 <span className="text-[0.6rem] font-bold text-slate-400">Total Income</span>
-                 <span className="text-[#0B1E40] font-black text-[1.1rem]">₹{todayIncome.toLocaleString('en-IN')}</span>
-               </div>
+      {/* Row 2: Income & Expenses */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 items-start">
+          {/* Card 1: Income Sources */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "300ms" }}>
+            <div className="p-5 pb-2">
+              <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Income Sources (Today)</h3>
             </div>
-            <div className="flex-1 flex flex-col gap-2.5 w-full">
-               {todayIncomeSegments.map((seg, i) => (
-                 <div key={i} className="flex items-center justify-between">
-                   <div className="flex items-center gap-2">
-                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: seg.color.stroke }}></div>
-                     <span className="text-[0.75rem] font-bold text-[#0B1E40]">{seg.category}</span>
-                   </div>
-                   <div className="flex items-center gap-3">
-                     <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{seg.amount.toLocaleString('en-IN')}</span>
-                     <span className="text-[0.7rem] text-slate-400 font-bold w-6 text-right">{Math.round(seg.pct * 100)}%</span>
-                   </div>
+            <div className="flex-1 p-5 flex flex-col md:flex-row items-center gap-6">
+              {todayIncome === 0 ? (
+                 <div className="w-full text-center text-slate-400 py-10 text-sm">No income recorded today</div>
+              ) : (
+              <>
+              <div className="relative w-32 h-32 shrink-0">
+                 <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                   {todayIncomeSegments.map((seg, i) => (
+                     <circle
+                       key={i}
+                       cx="50"
+                       cy="50"
+                       r="40"
+                       fill="none"
+                       stroke={seg.color.stroke}
+                       strokeWidth="16"
+                       strokeDasharray="251.2"
+                       strokeDashoffset={seg.dashoffset}
+                       transform={`rotate(${seg.rotation + 90} 50 50)`}
+                       className={`transition-all duration-300 ease-out cursor-pointer ${hoveredIncCat && hoveredIncCat !== seg.category ? 'opacity-30' : 'opacity-100 hover:stroke-[20px]'}`}
+                       onMouseEnter={() => setHoveredIncCat(seg.category)}
+                       onMouseLeave={() => setHoveredIncCat(null)}
+                     />
+                   ))}
+                 </svg>
+                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                   <span className="text-[0.6rem] font-bold text-slate-400">Total Income</span>
+                   <span className="text-[#0B1E40] font-black text-[1.1rem]">₹{todayIncome.toLocaleString('en-IN')}</span>
                  </div>
-               ))}
-            </div>
-            </>
-            )}
-          </div>
-          <div className="border-t border-slate-100 p-3 flex justify-end">
-             <Link href="/transactions/allTransactions?view=day&type=INCOME" className="text-blue-600 font-bold text-[0.8rem] hover:text-blue-700 flex items-center gap-1 px-2">
-                View all income <i className="ph-bold ph-arrow-right"></i>
-             </Link>
-          </div>
-        </div>
-
-        {/* Card 2: Quick Add Transaction */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "350ms" }}>
-          <div className="p-5 pb-2">
-            <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Quick Add Transaction</h3>
-          </div>
-          <div className="flex-1 p-5 overflow-hidden">
-            <div className="flex overflow-x-auto gap-4 pb-2 hide-scrollbar snap-x">
-               {quickAddIcons.map((qa, i) => (
-                 <Link key={i} href={`/transactions/new?category=${encodeURIComponent(qa.label)}&type=${qa.type}`} className="flex flex-col items-center gap-2 snap-start shrink-0 w-[85px] outline-none group">
-                    <div className={`w-16 h-16 rounded-2xl ${qa.bg} ${qa.color} flex items-center justify-center group-hover:scale-105 transition-transform cursor-pointer`}>
-                       <i className={`ph-bold ${qa.icon} text-2xl`}></i>
-                    </div>
-                    <span className="text-[0.65rem] font-bold text-[#0B1E40] text-center leading-tight">
-                       {qa.label.replace(' & ', ' &\n')}
-                    </span>
-                 </Link>
-               ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Expense Breakdown */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "400ms" }}>
-          <div className="p-5 pb-2 flex justify-between items-start">
-            <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Expense Breakdown (Today)</h3>
-            <div className="text-right">
-               <span className="block text-[0.65rem] font-bold text-slate-400">Total Expense</span>
-               <span className="block text-[#0B1E40] font-black text-[1.05rem]">₹{todayExpense.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-            </div>
-          </div>
-          <div className="flex-1 p-5 pt-2 flex flex-col gap-3">
-             {todayExpense === 0 ? (
-               <div className="w-full text-center text-slate-400 py-10 text-sm">No expenses recorded today</div>
-             ) : (
-               sortedTodayExpenses.slice(0, 6).map((seg, i) => {
-                 const iconStr = CATEGORY_ICONS[seg.category] || "ph-dots-three-circle";
-                 const colorObj = categoryColors[seg.category] || defaultColor;
-                 return (
-                 <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-2 last:border-0 last:pb-0">
-                   <div className="flex items-center gap-3">
-                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white ${colorObj.bg}`}>
-                       <i className={`ph-bold ${iconStr} text-xs`}></i>
+              </div>
+              <div className="flex-1 flex flex-col gap-3 w-full">
+                 {todayIncomeSegments.map((seg, i) => {
+                   const iconStr = getRelatableIcon(seg.category);
+                   return (
+                   <div 
+                     key={i} 
+                     className={`flex items-center justify-between group cursor-default transition-all duration-300 relative ${hoveredIncCat === seg.category ? 'translate-x-3 bg-slate-50 p-2 -mx-2 rounded-xl shadow-sm' : ''}`}
+                     onMouseEnter={() => setHoveredIncCat(seg.category)}
+                     onMouseLeave={() => setHoveredIncCat(null)}
+                   >
+                     {hoveredIncCat === seg.category && (
+                       <div className="absolute -left-5 top-1/2 -translate-y-1/2 animate-pulse">
+                         <i className={`ph-fill ph-caret-right ${seg.color.text} text-lg`}></i>
+                       </div>
+                     )}
+                     <div className="flex items-center gap-3">
+                       <div className={`w-10 h-10 rounded-xl ${seg.color.bg} ${seg.color.text} flex items-center justify-center shrink-0 border border-transparent group-hover:scale-110 transition-all`}>
+                         <i className={`ph-bold ${iconStr} text-xl`}></i>
+                       </div>
+                       <span className="text-[0.8rem] font-bold text-[#0B1E40]">{seg.category}</span>
                      </div>
-                     <span className="text-[0.8rem] font-bold text-[#0B1E40]">{seg.category}</span>
+                     <div className="flex items-center gap-4">
+                       <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{seg.amount.toLocaleString('en-IN')}</span>
+                       <span className="text-[0.7rem] text-slate-400 font-bold w-8 text-right">{Math.round(seg.pct * 100)}%</span>
+                     </div>
                    </div>
-                   <div className="flex items-center gap-4">
-                     <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{seg.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-                     <span className="text-[0.7rem] text-slate-400 font-bold w-8 text-right">{(seg.pct * 100).toFixed(1)}%</span>
+                 )})}
+              </div>
+              </>
+              )}
+            </div>
+            <div className="border-t border-slate-100 p-3 flex justify-end mt-auto">
+               <Link href="/transactions/allTransactions?view=day&type=INCOME" className="text-blue-600 font-bold text-[0.8rem] hover:text-blue-700 flex items-center gap-1 px-2">
+                  View all income <i className="ph-bold ph-arrow-right"></i>
+               </Link>
+            </div>
+          </div>
+
+          {/* Card 2: Expense Breakdown */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "400ms" }}>
+            <div className="p-5 pb-2 flex justify-between items-start">
+              <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Expense Breakdown (Today)</h3>
+            </div>
+            <div className="flex-1 p-5 flex flex-col md:flex-row items-center gap-6">
+               {todayExpense === 0 ? (
+                 <div className="w-full text-center text-slate-400 py-10 text-sm">No expenses recorded today</div>
+               ) : (
+               <>
+               <div className="relative w-32 h-32 shrink-0">
+                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    {todayExpenseSegments.map((seg, i) => (
+                      <circle
+                        key={i}
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="none"
+                        stroke={seg.color.stroke}
+                        strokeWidth="16"
+                        strokeDasharray="251.2"
+                        strokeDashoffset={seg.dashoffset}
+                        transform={`rotate(${seg.rotation + 90} 50 50)`}
+                        className={`transition-all duration-300 ease-out cursor-pointer ${hoveredExpCat && hoveredExpCat !== seg.category ? 'opacity-30' : 'opacity-100 hover:stroke-[20px]'}`}
+                        onMouseEnter={() => setHoveredExpCat(seg.category)}
+                        onMouseLeave={() => setHoveredExpCat(null)}
+                      />
+                    ))}
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[0.6rem] font-bold text-slate-400">Total Expense</span>
+                    <span className="text-[#0B1E40] font-black text-[1.1rem]">₹{todayExpense.toLocaleString('en-IN')}</span>
+                  </div>
+               </div>
+               <div className="flex-1 flex flex-col gap-3 w-full">
+                 {sortedTodayExpenses.slice(0, 4).map((seg: any, i: number) => {
+                   const iconStr = getRelatableIcon(seg.category);
+                   const colorClass = getConsistentColorClasses(seg.category);
+                   return (
+                   <div 
+                     key={i} 
+                     className={`flex items-center justify-between group cursor-default transition-all duration-300 relative ${hoveredExpCat === seg.category ? 'translate-x-3 bg-slate-50 p-2 -mx-2 rounded-xl shadow-sm' : ''}`}
+                     onMouseEnter={() => setHoveredExpCat(seg.category)}
+                     onMouseLeave={() => setHoveredExpCat(null)}
+                   >
+                     {hoveredExpCat === seg.category && (
+                       <div className="absolute -left-5 top-1/2 -translate-y-1/2 animate-pulse">
+                         <i className={`ph-fill ph-caret-right ${colorClass.text} text-lg`}></i>
+                       </div>
+                     )}
+                     <div className="flex items-center gap-3">
+                       <div className={`w-10 h-10 rounded-xl ${colorClass.bg} ${colorClass.text} flex items-center justify-center shrink-0 border border-transparent group-hover:scale-110 transition-all`}>
+                         <i className={`ph-bold ${iconStr} text-xl`}></i>
+                       </div>
+                       <span className="text-[0.8rem] font-bold text-[#0B1E40]">{seg.category}</span>
+                     </div>
+                     <div className="flex items-center gap-4">
+                       <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{seg.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                       <span className="text-[0.7rem] text-slate-400 font-bold w-8 text-right">{(seg.pct * 100).toFixed(1)}%</span>
+                     </div>
                    </div>
-                 </div>
-               )})
-             )}
+                 )})}
+               </div>
+               </>
+               )}
+            </div>
+            <div className="border-t border-slate-100 p-3 flex justify-start mt-auto">
+               <Link href="/transactions/allTransactions?view=day&type=EXPENSE" className="text-orange-500 font-bold text-[0.8rem] hover:text-orange-600 flex items-center gap-1 px-2">
+                  View all expenses <i className="ph-bold ph-arrow-right"></i>
+               </Link>
+            </div>
           </div>
-          <div className="border-t border-slate-100 p-3 flex justify-start">
-             <Link href="/transactions/allTransactions?view=day&type=EXPENSE" className="text-orange-500 font-bold text-[0.8rem] hover:text-orange-600 flex items-center gap-1 px-2">
-                View all expenses <i className="ph-bold ph-arrow-right"></i>
-             </Link>
-          </div>
+      </div>
+
+      {/* Quick Add Transaction */}
+      <div className="bg-white rounded-[20px] py-4 px-4 md:px-6 shadow-sm border border-slate-100 mb-8 animate-slide-up flex flex-col justify-center w-fit mx-auto max-w-full" style={{ animationDelay: "350ms" }}>
+        <div className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide snap-x justify-start w-full mx-auto">
+          {allCategoriesList.map((qa, i) => (
+            <Link key={i} href={`/transactions/new?category=${encodeURIComponent(qa.label)}&type=${qa.type}`} className="flex flex-col items-center gap-2 outline-none group shrink-0 w-[65px] sm:w-[75px] snap-start">
+              <div className={`w-12 h-12 rounded-[14px] ${qa.bg} ${qa.color} flex items-center justify-center group-hover:scale-105 transition-transform shrink-0`}>
+                <i className={`ph-bold ${qa.icon} text-xl`}></i>
+              </div>
+              <span className="text-[0.65rem] font-bold text-[#0B1E40] leading-tight text-center">
+                {qa.label}
+              </span>
+            </Link>
+          ))}
         </div>
       </div>
 
@@ -413,7 +547,7 @@ export default function OverviewPage() {
               <p className="text-slate-500 text-xs mt-1">Add your first transaction to see it here</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1 sm:pr-2">
               {todayTransactions.map((txn: any, idx: number) => (
                 <div
                   key={txn.id}

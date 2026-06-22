@@ -220,3 +220,37 @@ export async function updateBookingStatusAction(bookingId: string, newStatus: st
     return { success: false, error: "Failed to update booking status" };
   }
 }
+
+export async function updateAlbumTrackingAction(bookingId: string, updates: { status?: string, customData?: any }) {
+  try {
+    const session = await getServerSession(authOptions);
+    const existing = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!existing) return { success: false, error: 'Not found' };
+
+    let newCustomData = existing.customData as Record<string, any>;
+    if (typeof newCustomData === 'string') {
+      try { newCustomData = JSON.parse(newCustomData); } catch(e) { newCustomData = {}; }
+    } else {
+      newCustomData = newCustomData || {};
+    }
+
+    if (updates.customData) {
+      newCustomData = { ...newCustomData, ...updates.customData };
+    }
+
+    const dataToUpdate: any = { customData: newCustomData };
+    if (updates.status !== undefined) dataToUpdate.status = updates.status;
+    if ((session?.user as any)?.id) dataToUpdate.updatedById = (session?.user as any)?.id;
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: dataToUpdate
+    });
+
+    revalidatePath('/', 'layout');
+    return { success: true };
+  } catch (e) {
+    console.error("updateAlbumTrackingAction error:", e);
+    return { success: false, error: "Failed to update album tracking" };
+  }
+}

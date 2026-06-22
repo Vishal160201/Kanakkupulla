@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ColorPicker } from "../ui/color-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { APP_ICONS_BY_CATEGORY } from "@/lib/appIcons";
 
 export interface FormField {
   id: string;
@@ -97,6 +99,8 @@ export default function LayoutsFieldsBuilder() {
 
   // Drag and drop state
   const [draggedOptionIdx, setDraggedOptionIdx] = useState<number | null>(null);
+  const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
+  const [dragOverSectionId, setDragOverSectionId] = useState<string | null>(null);
   
   // Field Drag and drop state
   const [draggedNewFieldType, setDraggedNewFieldType] = useState<string | null>(null);
@@ -204,6 +208,16 @@ export default function LayoutsFieldsBuilder() {
     updateActiveLayout({ ...activeLayout, schema: { ...activeLayout.schema, sections } });
   };
 
+  const updateSectionIcon = (sectionId: string, newIcon: string) => {
+    const l = activeLayout;
+    if (!l) return;
+    const sIdx = l.schema.sections.findIndex((s) => s.id === sectionId);
+    if (sIdx === -1) return;
+    const newS = [...l.schema.sections];
+    newS[sIdx] = { ...newS[sIdx], icon: newIcon };
+    setLayouts((prev) => prev.map((pl) => (pl.id === l.id ? { ...pl, schema: { ...pl.schema, sections: newS } } : pl)));
+  };
+
   const updateSectionDescription = (sectionId: string, newDesc: string) => {
     if (!activeLayout) return;
     const sections = activeLayout.schema.sections.map(s => 
@@ -246,6 +260,27 @@ export default function LayoutsFieldsBuilder() {
       return { ...s, fields };
     });
     updateActiveLayout({ ...activeLayout, schema: { ...activeLayout.schema, sections } });
+  };
+
+  const handleSectionDrop = (e: React.DragEvent, targetSectionId: string) => {
+    e.preventDefault();
+    setDragOverSectionId(null);
+    if (!draggedSectionId || draggedSectionId === targetSectionId) return;
+
+    const l = activeLayout;
+    if (!l) return;
+
+    const sections = [...l.schema.sections];
+    const sourceIdx = sections.findIndex(s => s.id === draggedSectionId);
+    const targetIdx = sections.findIndex(s => s.id === targetSectionId);
+    
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const [moved] = sections.splice(sourceIdx, 1);
+    sections.splice(targetIdx, 0, moved);
+
+    setLayouts(prev => prev.map(pl => pl.id === l.id ? { ...pl, schema: { ...pl.schema, sections } } : pl));
+    setDraggedSectionId(null);
   };
 
   const handleDrop = (e: React.DragEvent, targetSectionId: string, targetIndex: number) => {
@@ -587,7 +622,17 @@ export default function LayoutsFieldsBuilder() {
               activeLayout.schema.sections.map((section) => (
                 <div 
                   key={section.id} 
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    setDraggedSectionId(section.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedSectionId(null);
+                    setDragOverSectionId(null);
+                  }}
                   className={`group/section relative bg-slate-50 border rounded-2xl p-8 transition-colors ${
+                    dragOverSectionId === section.id ? 'border-orange-500 shadow-[0_0_0_3px_rgba(249,115,22,0.3)] -translate-y-1' : ''} ${
                     dragOverTarget?.sectionId === section.id && dragOverTarget?.fieldIndex === section.fields.length
                       ? 'border-orange-400 shadow-[0_0_0_2px_rgba(249,115,22,0.2)]'
                       : 'border-gray-100'
@@ -595,19 +640,56 @@ export default function LayoutsFieldsBuilder() {
                   onClick={(e) => e.stopPropagation()}
                   onDragOver={(e) => {
                     e.preventDefault();
-                    e.dataTransfer.dropEffect = draggedNewFieldType ? "copy" : "move";
-                    setDragOverTarget({ sectionId: section.id, fieldIndex: section.fields.length });
+                    if (draggedSectionId) {
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragOverSectionId !== section.id) setDragOverSectionId(section.id);
+                    } else {
+                      e.dataTransfer.dropEffect = draggedNewFieldType ? "copy" : "move";
+                      setDragOverTarget({ sectionId: section.id, fieldIndex: section.fields.length });
+                    }
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
-                    handleDrop(e, section.id, section.fields.length);
+                    if (draggedSectionId) {
+                      handleSectionDrop(e, section.id);
+                    } else {
+                      handleDrop(e, section.id, section.fields.length);
+                    }
                   }}
                 >
                   {/* Section Header */}
                   <div className="flex items-start gap-4 mb-8">
-                    <div className="text-orange-500 mt-1">
-                      <i className={`ph-fill ${section.icon || 'ph-squares-four'} text-2xl`}></i>
-                    </div>
+                    <Popover>
+                      <PopoverTrigger>
+                        <div className="text-orange-500 mt-1 w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center hover:bg-orange-100 transition-colors cursor-pointer border border-orange-100 outline-none">
+                          <i className={`ph-fill ${section.icon || 'ph-squares-four'} text-2xl`}></i>
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0 rounded-2xl border-slate-100 shadow-xl" align="start">
+                        <div className="p-3 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Choose Section Icon</p>
+                        </div>
+                        <div className="p-2 max-h-72 overflow-y-auto">
+                          {Object.entries(APP_ICONS_BY_CATEGORY).map(([cat, icons]) => (
+                            <div key={cat} className="mb-3 last:mb-0">
+                              <p className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">{cat}</p>
+                              <div className="grid grid-cols-5 gap-1">
+                                {icons.map(icon => (
+                                  <button
+                                    key={icon.id}
+                                    onClick={() => updateSectionIcon(section.id, icon.className)}
+                                    title={icon.label}
+                                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${section.icon === icon.className ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'text-slate-600 hover:bg-slate-100 hover:text-orange-600'}`}
+                                  >
+                                    <i className={`ph-fill ${icon.className}`}></i>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     <div className="flex-1">
                       <input
                         type="text"

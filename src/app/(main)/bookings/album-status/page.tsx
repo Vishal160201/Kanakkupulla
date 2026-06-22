@@ -16,6 +16,11 @@ export default async function AlbumStatusPage() {
     ]
   });
 
+  const teamUsers = await prisma.user.findMany({
+    where: { status: 'ACTIVE' },
+    select: { id: true, name: true, email: true, role: true }
+  });
+
   // Filter for albums
   const albumBookings = dbBookings.filter(b => {
     let customData = {};
@@ -42,5 +47,5 @@ export default async function AlbumStatusPage() {
     customData: typeof b.customData === 'string' ? b.customData : JSON.stringify(b.customData || {})
   }));
 
-  return <AlbumStatusClient albums={serializedAlbums as any} />;
+  return <AlbumStatusClient albums={serializedAlbums as any} teamUsers={teamUsers} />;
 }

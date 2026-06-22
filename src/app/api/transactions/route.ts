@@ -39,6 +39,12 @@ export async function GET(request: Request) {
       whereClause.date = {};
       if (dateFrom) whereClause.date.gte = new Date(`${dateFrom}T00:00:00.000`);
       if (dateTo) whereClause.date.lte = new Date(`${dateTo}T23:59:59.999`);
+    } else if (month) {
+      const [year, mon] = month.split("-").map(Number);
+      whereClause.date = {
+        gte: new Date(year, mon - 1, 1),
+        lt: new Date(year, mon, 1),
+      };
     } else if (view) {
       const now = new Date();
       if (view === "day") {
@@ -56,12 +62,6 @@ export async function GET(request: Request) {
         const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         whereClause.date = { gte: start, lte: end };
       }
-    } else if (month) {
-      const [year, mon] = month.split("-").map(Number);
-      whereClause.date = {
-        gte: new Date(year, mon - 1, 1),
-        lt: new Date(year, mon, 1),
-      };
     }
 
     // 2. Category Logic
@@ -87,7 +87,9 @@ export async function GET(request: Request) {
 
     // P2: Paginate — fetch PAGE_SIZE + 1 to determine if there are more records
     const transactions = await prisma.transaction.findMany({
-      where: { ...whereClause, userId },
+      where: { 
+        ...whereClause
+      },
       orderBy: [
         { date: "desc" },
         { createdAt: "desc" }
