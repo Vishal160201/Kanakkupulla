@@ -127,43 +127,43 @@ export default function BookingsLayout({
 
   return (
     <div className="view-section active">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", flexWrap: "wrap", gap: "15px" }}>
-        <div style={{ display: "flex", gap: "15px" }}>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
+        <div className="flex overflow-x-auto hide-scrollbar w-full sm:w-auto pb-1 -mx-2 px-2 sm:mx-0 sm:px-0" style={{ gap: "10px" }}>
           <Link 
           href="/bookings/overview"
-          className={`btn ${isOverview ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
+          className={`btn ${isOverview ? 'btn-primary' : 'btn-outline'} sub-nav-btn whitespace-nowrap flex-shrink-0`} 
           style={{ borderRadius: "20px", borderColor: isTable || isUpcoming || isAlbumStatus ? "transparent" : "", textDecoration: "none" }}
         >
           Overview
         </Link>
         <Link 
           href="/bookings/upcoming"
-          className={`btn ${isUpcoming ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
+          className={`btn ${isUpcoming ? 'btn-primary' : 'btn-outline'} sub-nav-btn whitespace-nowrap flex-shrink-0`} 
           style={{ borderRadius: "20px", borderColor: isOverview || isTable || isAlbumStatus ? "transparent" : "", textDecoration: "none" }}
         >
           Upcoming Shoots
         </Link>
         <Link 
           href="/bookings/album-status"
-          className={`btn ${isAlbumStatus ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
+          className={`btn ${isAlbumStatus ? 'btn-primary' : 'btn-outline'} sub-nav-btn whitespace-nowrap flex-shrink-0`} 
           style={{ borderRadius: "20px", borderColor: isOverview || isTable || isUpcoming ? "transparent" : "", textDecoration: "none" }}
         >
           Album status
         </Link>
         <Link 
           href="/bookings/allBookings"
-          className={`btn ${isTable ? 'btn-primary' : 'btn-outline'} sub-nav-btn`} 
+          className={`btn ${isTable ? 'btn-primary' : 'btn-outline'} sub-nav-btn whitespace-nowrap flex-shrink-0`} 
           style={{ borderRadius: "20px", borderColor: isOverview || isUpcoming || isAlbumStatus ? "transparent" : "", textDecoration: "none" }}
         >
           All bookings
         </Link>
         </div>
         
-        <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-start sm:justify-end mt-2 sm:mt-0">
           {isTable && (
-            <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
             {hasActiveFilters ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", backgroundColor: "#fff7ed", padding: "6px 12px", borderRadius: "20px", border: "1px solid #ffedd5" }}>
+              <div className="flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100 overflow-x-auto hide-scrollbar max-w-full">
                 <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#ea580c" }}>Filtered by:</span>
                 {filters.categories.length > 0 && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#c2410c" }}>{filters.categories.join(', ')}</span>}
                 {filters.statuses.length > 0 && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#c2410c" }}>{filters.statuses.join(', ')}</span>}
