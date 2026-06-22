@@ -81,7 +81,7 @@ export default function DayPicker({ currentDate, onChange, onClose, mode = 'day'
   return (
     <div 
       ref={containerRef}
-      className={`absolute ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0' : 'left-0'} bg-white border border-gray-200 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] z-[1000] w-[320px] p-5`}
+      className={`absolute ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0' : 'left-0'} bg-white border border-gray-200 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] z-[1000] w-[280px] p-4`}
     >
       {mode === 'month' ? (
         <>

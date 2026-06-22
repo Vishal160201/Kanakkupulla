@@ -177,6 +177,27 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
     }
   };
 
+  const evaluateVisibility = (rule: any) => {
+    if (!rule || !rule.fieldId) return true;
+    const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
+    const depValue = form[depFieldName];
+    
+    if (rule.operator === 'EQUALS') {
+      return depValue === rule.value;
+    } else if (rule.operator === 'NOT_EQUALS') {
+      return depValue !== rule.value;
+    } else if (rule.operator === 'CONTAINS') {
+      if (typeof depValue === 'string') {
+        return depValue.includes(rule.value);
+      }
+      if (Array.isArray(depValue)) {
+        return depValue.includes(rule.value);
+      }
+      return false;
+    }
+    return true;
+  };
+
   const renderField = (field: any) => {
     const fieldName = standardFieldMap[field.id] || field.id;
     const isError = !!errors[fieldName];
@@ -244,25 +265,21 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
           <label className="block text-[10px] font-extrabold text-slate-500 tracking-[1.5px] uppercase mb-2">
             {field.name} {field.mandatory && <span className="text-red-500">*</span>}
           </label>
-          <div className="flex gap-2">
-            <div className="flex-[2]">
-              <DatePickerInput 
-                value={dateStr} 
-                onChange={(newDate) => {
-                  const newD = new Date(`${newDate}T${timeStr}:00`);
-                  set(fieldName)(newD.toISOString());
-                }} 
-              />
-            </div>
-            <div className="flex-1">
-              <TimePickerInput 
-                value={timeStr}
-                onChange={(newTime) => {
-                  const newD = new Date(`${dateStr}T${newTime}:00`);
-                  set(fieldName)(newD.toISOString());
-                }}
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <DatePickerInput 
+              value={dateStr} 
+              onChange={(newDate) => {
+                const newD = new Date(`${newDate}T${timeStr}:00`);
+                set(fieldName)(newD.toISOString());
+              }} 
+            />
+            <TimePickerInput 
+              value={timeStr}
+              onChange={(newTime) => {
+                const newD = new Date(`${dateStr}T${newTime}:00`);
+                set(fieldName)(newD.toISOString());
+              }}
+            />
           </div>
           {errors[fieldName] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[fieldName]}</p>}
         </div>
@@ -466,24 +483,32 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
 
           <div className="px-8 py-6 overflow-y-auto flex-1 min-h-0">
             {layoutSchema?.sections ? (
-              layoutSchema.sections.map((section: any) => (
-                <div key={section.id} className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-slate-100">
-                  <div className="flex flex-col mb-5">
-                    <div className="flex items-center gap-2.5 font-extrabold text-[1.1rem] text-slate-900 tracking-tight">
-                      <i className={`ph-fill ${section.icon || 'ph-squares-four'} text-orange-500 text-[1.2rem]`}></i> {section.title}
+              layoutSchema.sections.map((section: any) => {
+                if (section.visibilityRule && !evaluateVisibility(section.visibilityRule)) return null;
+                
+                return (
+                  <div key={section.id} className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-slate-100">
+                    <div className="flex flex-col mb-5">
+                      <div className="flex items-center gap-2.5 font-extrabold text-[1.1rem] text-slate-900 tracking-tight">
+                        <i className={`ph-fill ${section.icon || 'ph-squares-four'} text-orange-500 text-[1.2rem]`}></i> {section.title}
+                      </div>
+                      {section.description && <div className="text-[0.85rem] text-slate-500 mt-1 font-medium leading-[1.4]">{section.description}</div>}
                     </div>
-                    {section.description && <div className="text-[0.85rem] text-slate-500 mt-1 font-medium leading-[1.4]">{section.description}</div>}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+                      {section.fields.map((field: any) => {
+                        if (field.visibilityRule && !evaluateVisibility(field.visibilityRule)) return null;
+                        
+                        return (
+                          <React.Fragment key={field.id}>
+                            {renderField(field)}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-                    {section.fields.map((field: any) => (
-                      <React.Fragment key={field.id}>
-                        {renderField(field)}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="flex justify-center p-10"><i className="ph ph-circle-notch animate-spin text-2xl text-slate-400"></i></div>
             )}
@@ -491,17 +516,17 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
 
           </div>
 
-          <div className="px-8 py-5 bg-white border-t border-slate-100 flex gap-3 z-10 relative shrink-0 rounded-b-3xl">
+          <div className="px-8 py-5 bg-white border-t border-slate-100 flex justify-end gap-3 z-10 relative shrink-0 rounded-b-3xl">
             <button
               onClick={onClose}
-              className="flex-1 py-3 rounded-xl font-bold text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="px-6 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex-[2] py-3 rounded-xl font-bold text-sm text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="px-8 py-2.5 rounded-xl font-bold text-sm text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmitting ? (
                 <><i className="ph ph-circle-notch animate-spin"></i> Saving...</>
