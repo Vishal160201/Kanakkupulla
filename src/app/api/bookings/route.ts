@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     const newBooking = await prisma.booking.create({
       data: {
         bookingNumber: nextBookingNumber,
-        clientId,
+        client: { connect: { id: clientId } },
         category: category || "Wedding",
         date: new Date(date),
         time,
