@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Perf_Overview_GET",
+    "requestsPerSec": "75.40",
+    "totalRequests": 377,
+    "errors": 0,
+    "non2xx": 0,
+    "latencyP50": "65.09",
+    "latencyP90": "80.52",
+    "latencyP99": "90.49"
+  },
+  {
+    "name": "Perf_Transactions_GET",
+    "requestsPerSec": "73.40",
+    "totalRequests": 367,
+    "errors": 0,
+    "non2xx": 0,
+    "latencyP50": "64.88",
+    "latencyP90": "77.68",
+    "latencyP99": "111.00"
+  },
+  {
+    "name": "Load_Overview_GET",
+    "requestsPerSec": "149.80",
+    "totalRequests": 749,
+    "errors": 0,
+    "non2xx": 0,
+    "latencyP50": "164.93",
+    "latencyP90": "185.79",
+    "latencyP99": "318.04"
+  },
+  {
+    "name": "Load_Transactions_GET",
+    "requestsPerSec": "180.80",
+    "totalRequests": 904,
+    "errors": 0,
+    "non2xx": 0,
+    "latencyP50": "69.98",
+    "latencyP90": "97.47",
+    "latencyP99": "2466.44"
+  },
+  {
+    "name": "Stress_Overview_GET",
+    "requestsPerSec": "168.80",
+    "totalRequests": 844,
+    "errors": 0,
+    "non2xx": 0,
+    "latencyP50": "649.98",
+    "latencyP90": "681.52",
+    "latencyP99": "1004.25"
+  }
+]
