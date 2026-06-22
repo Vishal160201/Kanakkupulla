@@ -56,10 +56,14 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
   const [isAddAttachmentOpen, setIsAddAttachmentOpen] = useState(false);
   const [newAttachmentName, setNewAttachmentName] = useState("");
   const [newAttachmentUrl, setNewAttachmentUrl] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState<any>({});
-  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
-  const [installments, setInstallments] = useState<{amount: string, date: string}[]>([]);
+  const isEditing = false;
+  const setIsEditing = (v: boolean) => {};
+  const editData: any = {};
+  const setEditData = (v: any) => {};
+  const formErrors: Record<string, boolean> = {};
+  const setFormErrors = (v: any) => {};
+  const installments: {amount: string, date: string}[] = [];
+  const setInstallments = (v: any) => {};
   const timeInputRef = useRef<HTMLInputElement>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
@@ -172,42 +176,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
     }, 100);
   };
 
-  const handleEditToggle = () => {
-    if (!isEditing) {
-      setEditData({
-         title: booking?.title || '',
-         category: booking?.category || 'Wedding',
-         date: booking?.date ? new Date(booking.date).toISOString().split('T')[0] : '',
-         time: booking?.time || '',
-         location: booking?.location || '',
-         phone: booking?.phone || (booking as any)?.client?.phone || '',
-         email: booking?.email || (booking as any)?.client?.email || '',
-         packageName: booking?.packageName || booking?.customData?.fld_b_package_name || '',
-         inclusions: Array.isArray(booking?.inclusions) ? booking.inclusions.join(', ') : (typeof booking?.inclusions === 'string' ? booking.inclusions : ''),
-         package: booking?.package || (booking as any)?.order?.package?.toString() || booking?.customData?.fld_b_package?.toString() || '',
-         advance: booking?.advance || (booking as any)?.order?.advance?.toString() || booking?.customData?.fld_b_advance?.toString() || '',
-         due: booking?.due || (booking as any)?.order?.due?.toString() || '',
-         status: booking?.status || 'Confirmed',
-         photographers: booking?.photographers || booking?.customData?.fld_b_photographers || booking?.customData?.team || []
-      });
-    }
-    if (!isEditing) { setInstallments((booking as any)?.order?.installments || []); }
-    setIsEditing(!isEditing);
-  };
-
-  useEffect(() => {
-    let fp: any = null;
-    if (isEditing && timeInputRef.current) {
-      fp = flatpickr(timeInputRef.current, {
-        enableTime: true,
-        noCalendar: true,
-        dateFormat: "h:i K",
-        defaultDate: editData.time || '10:00 AM',
-        onChange: (_, dateStr) => setEditData((prev: any) => ({...prev, time: dateStr}))
-      });
-    }
-    return () => { if (fp) fp.destroy(); };
-  }, [isEditing]);
+  const handleEditToggle = () => {};
 
   const handleSaveEdit = async () => {
     setIsLoading(true);
@@ -608,179 +577,78 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                    </div>
                 </div>
 
-                {/* 3 Main Columns */}
+                {/* 3 Main Columns for Dynamic Sections */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   {/* Client Information */}
-                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
-                      <div className="flex justify-between items-center mb-6">
-                         <div className="flex items-center gap-2.5">
-                            <i className="ph-duotone ph-user text-indigo-500 text-xl"></i>
-                            <h3 className="text-[1.05rem] font-black text-[#0B1E40]">Client Information</h3>
-                         </div>
-                         <button onClick={handleEditToggle} data-html2canvas-ignore="true" className="flex items-center gap-1.5 text-blue-500 font-bold text-[0.8rem] hover:text-blue-600 transition-colors">
-                           <i className="ph-bold ph-pencil-simple"></i> {isEditing ? 'Editing...' : 'Edit'}
-                         </button>
-                      </div>
-                      <div className="flex flex-col gap-5">
-                         <div className="flex items-center gap-4">
-                            <i className="ph-fill ph-phone text-emerald-500 text-xl shrink-0"></i>
-                            {isEditing ? (
-                               <input className={`font-bold text-[#0B1E40] text-[0.95rem] border-b focus:outline-none bg-transparent w-full ${formErrors.phone ? "border-red-500" : "border-gray-300"}`} value={editData.phone} onChange={e => setEditData({...editData, phone: e.target.value})} placeholder="Phone" />
-                            ) : (
-                               <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.phone || booking.customData?.fld_b_phone || 'N/A'}</span>
-                            )}
-                         </div>
-                         <div className="flex items-center gap-4">
-                            <i className="ph-fill ph-envelope-simple text-emerald-500 text-xl shrink-0"></i>
-                            {isEditing ? (
-                               <input className="font-bold text-[#0B1E40] text-[0.95rem] truncate border-b border-gray-300 focus:outline-none bg-transparent w-full" value={editData.email} onChange={e => setEditData({...editData, email: e.target.value})} placeholder="Email" />
-                            ) : (
-                               <span className="font-bold text-[#0B1E40] text-[0.95rem] truncate">{booking.email || booking.customData?.fld_b_email || 'N/A'}</span>
-                            )}
-                         </div>
-                         
-                      </div>
-                   </div>
+                  {layoutSchema && layoutSchema.sections && layoutSchema.sections.map((section: any) => {
+                    // Evaluate section visibility
+                    if (section.visibilityRule && section.visibilityRule.fieldId) {
+                      const depVal = (booking as any)[section.visibilityRule.fieldId] || booking.customData?.[section.visibilityRule.fieldId];
+                      if (section.visibilityRule.operator === 'EQUALS' && depVal !== section.visibilityRule.value) return null;
+                      if (section.visibilityRule.operator === 'NOT_EQUALS' && depVal === section.visibilityRule.value) return null;
+                    }
 
-                   {/* Event Details */}
-                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
-                      <div className="flex justify-between items-center mb-6">
-                         <div className="flex items-center gap-2.5">
-                            <i className="ph-duotone ph-calendar-blank text-blue-500 text-xl"></i>
-                            <h3 className="text-[1.05rem] font-black text-[#0B1E40]">Event Details</h3>
-                         </div>
-                      </div>
-                      <div className="flex flex-col gap-4">
-                         <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                               <i className="ph-fill ph-calendar-blank text-blue-500 text-[1.1rem]"></i>
-                            </div>
-                            {isEditing ? (
-                              <DatePickerInput value={editData.date} onChange={date => setEditData({...editData, date})} hasError={formErrors.date} className={`font-bold text-[#0B1E40] text-[0.95rem] border-b focus:outline-none bg-transparent w-full pb-1 ${formErrors.date ? "border-red-500" : "border-gray-300"}`} />
-                            ) : (
-                              <span className="font-bold text-[#0B1E40] text-[0.95rem]">
-                                 {booking.date ? new Date(booking.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                              </span>
-                            )}
-                         </div>
-                         <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
-                               <i className="ph-fill ph-clock text-purple-500 text-[1.1rem]"></i>
-                            </div>
-                            {isEditing ? (
-                              <Select value={editData.time} onValueChange={v => setEditData({...editData, time: v})}>
-                                  <SelectTrigger className={`w-full bg-transparent border-b font-bold text-[#0B1E40] text-[0.95rem] shadow-none px-0 py-1 h-8 ${formErrors.time ? "border-red-500" : "border-gray-300"}`}>
-                                     <SelectValue placeholder="Select Time" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                     <SelectItem value="06:00 AM">06:00 AM</SelectItem>
-<SelectItem value="07:00 AM">07:00 AM</SelectItem>
-<SelectItem value="08:00 AM">08:00 AM</SelectItem>
-<SelectItem value="09:00 AM">09:00 AM</SelectItem>
-<SelectItem value="10:00 AM">10:00 AM</SelectItem>
-<SelectItem value="11:00 AM">11:00 AM</SelectItem>
-<SelectItem value="12:00 PM">12:00 PM</SelectItem>
-<SelectItem value="01:00 PM">01:00 PM</SelectItem>
-<SelectItem value="02:00 PM">02:00 PM</SelectItem>
-<SelectItem value="03:00 PM">03:00 PM</SelectItem>
-<SelectItem value="04:00 PM">04:00 PM</SelectItem>
-<SelectItem value="05:00 PM">05:00 PM</SelectItem>
-<SelectItem value="06:00 PM">06:00 PM</SelectItem>
-<SelectItem value="07:00 PM">07:00 PM</SelectItem>
-<SelectItem value="08:00 PM">08:00 PM</SelectItem>
-<SelectItem value="09:00 PM">09:00 PM</SelectItem>
-                                  </SelectContent>
-                               </Select>
-                            ) : (
-                              <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.time || booking.customData?.fld_b_time || 'N/A'}</span>
-                            )}
-                         </div>
-                         <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                               <i className="ph-fill ph-map-pin text-emerald-500 text-[1.1rem]"></i>
-                            </div>
-                            {isEditing ? (
-                               <input className={`font-bold text-[#0B1E40] text-[0.95rem] border-b focus:outline-none bg-transparent w-full ${formErrors.location ? "border-red-500" : "border-gray-300"}`} value={editData.location} onChange={e => setEditData({...editData, location: e.target.value})} placeholder="Location" />
-                            ) : (
-                               <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.location || booking.customData?.fld_b_location || 'N/A'}</span>
-                            )}
-                         </div>
-                         <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                               <i className="ph-fill ph-bookmark-simple text-orange-500 text-[1.1rem]"></i>
-                            </div>
-                            {isEditing ? (
-                                 <Select value={editData.category} onValueChange={v => setEditData({...editData, category: v})}>
-                                    <SelectTrigger className="w-full font-bold text-[#0B1E40] text-[0.95rem] border-b border-gray-300 bg-transparent rounded-none px-0 shadow-none focus:ring-0">
-                                       <SelectValue placeholder="Select category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                       <SelectItem value="Wedding">Wedding</SelectItem>
-                                       <SelectItem value="Fashion">Fashion</SelectItem>
-                                       <SelectItem value="Baby & Kids">Baby & Kids</SelectItem>
-                                       <SelectItem value="Corporate">Corporate</SelectItem>
-                                    </SelectContent>
-                                 </Select>
-                            ) : (
-                              <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.category || booking.customData?.fld_b_category || 'N/A'}</span>
-                            )}
-                         </div>
+                    // For the Financial section, we skip it here and show it in the dedicated Package & Payment block
+                    if (section.id === 'sec_booking_financial') return null;
 
-                         {/* Photographers */}
-                         <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
-                               <i className="ph-fill ph-users text-indigo-500 text-[1.1rem]"></i>
-                            </div>
-                            <div className="flex flex-col flex-1">
-                               <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Photographers</span>
-                               {isEditing ? (
-                                 <MultiUserPicklist 
-                                    users={teamUsers} 
-                                    value={Array.isArray(editData.photographers) ? editData.photographers.join(',') : (typeof editData.photographers === 'string' ? editData.photographers : '')} 
-                                    onChange={(val) => setEditData({...editData, photographers: val ? val.split(',').filter(Boolean) : []})} 
-                                    placeholder="Assign photographers..." 
-                                 />
-                               ) : (
-                                 <span className="font-bold text-[#0B1E40] text-[0.95rem]">
-                                    {(() => {
-                                       const photogs = photographersVal;
-                                       let photogArray: string[] = [];
-                                       if (Array.isArray(photogs)) {
-                                          photogArray = photogs;
-                                       } else if (typeof photogs === 'string') {
-                                          photogArray = photogs.split(',').map(s => s.trim()).filter(Boolean);
-                                       }
-                                       const users = photogArray.map(id => teamUsers.find(u => u.id === id) || {name: id});
-                                       if (users.length === 0) return 'N/A';
-                                       return users.map((u: any) => u?.name || u).join(', ');
-                                    })()}
-                                 </span>
-                               )}
-                            </div>
-                         </div>
+                    return (
+                      <div key={section.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
+                        <div className="flex justify-between items-center mb-6">
+                          <div className="flex items-center gap-2.5">
+                            <i className={`ph-duotone ${section.icon || 'ph-squares-four'} text-indigo-500 text-xl`}></i>
+                            <h3 className="text-[1.05rem] font-black text-[#0B1E40]">{section.title}</h3>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-5">
+                          {section.fields.map((field: any) => {
+                            // Evaluate field visibility
+                            if (field.visibilityRule && field.visibilityRule.fieldId) {
+                              const depVal = (booking as any)[field.visibilityRule.fieldId] || booking.customData?.[field.visibilityRule.fieldId];
+                              if (field.visibilityRule.operator === 'EQUALS' && depVal !== field.visibilityRule.value) return null;
+                              if (field.visibilityRule.operator === 'NOT_EQUALS' && depVal === field.visibilityRule.value) return null;
+                            }
 
-                         {/* Inclusions */}
-                         <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
-                               <i className="ph-fill ph-list-checks text-rose-500 text-[1.1rem]"></i>
-                            </div>
-                            <div className="flex flex-col flex-1">
-                               <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Inclusion</span>
-                               {isEditing ? (
-                                 <input className={`font-bold text-[#0B1E40] text-[0.95rem] border-b focus:outline-none bg-transparent w-full pb-1 ${formErrors.inclusions ? "border-red-500" : "border-gray-300"}`} value={editData.inclusions} onChange={e => setEditData({...editData, inclusions: e.target.value})} placeholder="Inclusions" />
-                               ) : (
-                                 <span className="font-bold text-[#0B1E40] text-[0.95rem]">
-                                    {(() => {
-                                       let incl = inclusionsVal || booking.customData?.INCLUSION || booking.customData?.fld_b_inclusion || booking.inclusions;
-                                       if (Array.isArray(incl)) return incl.join(', ');
-                                       return incl || 'N/A';
-                                    })()}
-                                 </span>
-                               )}
-                            </div>
-                         </div>
+                            const fieldName = standardFieldMap[field.id] || field.id;
+                            const val = (booking as any)[fieldName] !== undefined ? (booking as any)[fieldName] : booking.customData?.[fieldName];
+
+                            let displayVal: React.ReactNode = val || 'N/A';
+
+                            if (field.type === 'DATE' && val) {
+                              displayVal = new Date(val).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                            } else if (field.type === 'USER_PICKLIST') {
+                              const user = teamUsers.find((u: any) => u.id === val);
+                              displayVal = user ? user.name : (val || 'Unassigned');
+                            } else if (field.type === 'MULTI_USER_PICKLIST') {
+                              let userIds: string[] = [];
+                              if (Array.isArray(val)) userIds = val;
+                              else if (typeof val === 'string') userIds = val.split(',').map((s: string) => s.trim()).filter(Boolean);
+                              const users = userIds.map((id: string) => teamUsers.find((u: any) => u.id === id)?.name || id);
+                              displayVal = users.length > 0 ? users.join(', ') : 'Unassigned';
+                            } else if (field.type === 'MULTI_SELECT' && Array.isArray(val)) {
+                              displayVal = val.join(', ');
+                            } else if (field.type === 'CURRENCY' && val) {
+                              displayVal = `₹${parseFloat(val).toLocaleString()}`;
+                            }
+
+                            const iconClass = getFieldIcon(field);
+                            const [iconName, iconColor] = iconClass.split(' ');
+                            const bgClass = iconColor.replace('text-', 'bg-').replace('500', '50').replace('400', '50');
+
+                            return (
+                              <div key={field.id} className="flex items-center gap-4">
+                                <div className={`w-8 h-8 rounded-full ${bgClass} flex items-center justify-center shrink-0`}>
+                                  <i className={`ph-fill ${iconName} ${iconColor} text-[1.1rem]`}></i>
+                                </div>
+                                <div className="flex flex-col flex-1 min-w-0">
+                                  <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest truncate">{field.name}</span>
+                                  <span className="font-bold text-[#0B1E40] text-[0.95rem] break-words whitespace-pre-wrap">{displayVal}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                   </div>
+                    );
+                  })}
 
                    {/* Timeline */}
                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
@@ -828,59 +696,6 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                       </div>
                    </div>
                 </div>
-
-
-
-                {/* Custom Dynamic Fields */}
-                {layoutSchema && layoutSchema.sections && layoutSchema.sections.map((section: any) => {
-                   const customFields = section.fields.filter((f: any) => {
-                     const isStandard = standardFieldMap[f.id];
-                     const isMoved = ['inclusion', 'inclusions', 'album designer', 'album worker', 'photographers', 'photographer', 'assigned to'].includes((f.name || '').toLowerCase()) || ['fld_b_album_designer', 'fld_b_inclusion', 'INCLUSION', albumDesignerId, photographersId, inclusionsId].includes(f.id);
-                     return !isStandard && !isMoved;
-                   });
-                   if (customFields.length === 0) return null;
-                   return (
-                     <div key={section.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-6 flex flex-col relative overflow-hidden">
-                       <div className="flex justify-between items-center mb-6">
-                         <div className="flex items-center gap-2.5">
-                           <i className={`ph-duotone ${section.icon || 'ph-squares-four'} text-orange-500 text-xl`}></i>
-                           <h3 className="text-[1.05rem] font-black text-[#0B1E40]">{section.title}</h3>
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         {customFields.map((field: any) => {
-                            const iconClass = getFieldIcon(field);
-                            const [iconName, iconColor] = iconClass.split(' ');
-                            const bgClass = iconColor.replace('text-', 'bg-').replace('500', '50').replace('400', '50');
-                            
-                            return (
-                            <div key={field.id} className="flex items-center gap-4">
-                               <div className={`w-8 h-8 rounded-full ${bgClass} flex items-center justify-center shrink-0`}>
-                                  <i className={`ph-fill ${iconName} ${iconColor} text-[1.1rem]`}></i>
-                               </div>
-                               <div className="flex flex-col flex-1 min-w-0">
-                                 <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest truncate">{field.name}</span>
-                                 {isEditing ? (
-                                   <input 
-                                     className="font-bold text-[#0B1E40] text-[0.95rem] border-b focus:outline-none bg-transparent w-full border-gray-300 pb-1" 
-                                     value={editData[field.id] !== undefined ? editData[field.id] : (booking.customData?.[field.id] || '')} 
-                                     onChange={e => setEditData({...editData, [field.id]: e.target.value})} 
-                                     placeholder={field.name} 
-                                   />
-                                 ) : (
-                                   <span className="font-bold text-[#0B1E40] text-[0.95rem] break-words whitespace-pre-wrap">
-                                     {Array.isArray(booking.customData?.[field.id]) ? booking.customData[field.id].join(', ') : (booking.customData?.[field.id] || 'N/A')}
-                                   </span>
-                                 )}
-                               </div>
-                            </div>
-                            );
-                         })}
-                       </div>
-                     </div>
-                   );
-                })}
-
                 {/* Package & Payment */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col mt-2">
                    <div className="flex items-center gap-3 mb-6">

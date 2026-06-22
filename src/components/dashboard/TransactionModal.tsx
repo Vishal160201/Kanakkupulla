@@ -7,7 +7,7 @@ import TimePickerInput from "@/components/ui/TimePickerInput";
 import PillSelect from "@/components/ui/PillSelect";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -36,6 +36,7 @@ const standardFieldMap: Record<string, string> = {
 
 export default function TransactionModal({ editTransaction }: TransactionModalProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isOpen = true;
   const onClose = () => router.back();
   const onSuccess = () => router.refresh();
@@ -90,11 +91,16 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
             }
           });
         });
+        const urlType = searchParams.get('type');
+        const urlCategory = searchParams.get('category');
+        if (urlType) defaultForm.type = urlType;
+        if (urlCategory) defaultForm.category = urlCategory;
+        
         setForm(defaultForm);
       }
       setErrors({});
     }
-  }, [isOpen, editTransaction, layoutSchema]);
+  }, [isOpen, editTransaction, layoutSchema, searchParams]);
 
   const set = (key: string) => (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
