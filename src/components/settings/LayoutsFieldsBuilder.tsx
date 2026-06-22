@@ -1177,39 +1177,78 @@ export default function LayoutsFieldsBuilder() {
                     <div className="bg-slate-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-3">
                       <div>
                         <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Depends on Field</label>
-                        <select
+                        <Select
                           value={selectedField.visibilityRule.fieldId}
-                          onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, fieldId: e.target.value } })}
-                          className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-orange-500 transition-all"
+                          onValueChange={(val) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, fieldId: val || "" } })}
                         >
-                          <option value="">-- Select Field --</option>
-                          {activeLayout.schema.sections.flatMap(s => s.fields).filter(f => f.id !== selectedField.id).map(f => (
-                            <option key={f.id} value={f.id}>{f.name}</option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg h-[40px] px-3 outline-none focus:border-orange-500 transition-all">
+                            <span className="truncate flex-1 text-left">
+                              {selectedField.visibilityRule?.fieldId 
+                                ? activeLayout.schema.sections.flatMap(s => s.fields).find(f => f.id === selectedField.visibilityRule!.fieldId)?.name || selectedField.visibilityRule.fieldId
+                                : "-- Select Field --"}
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {activeLayout.schema.sections.flatMap(s => s.fields).filter(f => f.id !== selectedField.id).map(f => (
+                              <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="flex gap-2">
                         <div className="w-1/3">
                           <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Operator</label>
-                          <select
+                          <Select
                             value={selectedField.visibilityRule.operator}
-                            onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, operator: e.target.value as any } })}
-                            className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-orange-500 transition-all"
+                            onValueChange={(val) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, operator: val as any } })}
                           >
-                            <option value="EQUALS">Equals</option>
-                            <option value="NOT_EQUALS">Not Equals</option>
-                            <option value="CONTAINS">Contains</option>
-                          </select>
+                            <SelectTrigger className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg h-[40px] px-3 outline-none focus:border-orange-500 transition-all">
+                              <span className="truncate flex-1 text-left">
+                                {selectedField.visibilityRule?.operator === 'EQUALS' ? 'Equals' : 
+                                 selectedField.visibilityRule?.operator === 'NOT_EQUALS' ? 'Not Equals' : 
+                                 selectedField.visibilityRule?.operator === 'CONTAINS' ? 'Contains' : 'Operator'}
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="EQUALS">Equals</SelectItem>
+                              <SelectItem value="NOT_EQUALS">Not Equals</SelectItem>
+                              <SelectItem value="CONTAINS">Contains</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="w-2/3">
                           <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Value</label>
-                          <input
-                            type="text"
-                            value={selectedField.visibilityRule.value}
-                            onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, value: e.target.value } })}
-                            placeholder="e.g. Wedding"
-                            className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg px-2 py-2 outline-none focus:border-orange-500 transition-all"
-                          />
+                          {(() => {
+                            const dependingField = activeLayout.schema.sections.flatMap(s => s.fields).find(f => f.id === selectedField.visibilityRule?.fieldId);
+                            if (dependingField && dependingField.options && dependingField.options.length > 0) {
+                              return (
+                                <Select
+                                  value={selectedField.visibilityRule.value}
+                                  onValueChange={(val) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, value: val || "" } })}
+                                >
+                                  <SelectTrigger className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg h-[40px] px-3 outline-none focus:border-orange-500 transition-all">
+                                    <span className="truncate flex-1 text-left">
+                                      {selectedField.visibilityRule.value || "Select Value"}
+                                    </span>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {dependingField.options.map(opt => (
+                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              );
+                            }
+                            return (
+                              <input
+                                type="text"
+                                value={selectedField.visibilityRule!.value}
+                                onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, value: e.target.value } })}
+                                placeholder="e.g. Wedding"
+                                className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg h-[40px] px-3 outline-none focus:border-orange-500 transition-all"
+                              />
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

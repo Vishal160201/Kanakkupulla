@@ -60,7 +60,7 @@ export default function TimePickerInput({ value, onChange, className }: TimePick
         onClick={() => setIsOpen(!isOpen)}
         className={className || `flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] transition-all duration-300 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 active:scale-95 ${isOpen ? 'border-orange-300 ring-2 ring-orange-500/20' : 'border-gray-200'}`}
       >
-        <span className="flex-1 text-slate-900 font-bold">{displayTime}</span>
+        <span className="flex-1 text-slate-900 font-bold whitespace-nowrap truncate">{displayTime}</span>
         <i className={`ph-bold ph-clock text-[1.1rem] transition-colors duration-300 ${isOpen ? 'text-orange-500' : 'text-slate-400'}`}></i>
       </div>
       
