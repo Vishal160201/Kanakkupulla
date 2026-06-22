@@ -75,111 +75,7 @@ const FIELD_TYPES = [
   { value: "MULTI_USER_PICKLIST", label: "Users (Multiple)", icon: "ph-users" },
 ];
 
-const DEFAULT_LAYOUTS: FormLayout[] = [
-  {
-    formKey: "BOOKING_FORM",
-    name: "Booking Form",
-    description: "Fields used when creating a new client booking.",
-    schema: { 
-      sections: [
-        {
-          id: "sec_booking_basic",
-          title: "Client Info",
-          description: "Contact details for communication and contract signing.",
-          icon: "ph-user-circle",
-          fields: [
-            { id: "fld_b_client", name: "Client Full Name", type: "SINGLE_LINE", mandatory: true },
-            { id: "fld_b_phone", name: "Phone Number", type: "PHONE", mandatory: true },
-            { id: "fld_b_email", name: "Email Address", type: "EMAIL", mandatory: false },
-          ]
-        },
-        {
-          id: "sec_booking_event",
-          title: "Event Details",
-          description: "Logistics for the shoot session and categorization.",
-          icon: "ph-calendar-blank",
-          fields: [
-            { id: "fld_b_date", name: "Shoot Date", type: "DATE", mandatory: true },
-            { id: "fld_b_time", name: "Start Time", type: "SINGLE_LINE", mandatory: true },
-            { id: "fld_b_category", name: "Shoot Category", type: "PICK_LIST", mandatory: true, options: ["Wedding", "Fashion", "Baby & Kids", "Corporate", "Maternity", "Pre-Wedding", "Other"] },
-            { id: "fld_b_location", name: "Location", type: "SINGLE_LINE", mandatory: true },
-            { id: "fld_b_photographers", name: "Photographers", type: "MULTI_USER_PICKLIST", mandatory: false },
-            { id: "fld_b_status", name: "Status", type: "STATUS_PICKER", mandatory: false, statusOptions: [
-              { label: "Pending", color: "bg-red-500" },
-              { label: "Confirmed", color: "bg-emerald-500" },
-              { label: "Completed", color: "bg-blue-500" },
-              { label: "Cancelled", color: "bg-slate-500" }
-            ] },
-          ]
-        },
-        {
-          id: "sec_booking_album",
-          title: "Album Details",
-          description: "Details regarding the album design and delivery.",
-          icon: "ph-book-open",
-          fields: [
-            { id: "fld_b_album_type", name: "Album Type", type: "PICK_LIST", mandatory: false, options: ["Standard", "Premium", "Mini", "None"] },
-            { id: "fld_b_album_status", name: "Album Status", type: "STATUS_PICKER", mandatory: false, statusOptions: [
-              { label: "Pending", color: "#f43f5e" },
-              { label: "Designing", color: "#f59e0b" },
-              { label: "Printing", color: "#3b82f6" },
-              { label: "Delivered", color: "#10b981" }
-            ] }
-          ]
-        },
-        {
-          id: "sec_booking_financial",
-          title: "Financials",
-          description: "Package value, advance paid, and calculated remainder.",
-          icon: "ph-currency-inr",
-          fields: [
-            { id: "fld_b_package", name: "Total Package Price (₹)", type: "CURRENCY", mandatory: true },
-            { id: "fld_b_advance", name: "Advance Paid (₹)", type: "CURRENCY", mandatory: false },
-          ]
-        }
-      ] 
-    }
-  },
-  {
-    formKey: "CLIENT_FORM",
-    name: "Client Profile",
-    description: "Fields collected for a client's profile.",
-    schema: { 
-      sections: [
-        {
-          id: "sec_client_contact",
-          title: "Contact Information",
-          fields: [
-            { id: "fld_c_name", name: "Client Full Name", type: "SINGLE_LINE", mandatory: true },
-            { id: "fld_c_phone", name: "Phone Number", type: "PHONE", mandatory: true },
-            { id: "fld_c_email", name: "Email Address", type: "EMAIL", mandatory: false },
-          ]
-        }
-      ] 
-    }
-  },
-  {
-    formKey: "TRANSACTION_FORM",
-    name: "Transaction Form",
-    description: "Fields used when recording a new income or expense.",
-    schema: { 
-      sections: [
-        {
-          id: "sec_tx_details",
-          title: "Transaction Details",
-          fields: [
-            { id: "fld_tx_amount", name: "Amount", type: "CURRENCY", mandatory: true },
-            { id: "fld_tx_type", name: "Transaction Type", type: "PICK_LIST", mandatory: true, options: ["INCOME", "EXPENSE"] },
-            { id: "fld_tx_date", name: "Date", type: "DATE", mandatory: true },
-            { id: "fld_tx_category", name: "Category", type: "PICK_LIST", mandatory: true, options: ["Booking Advance", "Full Payment", "Equipment Rent", "Salary", "Travel", "Other"] },
-            { id: "fld_tx_mode", name: "Payment Mode", type: "PICK_LIST", mandatory: true, options: ["Cash", "Bank Transfer", "UPI", "Cheque"] },
-            { id: "fld_tx_desc", name: "Description", type: "MULTI_LINE", mandatory: false },
-          ]
-        }
-      ] 
-    }
-  }
-];
+import { DEFAULT_LAYOUTS } from "@/lib/defaultLayouts";
 
 export default function LayoutsFieldsBuilder() {
   const [layouts, setLayouts] = useState<FormLayout[]>([]);
@@ -598,8 +494,8 @@ export default function LayoutsFieldsBuilder() {
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-[850px] flex flex-col font-sans">
       
       {/* Top Header */}
-      <div className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6 shrink-0">
-        <div className="flex items-center gap-4">
+      <div className="min-h-[4rem] h-auto border-b border-gray-200 bg-white flex flex-col sm:flex-row items-center justify-between p-4 sm:px-6 sm:py-0 shrink-0 gap-4 sm:gap-0">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
           <button 
             onClick={() => {
               setActiveFormKey(null);
@@ -616,7 +512,7 @@ export default function LayoutsFieldsBuilder() {
             <h2 className="font-extrabold text-slate-900 text-lg leading-tight">{activeLayout.name}</h2>
           </div>
         </div>
-        <div>
+        <div className="w-full sm:w-auto flex justify-end">
           <button
             onClick={handleSave}
             disabled={saving}
@@ -628,10 +524,10 @@ export default function LayoutsFieldsBuilder() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden bg-slate-50">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden bg-slate-50">
         
         {/* Left Column: Palette */}
-        <div className="w-[280px] bg-white border-r border-gray-200 flex flex-col shrink-0">
+        <div className="w-full lg:w-[280px] h-[250px] lg:h-auto bg-white border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col shrink-0">
           <div className="flex border-b border-gray-100 px-4 py-3">
             <span className="text-[0.75rem] font-extrabold text-slate-500 uppercase tracking-wider">New Fields</span>
           </div>
@@ -674,8 +570,8 @@ export default function LayoutsFieldsBuilder() {
         </div>
 
         {/* Center Column: Canvas (WYSIWYG Form Representation) */}
-        <div className="flex-1 overflow-y-auto p-10 relative bg-white" onClick={() => setSelectedFieldId(null)}>
-          <div className="max-w-[850px] mx-auto flex flex-col gap-8 pb-20">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-10 relative bg-white" onClick={() => setSelectedFieldId(null)}>
+          <div className="max-w-[850px] mx-auto flex flex-col gap-6 lg:gap-8 pb-20">
             {activeLayout.schema.sections.length === 0 ? (
                <div className="border-2 border-dashed border-gray-200 bg-slate-50/50 rounded-2xl p-16 text-center shadow-sm">
                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">

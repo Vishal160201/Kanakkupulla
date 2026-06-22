@@ -45,7 +45,7 @@ export async function saveBookingAction(formData: FormData) {
              attachments: rawData.attachments ? JSON.parse(String(rawData.attachments)) : undefined,
              photographers: rawData.photographers ? JSON.parse(String(rawData.photographers)) : undefined,
              customData: Object.keys(customData).length > 0 ? customData : undefined,
-             updatedById: (session?.user as any)?.id,
+             ...( (session?.user as any)?.id ? { updatedBy: { connect: { id: (session?.user as any)?.id } } } : {} ),
            }
          });
          const pkg = parseFloat((validatedData.package || '0').toString().replace(/,/g, '')) || 0;
@@ -76,7 +76,8 @@ export async function saveBookingAction(formData: FormData) {
            "Booking Updated",
            `The booking ${existingBooking.bookingNumber || ''} has been updated.`,
            "BOOKING",
-           `/bookings/details/${validatedData.id}`
+           `/bookings/details/${validatedData.id}`,
+           (session?.user as any)?.id
          ).catch(e => console.error("Notification error:", e));
 
          revalidatePath('/', 'layout');
@@ -123,8 +124,8 @@ export async function saveBookingAction(formData: FormData) {
         attachments: rawData.attachments ? JSON.parse(String(rawData.attachments)) : undefined,
         photographers: rawData.photographers ? JSON.parse(String(rawData.photographers)) : undefined,
         customData: Object.keys(customData).length > 0 ? customData : undefined,
-        createdById: (session?.user as any)?.id,
-        updatedById: (session?.user as any)?.id,
+        createdById: (session?.user as any)?.id || undefined,
+        updatedById: (session?.user as any)?.id || undefined,
       }
     });
 
@@ -150,12 +151,13 @@ export async function saveBookingAction(formData: FormData) {
       data: { action: "BOOKING_CREATED", details: `Created booking ID: ${newBooking.id} for client ${client.name}` }
     });
 
-    // Fire and forget notification
+    // Fire and forget notification to prevent blocking UI
     broadcastNotification(
-      "New Booking Received!",
-      `A new booking has been created for ${client.name}.`,
+      "New Booking Created",
+      `A new booking (${nextBookingNumber}) has been created for ${validatedData.title}.`,
       "BOOKING",
-      `/bookings/details/${newBooking.id}`
+      `/bookings/details/${newBooking.id}`,
+      (session?.user as any)?.id
     ).catch(e => console.error("Notification error:", e));
 
     revalidatePath('/', 'layout');
@@ -191,23 +193,25 @@ export async function deleteBookingAction(id: string) {
   }
 }
 
-export async function updateBookingStatusAction(id: string, status: string) {
+export async function updateBookingStatusAction(bookingId: string, newStatus: string) {
   try {
-    const updated = await prisma.booking.update({
-      where: { id },
-      data: { status }
+    const session = await getServerSession(authOptions);
+    const booking = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: newStatus }
     });
     
     await prisma.systemLog.create({
-      data: { action: "BOOKING_STATUS_UPDATED", details: `Updated booking ID: ${id} status to ${status}` }
+      data: { action: "BOOKING_STATUS_UPDATED", details: `Updated booking ID: ${bookingId} status to ${newStatus}` }
     });
     
-    // Fire and forget notification
+    // Fire and forget notification to prevent blocking UI
     broadcastNotification(
       "Booking Status Changed",
-      `The status for booking ${updated.bookingNumber || id.substring(0,6)} has changed to ${status}.`,
+      `Booking ${booking.bookingNumber || ''} status has been updated to ${newStatus}.`,
       "BOOKING",
-      `/bookings/details/${id}`
+      `/bookings/details/${bookingId}`,
+      (session?.user as any)?.id
     ).catch(e => console.error("Notification error:", e));
 
     revalidatePath('/', 'layout');

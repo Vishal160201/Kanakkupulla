@@ -69,7 +69,7 @@ export async function PUT(
         notes,
         attachments,
         photographers,
-        updatedById: (session.user as any).id,
+        ...( (session?.user as any)?.id ? { updatedBy: { connect: { id: (session?.user as any)?.id } } } : {} ),
       },
     });
 
@@ -82,12 +82,14 @@ export async function PUT(
     });
 
     // Notify admins about the update
-    await broadcastNotification(
-      "Booking Updated",
-      `The booking ${updated.bookingNumber || ''} has been updated.`,
-      "BOOKING",
-      `/bookings/details/${updated.id}`
-    );
+      // Fire and forget
+      broadcastNotification(
+        "Booking Status Update",
+        `Booking ${updated.bookingNumber || `#${updated.id.substring(0, 8)}`} status changed to ${status}.`,
+        "BOOKING",
+        `/bookings/details/${updated.id}`,
+        (session?.user as any)?.id
+      ).catch(console.error);
 
     return NextResponse.json(updated, {
       headers: { "Cache-Control": "private, no-store" },

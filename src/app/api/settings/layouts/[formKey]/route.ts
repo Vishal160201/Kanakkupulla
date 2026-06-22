@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { DEFAULT_LAYOUTS } from "@/lib/defaultLayouts";
 
 export const revalidate = 3600; // Cache for 1 hour
 
@@ -17,12 +18,26 @@ export async function GET(
   const { formKey } = await params;
 
   try {
-    const layout = await prisma.formLayout.findUnique({
+    let layout = await prisma.formLayout.findUnique({
       where: { formKey },
     });
 
     if (!layout) {
-      return NextResponse.json({ error: "Layout not found" }, { status: 404 });
+      // Fallback to default layout if not configured in DB yet
+      const defaultLayout = DEFAULT_LAYOUTS.find((l) => l.formKey === formKey);
+      if (defaultLayout) {
+        layout = {
+          id: `default-${formKey}`,
+          formKey: defaultLayout.formKey,
+          name: defaultLayout.name,
+          description: defaultLayout.description,
+          schema: defaultLayout.schema,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any;
+      } else {
+        return NextResponse.json({ error: "Layout not found" }, { status: 404 });
+      }
     }
 
     return NextResponse.json(layout);

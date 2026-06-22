@@ -72,6 +72,8 @@ export async function POST(request: Request) {
     }
     const nextBookingNumber = `#MD-${String(maxNum + 1).padStart(3, '0')}`;
 
+    const userId = (session?.user as any)?.id as string | undefined;
+
     const newBooking = await prisma.booking.create({
       data: {
         bookingNumber: nextBookingNumber,
@@ -84,8 +86,8 @@ export async function POST(request: Request) {
         galleryUrl,
         contractUrl,
         customData,
-        createdById: (session.user as any).id,
-        updatedById: (session.user as any).id,
+        ...(userId ? { createdBy: { connect: { id: userId } } } : {}),
+        ...(userId ? { updatedBy: { connect: { id: userId } } } : {}),
       },
       include: {
         client: true,
@@ -96,17 +98,19 @@ export async function POST(request: Request) {
       data: {
         action: "BOOKING_CREATED",
         details: `Created booking ID: ${newBooking.id} via API`,
-        userId: (session.user as any).id,
+        userId: userId || "SYSTEM",
       }
     });
 
     // Notify Admins about the new booking
-    await broadcastNotification(
+    // Fire and forget
+    broadcastNotification(
       "New Booking Request",
       `A new ${category || 'Wedding'} booking for ${newBooking.client?.name || 'a client'} has been created!`,
       "BOOKING",
-      `/bookings/details/${newBooking.id}`
-    );
+      `/bookings/details/${newBooking.id}`,
+      userId
+    ).catch(console.error);
 
     return NextResponse.json(newBooking, {
       status: 201,

@@ -3,6 +3,21 @@
 import { useBookings } from "../providers/BookingProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+const getFieldIcon = (field: any) => {
+  const name = (field.name || '').toLowerCase();
+  if (name.includes('date')) return 'ph-calendar-blank text-blue-500';
+  if (name.includes('time')) return 'ph-clock text-purple-500';
+  if (name.includes('user') || name.includes('person') || name.includes('designer') || name.includes('photographer')) return 'ph-user text-indigo-500';
+  if (name.includes('status')) return 'ph-chart-pie-slice text-orange-500';
+  if (name.includes('amount') || name.includes('price') || name.includes('cost')) return 'ph-currency-inr text-emerald-500';
+  if (name.includes('sheet') || name.includes('page')) return 'ph-files text-cyan-500';
+  if (name.includes('type') || name.includes('category') || name.includes('size')) return 'ph-tag text-rose-500';
+  if (name.includes('album') || name.includes('book')) return 'ph-book-open text-teal-500';
+  if (name.includes('link') || name.includes('url')) return 'ph-link text-blue-500';
+  if (name.includes('phone') || name.includes('contact')) return 'ph-phone text-emerald-500';
+  return 'ph-text-aa text-slate-400';
+};
+
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Booking } from "@/types";
@@ -391,16 +406,36 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
       if (res.success) {
         toast.success("Booking deleted successfully!");
         setIsDeleteConfirmOpen(false);
-        router.back();
+        if (onClose) onClose();
+        else router.back();
       } else {
         toast.error("Failed to delete booking.");
       }
     }
   };
+  const getDynamicFieldId = (names: string[]) => {
+    if (!layoutSchema || !layoutSchema.sections) return null;
+    for (const section of layoutSchema.sections) {
+      if (!section.fields) continue;
+      const field = section.fields.find((f: any) => names.includes((f.name || '').toLowerCase()));
+      if (field) return field.id;
+    }
+    return null;
+  };
 
+  const albumDesignerId = getDynamicFieldId(['album designer', 'album worker']);
+  const photographersId = getDynamicFieldId(['photographers', 'photographer']);
+  const inclusionsId = getDynamicFieldId(['inclusion', 'inclusions']);
+
+  const albumDesignerVal = albumDesignerId ? booking?.customData?.[albumDesignerId] : null;
+  const photographersVal = photographersId ? booking?.customData?.[photographersId] : (booking?.photographers || booking?.customData?.team || []);
+  const inclusionsVal = inclusionsId ? booking?.customData?.[inclusionsId] : booking?.inclusions;
   return (
     <Dialog open={!!booking && !isDeleteConfirmOpen} onOpenChange={(open) => {
-      if (!open) router.back();
+      if (!open) {
+        if (onClose) onClose();
+        else router.back();
+      }
     }}>
       {booking && (
       <DialogContent className="max-w-[1100px] sm:max-w-[1100px] p-0 bg-[#F5F6F8] rounded-[2rem] overflow-hidden border-0 shadow-2xl !rounded-[2rem] h-[95vh] flex flex-col">
@@ -560,15 +595,15 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                    <div className="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
                    <div className="flex items-center gap-4 flex-1 min-w-[150px] pt-4 md:pt-0">
                       <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0 overflow-hidden">
-                         {booking.customData?.fld_b_assigned_to ? (
-                             <span className="font-black text-purple-700 text-[0.8rem]">{(teamUsers.find(u => u.id === booking.customData?.fld_b_assigned_to)?.name || 'UN').substring(0,2).toUpperCase()}</span>
+                         {(albumDesignerVal || booking.customData?.['ALBUM DESIGNER'] || booking.customData?.['ALBUM WORKER']) ? (
+                             <span className="font-black text-purple-700 text-[0.8rem]">{(teamUsers.find(u => u.id === (albumDesignerVal || booking.customData?.['ALBUM DESIGNER'] || booking.customData?.['ALBUM WORKER']))?.name || 'UN').substring(0,2).toUpperCase()}</span>
                          ) : (
                              <i className="ph-fill ph-user text-purple-500 text-xl"></i>
                          )}
                       </div>
                       <div className="flex flex-col">
-                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Assigned To</span>
-                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.customData?.fld_b_assigned_to ? teamUsers.find(u => u.id === booking.customData?.fld_b_assigned_to)?.name || 'Unknown' : 'Unassigned'}</span>
+                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Album Designer</span>
+                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{(albumDesignerVal || booking.customData?.['ALBUM DESIGNER'] || booking.customData?.['ALBUM WORKER']) ? teamUsers.find(u => u.id === (albumDesignerVal || booking.customData?.['ALBUM DESIGNER'] || booking.customData?.['ALBUM WORKER']))?.name || 'Unknown' : 'Unassigned'}</span>
                       </div>
                    </div>
                 </div>
@@ -690,6 +725,60 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                               <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.category || booking.customData?.fld_b_category || 'N/A'}</span>
                             )}
                          </div>
+
+                         {/* Photographers */}
+                         <div className="flex items-center gap-4">
+                            <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                               <i className="ph-fill ph-users text-indigo-500 text-[1.1rem]"></i>
+                            </div>
+                            <div className="flex flex-col flex-1">
+                               <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Photographers</span>
+                               {isEditing ? (
+                                 <MultiUserPicklist 
+                                    users={teamUsers} 
+                                    value={Array.isArray(editData.photographers) ? editData.photographers.join(',') : (typeof editData.photographers === 'string' ? editData.photographers : '')} 
+                                    onChange={(val) => setEditData({...editData, photographers: val ? val.split(',').filter(Boolean) : []})} 
+                                    placeholder="Assign photographers..." 
+                                 />
+                               ) : (
+                                 <span className="font-bold text-[#0B1E40] text-[0.95rem]">
+                                    {(() => {
+                                       const photogs = photographersVal;
+                                       let photogArray: string[] = [];
+                                       if (Array.isArray(photogs)) {
+                                          photogArray = photogs;
+                                       } else if (typeof photogs === 'string') {
+                                          photogArray = photogs.split(',').map(s => s.trim()).filter(Boolean);
+                                       }
+                                       const users = photogArray.map(id => teamUsers.find(u => u.id === id) || {name: id});
+                                       if (users.length === 0) return 'N/A';
+                                       return users.map((u: any) => u?.name || u).join(', ');
+                                    })()}
+                                 </span>
+                               )}
+                            </div>
+                         </div>
+
+                         {/* Inclusions */}
+                         <div className="flex items-center gap-4">
+                            <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                               <i className="ph-fill ph-list-checks text-rose-500 text-[1.1rem]"></i>
+                            </div>
+                            <div className="flex flex-col flex-1">
+                               <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Inclusion</span>
+                               {isEditing ? (
+                                 <input className={`font-bold text-[#0B1E40] text-[0.95rem] border-b focus:outline-none bg-transparent w-full pb-1 ${formErrors.inclusions ? "border-red-500" : "border-gray-300"}`} value={editData.inclusions} onChange={e => setEditData({...editData, inclusions: e.target.value})} placeholder="Inclusions" />
+                               ) : (
+                                 <span className="font-bold text-[#0B1E40] text-[0.95rem]">
+                                    {(() => {
+                                       let incl = inclusionsVal || booking.customData?.INCLUSION || booking.customData?.fld_b_inclusion || booking.inclusions;
+                                       if (Array.isArray(incl)) return incl.join(', ');
+                                       return incl || 'N/A';
+                                    })()}
+                                 </span>
+                               )}
+                            </div>
+                         </div>
                       </div>
                    </div>
 
@@ -742,6 +831,56 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
 
 
 
+                {/* Custom Dynamic Fields */}
+                {layoutSchema && layoutSchema.sections && layoutSchema.sections.map((section: any) => {
+                   const customFields = section.fields.filter((f: any) => {
+                     const isStandard = standardFieldMap[f.id];
+                     const isMoved = ['inclusion', 'inclusions', 'album designer', 'album worker', 'photographers', 'photographer', 'assigned to'].includes((f.name || '').toLowerCase()) || ['fld_b_album_designer', 'fld_b_inclusion', 'INCLUSION', albumDesignerId, photographersId, inclusionsId].includes(f.id);
+                     return !isStandard && !isMoved;
+                   });
+                   if (customFields.length === 0) return null;
+                   return (
+                     <div key={section.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-6 flex flex-col relative overflow-hidden">
+                       <div className="flex justify-between items-center mb-6">
+                         <div className="flex items-center gap-2.5">
+                           <i className={`ph-duotone ${section.icon || 'ph-squares-four'} text-orange-500 text-xl`}></i>
+                           <h3 className="text-[1.05rem] font-black text-[#0B1E40]">{section.title}</h3>
+                         </div>
+                       </div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         {customFields.map((field: any) => {
+                            const iconClass = getFieldIcon(field);
+                            const [iconName, iconColor] = iconClass.split(' ');
+                            const bgClass = iconColor.replace('text-', 'bg-').replace('500', '50').replace('400', '50');
+                            
+                            return (
+                            <div key={field.id} className="flex items-center gap-4">
+                               <div className={`w-8 h-8 rounded-full ${bgClass} flex items-center justify-center shrink-0`}>
+                                  <i className={`ph-fill ${iconName} ${iconColor} text-[1.1rem]`}></i>
+                               </div>
+                               <div className="flex flex-col flex-1 min-w-0">
+                                 <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest truncate">{field.name}</span>
+                                 {isEditing ? (
+                                   <input 
+                                     className="font-bold text-[#0B1E40] text-[0.95rem] border-b focus:outline-none bg-transparent w-full border-gray-300 pb-1" 
+                                     value={editData[field.id] !== undefined ? editData[field.id] : (booking.customData?.[field.id] || '')} 
+                                     onChange={e => setEditData({...editData, [field.id]: e.target.value})} 
+                                     placeholder={field.name} 
+                                   />
+                                 ) : (
+                                   <span className="font-bold text-[#0B1E40] text-[0.95rem] break-words whitespace-pre-wrap">
+                                     {Array.isArray(booking.customData?.[field.id]) ? booking.customData[field.id].join(', ') : (booking.customData?.[field.id] || 'N/A')}
+                                   </span>
+                                 )}
+                               </div>
+                            </div>
+                            );
+                         })}
+                       </div>
+                     </div>
+                   );
+                })}
+
                 {/* Package & Payment */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col mt-2">
                    <div className="flex items-center gap-3 mb-6">
@@ -755,27 +894,8 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                    </div>
                    
                    {isEditing ? (
-                     <div className="flex flex-col 2xl:flex-row 2xl:items-start justify-between gap-8 mb-8 pl-1">
-                        <div className="flex flex-col flex-1 min-w-[280px]">
-                          <span className="text-[0.75rem] font-bold text-slate-400 mb-2">Inclusions</span>
-                          <div className="flex flex-wrap gap-3 mt-1">
-                             {["Photography", "Videography", "Drone", "Candid", "Traditional", "Album"].map(inc => {
-                               const selected = editData.inclusions?.split(',').map((s:string) => s.trim()).includes(inc);
-                               return (
-                                 <button type="button" key={inc} onClick={() => {
-                                    let current = editData.inclusions?.split(',').map((s:string) => s.trim()).filter(Boolean) || [];
-                                    if (selected) current = current.filter((c:string) => c !== inc);
-                                    else current.push(inc);
-                                    setEditData({...editData, inclusions: current.join(', ')});
-                                 }} className={`px-4 py-2 font-bold text-[0.8rem] rounded-xl border transition-all ${selected ? 'bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-500/20' : 'bg-white text-slate-600 border-gray-200 hover:bg-slate-50'}`}>
-                                   {inc}
-                                 </button>
-                               );
-                             })}
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-wrap xl:flex-nowrap items-start gap-6 xl:gap-8 mt-6 2xl:mt-0">
+                      <div className="flex flex-col 2xl:flex-row 2xl:items-start justify-between gap-8 mb-8 pl-1">
+                        <div className="flex flex-wrap xl:flex-nowrap items-start gap-6 xl:gap-8 mt-6 2xl:mt-0 w-full">
                            {/* 1. Total Amount */}
                            <div className="flex flex-col bg-orange-50/50 p-4 rounded-2xl border border-orange-50 min-w-[140px]">
                               <span className="text-[0.75rem] font-bold text-slate-500 mb-2">Total Amount</span>
@@ -876,34 +996,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                      </div>
                    ) : (
                      <div className="flex flex-col mb-2">
-                        <div className="flex flex-col mb-8">
-                           <span className="text-[0.9rem] font-bold text-[#0B1E40] mb-4">Inclusions</span>
-                           <div className="flex flex-wrap gap-3">
-                              {(Array.isArray(booking.inclusions) ? booking.inclusions : Array.isArray(booking.customData?.fld_b_inclusions) ? booking.customData.fld_b_inclusions : booking.customData?.fld_b_inclusions?.split(',') || ['Photography', 'Videography']).map((inc: string, i: number) => {
-                                 const label = inc.trim();
-                                 let icon = "ph-check-circle";
-                                 let colorClass = "bg-slate-50 text-slate-700";
-                                 let iconColorClass = "text-slate-500";
-                                 if (label === 'Photography') { icon = "ph-camera-plus"; colorClass = "bg-orange-50 text-[#0B1E40]"; iconColorClass = "text-orange-600"; }
-                                 else if (label === 'Videography') { icon = "ph-film-strip"; colorClass = "bg-indigo-50 text-[#0B1E40]"; iconColorClass = "text-indigo-600"; }
-                                 else if (label === 'Drone') { icon = "ph-airplane-tilt"; colorClass = "bg-sky-50 text-[#0B1E40]"; iconColorClass = "text-sky-600"; }
-                                 else if (label === 'Candid') { icon = "ph-camera"; colorClass = "bg-rose-50 text-[#0B1E40]"; iconColorClass = "text-rose-600"; }
-                                 else if (label === 'Traditional') { icon = "ph-image"; colorClass = "bg-emerald-50 text-[#0B1E40]"; iconColorClass = "text-emerald-600"; }
-                                 else if (label === 'Album') { icon = "ph-book-open"; colorClass = "bg-amber-50 text-[#0B1E40]"; iconColorClass = "text-amber-600"; }
-                                 
-                                 return (
-                                    <div key={i} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-[0.8rem] ${colorClass}`}>
-                                       <i className={`ph-fill ${icon} ${iconColorClass} text-[1.1rem]`}></i>
-                                       <span>{label}</span>
-                                    </div>
-                                 );
-                              })}
-                           </div>
-                        </div>
-
-                        <div className="w-full h-px bg-gray-100 mb-8"></div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-4">
                            <div className="flex items-center justify-between p-5 rounded-2xl border border-orange-100/80 bg-orange-50/20">
                               <div className="flex flex-col">
                                  <span className="text-[0.75rem] font-bold text-slate-500 mb-1">Total Amount</span>
@@ -991,61 +1084,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                       </div>
                    </div>
 
-                   <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between">
-                      <div className="flex items-center justify-between mb-4">
-                         <div className="flex items-center gap-2">
-                            <i className="ph-duotone ph-users text-blue-500 text-lg"></i>
-                            <h3 className="text-[0.95rem] font-black text-[#0B1E40]">Photographers</h3>
-                         </div>
-                      </div>
-                      {isEditing ? (
-                         <div className="mt-auto">
-                            <MultiUserPicklist 
-                               users={teamUsers} 
-                               value={Array.isArray(editData.photographers) ? editData.photographers.join(',') : ''} 
-                               onChange={(val) => setEditData({...editData, photographers: val ? val.split(',').filter(Boolean) : []})} 
-                               placeholder="Assign photographers..." 
-                            />
-                         </div>
-                      ) : (
-                         <div className="flex items-center justify-between mt-auto">
-                            <div className="flex -space-x-2">
-                               {(() => {
-                                  const photogs = booking.photographers || booking.customData?.fld_b_photographers || booking.customData?.team || [];
-                                  const users = Array.isArray(photogs) ? photogs.map(id => teamUsers.find(u => u.id === id)).filter(Boolean) : [];
-                                  
-                                  if (users.length === 0) {
-                                    return <span className="text-slate-400 text-[0.8rem] italic ml-1">None assigned</span>;
-                                  }
-                                  
-                                  return users.slice(0, 3).map((u, i) => (
-                                    <div key={i} className={`w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-${30-i} ${['bg-orange-100 text-orange-700', 'bg-purple-100 text-purple-700', 'bg-emerald-100 text-emerald-700'][i%3]}`}>
-                                       <span className="text-[0.65rem] font-black">{(u.name||'UN').substring(0,2).toUpperCase()}</span>
-                                    </div>
-                                  ));
-                               })()}
-                               {(() => {
-                                  const photogs = booking.photographers || booking.customData?.fld_b_photographers || booking.customData?.team || [];
-                                  if (Array.isArray(photogs) && photogs.length > 3) {
-                                     return (
-                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border-2 border-white shadow-sm z-0">
-                                           <span className="text-[0.6rem] font-bold text-slate-500">+{photogs.length - 3}</span>
-                                        </div>
-                                     );
-                                  }
-                                  return null;
-                               })()}
-                            </div>
-                            <span className="text-slate-400 text-[0.8rem] font-bold">
-                              {(() => {
-                                 const p = booking.photographers || booking.customData?.fld_b_photographers || booking.customData?.team || [];
-                                 const len = Array.isArray(p) ? p.length : 0;
-                                 return `${len} photographer${len === 1 ? '' : 's'}`;
-                              })()}
-                            </span>
-                         </div>
-                      )}
-                   </div>
+                   {/* Photographers card has been moved to Event Details */}
                 </div>
 
                 {/* Client References */}
@@ -1064,6 +1103,8 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                    </div>
                 </div>
                 )}
+
+                {/* Custom Dynamic Fields moved above Package & Payment */}
 
                 </div>
              </div>
@@ -1096,7 +1137,10 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                     }} className="text-[#0B1E40] text-[0.95rem] font-bold hover:text-blue-600 transition-colors flex items-center gap-2">
                       <i className="ph-bold ph-pencil-simple text-lg"></i> Edit Booking
                     </button>
-                   <button onClick={() => router.back()} className="px-8 py-2.5 bg-[#0B1E40] text-[0.95rem] text-white font-bold rounded-xl hover:bg-[#152a52] transition-colors ml-2">
+                   <button onClick={() => {
+                     if (onClose) onClose();
+                     else router.back();
+                   }} className="px-8 py-2.5 bg-[#0B1E40] text-[0.95rem] text-white font-bold rounded-xl hover:bg-[#152a52] transition-colors ml-2">
                      Close
                    </button>
                  </>

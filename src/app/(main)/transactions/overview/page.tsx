@@ -2,6 +2,7 @@
 
 import React from "react";
 import useSWR from "swr";
+import Link from "next/link";
 
 const categoryColors: Record<string, { bg: string, stroke: string }> = {
   "Photography Session": { bg: "bg-emerald-500", stroke: "#10b981" },
@@ -14,9 +15,25 @@ const categoryColors: Record<string, { bg: string, stroke: string }> = {
   "Misc":                { bg: "bg-slate-300",   stroke: "#cbd5e1" }
 };
 
-const defaultColor = { bg: "bg-slate-400", stroke: "#94a3b8" };
+const CATEGORY_ICONS: Record<string, string> = {
+  "Photography Session": "ph-camera",
+  "Equipment": "ph-wrench",
+  "Utilities": "ph-lightning",
+  "Rent": "ph-house",
+  "Software": "ph-code",
+  "Travel": "ph-airplane",
+  "Marketing": "ph-megaphone",
+  "Misc": "ph-dots-three-circle",
+};
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+const MODE_ICONS: Record<string, string> = {
+  "UPI": "ph-qr-code",
+  "Cash": "ph-money",
+  "Bank Transfer": "ph-bank",
+  "Card": "ph-credit-card",
+};
+
+const defaultColor = { bg: "bg-slate-400", stroke: "#94a3b8" };const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export default function OverviewPage() {
   const { data, error, isLoading } = useSWR('/api/transactions/overview', fetcher);
@@ -25,8 +42,19 @@ export default function OverviewPage() {
     return <div className="flex justify-center items-center h-64"><div className="animate-pulse w-8 h-8 rounded-full bg-orange-500"></div></div>;
   }
 
-  const { totalIncome = 0, totalExpenses = 0, expensesByCategory = {}, recentTransactions: transactions = [] } = data;
+  const { 
+    totalIncome = 0, 
+    totalExpenses = 0, 
+    expensesByCategory = {}, 
+    recentTransactions: transactions = [],
+    todayTransactions = [],
+    todayIncome = 0,
+    todayExpense = 0,
+    todayNet = 0
+  } = data;
+  
   const netSurplus = totalIncome - totalExpenses;
+  const today = new Date();
 
   // --- Dynamic Heatmap Logic ---
   const heatmapData = Object.entries(expensesByCategory)
@@ -61,72 +89,200 @@ export default function OverviewPage() {
     <div className="animate-fade-in w-full">
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {/* Total Income */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between h-[120px] animate-slide-up hover:shadow-md hover:-translate-y-1 hover:border-orange-200 transition-all relative overflow-hidden" style={{ animationDelay: "100ms" }}>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider">Total Income</span>
-            <span className="text-[0.65rem] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded flex items-center gap-1">
-              <i className="ph-bold ph-trend-up"></i>
-            </span>
+        {/* Today's Income */}
+        <Link href="/transactions/allTransactions?view=day&type=INCOME" className="block outline-none">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between h-[120px] animate-slide-up hover:shadow-md hover:-translate-y-1 hover:border-orange-200 transition-all relative overflow-hidden" style={{ animationDelay: "100ms" }}>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider">Today's Income</span>
+              <span className="text-[0.65rem] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded flex items-center gap-1">
+                <i className="ph-bold ph-trend-up"></i>
+              </span>
+            </div>
+            <div>
+              <div className="text-[1.4rem] font-extrabold text-slate-900 mb-0.5">₹{todayIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-[0.65rem] text-slate-500 font-medium">Today</div>
+            </div>
+            <div className="w-full bg-slate-100 h-[3px] mt-2 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full w-[100%] rounded-full"></div>
+            </div>
           </div>
-          <div>
-            <div className="text-[1.4rem] font-extrabold text-slate-900 mb-0.5">₹{totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <div className="text-[0.65rem] text-slate-500 font-medium">All Time</div>
+        </Link>
+
+        {/* Today's Expenses */}
+        <Link href="/transactions/allTransactions?view=day&type=EXPENSE" className="block outline-none">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between h-[120px] animate-slide-up hover:shadow-md hover:-translate-y-1 hover:border-orange-200 transition-all relative overflow-hidden" style={{ animationDelay: "150ms" }}>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider">Today's Expenses</span>
+              <span className="text-[0.65rem] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded flex items-center gap-1">
+                <i className="ph-bold ph-trend-down"></i>
+              </span>
+            </div>
+            <div>
+              <div className="text-[1.4rem] font-extrabold text-slate-900 mb-0.5">₹{todayExpense.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-[0.65rem] text-slate-500 font-medium">Today</div>
+            </div>
+            <div className="w-full bg-slate-100 h-[3px] mt-2 rounded-full overflow-hidden flex gap-1">
+              <div className="bg-rose-500 h-full w-[100%] rounded-full"></div>
+            </div>
           </div>
-          <div className="w-full bg-slate-100 h-[3px] mt-2 rounded-full overflow-hidden">
-            <div className="bg-emerald-500 h-full w-[100%] rounded-full"></div>
+        </Link>
+
+        {/* Net Today */}
+        <Link href="/transactions/allTransactions?view=day" className="block outline-none">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between h-[120px] animate-slide-up hover:shadow-md hover:-translate-y-1 hover:border-orange-200 transition-all relative overflow-hidden" style={{ animationDelay: "200ms" }}>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider">Net Today</span>
+              <span className={`text-[0.6rem] font-extrabold px-2 py-0.5 rounded tracking-wider ${todayNet >= 0 ? 'text-indigo-700 bg-indigo-50' : 'text-rose-700 bg-rose-50'}`}>
+                {todayNet >= 0 ? 'HEALTHY' : 'DEFICIT'}
+              </span>
+            </div>
+            <div>
+              <div className="text-[1.4rem] font-extrabold text-slate-900 mb-0.5">₹{todayNet.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-[0.65rem] text-slate-500 font-medium">Today</div>
+            </div>
+            <div className="w-full bg-slate-100 h-[3px] mt-2 rounded-full overflow-hidden flex">
+              <div className={`h-full w-[100%] rounded-full ${todayNet >= 0 ? 'bg-indigo-500' : 'bg-rose-500'}`}></div>
+            </div>
+          </div>
+        </Link>
+
+        {/* Top Expense */}
+        <Link href={`/transactions/allTransactions?categories=${highestExpenseCategory ? encodeURIComponent(highestExpenseCategory.category) : ''}`} className="block outline-none">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col items-center justify-center h-[120px] animate-slide-up hover:shadow-md hover:-translate-y-1 hover:border-orange-200 transition-all relative overflow-hidden text-center" style={{ animationDelay: "250ms" }}>
+            <div className="relative w-16 h-8 mb-1.5">
+               <svg viewBox="0 0 100 50" className="w-full h-full overflow-visible">
+                 <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#f1f5f9" strokeWidth="12" strokeLinecap="round" />
+                 <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke={highestExpenseCategory ? highestExpenseCategory.color.stroke : "#f97316"} strokeWidth="12" strokeLinecap="round" strokeDasharray="125.6" strokeDashoffset={highestExpenseCategory ? 125.6 - (highestExpenseCategory.pct * 125.6) : 125.6} className="animate-dash" style={{ animationDelay: '500ms' }} />
+               </svg>
+               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 font-extrabold text-[0.75rem] text-slate-900">
+                 {highestExpenseCategory ? Math.round(highestExpenseCategory.pct * 100) : 0}%
+               </div>
+            </div>
+            <span className="text-[0.65rem] font-bold text-slate-900 uppercase tracking-widest mb-0.5">Top Expense</span>
+            <p className="text-[0.55rem] text-slate-500 leading-tight truncate w-full px-2">
+              {highestExpenseCategory ? highestExpenseCategory.category : 'No expenses'}
+            </p>
+          </div>
+        </Link>
+      </div>
+      <div className="relative rounded-[24px] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl mb-8 transition-transform duration-300 hover:-translate-y-1 group">
+        {/* Animated Glow Orbs */}
+        <div className="absolute -top-20 -left-20 w-72 h-72 bg-orange-500 rounded-full blur-[120px] opacity-15 group-hover:opacity-25 transition-opacity duration-700" />
+        <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-violet-500 rounded-full blur-[100px] opacity-10 group-hover:opacity-20 transition-opacity duration-700" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500 rounded-full blur-[160px] opacity-[0.04]" />
+
+        {/* Header Bar */}
+        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 sm:px-8 pt-5 sm:pt-7 pb-0 gap-3 sm:gap-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <i className="ph-bold ph-receipt text-white text-lg" />
+            </div>
+            <div>
+              <h3 className="text-white text-[1rem] sm:text-[1.15rem] font-extrabold tracking-tight leading-tight">Today's Transactions</h3>
+              <p className="text-slate-400 text-[0.65rem] sm:text-[0.7rem] font-semibold tracking-wide uppercase">{today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            </div>
           </div>
         </div>
 
-        {/* Total Expenses */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between h-[120px] animate-slide-up hover:shadow-md hover:-translate-y-1 hover:border-orange-200 transition-all relative overflow-hidden" style={{ animationDelay: "150ms" }}>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider">Total Expenses</span>
-            <span className="text-[0.65rem] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded flex items-center gap-1">
-              <i className="ph-bold ph-trend-down"></i>
-            </span>
-          </div>
-          <div>
-            <div className="text-[1.4rem] font-extrabold text-slate-900 mb-0.5">₹{totalExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <div className="text-[0.65rem] text-slate-500 font-medium">All Time</div>
-          </div>
-          <div className="w-full bg-slate-100 h-[3px] mt-2 rounded-full overflow-hidden flex gap-1">
-            <div className="bg-rose-500 h-full w-[100%] rounded-full"></div>
-          </div>
+        {/* Summary Strip */}
+        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 px-5 sm:px-8 py-5">
+          <Link href="/transactions/allTransactions?view=day&type=INCOME" className="block outline-none">
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <i className="ph-bold ph-arrow-down-left text-emerald-400 text-xs" />
+                </div>
+                <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[1px]">Income</span>
+              </div>
+              <span className="text-white text-[1.5rem] font-extrabold tracking-tight">₹{todayIncome.toLocaleString('en-IN')}</span>
+            </div>
+          </Link>
+          <Link href="/transactions/allTransactions?view=day&type=EXPENSE" className="block outline-none">
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-lg bg-red-500/20 flex items-center justify-center">
+                  <i className="ph-bold ph-arrow-up-right text-red-400 text-xs" />
+                </div>
+                <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[1px]">Expense</span>
+              </div>
+              <span className="text-white text-[1.5rem] font-extrabold tracking-tight">₹{todayExpense.toLocaleString('en-IN')}</span>
+            </div>
+          </Link>
+          <Link href="/transactions/allTransactions?view=day" className="block outline-none">
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-6 h-6 rounded-lg ${todayNet >= 0 ? 'bg-emerald-500/20' : 'bg-red-500/20'} flex items-center justify-center`}>
+                  <i className={`ph-bold ${todayNet >= 0 ? 'ph-trend-up text-emerald-400' : 'ph-trend-down text-red-400'} text-xs`} />
+                </div>
+                <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[1px]">Net Today</span>
+              </div>
+              <span className={`text-[1.5rem] font-extrabold tracking-tight ${todayNet >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {todayNet >= 0 ? '+' : ''}₹{todayNet.toLocaleString('en-IN')}
+              </span>
+            </div>
+          </Link>
         </div>
 
-        {/* Net Surplus */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between h-[120px] animate-slide-up hover:shadow-md hover:-translate-y-1 hover:border-orange-200 transition-all relative overflow-hidden" style={{ animationDelay: "200ms" }}>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider">Net Surplus</span>
-            <span className={`text-[0.6rem] font-extrabold px-2 py-0.5 rounded tracking-wider ${netSurplus >= 0 ? 'text-indigo-700 bg-indigo-50' : 'text-rose-700 bg-rose-50'}`}>
-              {netSurplus >= 0 ? 'HEALTHY' : 'DEFICIT'}
-            </span>
-          </div>
-          <div>
-            <div className="text-[1.4rem] font-extrabold text-slate-900 mb-0.5">₹{netSurplus.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <div className="text-[0.65rem] text-slate-500 font-medium">All Time</div>
-          </div>
-          <div className="w-full bg-slate-100 h-[3px] mt-2 rounded-full overflow-hidden flex">
-            <div className={`h-full w-[100%] rounded-full ${netSurplus >= 0 ? 'bg-indigo-500' : 'bg-rose-500'}`}></div>
-          </div>
-        </div>
-
-        {/* Velocity */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col items-center justify-center h-[120px] animate-slide-up hover:shadow-md hover:-translate-y-1 hover:border-orange-200 transition-all relative overflow-hidden text-center" style={{ animationDelay: "250ms" }}>
-          <div className="relative w-16 h-8 mb-1.5">
-             <svg viewBox="0 0 100 50" className="w-full h-full overflow-visible">
-               <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#f1f5f9" strokeWidth="12" strokeLinecap="round" />
-               <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke={highestExpenseCategory ? highestExpenseCategory.color.stroke : "#f97316"} strokeWidth="12" strokeLinecap="round" strokeDasharray="125.6" strokeDashoffset={highestExpenseCategory ? 125.6 - (highestExpenseCategory.pct * 125.6) : 125.6} className="animate-dash" style={{ animationDelay: '500ms' }} />
-             </svg>
-             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 font-extrabold text-[0.75rem] text-slate-900">
-               {highestExpenseCategory ? Math.round(highestExpenseCategory.pct * 100) : 0}%
-             </div>
-          </div>
-          <span className="text-[0.65rem] font-bold text-slate-900 uppercase tracking-widest mb-0.5">Top Expense</span>
-          <p className="text-[0.55rem] text-slate-500 leading-tight truncate w-full px-2">
-            {highestExpenseCategory ? highestExpenseCategory.category : 'No expenses'}
-          </p>
+        {/* Transaction List */}
+        <div className="relative z-10 px-5 sm:px-8 pb-5 sm:pb-7">
+          {todayTransactions.length === 0 ? (
+            <div className="bg-white/5 backdrop-blur-sm border border-dashed border-white/10 rounded-2xl p-10 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-3">
+                <i className="ph ph-receipt text-3xl text-slate-500" />
+              </div>
+              <p className="text-slate-400 font-semibold text-sm">No transactions recorded today</p>
+              <p className="text-slate-500 text-xs mt-1">Add your first transaction to see it here</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {todayTransactions.map((txn: any, idx: number) => (
+                <div
+                  key={txn.id}
+                  className="group/item flex flex-col sm:flex-row sm:items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer gap-2 sm:gap-0"
+                  style={{ animationDelay: `${idx * 60}ms` }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-lg ${
+                      txn.type === 'INCOME'
+                        ? 'bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 text-emerald-400 shadow-emerald-500/10'
+                        : 'bg-gradient-to-br from-red-400/20 to-red-600/20 text-red-400 shadow-red-500/10'
+                    }`}>
+                      <i className={`ph-fill ${CATEGORY_ICONS[txn.category] || 'ph-dots-three-circle'}`} />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-bold text-[0.9rem] leading-tight">{txn.category}</span>
+                        <span className={`px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] ${
+                          txn.type === 'INCOME'
+                            ? 'bg-emerald-500/15 text-emerald-400'
+                            : 'bg-red-500/15 text-red-400'
+                        }`}>{txn.type}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {txn.description && (
+                          <span className="text-slate-500 text-[0.75rem] font-medium truncate max-w-[200px]">{txn.description}</span>
+                        )}
+                        <span className="text-slate-600 text-[0.65rem] flex items-center gap-1">
+                          <i className={`ph-fill ${MODE_ICONS[txn.paymentMode] || 'ph-wallet'} text-[0.6rem]`} />
+                          {txn.paymentMode}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 border-t border-white/10 sm:border-0 pt-2 sm:pt-0">
+                    <span className="text-slate-500 text-[0.7rem] font-semibold">
+                      {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                    </span>
+                    <span className={`text-[1.05rem] font-extrabold tracking-tight ${
+                      txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
+                      {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -212,58 +368,19 @@ export default function OverviewPage() {
         </div>
       </div>
       
-      {/* Tax Efficiency Tip and Today's Transactions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 bg-gradient-to-br from-slate-100 to-orange-100/50 rounded-3xl p-8 shadow-sm border border-orange-100 flex flex-col items-center justify-center text-center animate-slide-up relative overflow-hidden" style={{ animationDelay: "450ms" }}>
+      {/* Tax Efficiency Tip */}
+      <div className="grid grid-cols-1 gap-6">
+        <div className="bg-gradient-to-br from-slate-100 to-orange-100/50 rounded-3xl p-8 shadow-sm border border-orange-100 flex flex-col items-center justify-center text-center animate-slide-up relative overflow-hidden" style={{ animationDelay: "450ms" }}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 blur-3xl rounded-full"></div>
           <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-orange-600 mb-4 z-10 border border-orange-50 animate-float" style={{ animationDelay: "1s" }}>
             <i className="ph-fill ph-lightbulb text-2xl"></i>
           </div>
           <h3 className="font-extrabold text-slate-900 text-lg mb-2 z-10">Smart Insight</h3>
-          <p className="text-xs text-slate-600 leading-relaxed mb-6 z-10 max-w-[400px]">
+          <p className="text-xs text-slate-600 leading-relaxed z-10 max-w-[600px]">
             {highestExpenseCategory 
               ? `Your largest expense is ${highestExpenseCategory.category} (${Math.round(highestExpenseCategory.pct * 100)}%). Make sure you log all receipts for tax deductions.`
               : `Start adding your expenses to unlock AI-driven tax and saving insights.`}
           </p>
-        </div>
-
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 animate-slide-up" style={{ animationDelay: "500ms" }}>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-slate-900">Today's Transactions</h2>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
-          </div>
-          <div className="flex flex-col gap-3 max-h-[200px] overflow-y-auto pr-2">
-            {transactions.filter((t: any) => new Date(t.date).toDateString() === new Date().toDateString()).length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
-                <i className="ph ph-receipt text-3xl mb-2 opacity-50"></i>
-                <p className="font-medium text-xs">No transactions recorded today.</p>
-              </div>
-            ) : (
-              transactions.filter((t: any) => new Date(t.date).toDateString() === new Date().toDateString()).map((tx: any) => (
-                <div key={tx.id} className="flex items-center justify-between p-3 rounded-2xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-all">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'INCOME' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                      <i className={`ph-bold ${tx.type === 'INCOME' ? 'ph-money' : 'ph-credit-card'} text-lg`}></i>
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-900 text-sm mb-0.5">
-                        {tx.description ? tx.description.split(' - ')[0] : tx.category}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-extrabold bg-slate-100 text-slate-600 px-2 py-0.5 rounded tracking-wider uppercase">{tx.category}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`font-bold text-sm mb-0.5 ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {tx.type === 'EXPENSE' ? '-' : ''}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{tx.paymentMode}</div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
         </div>
       </div>
 
