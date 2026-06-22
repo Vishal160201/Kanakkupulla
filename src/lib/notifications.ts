@@ -120,7 +120,8 @@ export async function broadcastNotification(
   title: string,
   message: string,
   type: string,
-  link?: string
+  link?: string,
+  skipUserId?: string | null
 ) {
   try {
     const users = await prisma.user.findMany({
@@ -130,6 +131,7 @@ export async function broadcastNotification(
 
     const results = [];
     for (const user of users) {
+      if (skipUserId && user.id === skipUserId) continue;
       const n = await createNotification(user.id, title, message, type, link);
       if (n) results.push(n);
     }

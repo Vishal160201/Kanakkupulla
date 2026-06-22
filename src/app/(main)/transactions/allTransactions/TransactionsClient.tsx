@@ -478,9 +478,6 @@ function TransactionsList() {
                     <div className={`font-bold text-base mb-1 ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {tx.type === 'EXPENSE' ? '-' : ''}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
-                    <div className={`text-[9px] font-extrabold inline-block px-2 py-0.5 rounded tracking-wider uppercase ${tx.status === 'SETTLED' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>
-                      {tx.status}
-                    </div>
                   </div>
                   <button
                     onClick={() => setDeleteId(tx.id)}

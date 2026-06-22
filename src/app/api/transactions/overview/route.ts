@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
 
-    const whereClause: any = { deletedAt: null };
+    const whereClause: any = {};
 
     if (startDateParam || endDateParam) {
       whereClause.date = {};
@@ -22,12 +22,19 @@ export async function GET(req: Request) {
       if (endDateParam) whereClause.date.lte = new Date(endDateParam);
     }
 
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+
     // Run parallel aggregates to get totals and breakdowns without transferring thousands of rows
     const [
       incomeAgg,
       expenseAgg,
       categoryExpenses,
-      recentTransactions
+      recentTransactions,
+      todayTransactions,
+      todayIncomeAgg,
+      todayExpenseAgg
     ] = await Promise.all([
       // Total Income
       prisma.transaction.aggregate({
@@ -48,8 +55,26 @@ export async function GET(req: Request) {
       // Recent transactions (limit 100 for any specific UI displays)
       prisma.transaction.findMany({
         where: whereClause,
-        orderBy: { date: 'desc' },
+        orderBy: [
+          { date: 'desc' },
+          { createdAt: 'desc' }
+        ],
         take: 100
+      }),
+      // Today's Transactions
+      prisma.transaction.findMany({
+        where: { date: { gte: todayStart, lte: todayEnd } },
+        orderBy: { date: 'desc' }
+      }),
+      // Today's Income
+      prisma.transaction.aggregate({
+        _sum: { amount: true },
+        where: { type: 'INCOME', date: { gte: todayStart, lte: todayEnd } }
+      }),
+      // Today's Expense
+      prisma.transaction.aggregate({
+        _sum: { amount: true },
+        where: { type: 'EXPENSE', date: { gte: todayStart, lte: todayEnd } }
       })
     ]);
 
@@ -65,7 +90,11 @@ export async function GET(req: Request) {
       totalIncome,
       totalExpenses,
       expensesByCategory,
-      recentTransactions
+      recentTransactions,
+      todayTransactions,
+      todayIncome: todayIncomeAgg._sum.amount || 0,
+      todayExpense: todayExpenseAgg._sum.amount || 0,
+      todayNet: (todayIncomeAgg._sum.amount || 0) - (todayExpenseAgg._sum.amount || 0)
     });
 
   } catch (error) {

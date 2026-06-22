@@ -88,7 +88,10 @@ export async function GET(request: Request) {
     // P2: Paginate — fetch PAGE_SIZE + 1 to determine if there are more records
     const transactions = await prisma.transaction.findMany({
       where: { ...whereClause, userId },
-      orderBy: { date: "desc" },
+      orderBy: [
+        { date: "desc" },
+        { createdAt: "desc" }
+      ],
       take: PAGE_SIZE + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
@@ -130,7 +133,14 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { amount, type, date, category, paymentMode, description, status } = body;
+    const { amount, type, date, category, paymentMode, description, status, ...restBody } = body;
+
+    const customData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(restBody)) {
+      if (key !== 'id' && key !== 'userId' && !key.startsWith('$ACTION')) {
+        customData[key] = value;
+      }
+    }
 
     // F2: Server-side validation
     const errors: Record<string, string> = {};
@@ -144,11 +154,11 @@ export async function POST(request: Request) {
     if (!date || isNaN(new Date(date).getTime())) {
       errors.date = "A valid date is required.";
     }
-    if (!category || !(TRANSACTION_CATEGORIES as readonly string[]).includes(category)) {
-      errors.category = `Category must be one of: ${TRANSACTION_CATEGORIES.join(", ")}.`;
+    if (!category) {
+      errors.category = `Category is required.`;
     }
-    if (!paymentMode || !(PAYMENT_MODES as readonly string[]).includes(paymentMode)) {
-      errors.paymentMode = `Payment mode must be one of: ${PAYMENT_MODES.join(", ")}.`;
+    if (!paymentMode) {
+      errors.paymentMode = `Payment mode is required.`;
     }
 
     if (Object.keys(errors).length > 0) {
@@ -164,17 +174,20 @@ export async function POST(request: Request) {
         paymentMode,
         description: description?.trim() || null,
         status: status || "SETTLED",
+        customData: Object.keys(customData).length > 0 ? customData : undefined,
         ...(userId ? { user: { connect: { id: userId } } } : {}),
       },
     });
 
     if (type === "INCOME") {
-      await broadcastNotification(
+      // Fire and forget so we don't block the UI
+      broadcastNotification(
         "Payment Received",
         `A payment of ₹${parsedAmount} was logged via ${paymentMode}.`,
         "PAYMENT",
-        `/transactions`
-      );
+        `/transactions`,
+        userId
+      ).catch(console.error);
     }
 
     return NextResponse.json(newTransaction, {
@@ -196,7 +209,7 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, amount, type, date, category, paymentMode, description, status } = body;
+    const { id, amount, type, date, category, paymentMode, description, status, ...restBody } = body;
 
     if (!id) return NextResponse.json({ error: "Transaction ID required" }, { status: 400 });
 
@@ -216,6 +229,13 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Validation failed", errors }, { status: 422 });
     }
 
+    const customData: Record<string, any> = existing.customData && typeof existing.customData === 'object' ? { ...(existing.customData as any) } : {};
+    for (const [key, value] of Object.entries(restBody)) {
+      if (key !== 'userId' && !key.startsWith('$ACTION')) {
+        customData[key] = value;
+      }
+    }
+
     const updated = await prisma.transaction.update({
       where: { id },
       data: {
@@ -226,6 +246,7 @@ export async function PUT(request: Request) {
         paymentMode: paymentMode || existing.paymentMode,
         description: description?.trim() || null,
         status: status || existing.status,
+        customData: Object.keys(customData).length > 0 ? customData : undefined,
       },
     });
 

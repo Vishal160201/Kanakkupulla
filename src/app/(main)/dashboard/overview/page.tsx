@@ -23,7 +23,13 @@ const MODE_ICONS: Record<string, string> = {
   "Card": "ph-credit-card",
 };
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch');
+  if (data.error) throw new Error(data.error);
+  return data;
+};
 
 function DashboardMetrics() {
   const router = useRouter();
@@ -31,7 +37,14 @@ function DashboardMetrics() {
   const today = new Date();
 
   if (isLoading) return <DashboardSkeleton />;
-  if (error || !data) return <div>Failed to load dashboard data</div>;
+  if (error || !data) {
+    return (
+      <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200">
+        <h3 className="font-bold mb-1">Failed to load dashboard data</h3>
+        <p className="text-sm">{error?.message || 'Unknown error occurred'}</p>
+      </div>
+    );
+  }
 
   const {
     totalBookings,

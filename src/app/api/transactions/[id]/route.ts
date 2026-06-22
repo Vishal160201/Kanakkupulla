@@ -14,7 +14,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { amount, type, date, category, paymentMode, description, status } = body;
+    const { amount, type, date, category, paymentMode, description, status, ...restBody } = body;
 
     // Confirm ownership
     const existing = await prisma.transaction.findFirst({ where: { id, userId } });
@@ -30,15 +30,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
     if (type && !["INCOME", "EXPENSE"].includes(type)) errors.type = "Invalid type.";
     if (date && isNaN(new Date(date).getTime())) errors.date = "Invalid date.";
-    if (category && !(TRANSACTION_CATEGORIES as readonly string[]).includes(category)) {
-      errors.category = "Invalid category.";
-    }
-    if (paymentMode && !(PAYMENT_MODES as readonly string[]).includes(paymentMode)) {
-      errors.paymentMode = "Invalid payment mode.";
-    }
+
 
     if (Object.keys(errors).length > 0) {
       return NextResponse.json({ error: "Validation failed", errors }, { status: 422 });
+    }
+
+    const customData: Record<string, any> = existing.customData && typeof existing.customData === 'object' ? { ...(existing.customData as any) } : {};
+    for (const [key, value] of Object.entries(restBody)) {
+      if (key !== 'userId' && !key.startsWith('$ACTION')) {
+        customData[key] = value;
+      }
     }
 
     const updatedTransaction = await prisma.transaction.update({
@@ -51,6 +53,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         ...(paymentMode && { paymentMode }),
         ...(description !== undefined && { description: description?.trim() || null }),
         ...(status && { status }),
+        ...(Object.keys(customData).length > 0 && { customData }),
       },
     });
 

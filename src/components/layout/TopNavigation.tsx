@@ -56,8 +56,8 @@ export default function TopNavigation() {
 
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(true);
-  const [soundNotifs, setSoundNotifs] = useState(true);
-  const [isMounted, setIsMounted] = useState(false);
+
+
 
   const [waPhoneNumber, setWaPhoneNumber] = useState("");
   const [isPairingLoading, setIsPairingLoading] = useState(false);
@@ -83,45 +83,6 @@ export default function TopNavigation() {
       setIsPairingLoading(false);
     }
   };
-
-  // Load sound preference from localStorage on mount
-  useEffect(() => {
-    const savedSound = localStorage.getItem("soundNotifs");
-    if (savedSound !== null) {
-      setSoundNotifs(savedSound === "true");
-    }
-    setIsMounted(true);
-  }, []);
-
-  // Load email and push preferences from API
-  useEffect(() => {
-    if (session) {
-      fetch("/api/users/me/preferences")
-        .then(res => res.json())
-        .then(data => {
-          if (data.emailNotifications !== undefined) setEmailNotifs(data.emailNotifications);
-          if (data.pushNotifications !== undefined) setPushNotifs(data.pushNotifications);
-        })
-        .catch(console.error);
-    }
-  }, [session]);
-
-  const toggleSound = () => {
-    const newVal = !soundNotifs;
-    setSoundNotifs(newVal);
-    localStorage.setItem("soundNotifs", String(newVal));
-  };
-
-  // Ding Sound Effect
-  useEffect(() => {
-    if (isMounted && unreadCount > prevUnreadCount.current && soundNotifs) {
-      // iPhone-style Bamboo sound
-      const audio = new Audio("/sounds/bamboo.mp3");
-      audio.volume = 1.0;
-      audio.play().catch(e => console.log("Audio play blocked by browser interaction rules"));
-    }
-    prevUnreadCount.current = unreadCount;
-  }, [unreadCount, soundNotifs, isMounted]);
 
   const updatePreferences = async (email: boolean, push: boolean) => {
     setEmailNotifs(email);
@@ -481,18 +442,6 @@ export default function TopNavigation() {
                     title={pushNotifs ? "Disable Push Alerts" : "Enable Push Alerts"}
                   >
                     <i className={`text-[1.3rem] transition-transform duration-300 ${pushNotifs ? 'ph-fill ph-device-mobile scale-110' : 'ph ph-device-mobile'}`}></i>
-                  </button>
-
-                  <button 
-                    onClick={(e) => { 
-                      e.preventDefault(); 
-                      e.stopPropagation();
-                      toggleSound();
-                    }}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${soundNotifs ? 'bg-emerald-50 text-emerald-500 hover:bg-emerald-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
-                    title={soundNotifs ? "Disable Sound Alerts" : "Enable Sound Alerts"}
-                  >
-                    <i className={`text-[1.3rem] transition-transform duration-300 ${soundNotifs ? 'ph-fill ph-speaker-high scale-110' : 'ph ph-speaker-slash'}`}></i>
                   </button>
                 </div>
               </div>
