@@ -419,7 +419,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
       }
     }}>
       {booking && (
-      <DialogContent className="max-w-[1100px] w-[95vw] md:w-full p-0 bg-[#F5F6F8] rounded-2xl md:rounded-[2rem] overflow-hidden border-0 shadow-2xl h-[95dvh] md:h-[95vh] flex flex-col">
+      <DialogContent className="max-w-[1100px] sm:max-w-[1100px] w-[95vw] md:w-full p-0 bg-[#F5F6F8] rounded-2xl md:rounded-[2rem] overflow-hidden border-0 shadow-2xl h-[95dvh] md:h-[95vh] flex flex-col">
          {/* Main scrollable area */}
          <div className="flex-1 overflow-y-auto p-4 md:p-8">
              

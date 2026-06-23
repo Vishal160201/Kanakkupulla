@@ -595,7 +595,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     <Dialog open={isAddModalOpen} onOpenChange={(open) => {
       if (!open) { router.back(); }
     }}>
-      <DialogContent className="max-w-[800px] w-[95vw] sm:w-full p-0 bg-transparent overflow-hidden border-0 shadow-none">
+      <DialogContent className="max-w-[800px] sm:max-w-[800px] w-[95vw] sm:w-full p-0 bg-transparent overflow-hidden border-0 shadow-none">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
