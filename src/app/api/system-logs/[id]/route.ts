@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 // GET /api/system-logs/[id]
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const log = await prisma.systemLog.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!log) {
       return NextResponse.json({ error: 'System log not found' }, { status: 404 });
@@ -19,11 +20,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // PUT /api/system-logs/[id]
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { details } = await req.json();
     const updatedLog = await prisma.systemLog.update({
-      where: { id: params.id },
+      where: { id },
       data: { details },
     });
     return NextResponse.json(updatedLog);
@@ -34,10 +36,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 // DELETE /api/system-logs/[id]
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     await prisma.systemLog.delete({
-      where: { id: params.id },
+      where: { id },
     });
     return NextResponse.json({ message: 'System log deleted successfully' });
   } catch (error) {

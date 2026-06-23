@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 // GET /api/form-layouts/[id]
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const formLayout = await prisma.formLayout.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!formLayout) {
       return NextResponse.json({ error: 'Form layout not found' }, { status: 404 });
@@ -19,11 +20,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // PUT /api/form-layouts/[id]
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { name, description, schema } = await req.json();
     const updatedFormLayout = await prisma.formLayout.update({
-      where: { id: params.id },
+      where: { id },
       data: { name, description, schema },
     });
     return NextResponse.json(updatedFormLayout);
@@ -34,10 +36,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 // DELETE /api/form-layouts/[id]
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     await prisma.formLayout.delete({
-      where: { id: params.id },
+      where: { id },
     });
     return NextResponse.json({ message: 'Form layout deleted successfully' });
   } catch (error) {
