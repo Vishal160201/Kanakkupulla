@@ -237,6 +237,9 @@ export default function OverviewPage() {
     return { ...data, dashoffset, rotation, color: getConsistentColorClasses(data.category) };
   });
 
+  const todayCashNet = todayTransactions.filter((t:any) => t.paymentMode?.toLowerCase() === 'cash').reduce((acc: number, t: any) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0);
+  const todayUpiNet = todayTransactions.filter((t:any) => t.paymentMode?.toLowerCase() === 'upi').reduce((acc: number, t: any) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0);
+
   const layoutSchema = layoutRes?.schema;
   let dynamicCategories: string[] = [];
   if (layoutSchema?.sections) {
@@ -336,28 +339,99 @@ export default function OverviewPage() {
 
         {/* Net Today */}
         <Link href="/transactions/allTransactions?view=day" className="block outline-none group min-w-0">
-          <div className="bg-white rounded-lg sm:rounded-[18px] md:rounded-[22px] p-3 sm:p-4 md:p-5 shadow-sm sm:shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-slate-100/80 flex flex-col justify-between h-[110px] sm:h-[130px] md:h-[150px] animate-slide-up hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200" style={{ animationDelay: "200ms" }}>
-            <div className="flex justify-between items-start gap-1.5 sm:gap-2">
-              <div className="min-w-0">
-                <span className="text-[0.55rem] sm:text-[0.6rem] md:text-[0.65rem] font-extrabold text-slate-500 uppercase tracking-[1px]">Net Today</span>
-                <div className="text-[0.95rem] sm:text-[1.2rem] md:text-[1.5rem] font-extrabold text-slate-950 mt-1.5 sm:mt-2 md:mt-3 leading-none truncate">₹{todayNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+          <div 
+            className="rounded-lg sm:rounded-[18px] md:rounded-[22px] p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(15,23,42,0.04)] flex flex-col justify-between h-[110px] sm:h-[130px] md:h-[150px] animate-slide-up transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200 group-hover:-translate-y-0.5 group-hover:shadow-md" 
+            style={{ 
+              animationDelay: "200ms", 
+              background: "linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,248,255,0.85) 100%)",
+              backdropFilter: "blur(12px)",
+              boxShadow: "inset 0 0 0 1px rgba(184, 134, 11, 0.25), 0 10px 40px -10px rgba(0,0,0,0.08)"
+            }}
+          >
+            {/* Top Row */}
+            <div className="flex justify-between items-start gap-1 relative z-10">
+              <span className="text-[0.55rem] sm:text-[0.6rem] md:text-[0.65rem] font-bold text-slate-500 uppercase tracking-[1px]">Net Today</span>
+              <div 
+                className="px-1.5 sm:px-2 py-0.5 rounded-md shadow-sm border border-white/50"
+                style={{
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(220,230,245,0.6) 100%)",
+                  boxShadow: "inset 0 1px 1px white, 0 2px 4px rgba(0,0,0,0.05)"
+                }}
+              >
+                <span className={`text-[0.45rem] sm:text-[0.55rem] font-extrabold tracking-[0.8px] drop-shadow-sm ${todayNet >= 0 ? 'text-slate-500' : 'text-rose-600'}`}>
+                  {todayNet >= 0 ? 'HEALTHY' : 'DEFICIT'}
+                </span>
               </div>
-              <span className={`text-[0.5rem] sm:text-[0.6rem] md:text-[0.65rem] font-extrabold px-1.5 sm:px-2.5 md:px-3 py-0.5 rounded-md tracking-[0.8px] shrink-0 ${todayNet >= 0 ? 'text-indigo-700 bg-indigo-50' : 'text-rose-700 bg-rose-50'}`}>
-                {todayNet >= 0 ? 'HEALTHY' : 'DEFICIT'}
-              </span>
             </div>
-            <div className="flex items-end justify-between gap-2">
-              <div className="text-[0.65rem] sm:text-[0.75rem] text-slate-500 font-bold">Today</div>
-              <svg viewBox="0 0 130 54" className="w-[70px] sm:w-[90px] md:w-[110px] h-[30px] sm:h-[38px] md:h-[46px] overflow-visible" aria-hidden="true">
-                <defs>
-                  <linearGradient id="netSpark" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={todayNet >= 0 ? "#818cf8" : "#fb7185"} />
-                    <stop offset="100%" stopColor={todayNet >= 0 ? "#6366f1" : "#ef4444"} />
-                  </linearGradient>
-                </defs>
-                <path d="M4 35 L17 21 L30 33 L43 32 L56 16 L69 24 L82 22 L95 11 L108 13 L126 2" fill="none" stroke="url(#netSpark)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength="100" strokeDasharray="100" strokeDashoffset="100" className="animate-dash" style={{ animationDelay: "550ms" }} />
+
+            {/* Main Value */}
+            <div className="text-[1.1rem] sm:text-[1.4rem] md:text-[1.6rem] font-black text-[#1a1f36] leading-none mt-1 sm:mt-1.5 relative z-10">
+              ₹{todayNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </div>
+
+            {/* Sub Pills */}
+            <div className="flex gap-1.5 sm:gap-2 mt-auto pb-3 sm:pb-4 relative z-10">
+              {/* CASH Pill */}
+              <div 
+                className="flex-1 rounded-[8px] sm:rounded-[12px] p-1 sm:p-1.5 flex items-center gap-1 sm:gap-1.5"
+                style={{
+                  background: "linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%)",
+                  boxShadow: "2px 2px 5px rgba(0,0,0,0.03), -2px -2px 5px rgba(255,255,255,1), inset 0 0 0 1px rgba(255,255,255,0.6)"
+                }}
+              >
+                <div className="text-emerald-600 drop-shadow-sm">
+                  <i className="ph-fill ph-money text-[0.7rem] sm:text-[0.9rem]"></i>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[0.4rem] sm:text-[0.45rem] font-extrabold text-slate-500 uppercase tracking-wider leading-none">Cash</span>
+                  <span className="text-[0.6rem] sm:text-[0.75rem] font-bold text-[#1a1f36] truncate leading-tight">₹{todayCashNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                </div>
+              </div>
+              
+              {/* UPI Pill */}
+              <div 
+                className="flex-1 rounded-[8px] sm:rounded-[12px] p-1 sm:p-1.5 flex items-center gap-1 sm:gap-1.5"
+                style={{
+                  background: "linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%)",
+                  boxShadow: "2px 2px 5px rgba(0,0,0,0.03), -2px -2px 5px rgba(255,255,255,1), inset 0 0 0 1px rgba(255,255,255,0.6)"
+                }}
+              >
+                <div className="text-indigo-600 drop-shadow-sm">
+                  <i className="ph-bold ph-qr-code text-[0.7rem] sm:text-[0.9rem]"></i>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[0.4rem] sm:text-[0.45rem] font-extrabold text-slate-500 uppercase tracking-wider leading-none">UPI</span>
+                  <span className="text-[0.6rem] sm:text-[0.75rem] font-bold text-[#1a1f36] truncate leading-tight">₹{todayUpiNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Background Chart / Bottom text */}
+            <div className="absolute bottom-0 left-0 right-0 h-[40px] pointer-events-none flex flex-col justify-end overflow-hidden rounded-b-lg sm:rounded-b-[18px] md:rounded-b-[22px]">
+              {/* Faint Background Line */}
+              <svg viewBox="0 0 200 40" className="absolute bottom-2 left-0 w-full h-[30px] opacity-20" preserveAspectRatio="none">
+                <path d="M0,20 Q20,5 40,20 T80,20 T120,15 T160,25 T200,10" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round"/>
               </svg>
+              {/* Main Line */}
+              <svg viewBox="0 0 200 40" className="absolute bottom-2 left-0 w-full h-[30px]" preserveAspectRatio="none">
+                <path d="M0,35 Q20,25 40,30 T80,25 T120,32 T160,20 T200,28" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" className="animate-dash" strokeDasharray="300" strokeDashoffset="300" style={{ animationDelay: "550ms" }}/>
+              </svg>
+              
+              <div className="flex items-center justify-center gap-1.5 mb-1 opacity-60">
+                <div className="flex gap-0.5">
+                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                </div>
+                <span className="text-[0.45rem] sm:text-[0.55rem] font-bold text-slate-500 uppercase tracking-widest leading-none">Today</span>
+                <div className="flex gap-0.5">
+                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                </div>
+              </div>
             </div>
+
           </div>
         </Link>
 
