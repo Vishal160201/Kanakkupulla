@@ -145,6 +145,27 @@ function TransactionsList() {
     setExportMenuOpen(false);
     setIsExporting(true);
     try {
+      let totalIncome = 0;
+      let totalExpense = 0;
+      let cashIncome = 0;
+      let cashExpense = 0;
+      let upiIncome = 0;
+      let upiExpense = 0;
+      
+      transactions.forEach(tx => {
+        const amt = Number(tx.amount) || 0;
+        const mode = (tx.paymentMode || '').toLowerCase();
+        if (tx.type === 'INCOME') {
+          totalIncome += amt;
+          if (mode.includes('cash')) cashIncome += amt;
+          if (mode.includes('upi')) upiIncome += amt;
+        } else if (tx.type === 'EXPENSE') {
+          totalExpense += amt;
+          if (mode.includes('cash')) cashExpense += amt;
+          if (mode.includes('upi')) upiExpense += amt;
+        }
+      });
+
       if (format === 'csv') {
         const escapeCsv = (val: any) => {
           if (val === null || val === undefined || val === '') return '""';
@@ -165,7 +186,17 @@ function TransactionsList() {
           escapeCsv(tx.customData),
           escapeCsv(tx.bookingId)
         ]);
-        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        
+        const summaryRows = [
+          [],
+          ['SUMMARY'],
+          ['Metric', 'Income', 'Expense', 'Net'],
+          ['Overall', escapeCsv(totalIncome), escapeCsv(totalExpense), escapeCsv(totalIncome - totalExpense)],
+          ['Cash', escapeCsv(cashIncome), escapeCsv(cashExpense), escapeCsv(cashIncome - cashExpense)],
+          ['UPI', escapeCsv(upiIncome), escapeCsv(upiExpense), escapeCsv(upiIncome - upiExpense)]
+        ];
+        
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(',')), ...summaryRows.map(r => r.join(','))].join('\n');
         const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel UTF-8
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -194,6 +225,21 @@ function TransactionsList() {
           body: tableData,
           startY: 20,
         });
+        
+        const finalY = (doc as any).lastAutoTable?.finalY || 20;
+        doc.setFontSize(12);
+        doc.text("Summary", 14, finalY + 10);
+        
+        autoTable(doc, {
+          head: [['Metric', 'Income', 'Expense', 'Net']],
+          body: [
+            ['Overall', totalIncome.toString(), totalExpense.toString(), (totalIncome - totalExpense).toString()],
+            ['Cash', cashIncome.toString(), cashExpense.toString(), (cashIncome - cashExpense).toString()],
+            ['UPI', upiIncome.toString(), upiExpense.toString(), (upiIncome - upiExpense).toString()]
+          ],
+          startY: finalY + 15,
+        });
+        
         doc.save(`kanakkupulla-ledger-${new Date().toISOString().split('T')[0]}.pdf`);
       }
     } catch (e) {
