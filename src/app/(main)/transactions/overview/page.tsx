@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const categoryColors: Record<string, { bg: string, stroke: string }> = {
   "Photography Session": { bg: "bg-emerald-500", stroke: "#10b981" },
@@ -111,6 +112,7 @@ const getConsistentColorClasses = (cat: string, predefinedColorName?: string) =>
 };
 
 export default function OverviewPage() {
+  const router = useRouter();
   const [hoveredIncCat, setHoveredIncCat] = useState<string | null>(null);
   const [hoveredExpCat, setHoveredExpCat] = useState<string | null>(null);
   const [hoveredHeatCat, setHoveredHeatCat] = useState<string | null>(null);
@@ -633,7 +635,16 @@ export default function OverviewPage() {
               {todayTransactions.map((txn: any, idx: number) => (
                 <div
                   key={txn.id}
-                  className="group/item flex flex-col sm:flex-row sm:items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer gap-2 sm:gap-0"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/transactions/details/${txn.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/transactions/details/${txn.id}`);
+                    }
+                  }}
+                  className="group/item flex flex-col sm:flex-row sm:items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer gap-2 sm:gap-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
                   <div className="flex items-center gap-4">
