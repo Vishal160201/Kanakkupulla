@@ -472,9 +472,9 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[700px] sm:max-w-[700px] p-0 bg-transparent border-0 shadow-none overflow-visible">
+      <DialogContent className="max-w-[700px] w-[calc(100vw-2rem)] sm:w-full sm:max-w-[700px] p-0 bg-transparent border-0 shadow-none overflow-visible">
         <div className="bg-slate-50 rounded-3xl overflow-hidden shadow-2xl flex flex-col w-full max-h-[90vh] relative">
-          <div className="px-8 pt-7 pb-5 bg-white border-b border-slate-100 shrink-0">
+          <div className="px-5 sm:px-8 pt-5 sm:pt-7 pb-4 sm:pb-5 bg-white border-b border-slate-100 shrink-0">
             <div className="flex items-start justify-between">
               <div>
                 <span className="text-[0.65rem] font-bold text-orange-500 uppercase tracking-[1px]">
@@ -487,13 +487,13 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
             </div>
           </div>
 
-          <div className="px-8 py-6 overflow-y-auto flex-1 min-h-0">
+          <div className="px-5 sm:px-8 py-5 sm:py-6 overflow-y-auto flex-1 min-h-0">
             {layoutSchema?.sections ? (
               layoutSchema.sections.map((section: any) => {
                 if (section.visibilityRule && !evaluateVisibility(section.visibilityRule)) return null;
                 
                 return (
-                  <div key={section.id} className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-slate-100">
+                  <div key={section.id} className="bg-white rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-sm border border-slate-100">
                     <div className="flex flex-col mb-5">
                       <div className="flex items-center gap-2.5 font-extrabold text-[1.1rem] text-slate-900 tracking-tight">
                         <i className={`ph-fill ${section.icon || 'ph-squares-four'} text-orange-500 text-[1.2rem]`}></i> {section.title}
@@ -522,7 +522,7 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
 
           </div>
 
-          <div className="px-8 py-5 bg-white border-t border-slate-100 flex justify-end gap-3 z-10 relative shrink-0 rounded-b-3xl">
+          <div className="px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-slate-100 flex justify-end gap-3 z-10 relative shrink-0 rounded-b-3xl">
             <button
               onClick={onClose}
               className="px-6 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"

@@ -595,23 +595,23 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     <Dialog open={isAddModalOpen} onOpenChange={(open) => {
       if (!open) { router.back(); }
     }}>
-      <DialogContent className="max-w-[800px] sm:max-w-[800px] p-0 bg-transparent overflow-hidden border-0 shadow-none">
+      <DialogContent className="max-w-[800px] w-[95vw] sm:w-full p-0 bg-transparent overflow-hidden border-0 shadow-none">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ duration: 0.3, type: "spring", bounce: 0.4 }}
-          className="bg-white rounded-3xl overflow-hidden shadow-2xl"
+          className="bg-white rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90dvh]"
         >
-        <DialogHeader className="bg-slate-50 border-b border-gray-100 px-10 py-8 relative">
+        <DialogHeader className="bg-slate-50 border-b border-gray-100 px-5 py-5 sm:px-10 sm:py-8 relative shrink-0">
           <div className="flex flex-col">
-            <span className="text-[0.75rem] font-bold text-orange-500 uppercase tracking-[1px] mb-2">Booking Registration</span>
-            <DialogTitle className="text-[1.8rem] font-extrabold text-slate-900 leading-tight">
+            <span className="text-[0.65rem] sm:text-[0.75rem] font-bold text-orange-500 uppercase tracking-[1px] mb-1 sm:mb-2">Booking Registration</span>
+            <DialogTitle className="text-[1.4rem] sm:text-[1.8rem] font-extrabold text-slate-900 leading-tight">
               {booking ? "Edit Booking" : "Create Studio Booking"}
             </DialogTitle>
           </div>
         </DialogHeader>
-        <div className="px-10 py-8 max-h-[70vh] overflow-y-auto">
+        <div className="px-5 py-5 sm:px-10 sm:py-8 flex-1 overflow-y-auto">
           <form id="booking-form" onSubmit={handleSubmit(onSubmit, onError)} className="hidden">
             <input type="hidden" {...register('installments' as any)} value={JSON.stringify(installments)} />
           </form>
@@ -683,9 +683,9 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
             </div>
           )}
         </div>
-        <div className="bg-slate-50 border-t border-gray-100 px-10 py-6 flex justify-end gap-3 rounded-b-3xl">
-          <button className="px-5 py-2.5 rounded-full font-bold text-[0.95rem] bg-transparent text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => router.back()}>Cancel</button>
-          <button className="px-6 py-2.5 rounded-full font-bold text-[0.95rem] bg-orange-500 text-white shadow-md hover:bg-orange-600 hover:-translate-y-[1px] hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50" disabled={isSubmitting} onClick={handleSubmit(onSubmit, onError)}>
+        <div className="bg-slate-50 border-t border-gray-100 px-5 py-4 sm:px-10 sm:py-6 flex justify-end gap-3 rounded-b-2xl sm:rounded-b-3xl shrink-0">
+          <button className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-bold text-[0.85rem] sm:text-[0.95rem] bg-transparent text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => router.back()}>Cancel</button>
+          <button className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-full font-bold text-[0.85rem] sm:text-[0.95rem] bg-orange-500 text-white shadow-md hover:bg-orange-600 hover:-translate-y-[1px] hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50" disabled={isSubmitting} onClick={handleSubmit(onSubmit, onError)}>
             <i className="ph-fill ph-calendar-plus"></i> {isSubmitting ? "Saving..." : booking ? "Save Changes" : "Register Booking"}
           </button>
         </div>

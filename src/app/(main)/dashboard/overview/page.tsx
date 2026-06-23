@@ -60,46 +60,46 @@ function DashboardMetrics() {
 
   return (
     <>
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-4">
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200">
+      {/* Quick Stats Grid — Always same row */}
+      <div className="grid grid-cols-3 gap-3 md:gap-5 mb-4">
+        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-100 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-200">
           <div className="flex justify-between items-start">
-            <div className="w-[32px] h-[32px] rounded-lg bg-green-50 text-green-500 flex items-center justify-center">
-              <i className="ph-fill ph-address-book text-[1.1rem]"></i>
+            <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex items-center justify-center shadow-sm">
+              <i className="ph-fill ph-address-book text-[0.9rem] md:text-[1.1rem]"></i>
             </div>
           </div>
-          <div>
-            <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">Total Bookings</div>
-            <div className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{totalBookings}</div>
+          <div className="mt-1">
+            <div className="text-slate-400 font-bold text-[0.6rem] md:text-[0.7rem] mb-0.5 uppercase tracking-wider">Total Bookings</div>
+            <div className="text-[1.1rem] md:text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{totalBookings}</div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200">
+        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-100 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-red-200">
           <div className="flex justify-between items-start">
-            <div className="w-[32px] h-[32px] rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
-              <i className="ph-fill ph-package text-[1.1rem]"></i>
+            <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-red-400 to-red-600 text-white flex items-center justify-center shadow-sm">
+              <i className="ph-fill ph-package text-[0.9rem] md:text-[1.1rem]"></i>
             </div>
-            <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Priority</span>
+            <span className="bg-red-50 text-red-600 px-1.5 md:px-2 py-0.5 rounded-md text-[0.5rem] md:text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Priority</span>
           </div>
-          <div>
-            <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">Gallery Deliveries</div>
+          <div className="mt-1">
+            <div className="text-slate-400 font-bold text-[0.6rem] md:text-[0.7rem] mb-0.5 uppercase tracking-wider">Gallery Deliveries</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{pendingRetouch}</span>
-              <span className="text-[1rem] font-bold text-slate-500">Due</span>
+              <span className="text-[1.1rem] md:text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{pendingRetouch}</span>
+              <span className="text-[0.75rem] md:text-[1rem] font-bold text-slate-400">Due</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-200">
+        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-100 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-blue-200">
           <div className="flex justify-between items-start">
-            <div className="w-[32px] h-[32px] rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center">
-              <i className="ph-fill ph-gift text-[1.1rem]"></i>
+            <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 text-white flex items-center justify-center shadow-sm">
+              <i className="ph-fill ph-gift text-[0.9rem] md:text-[1.1rem]"></i>
             </div>
-            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Active</span>
+            <span className="bg-blue-50 text-blue-600 px-1.5 md:px-2 py-0.5 rounded-md text-[0.5rem] md:text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Active</span>
           </div>
-          <div>
-            <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">Gift Shop Orders</div>
-            <div className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{totalActiveOrders}</div>
+          <div className="mt-1">
+            <div className="text-slate-400 font-bold text-[0.6rem] md:text-[0.7rem] mb-0.5 uppercase tracking-wider">Gift Shop Orders</div>
+            <div className="text-[1.1rem] md:text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{totalActiveOrders}</div>
           </div>
         </div>
       </div>
@@ -305,9 +305,9 @@ function DashboardMetrics() {
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-8 w-full animate-pulse">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-4">
+      <div className="grid grid-cols-3 gap-3 md:gap-5 mb-4">
         {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white rounded-2xl h-[120px] border border-gray-100"></div>
+          <div key={i} className="bg-white rounded-xl md:rounded-2xl h-[100px] md:h-[120px] border border-gray-100"></div>
         ))}
       </div>
       <div className="rounded-[24px] bg-slate-900 h-[300px] w-full"></div>

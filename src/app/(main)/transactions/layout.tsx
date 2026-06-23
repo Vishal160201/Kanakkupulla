@@ -11,7 +11,7 @@ function TransactionsLayoutContent({ children }: { children: React.ReactNode }) 
   const isAll = pathname === "/transactions/allTransactions";
 
   return (
-    <div className="p-4 md:p-8 pb-20 animate-fade-in w-full max-w-7xl mx-auto">
+    <div className="p-0 md:p-4 lg:p-8 pb-20 animate-fade-in w-full max-w-7xl mx-auto">
       {/* Tab Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-7">
         <div className="flex items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm overflow-x-auto no-scrollbar w-full sm:w-auto">
