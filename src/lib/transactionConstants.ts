@@ -10,6 +10,19 @@ export const TRANSACTION_CATEGORIES = [
   "Travel",
   "Marketing",
   "Misc",
+  "Printout",
+  "Xerox",
+  "PP",
+  "Others",
+  "Chit fund",
+  "Tea & snacks",
+  "Salary",
+  "Bus fare",
+  "E-Sevai",
+  "Passport Photo",
+  "Frame Sales",
+  "Editing Charges",
+  "Album Payment"
 ] as const;
 
 export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number];

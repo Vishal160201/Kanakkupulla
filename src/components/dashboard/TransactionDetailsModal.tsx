@@ -124,7 +124,10 @@ export default function TransactionDetailsModal({
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/transactions/${transactionId}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Delete failed");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Delete failed");
+      }
       await mutate(
         (key) => typeof key === "string" && key.startsWith("/api/transactions"),
         undefined,
@@ -133,8 +136,8 @@ export default function TransactionDetailsModal({
       toast.success("Transaction deleted");
       setShowDeleteConfirm(false);
       close();
-    } catch {
-      toast.error("Could not delete the transaction");
+    } catch (err: any) {
+      toast.error(err.message || "Could not delete the transaction");
     } finally {
       setIsDeleting(false);
     }

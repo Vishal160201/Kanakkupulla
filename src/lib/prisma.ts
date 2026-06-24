@@ -10,6 +10,10 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient };
 let prisma: PrismaClient;
 
 if (globalForPrisma.prisma) {
+  delete (globalForPrisma as any).prisma; // Force cache clear to load RecycleBin
+}
+
+if (globalForPrisma.prisma) {
   prisma = globalForPrisma.prisma;
 } else {
   const pool = new Pool({ 
@@ -25,3 +29,4 @@ if (globalForPrisma.prisma) {
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 export default prisma;
+// Force Next.js Fast Refresh to re-evaluate this module and load the new Prisma client

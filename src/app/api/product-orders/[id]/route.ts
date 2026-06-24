@@ -78,6 +78,20 @@ export async function DELETE(
 
   try {
     const id = (await params).id;
+    const existing = await prisma.productOrder.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    await prisma.recycleBin.create({
+      data: {
+        itemType: "product-order",
+        itemId: id,
+        originalData: existing as any,
+        trashedById: (session.user as any).id,
+      }
+    });
+
     await prisma.productOrder.delete({
       where: { id },
     });

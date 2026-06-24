@@ -23,8 +23,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params;
-    const transaction = await prisma.transaction.findFirst({
-      where: { id, ...legacyOwnerFilter(userId) },
+    const transaction = await prisma.transaction.findUnique({
+      where: { id },
       include: {
         booking: {
           select: {
@@ -48,7 +48,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     };
     const scopedDayWhere = {
       date: dateRange,
-      ...legacyOwnerFilter(userId),
     };
 
     const [incomeAggregate, expenseAggregate, categoryAggregate, layout] = await Promise.all([
@@ -168,9 +167,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const body = await request.json();
     const { amount, type, date, category, paymentMode, description, status, ...restBody } = body;
 
-    // Confirm ownership
-    const existing = await prisma.transaction.findFirst({
-      where: { id, ...legacyOwnerFilter(userId) },
+    const existing = await prisma.transaction.findUnique({
+      where: { id },
     });
     if (!existing) {
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
@@ -230,13 +228,21 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     const { id } = await params;
 
-    // Confirm ownership before deleting
-    const existing = await prisma.transaction.findFirst({
-      where: { id, ...legacyOwnerFilter(userId) },
+    const existing = await prisma.transaction.findUnique({
+      where: { id },
     });
     if (!existing) {
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
+
+    await prisma.recycleBin.create({
+      data: {
+        itemType: "transaction",
+        itemId: id,
+        originalData: JSON.parse(JSON.stringify(existing)),
+        trashedById: userId,
+      }
+    });
 
     await prisma.transaction.delete({ where: { id } });
     return NextResponse.json({ success: true }, {
@@ -244,6 +250,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     });
   } catch (error) {
     console.error("Error deleting transaction:", error);
-    return NextResponse.json({ error: "Failed to delete transaction" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete transaction: " + (error as any).message }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 
 export async function generateNextTransactionId(): Promise<string> {
   const last = await prisma.transaction.findFirst({
+    where: { transactionId: { startsWith: '#MDTXN-' } },
     orderBy: { transactionId: 'desc' },
     select: { transactionId: true },
   });
