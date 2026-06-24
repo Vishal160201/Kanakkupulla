@@ -40,7 +40,7 @@ export default function CalendarWidget() {
 
   const { data: dbBookings, isLoading } = useSWR(`/api/bookings?startDate=${startDateStr}&endDate=${endDateStr}`, fetcher);
 
-  const bookings: Booking[] = (dbBookings || []).map((b: any) => ({
+  const bookings: Booking[] = (dbBookings?.items || []).map((b: any) => ({
     id: b.id,
     bookingNumber: b.bookingNumber,
     title: b.client?.name || 'Unknown',

@@ -29,7 +29,8 @@ export default function BookingsLayout({
     setIsExporting(true);
     try {
       const res = await fetch('/api/bookings');
-      const allBookings = await res.json();
+      const data = await res.json();
+      const allBookings = Array.isArray(data) ? data : (data?.items || []);
       
       const filtered = allBookings.filter((b: any) => {
         if (filters.categories.length > 0 && !filters.categories.includes(b.category)) return false;
