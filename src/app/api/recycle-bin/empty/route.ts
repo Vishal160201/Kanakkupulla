@@ -14,15 +14,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const entries = await prisma.recycleBin.findMany({
-      where: { permanentlyDeletedAt: null, restoredAt: null }
-    });
+    const entries = await prisma.recycleBin.findMany({});
 
     for (const entry of entries) {
       if (entry.itemType === "booking") {
         try {
+          await prisma.transaction.deleteMany({ where: { bookingId: entry.itemId } });
+          await prisma.order.deleteMany({ where: { bookingId: entry.itemId } });
           await prisma.booking.delete({ where: { id: entry.itemId } });
-        } catch (e) {}
+        } catch (e) {
+          console.error("Error hard deleting booking:", e);
+        }
       }
       if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
         try {

@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client'
-const prisma = new PrismaClient()
+import prisma from './src/lib/prisma';
+
 async function main() {
-  const txs = await prisma.transaction.findMany({ select: { category: true } })
-  const categories = [...new Set(txs.map(t => t.category))]
-  console.log("Categories in DB:")
-  console.log(categories)
+  const items = await prisma.recycleBin.findMany({ where: { itemType: 'booking' } });
+  console.log("Bookings in RB:", items.length);
 }
-main().finally(() => prisma.$disconnect())
+main().finally(() => process.exit(0));

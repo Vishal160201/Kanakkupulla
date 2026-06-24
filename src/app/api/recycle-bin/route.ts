@@ -18,10 +18,7 @@ export async function GET(request: Request) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "100", 10), 500);
     const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
 
-    const whereClause: any = {
-      restoredAt: null,
-      permanentlyDeletedAt: null,
-    };
+    const whereClause: any = {};
 
     if (source) whereClause.itemType = source;
     if (trashedBy) whereClause.trashedById = trashedBy;
@@ -35,9 +32,6 @@ export async function GET(request: Request) {
     const [items, total] = await Promise.all([
       prisma.recycleBin.findMany({
         where: whereClause,
-        include: {
-          trashedBy: { select: { name: true, email: true } },
-        },
         orderBy: { trashedAt: "desc" },
         take: limit,
         skip: offset,
@@ -45,25 +39,50 @@ export async function GET(request: Request) {
       prisma.recycleBin.count({ where: whereClause }),
     ]);
 
+    const userIds = [...new Set(items.map(i => i.trashedById).filter(Boolean))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds as string[] } },
+      select: { id: true, name: true, email: true }
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    const clientIds = [...new Set(items.filter(i => i.itemType === 'booking').map(i => (i.originalData as any)?.clientId).filter(Boolean))];
+    const clients = await prisma.client.findMany({
+      where: { id: { in: clientIds as string[] } },
+      select: { id: true, name: true }
+    });
+    const clientMap = new Map(clients.map(c => [c.id, c.name]));
+
     // Map items to standard format
     const formattedItems = items.map(item => {
       let entryName = "Unknown";
+      let transactionId = "-";
+      let originalType = item.itemType;
+      
       const data: any = item.originalData || {};
+      const user = item.trashedById ? userMap.get(item.trashedById) : null;
       
       if (item.itemType === "booking") {
-        entryName = data.bookingNumber || `Booking #${item.itemId.substring(0, 8)}`;
+        const clientName = data.clientId ? clientMap.get(data.clientId) : null;
+        entryName = clientName || data.clientName || data.eventName || `Booking`;
+        transactionId = data.bookingNumber || item.itemId.substring(0, 8);
       } else if (item.itemType === "transaction") {
-        entryName = data.transactionId || `${data.type} - ${data.category}`;
+        entryName = data.category || "Transaction";
+        transactionId = data.transactionId || "-";
+        originalType = data.type || "transaction";
       } else if (item.itemType === "gift" || item.itemType === "frame" || item.itemType === "product-order") {
-        entryName = data.clientName || `Order #${item.itemId.substring(0, 8)}`;
+        entryName = data.clientName || `Order`;
+        transactionId = data.orderId || item.itemId.substring(0, 8);
       }
 
       return {
         id: item.id,
         itemType: item.itemType,
         itemId: item.itemId,
+        transactionId,
+        originalType,
         entryName,
-        trashedBy: item.trashedBy?.name || item.trashedBy?.email || "Unknown",
+        trashedBy: user?.name || user?.email || item.trashedById || "Unknown",
         trashedAt: item.trashedAt,
         originalData: item.originalData
       };
@@ -98,9 +117,11 @@ export async function DELETE(request: Request) {
       // If booking, we also hard delete the booking itself if we are permanently deleting
       if (entry.itemType === "booking") {
         try {
+          await prisma.transaction.deleteMany({ where: { bookingId: entry.itemId } });
+          await prisma.order.deleteMany({ where: { bookingId: entry.itemId } });
           await prisma.booking.delete({ where: { id: entry.itemId } });
         } catch (e) {
-          // Ignore if already deleted
+          console.error("Error hard deleting booking:", e);
         }
       }
       // Product orders if they use deletedAt

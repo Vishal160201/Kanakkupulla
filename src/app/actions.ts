@@ -177,9 +177,22 @@ export async function saveBookingAction(formData: FormData) {
 
 export async function deleteBookingAction(id: string) {
   try {
+    const session = await getServerSession(authOptions);
+    const existing = await prisma.booking.findUnique({ where: { id } });
+    if (!existing) return { success: false, error: "Not found" };
+
     await prisma.booking.update({ 
       where: { id },
       data: { deletedAt: new Date() }
+    });
+    
+    await prisma.recycleBin.create({
+      data: {
+        itemType: "booking",
+        itemId: id,
+        originalData: JSON.parse(JSON.stringify(existing)),
+        trashedById: (session?.user as any)?.id || "System",
+      }
     });
     
     await prisma.systemLog.create({
