@@ -70,10 +70,13 @@ function TransactionsList() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   // F5/P2: Pagination state
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
-  const activeView = searchParams.get('view') || 'month';
+  const hasMore = currentPage * 50 < totalCount;
+  
+  const activeView = searchParams.get('view');
   const filterParams = {
     view: activeView,
     dateFrom: searchParams.get('dateFrom'),
@@ -299,11 +302,12 @@ function TransactionsList() {
     router.push(`?${params.toString()}`);
   };
 
-  const fetchTransactions = useCallback(async (cursor?: string) => {
-    if (!cursor) {
+  const fetchTransactions = useCallback(async (pageNum?: number) => {
+    if (!pageNum) {
       setIsLoading(true);
       setTransactions([]);
-      setNextCursor(null);
+      setCurrentPage(1);
+      setTotalCount(0);
     } else {
       setIsLoadingMore(true);
     }
@@ -318,16 +322,15 @@ function TransactionsList() {
       if (filterParams.type) params.append('type', filterParams.type);
       if (filterParams.paymentMode) params.append('paymentMode', filterParams.paymentMode);
       if (filterParams.month && filterParams.view === 'month' && !hasCustomDateRange) params.append('month', filterParams.month);
-      if (cursor) params.append('cursor', cursor);
+      if (pageNum) params.append('page', String(pageNum));
 
       const res = await fetch(`/api/transactions?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        // Handle both old (array) and new ({ items, nextCursor }) response shapes
-        const items = Array.isArray(data) ? data : (data.items ?? []);
-        const nc = Array.isArray(data) ? null : (data.nextCursor ?? null);
-        setTransactions(prev => cursor ? [...prev, ...items] : items);
-        setNextCursor(nc);
+        const items = data.items ?? [];
+        setTransactions(prev => pageNum ? [...prev, ...items] : items);
+        setCurrentPage(pageNum || 1);
+        setTotalCount(data.total ?? 0);
       } else if (res.status === 401) {
         toast.error("Session expired. Please log in again.");
       }
@@ -370,8 +373,8 @@ function TransactionsList() {
           <div>
             <h2 className="text-xl font-bold text-slate-900">Transaction History</h2>
             {/* U6 FIX: Hide record count while loading */}
-            {!isLoading && (
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{transactions.length}{nextCursor ? '+' : ''} Records</div>
+              {!isLoading && (
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{transactions.length}{hasMore ? '+' : ''} Records</div>
             )}
           </div>
           
@@ -623,10 +626,10 @@ function TransactionsList() {
         </div>
 
         {/* F5/P2: Load More button */}
-        {nextCursor && (
+        {hasMore && (
           <div className="flex justify-center mt-6">
             <button
-              onClick={() => fetchTransactions(nextCursor)}
+              onClick={() => fetchTransactions(currentPage + 1)}
               disabled={isLoadingMore}
               className="px-8 py-3 rounded-xl border border-slate-200 bg-white font-bold text-sm text-slate-700 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center gap-2 disabled:opacity-50"
             >
