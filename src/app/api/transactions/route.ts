@@ -27,8 +27,6 @@ export async function GET(request: Request) {
     const legacyCategory = searchParams.get("category");
     const type = searchParams.get("type");
     const paymentMode = searchParams.get("paymentMode");
-    // P2: Cursor-based pagination
-    const cursor = searchParams.get("cursor");
 
     let whereClause: any = {};
   // F6: Add userId filter using relation – supports both old and new generated client
@@ -85,25 +83,26 @@ export async function GET(request: Request) {
     if (type && type !== "ALL") whereClause.type = type;
     if (paymentMode && paymentMode !== "ALL") whereClause.paymentMode = paymentMode;
 
-    // P2: Paginate — fetch PAGE_SIZE + 1 to determine if there are more records
+    // P2: Offset-based pagination (cursor on non-unique sort leads to duplicates)
+    const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
     const transactions = await prisma.transaction.findMany({
       where: { 
-        ...whereClause
+        ...whereClause,
+        ...(userFilter ? { userId } : {}),
       },
       orderBy: [
         { date: "desc" },
         { createdAt: "desc" }
       ],
-      take: PAGE_SIZE + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
     });
 
-    const hasMore = transactions.length > PAGE_SIZE;
-    const items = hasMore ? transactions.slice(0, PAGE_SIZE) : transactions;
-    const nextCursor = hasMore ? items[items.length - 1].id : null;
+    const total = await prisma.transaction.count({
+      where: { ...whereClause, ...(userFilter ? { userId } : {}) },
+    });
 
-    // P3: FIXED - Changed from `public` to `private, no-store` to prevent CDN caching of financial data
-    return NextResponse.json({ items, nextCursor, total: items.length }, {
+    return NextResponse.json({ items: transactions, total, page, pageSize: PAGE_SIZE }, {
       headers: {
         "Cache-Control": "private, no-store",
       },

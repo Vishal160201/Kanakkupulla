@@ -129,13 +129,14 @@ export async function broadcastNotification(
       select: { id: true },
     });
 
-    const results = [];
-    for (const user of users) {
-      if (skipUserId && user.id === skipUserId) continue;
-      const n = await createNotification(user.id, title, message, type, link);
-      if (n) results.push(n);
-    }
-    return results;
+    const results = await Promise.allSettled(
+      users
+        .filter(user => !(skipUserId && user.id === skipUserId))
+        .map(user => createNotification(user.id, title, message, type, link))
+    );
+    return results
+      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value !== null)
+      .map(r => r.value);
   } catch (error) {
     console.error("Failed to broadcast notification:", error);
     return null;

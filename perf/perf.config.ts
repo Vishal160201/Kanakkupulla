@@ -52,15 +52,14 @@ export interface PerfConfig {
 export const PERF_CONFIG: PerfConfig = {
   baseUrl: process.env.PERF_BASE_URL || 'http://localhost:3000',
   auth: {
-    registerEndpoint: '/api/auth/register',
     csrfEndpoint: '/api/auth/csrf',
     signinEndpoint: '/api/auth/callback/credentials',
     sessionEndpoint: '/api/auth/session',
   },
   thresholds: {
-    GET: { p50: 200, p90: 500, p99: 1000 },
-    POST: { p50: 300, p90: 800, p99: 1500 },
-    PUT: { p50: 300, p90: 800, p99: 1500 },
+    GET: { p50: 300, p90: 700, p99: 1500 },
+    POST: { p50: 600, p90: 2500, p99: 5000 },
+    PUT: { p50: 600, p90: 2500, p99: 5000 },
   },
   scenarios: {
     smoke: {

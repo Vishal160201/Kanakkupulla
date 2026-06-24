@@ -9,6 +9,7 @@ export async function GET() {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = (session.user as any).id as string;
 
     const today = new Date();
     const twoWeeksAgo = new Date(today);
@@ -24,15 +25,22 @@ export async function GET() {
       activeOrders,
       totalActiveOrders,
       todayTransactions,
-      todayIncomeAgg,
-      todayExpenseAgg
+      todayTypeAgg
     ] = await Promise.all([
       prisma.booking.count({
         where: { deletedAt: null }
       }),
       prisma.booking.findMany({
         where: { deletedAt: null, date: { gte: today } },
-        include: { order: true, client: true },
+        select: {
+          id: true,
+          date: true,
+          time: true,
+          location: true,
+          status: true,
+          client: { select: { name: true, phone: true } },
+          order: { select: { package: true } },
+        },
         orderBy: { date: 'asc' },
         take: 3
       }),
@@ -41,7 +49,13 @@ export async function GET() {
       }),
       prisma.productOrder.findMany({
         where: { status: { not: 'DELIVERED' } },
-        include: { product: true },
+        select: {
+          id: true,
+          quantity: true,
+          status: true,
+          clientName: true,
+          product: { select: { name: true, price: true } },
+        },
         orderBy: { createdAt: 'desc' },
         take: 1
       }),
@@ -49,30 +63,33 @@ export async function GET() {
         where: { status: { not: 'DELIVERED' } }
       }),
       prisma.transaction.findMany({
-        where: { date: { gte: todayStart, lte: todayEnd } },
+        where: { userId, date: { gte: todayStart, lte: todayEnd } },
         orderBy: { date: 'desc' },
-        take: 10
+        take: 10,
+        select: { id: true, amount: true, type: true, category: true, paymentMode: true, description: true, date: true },
       }),
-      prisma.transaction.aggregate({
+      prisma.transaction.groupBy({
+        by: ['type'],
         _sum: { amount: true },
-        where: { type: 'INCOME', date: { gte: todayStart, lte: todayEnd } }
+        where: { userId, date: { gte: todayStart, lte: todayEnd } }
       }),
-      prisma.transaction.aggregate({
-        _sum: { amount: true },
-        where: { type: 'EXPENSE', date: { gte: todayStart, lte: todayEnd } }
-      })
     ]);
+
+    const todayIncomeItem = todayTypeAgg.find(t => t.type === 'INCOME');
+    const todayExpenseItem = todayTypeAgg.find(t => t.type === 'EXPENSE');
+    const todayIncome = todayIncomeItem?._sum.amount || 0;
+    const todayExpense = todayExpenseItem?._sum.amount || 0;
 
     return NextResponse.json({
       totalBookings,
       upcomingShoots,
-      pendingRetouch,
+      pendingRetouch: pendingRetouch,
       topOrder: activeOrders[0] || null,
       totalActiveOrders,
       todayTransactions,
-      todayIncome: todayIncomeAgg._sum.amount || 0,
-      todayExpense: todayExpenseAgg._sum.amount || 0,
-      todayNet: (todayIncomeAgg._sum.amount || 0) - (todayExpenseAgg._sum.amount || 0)
+      todayIncome,
+      todayExpense,
+      todayNet: todayIncome - todayExpense
     });
 
   } catch (error) {

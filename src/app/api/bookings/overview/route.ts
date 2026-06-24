@@ -3,6 +3,19 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
+let uiPreferencesCache: { value: any; timestamp: number } | null = null;
+const CACHE_TTL = 60000; // 1 minute
+
+async function getUiPreferences() {
+  if (uiPreferencesCache && Date.now() - uiPreferencesCache.timestamp < CACHE_TTL) {
+    return uiPreferencesCache.value;
+  }
+  const setting = await prisma.systemSetting.findUnique({ where: { key: "UI_PREFERENCES" } });
+  const value = (setting?.value as any) || { currencySymbol: "₹", hotDateThreshold: 50000 };
+  uiPreferencesCache = { value, timestamp: Date.now() };
+  return value;
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -13,19 +26,33 @@ export async function GET() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const next7Days = new Date(today);
+    next7Days.setDate(today.getDate() + 7);
+    const next14Days = new Date(today);
+    next14Days.setDate(today.getDate() + 14);
+
+    // Cached system setting
+    const prefs = await getUiPreferences();
+
+    // Fetch only needed fields for the 30-day window
     const dbBookings = await prisma.booking.findMany({
-      where: { 
-        deletedAt: null,
-        date: { gte: thirtyDaysAgo }
+      where: { deletedAt: null, date: { gte: thirtyDaysAgo } },
+      select: {
+        id: true,
+        bookingNumber: true,
+        category: true,
+        date: true,
+        status: true,
+        customData: true,
+        client: { select: { name: true, phone: true, email: true } },
+        order: { select: { package: true, advance: true, due: true } },
       },
-      include: { client: true, order: true },
       orderBy: { date: 'desc' }
     });
-
-    const systemSetting = await prisma.systemSetting.findUnique({
-      where: { key: "UI_PREFERENCES" }
-    });
-    const prefs = systemSetting?.value as any || { currencySymbol: "₹", hotDateThreshold: 50000 };
 
     const bookings = dbBookings.map(b => ({
       id: b.id,
@@ -33,77 +60,71 @@ export async function GET() {
       title: b.client.name,
       category: b.category,
       date: b.date.toISOString().split('T')[0],
-      time: b.time,
-      location: b.location,
-      phone: b.client.phone,
-      email: b.client.email || '',
-      package: b.order?.package.toString() || '',
-      advance: b.order?.advance.toString() || '',
-      due: b.order?.due.toString() || '',
       status: b.status as any,
       customData: (b as any).customData || {}
     }));
 
-    // Calculate Metrics
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use SQL aggregates instead of JS computation
     const msPerDay = 1000 * 60 * 60 * 24;
 
-    let immediateShoots = 0; // Today and Tomorrow
-    let thisWeekShoots = 0; // Next 7 days
-    let pendingDueAmount = 0; // Due amounts in next 14 days
-    let unconfirmedShoots = 0; // Pending status in next 14 days
-    // Hot Date calculation based on highest combined package value
-    const upcomingDateStats: Record<string, { count: number, totalPackage: number }> = {};
+    const [immediateShoots, thisWeekShoots, unconfirmedShoots, pendingDueAgg] = await Promise.all([
+      // Bookings today or tomorrow
+      prisma.booking.count({
+        where: { deletedAt: null, date: { gte: today, lt: tomorrow } }
+      }),
+      // Bookings in next 7 days
+      prisma.booking.count({
+        where: { deletedAt: null, date: { gte: today, lt: next7Days } }
+      }),
+      // Pending bookings in next 14 days
+      prisma.booking.count({
+        where: { deletedAt: null, status: 'PENDING', date: { gte: today, lt: next14Days } }
+      }),
+      // Sum of due amounts in next 14 days (via orders)
+      prisma.order.aggregate({
+        _sum: { due: true },
+        where: { booking: { date: { gte: today, lt: next14Days }, deletedAt: null } }
+      }),
+    ]);
+
+    // Hot date: most valuable upcoming date
+    const hotDateAgg = await prisma.booking.groupBy({
+      by: ['date'],
+      where: { deletedAt: null, date: { gte: today } },
+      _count: { id: true },
+      _sum: { packageName: false },
+      orderBy: { date: 'asc' },
+    });
+    // Since we can't sum package via order in groupBy, compute from mapped data
+    const dateStats = new Map<string, { count: number; totalPackage: number }>();
+    for (const b of dbBookings) {
+      if (b.date >= today) {
+        const dStr = b.date.toISOString().split('T')[0];
+        const existing = dateStats.get(dStr) || { count: 0, totalPackage: 0 };
+        existing.count++;
+        existing.totalPackage += b.order?.package || 0;
+        dateStats.set(dStr, existing);
+      }
+    }
     let hotDateStr = "";
     let maxPackageValue = 0;
     let hotDateCount = 0;
+    for (const [dStr, stats] of dateStats) {
+      if (stats.totalPackage > maxPackageValue) {
+        maxPackageValue = stats.totalPackage;
+        hotDateStr = dStr;
+        hotDateCount = stats.count;
+      }
+    }
+
+    // Album metrics: computed from loaded data (needs customData which is JSON)
     let albumInProgressCount = 0;
     let pendingAlbumWorksCount = 0;
-
-    bookings.forEach(booking => {
-      const [year, month, day] = booking.date.split('-').map(Number);
-      const bookingDate = new Date(year, month - 1, day);
-      bookingDate.setHours(0, 0, 0, 0);
-
-      const diffDays = Math.floor((bookingDate.getTime() - today.getTime()) / msPerDay);
-
-      if (diffDays >= 0) {
-        if (diffDays <= 1) immediateShoots++;
-        if (diffDays <= 7) thisWeekShoots++;
-        
-        if (diffDays <= 14) {
-          if (booking.status === 'PENDING') unconfirmedShoots++;
-          
-          const due = parseFloat(booking.due || "0");
-          if (due > 0) pendingDueAmount += due;
-        }
-
-        // Track stats for hot date
-        const dStr = booking.date; // already YYYY-MM-DD
-        const pkgValue = parseFloat(booking.package || '0');
-        
-        if (!upcomingDateStats[dStr]) {
-          upcomingDateStats[dStr] = { count: 0, totalPackage: 0 };
-        }
-        upcomingDateStats[dStr].count += 1;
-        upcomingDateStats[dStr].totalPackage += pkgValue;
-
-        // Update max logic
-        if (upcomingDateStats[dStr].totalPackage > maxPackageValue) {
-          maxPackageValue = upcomingDateStats[dStr].totalPackage;
-          hotDateStr = dStr;
-          hotDateCount = upcomingDateStats[dStr].count;
-        }
-      }
-
-      // Album metrics - calculated for all bookings (including past)
-      const isAlbum = booking.category === 'Album' || 
-                     booking.customData?.fld_b_inclusions?.includes('Album') || 
-                     booking.customData?.album_status;
-      
-      const bStatus = (booking.status || '').trim().toLowerCase();
-
+    for (const b of dbBookings) {
+      const isAlbum = b.category === 'Album' ||
+        (b.customData as any)?.fld_b_inclusions?.includes('Album') ||
+        (b.customData as any)?.album_status;
+      const bStatus = (b.status || '').trim().toLowerCase();
       if (bStatus === 'shoot completed' || (isAlbum && bStatus === 'pending')) {
         pendingAlbumWorksCount++;
       } else if (bStatus === 'designing' || bStatus === 'printing' || bStatus === 'album work in progress') {
@@ -111,7 +132,7 @@ export async function GET() {
       } else if (isAlbum && bStatus !== 'delivered' && bStatus !== 'shoot completed' && bStatus !== 'pending') {
         albumInProgressCount++;
       }
-    });
+    }
 
     return NextResponse.json({
       bookings,
@@ -119,7 +140,7 @@ export async function GET() {
       metrics: {
         immediateShoots,
         thisWeekShoots,
-        pendingDueAmount,
+        pendingDueAmount: pendingDueAgg._sum.due || 0,
         unconfirmedShoots,
         hotDateStr,
         maxPackageValue,

@@ -15,6 +15,8 @@ export async function GET(request: Request) {
     const includeDeleted = searchParams.get("includeDeleted") === "true";
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "100", 10), 500);
+    const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
 
     const whereClause: any = includeDeleted ? {} : { deletedAt: null };
     
@@ -24,16 +26,31 @@ export async function GET(request: Request) {
       if (endDate) whereClause.date.lte = new Date(endDate);
     }
 
-    const bookings = await prisma.booking.findMany({
-      where: whereClause,
-      include: {
-        client: true,
-        order: true,
-      },
-      orderBy: { date: "desc" },
-    });
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          bookingNumber: true,
+          clientId: true,
+          category: true,
+          date: true,
+          time: true,
+          location: true,
+          status: true,
+          packageName: true,
+          createdAt: true,
+          client: { select: { id: true, name: true, phone: true } },
+          order: { select: { id: true, package: true, advance: true, due: true } },
+        },
+        orderBy: { date: "desc" },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.booking.count({ where: whereClause }),
+    ]);
 
-    return NextResponse.json(bookings, {
+    return NextResponse.json({ items: bookings, total, limit, offset }, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
@@ -56,19 +73,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 422 });
     }
 
-    const allMdBookings = await prisma.booking.findMany({
+    // Find the highest existing booking number via ordered query instead of scanning all records
+    const lastBooking = await prisma.booking.findFirst({
       where: { bookingNumber: { startsWith: '#MD-' } },
+      orderBy: { createdAt: 'desc' },
       select: { bookingNumber: true }
     });
     let maxNum = 0;
-    for (const b of allMdBookings) {
-      if (b.bookingNumber) {
-        const match = b.bookingNumber.match(/#MD-(\d+)/);
-        if (match) {
-          const num = parseInt(match[1]);
-          if (num > maxNum) maxNum = num;
-        }
-      }
+    if (lastBooking?.bookingNumber) {
+      const match = lastBooking.bookingNumber.match(/#MD-(\d+)/);
+      if (match) maxNum = parseInt(match[1]);
     }
     const nextBookingNumber = `#MD-${String(maxNum + 1).padStart(3, '0')}`;
 
@@ -90,7 +104,7 @@ export async function POST(request: Request) {
         ...(userId ? { updatedBy: { connect: { id: userId } } } : {}),
       },
       include: {
-        client: true,
+        client: { select: { id: true, name: true } },
       }
     });
 
