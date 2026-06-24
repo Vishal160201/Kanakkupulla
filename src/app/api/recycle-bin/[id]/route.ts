@@ -21,8 +21,12 @@ export async function DELETE(
 
     if (entry.itemType === "booking") {
       try {
+        await prisma.transaction.deleteMany({ where: { bookingId: entry.itemId } });
+        await prisma.order.deleteMany({ where: { bookingId: entry.itemId } });
         await prisma.booking.delete({ where: { id: entry.itemId } });
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error hard deleting booking:", e);
+      }
     }
     if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
       try {

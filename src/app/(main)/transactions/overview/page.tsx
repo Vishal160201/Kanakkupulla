@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import useSWR, { mutate } from "swr";
 
 const categoryColors: Record<string, { bg: string, stroke: string }> = {
   "Photography Session": { bg: "bg-emerald-500", stroke: "#10b981" },
@@ -119,6 +119,10 @@ export default function OverviewPage() {
   const [hoveredFlowDay, setHoveredFlowDay] = useState<number | null>(null);
   const [hoveredNetDay, setHoveredNetDay] = useState<number | null>(null);
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ id: string, message: string } | null>(null);
+
   const queryStr = React.useMemo(() => {
     const todayDate = new Date();
     const yearStart = new Date(todayDate.getFullYear(), 0, 1);
@@ -127,6 +131,25 @@ export default function OverviewPage() {
 
   const { data, error, isLoading } = useSWR(`/api/transactions/overview${queryStr}`, fetcher);
   const { data: layoutRes } = useSWR('/api/settings/layouts/TRANSACTION_FORM', fetcher);
+
+  const handleDeleteConfirm = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setIsDeletingId(id);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete");
+      }
+      mutate(`/api/transactions/overview${queryStr}`);
+      setConfirmDeleteId(null);
+      setIsDeletingId(null);
+    } catch (err: any) {
+      setDeleteError({ id, message: err.message || "Failed to delete" });
+      setIsDeletingId(null);
+    }
+  };
 
   if (isLoading || !data) {
     return <div className="flex justify-center items-center h-64"><div className="animate-pulse w-8 h-8 rounded-full bg-orange-500"></div></div>;
@@ -494,7 +517,7 @@ export default function OverviewPage() {
           <div className="p-4 sm:p-5 pb-2">
             <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Income Sources (Today)</h3>
           </div>
-          <div className="flex-1 p-4 sm:p-5 flex flex-col min-[760px]:flex-row lg:flex-col 2xl:flex-row items-center gap-5 sm:gap-6">
+          <div className="flex-1 p-4 sm:p-5 flex flex-row items-center justify-between gap-4">
             {todayIncome === 0 ? (
               <div className="w-full text-center text-slate-400 py-10 text-sm">No income recorded today</div>
             ) : (
@@ -524,7 +547,7 @@ export default function OverviewPage() {
                     <span className="text-[#0B1E40] font-black text-[1rem] sm:text-[1.1rem]">₹{todayIncome.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
-                <div className="flex-1 flex flex-col gap-3 w-full">
+                <div className="flex flex-col gap-3 w-[60%] sm:w-[65%] shrink-0">
                   {todayIncomeSegments.map((seg, i) => {
                     const iconStr = getRelatableIcon(seg.category);
                     return (
@@ -568,7 +591,7 @@ export default function OverviewPage() {
           <div className="p-4 sm:p-5 pb-2 flex justify-between items-start">
             <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Expense Breakdown (Today)</h3>
           </div>
-          <div className="flex-1 p-4 sm:p-5 flex flex-col min-[760px]:flex-row lg:flex-col 2xl:flex-row items-center gap-5 sm:gap-6">
+          <div className="flex-1 p-4 sm:p-5 flex flex-row items-center justify-between gap-4">
             {todayExpense === 0 ? (
               <div className="w-full text-center text-slate-400 py-10 text-sm">No expenses recorded today</div>
             ) : (
@@ -598,7 +621,7 @@ export default function OverviewPage() {
                     <span className="text-[#0B1E40] font-black text-[1rem] sm:text-[1.1rem]">₹{todayExpense.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
-                <div className="flex-1 flex flex-col gap-3 w-full">
+                <div className="flex flex-col gap-3 w-[60%] sm:w-[65%] shrink-0">
                   {sortedTodayExpenses.slice(0, 4).map((seg: any, i: number) => {
                     const iconStr = getRelatableIcon(seg.category);
                     const colorClass = getConsistentColorClasses(seg.category);
@@ -777,6 +800,60 @@ export default function OverviewPage() {
                       }`}>
                       {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN')}
                     </span>
+                    <div className={`flex items-center gap-1 ${confirmDeleteId === txn.id || deleteError?.id === txn.id ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'} transition-opacity ml-2`}>
+                      {isDeletingId === txn.id ? (
+                        <div className="flex items-center gap-2 text-slate-400 px-2">
+                          <i className="ph ph-circle-notch animate-spin text-lg" />
+                          <span className="text-xs font-bold">Deleting...</span>
+                        </div>
+                      ) : confirmDeleteId === txn.id ? (
+                        <div className="flex items-center gap-2 bg-red-500/10 rounded-lg px-2 py-1">
+                          <span className="text-[0.65rem] font-bold text-red-400 uppercase tracking-widest">Delete?</span>
+                          <button
+                            onClick={(e) => handleDeleteConfirm(e, txn.id)}
+                            className="p-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                          >
+                            <i className="ph-bold ph-check" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); setDeleteError(null); }}
+                            className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                          >
+                            <i className="ph-bold ph-x" />
+                          </button>
+                        </div>
+                      ) : deleteError?.id === txn.id ? (
+                        <div className="flex items-center gap-2 bg-rose-500/10 rounded-lg px-2 py-1">
+                          <span className="text-xs font-bold text-rose-400">{deleteError.message}</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteError(null); }}
+                            className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                          >
+                            <i className="ph-bold ph-x" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/transactions/${txn.id}/edit`);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                            title="Edit transaction"
+                          >
+                            <i className="ph ph-pencil-simple text-lg" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(txn.id); setDeleteError(null); }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                            title="Delete transaction"
+                          >
+                            <i className="ph ph-trash text-lg" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -870,15 +947,11 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Footer Banner */}
-          <div className="bg-[#F6F7FF] rounded-2xl p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-[#EEF0FF] transition-colors mt-auto min-h-[64px]">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <i className="ph-bold ph-chart-bar text-[#4F46E5] text-lg shrink-0"></i>
-              <span className="text-xs xl:text-[0.8rem] font-bold text-slate-800 leading-snug">
-                {highestExpenseCategory ? `${highestExpenseCategory.category} is your top expense (${Math.round(highestExpenseCategory.pct * 100)}%)` : "No expenses yet"}
-              </span>
-            </div>
-            <i className="ph-bold ph-arrow-right text-[#4F46E5] shrink-0"></i>
+          {/* Footer Link */}
+          <div className="mt-auto pt-2">
+            <Link href="/transactions/allTransactions?view=week&type=EXPENSE" className="text-sm font-extrabold text-[#4F46E5] hover:text-indigo-700 flex items-center gap-2 w-fit">
+              View all expenses <i className="ph-bold ph-arrow-right"></i>
+            </Link>
           </div>
         </div>
 
@@ -946,16 +1019,8 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Footer Info & Link */}
-          <div className="mt-auto flex flex-col gap-3">
-            <div className="bg-[#FFF8F3] rounded-2xl p-3.5 flex items-center gap-2.5 min-h-[64px]">
-              <div className="w-8 h-8 rounded-full bg-[#FFE6D5] text-[#F97316] flex items-center justify-center shrink-0">
-                <i className="ph-fill ph-lightbulb text-base"></i>
-              </div>
-              <span className="text-xs xl:text-[0.8rem] font-bold text-slate-800 leading-snug">
-                {actualFlow.reduce((a,b) => a+b, 0) > 0 ? `Most of your income comes on ${dayLabels[activeFlowDay]}.` : 'Add income to see insights.'}
-              </span>
-            </div>
+          {/* Footer Link */}
+          <div className="mt-auto pt-2">
             <Link href="/transactions/allTransactions?view=week&type=INCOME" className="text-sm font-extrabold text-[#F97316] hover:text-orange-600 flex items-center gap-2 w-fit">
               View income <i className="ph-bold ph-arrow-right"></i>
             </Link>
@@ -1064,16 +1129,8 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Footer Banner */}
-          <div className="mt-auto flex flex-col gap-3">
-            <div className="bg-[#F6F7FF] rounded-2xl p-3.5 flex items-center gap-2.5 min-h-[64px]">
-              <div className="w-8 h-8 rounded-full bg-[#E0E7FF] text-[#4F46E5] flex items-center justify-center shrink-0">
-                <i className="ph-bold ph-arrow-up-right text-base"></i>
-              </div>
-              <span className="text-xs xl:text-[0.8rem] font-bold text-slate-800 leading-snug">
-                Net trend improved by 12% compared to last week.
-              </span>
-            </div>
+          {/* Footer Link */}
+          <div className="mt-auto pt-2">
             <Link href="/transactions/allTransactions?view=week" className="text-sm font-extrabold text-[#4F46E5] hover:text-indigo-700 flex items-center gap-2 w-fit">
               View full trend <i className="ph-bold ph-arrow-right"></i>
             </Link>
