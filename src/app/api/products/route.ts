@@ -10,11 +10,21 @@ export async function GET(request: Request) {
   }
 
   try {
-    const products = await prisma.product.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "200", 10), 500);
+    const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
 
-    return NextResponse.json(products, {
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: offset,
+        select: { id: true, name: true, description: true, price: true, stock: true, createdAt: true },
+      }),
+      prisma.product.count(),
+    ]);
+
+    return NextResponse.json({ items: products, total, limit, offset }, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {

@@ -14,7 +14,9 @@ export async function GET(req: Request) {
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
 
-    const whereClause: any = {};
+    const userId = (session.user as any).id as string;
+
+    const whereClause: any = { userId };
 
     if (startDateParam || endDateParam) {
       whereClause.date = {};
@@ -26,25 +28,19 @@ export async function GET(req: Request) {
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
     const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
 
-    // Run parallel aggregates to get totals and breakdowns without transferring thousands of rows
+    // Run parallel aggregates — combined income+expense via groupBy
     const [
-      incomeAgg,
-      expenseAgg,
+      typeAgg,
       categoryExpenses,
       recentTransactions,
       todayTransactions,
-      todayIncomeAgg,
-      todayExpenseAgg
+      todayTypeAgg,
     ] = await Promise.all([
-      // Total Income
-      prisma.transaction.aggregate({
+      // Income + Expense totals in one query
+      prisma.transaction.groupBy({
+        by: ['type'],
         _sum: { amount: true },
-        where: { ...whereClause, type: 'INCOME' }
-      }),
-      // Total Expenses
-      prisma.transaction.aggregate({
-        _sum: { amount: true },
-        where: { ...whereClause, type: 'EXPENSE' }
+        where: { ...whereClause }
       }),
       // Expenses by Category
       prisma.transaction.groupBy({
@@ -52,7 +48,7 @@ export async function GET(req: Request) {
         _sum: { amount: true },
         where: { ...whereClause, type: 'EXPENSE' }
       }),
-      // Recent transactions (limit 100 for any specific UI displays)
+      // Recent transactions (limit 100)
       prisma.transaction.findMany({
         where: whereClause,
         orderBy: [
@@ -63,24 +59,27 @@ export async function GET(req: Request) {
       }),
       // Today's Transactions
       prisma.transaction.findMany({
-        where: { date: { gte: todayStart, lte: todayEnd } },
+        where: { userId, date: { gte: todayStart, lte: todayEnd } },
         orderBy: { date: 'desc' }
       }),
-      // Today's Income
-      prisma.transaction.aggregate({
+      // Today's Income + Expense combined
+      prisma.transaction.groupBy({
+        by: ['type'],
         _sum: { amount: true },
-        where: { type: 'INCOME', date: { gte: todayStart, lte: todayEnd } }
+        where: { userId, date: { gte: todayStart, lte: todayEnd } }
       }),
-      // Today's Expense
-      prisma.transaction.aggregate({
-        _sum: { amount: true },
-        where: { type: 'EXPENSE', date: { gte: todayStart, lte: todayEnd } }
-      })
     ]);
 
-    const totalIncome = incomeAgg._sum.amount || 0;
-    const totalExpenses = expenseAgg._sum.amount || 0;
+    const incomeItem = typeAgg.find(t => t.type === 'INCOME');
+    const expenseItem = typeAgg.find(t => t.type === 'EXPENSE');
+    const totalIncome = incomeItem?._sum.amount || 0;
+    const totalExpenses = expenseItem?._sum.amount || 0;
     
+    const todayIncomeItem = todayTypeAgg.find(t => t.type === 'INCOME');
+    const todayExpenseItem = todayTypeAgg.find(t => t.type === 'EXPENSE');
+    const todayIncome = todayIncomeItem?._sum.amount || 0;
+    const todayExpense = todayExpenseItem?._sum.amount || 0;
+
     const expensesByCategory = categoryExpenses.reduce((acc, curr) => {
       acc[curr.category] = curr._sum.amount || 0;
       return acc;
@@ -92,9 +91,9 @@ export async function GET(req: Request) {
       expensesByCategory,
       recentTransactions,
       todayTransactions,
-      todayIncome: todayIncomeAgg._sum.amount || 0,
-      todayExpense: todayExpenseAgg._sum.amount || 0,
-      todayNet: (todayIncomeAgg._sum.amount || 0) - (todayExpenseAgg._sum.amount || 0)
+      todayIncome,
+      todayExpense,
+      todayNet: todayIncome - todayExpense
     });
 
   } catch (error) {

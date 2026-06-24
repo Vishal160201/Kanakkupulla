@@ -10,11 +10,32 @@ export async function GET(request: Request) {
   }
 
   try {
-    const clients = await prisma.client.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "200", 10), 500);
+    const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
 
-    return NextResponse.json(clients, {
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [clients, total] = await Promise.all([
+      prisma.client.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: offset,
+        select: { id: true, name: true, phone: true, email: true, createdAt: true },
+      }),
+      prisma.client.count({ where }),
+    ]);
+
+    return NextResponse.json({ items: clients, total, limit, offset }, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
