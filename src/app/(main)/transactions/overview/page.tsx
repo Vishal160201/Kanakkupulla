@@ -824,7 +824,7 @@ export default function OverviewPage() {
                         </div>
                       ) : deleteError?.id === txn.id ? (
                         <div className="flex items-center gap-2 bg-rose-500/10 rounded-lg px-2 py-1">
-                          <span className="text-xs font-bold text-rose-400">{deleteError.message}</span>
+                          <span className="text-xs font-bold text-rose-400">{deleteError?.message}</span>
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeleteError(null); }}
                             className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -980,8 +980,9 @@ export default function OverviewPage() {
             <span className="text-2xl font-black text-[#F97316] leading-none block">₹{totalIncome.toLocaleString('en-IN')}</span>
           </div>
 
-          {/* Bar Chart Area */}
-          <div className="flex h-[178px] relative mb-5">
+          <div className="mt-auto w-full flex flex-col">
+            {/* Bar Chart Area */}
+            <div className="flex h-[178px] relative mb-5">
             {/* Y Axis */}
             <div className="flex flex-col justify-between text-[0.65rem] sm:text-[0.7rem] font-bold text-slate-400 pb-6 pr-2 sm:pr-4 w-10 sm:w-12 shrink-0">
               <span>{maxFlow > 0 ? (maxFlow >= 1000 ? `${(maxFlow/1000).toFixed(1)}k` : maxFlow) : '1k'}</span>
@@ -1019,11 +1020,11 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Footer Link */}
-          <div className="mt-auto pt-2">
-            <Link href="/transactions/allTransactions?view=week&type=INCOME" className="text-sm font-extrabold text-[#F97316] hover:text-orange-600 flex items-center gap-2 w-fit">
-              View income <i className="ph-bold ph-arrow-right"></i>
-            </Link>
+            <div className="pt-2">
+              <Link href="/transactions/allTransactions?view=week&type=INCOME" className="text-sm font-extrabold text-[#F97316] hover:text-orange-600 flex items-center gap-2 w-fit">
+                View income <i className="ph-bold ph-arrow-right"></i>
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -1056,8 +1057,9 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Chart Area */}
-          <div className="flex h-[178px] relative mb-5">
+          <div className="mt-auto w-full flex flex-col">
+            {/* Chart Area */}
+            <div className="flex h-[178px] relative mb-5">
             <div className="flex flex-col justify-between text-[0.65rem] sm:text-[0.7rem] font-bold text-slate-400 pb-6 pr-2 sm:pr-4 w-10 sm:w-12 shrink-0">
               <span>{netMax >= 1000 ? `${(netMax/1000).toFixed(1)}k` : netMax > 0 ? netMax : '10k'}</span>
               <span>{netMax >= 1000 ? `${(netMax/2000).toFixed(1)}k` : netMax > 0 ? Math.round(netMax/2) : '5k'}</span>
@@ -1129,11 +1131,11 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Footer Link */}
-          <div className="mt-auto pt-2">
-            <Link href="/transactions/allTransactions?view=week" className="text-sm font-extrabold text-[#4F46E5] hover:text-indigo-700 flex items-center gap-2 w-fit">
-              View full trend <i className="ph-bold ph-arrow-right"></i>
-            </Link>
+            <div className="pt-2">
+              <Link href="/transactions/allTransactions?view=week" className="text-sm font-extrabold text-[#4F46E5] hover:text-indigo-700 flex items-center gap-2 w-fit">
+                View full trend <i className="ph-bold ph-arrow-right"></i>
+              </Link>
+            </div>
           </div>
         </div>
 

@@ -88,6 +88,8 @@ model Transaction {
   customData    Json? // Stores dynamic form fields
   bookingId     String?
   booking       Booking? @relation(fields: [bookingId], references: [id])
+  productOrderId String?
+  productOrder  ProductOrder? @relation(fields: [productOrderId], references: [id])
   userId        String?
   user          User?    @relation(fields: [userId], references: [id])
   createdAt     DateTime @default(now())
@@ -101,6 +103,7 @@ model Transaction {
   @@index([date, type])
   @@index([userId, date])
   @@index([transactionId])
+  @@index([productOrderId])
 }
 
 model Account {
@@ -213,9 +216,11 @@ model ProductOrder {
   productId   String
   product     Product  @relation(fields: [productId], references: [id])
   quantity    Int      @default(1)
-  status      String   @default("PENDING") // "PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED"
+  status      String   @default("PENDING") // "PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "READY"
   clientName  String
   clientPhone String?
+  customData  Json?    // Specific details based on product
+  transactions Transaction[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
