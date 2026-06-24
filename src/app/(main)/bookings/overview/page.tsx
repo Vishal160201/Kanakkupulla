@@ -10,7 +10,7 @@ function BookingsDataView() {
   const { data, error, isLoading } = useSWR('/api/bookings/overview', fetcher);
 
   if (isLoading) return <BookingsSkeleton />;
-  if (error || !data) return <div>Failed to load bookings data</div>;
+  if (error || !data || data.error) return <div>Failed to load bookings data</div>;
 
   const { bookings, prefs, metrics } = data;
   const {

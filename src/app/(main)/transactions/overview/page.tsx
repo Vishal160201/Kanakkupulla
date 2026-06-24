@@ -7,25 +7,25 @@ import { useRouter } from "next/navigation";
 
 const categoryColors: Record<string, { bg: string, stroke: string }> = {
   "Photography Session": { bg: "bg-emerald-500", stroke: "#10b981" },
-  "Equipment":           { bg: "bg-amber-500",   stroke: "#f59e0b" },
-  "Utilities":           { bg: "bg-slate-700",   stroke: "#334155" },
-  "Rent":                { bg: "bg-slate-900",   stroke: "#0f172a" },
-  "Software":            { bg: "bg-violet-500",  stroke: "#8b5cf6" },
-  "Travel":              { bg: "bg-sky-500",     stroke: "#0ea5e9" },
-  "Marketing":           { bg: "bg-rose-500",    stroke: "#f43f5e" },
-  "Misc":                { bg: "bg-slate-300",   stroke: "#cbd5e1" },
-  "Booking Advance":     { bg: "bg-blue-500",    stroke: "#3b82f6" },
-  "Passport Photo":      { bg: "bg-pink-500",    stroke: "#ec4899" },
-  "Frame Sales":         { bg: "bg-orange-500",  stroke: "#f97316" },
-  "Editing Charges":     { bg: "bg-amber-700",   stroke: "#b45309" },
-  "Album Payment":       { bg: "bg-violet-500",  stroke: "#8b5cf6" },
-  "Tea & Snacks":        { bg: "bg-sky-500",     stroke: "#0ea5e9" },
-  "Fuel":                { bg: "bg-red-500",     stroke: "#ef4444" },
-  "Bus Fare":            { bg: "bg-indigo-500",  stroke: "#6366f1" },
-  "System Repair":       { bg: "bg-purple-500",  stroke: "#a855f7" },
-  "Printing":            { bg: "bg-emerald-500", stroke: "#10b981" },
-  "Courier":             { bg: "bg-orange-500",  stroke: "#f97316" },
-  "Other Expense":       { bg: "bg-slate-400",   stroke: "#94a3b8" }
+  "Equipment": { bg: "bg-amber-500", stroke: "#f59e0b" },
+  "Utilities": { bg: "bg-slate-700", stroke: "#334155" },
+  "Rent": { bg: "bg-slate-900", stroke: "#0f172a" },
+  "Software": { bg: "bg-violet-500", stroke: "#8b5cf6" },
+  "Travel": { bg: "bg-sky-500", stroke: "#0ea5e9" },
+  "Marketing": { bg: "bg-rose-500", stroke: "#f43f5e" },
+  "Misc": { bg: "bg-slate-300", stroke: "#cbd5e1" },
+  "Booking Advance": { bg: "bg-blue-500", stroke: "#3b82f6" },
+  "Passport Photo": { bg: "bg-pink-500", stroke: "#ec4899" },
+  "Frame Sales": { bg: "bg-orange-500", stroke: "#f97316" },
+  "Editing Charges": { bg: "bg-amber-700", stroke: "#b45309" },
+  "Album Payment": { bg: "bg-violet-500", stroke: "#8b5cf6" },
+  "Tea & Snacks": { bg: "bg-sky-500", stroke: "#0ea5e9" },
+  "Fuel": { bg: "bg-red-500", stroke: "#ef4444" },
+  "Bus Fare": { bg: "bg-indigo-500", stroke: "#6366f1" },
+  "System Repair": { bg: "bg-purple-500", stroke: "#a855f7" },
+  "Printing": { bg: "bg-emerald-500", stroke: "#10b981" },
+  "Courier": { bg: "bg-orange-500", stroke: "#f97316" },
+  "Other Expense": { bg: "bg-slate-400", stroke: "#94a3b8" }
 };
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -58,7 +58,7 @@ const MODE_ICONS: Record<string, string> = {
   "Card": "ph-credit-card",
 };
 
-const defaultColor = { bg: "bg-slate-400", stroke: "#94a3b8" };const fetcher = (url: string) => fetch(url).then(res => res.json());
+const defaultColor = { bg: "bg-slate-400", stroke: "#94a3b8" }; const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 const getRelatableIcon = (cat: string) => {
   const lowerCat = cat.toLowerCase();
@@ -122,7 +122,7 @@ export default function OverviewPage() {
   const queryStr = React.useMemo(() => {
     const todayDate = new Date();
     const yearStart = new Date(todayDate.getFullYear(), 0, 1);
-    return `?startDate=${yearStart.toISOString().split('T')[0]}&endDate=${todayDate.toISOString().split('T')[0]}`;
+    return `?startDate=${yearStart.toISOString()}`;
   }, []);
 
   const { data, error, isLoading } = useSWR(`/api/transactions/overview${queryStr}`, fetcher);
@@ -171,19 +171,36 @@ export default function OverviewPage() {
 
   const highestExpenseCategory = donutSegments.length > 0 ? donutSegments[0] : null;
 
-  // --- Dynamic Weekly Flow Logic ---
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  // --- Current Week daily data (Monday to Sunday) ---
+  const last7Dates: Date[] = [];
+  const currentDayOfWeek = today.getDay();
+  const daysToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - daysToMonday);
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    last7Dates.push(d);
+  }
+  const dateKey = (d: Date) => d.toDateString();
+  const dayLabels = last7Dates.map(d =>
+    d.toLocaleDateString('en-IN', { weekday: 'short' })
+  );
+
   const actualFlow = new Array(7).fill(0);
   const expenseFlow = new Array(7).fill(0);
 
+  const dateIndexMap = new Map<string, number>();
+  last7Dates.forEach((d, i) => dateIndexMap.set(dateKey(d), i));
+
   transactions.forEach((t: any) => {
-    const d = new Date(t.date);
-    let day = d.getDay() - 1; // 0=Mon, -1=Sun
-    if (day === -1) day = 6;
+    const idx = dateIndexMap.get(dateKey(new Date(t.date)));
+    if (idx === undefined) return;
     if (t.type === 'INCOME') {
-      actualFlow[day] += t.amount;
+      actualFlow[idx] += t.amount;
     } else if (t.type === 'EXPENSE') {
-      expenseFlow[day] += t.amount;
+      expenseFlow[idx] += t.amount;
     }
   });
 
@@ -205,12 +222,12 @@ export default function OverviewPage() {
   const netAreaPath = `${netPath} L ${netPoints[netPoints.length - 1]?.x.toFixed(1) ?? 260} ${netZeroY.toFixed(1)} L ${netPoints[0]?.x.toFixed(1) ?? 20} ${netZeroY.toFixed(1)} Z`;
 
   // --- Today Breakdown Logic ---
-  const todayIncomeByCategory = todayTransactions.filter((t:any) => t.type === 'INCOME').reduce((acc: any, t: any) => {
+  const todayIncomeByCategory = todayTransactions.filter((t: any) => t.type === 'INCOME').reduce((acc: any, t: any) => {
     acc[t.category] = (acc[t.category] || 0) + t.amount;
     return acc;
   }, {});
 
-  const todayExpensesByCategory = todayTransactions.filter((t:any) => t.type === 'EXPENSE').reduce((acc: any, t: any) => {
+  const todayExpensesByCategory = todayTransactions.filter((t: any) => t.type === 'EXPENSE').reduce((acc: any, t: any) => {
     acc[t.category] = (acc[t.category] || 0) + t.amount;
     return acc;
   }, {});
@@ -236,8 +253,8 @@ export default function OverviewPage() {
     return { ...data, dashoffset, rotation, color: getConsistentColorClasses(data.category) };
   });
 
-  const todayCashNet = todayTransactions.filter((t:any) => t.paymentMode?.toLowerCase() === 'cash').reduce((acc: number, t: any) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0);
-  const todayUpiNet = todayTransactions.filter((t:any) => t.paymentMode?.toLowerCase() === 'upi').reduce((acc: number, t: any) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0);
+  const todayCashNet = todayTransactions.filter((t: any) => t.paymentMode?.toLowerCase() === 'cash').reduce((acc: number, t: any) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0);
+  const todayUpiNet = todayTransactions.filter((t: any) => t.paymentMode?.toLowerCase() === 'upi').reduce((acc: number, t: any) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0);
 
   const layoutSchema = layoutRes?.schema;
   let dynamicCategories: string[] = [];
@@ -338,10 +355,10 @@ export default function OverviewPage() {
 
         {/* Net Today */}
         <Link href="/transactions/allTransactions?view=day" className="block outline-none group min-w-0">
-          <div 
-            className="rounded-lg sm:rounded-[18px] md:rounded-[22px] p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(15,23,42,0.04)] flex flex-col justify-between h-[110px] sm:h-[130px] md:h-[150px] animate-slide-up transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200 group-hover:-translate-y-0.5 group-hover:shadow-md" 
-            style={{ 
-              animationDelay: "200ms", 
+          <div
+            className="rounded-lg sm:rounded-[18px] md:rounded-[22px] p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(15,23,42,0.04)] flex flex-col h-[110px] sm:h-[130px] md:h-[150px] animate-slide-up transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200 group-hover:-translate-y-0.5 group-hover:shadow-md"
+            style={{
+              animationDelay: "200ms",
               background: "linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,248,255,0.85) 100%)",
               backdropFilter: "blur(12px)",
               boxShadow: "inset 0 0 0 1px rgba(184, 134, 11, 0.25), 0 10px 40px -10px rgba(0,0,0,0.08)"
@@ -350,7 +367,7 @@ export default function OverviewPage() {
             {/* Top Row */}
             <div className="flex justify-between items-start gap-1 relative z-10">
               <span className="text-[0.55rem] sm:text-[0.6rem] md:text-[0.65rem] font-bold text-slate-500 uppercase tracking-[1px]">Net Today</span>
-              <div 
+              <div
                 className="px-1.5 sm:px-2 py-0.5 rounded-md shadow-sm border border-white/50"
                 style={{
                   background: "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(220,230,245,0.6) 100%)",
@@ -363,44 +380,45 @@ export default function OverviewPage() {
               </div>
             </div>
 
-            {/* Main Value */}
-            <div className="text-[1.1rem] sm:text-[1.4rem] md:text-[1.6rem] font-black text-[#1a1f36] leading-none mt-1 sm:mt-1.5 relative z-10">
-              ₹{todayNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </div>
-
-            {/* Sub Pills */}
-            <div className="flex gap-1.5 sm:gap-2 mt-auto pb-3 sm:pb-4 relative z-10">
-              {/* CASH Pill */}
-              <div 
-                className="flex-1 rounded-[8px] sm:rounded-[12px] p-1 sm:p-1.5 flex items-center gap-1 sm:gap-1.5"
-                style={{
-                  background: "linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%)",
-                  boxShadow: "2px 2px 5px rgba(0,0,0,0.03), -2px -2px 5px rgba(255,255,255,1), inset 0 0 0 1px rgba(255,255,255,0.6)"
-                }}
-              >
-                <div className="text-emerald-600 drop-shadow-sm">
-                  <i className="ph-fill ph-money text-[0.7rem] sm:text-[0.9rem]"></i>
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[0.4rem] sm:text-[0.45rem] font-extrabold text-slate-500 uppercase tracking-wider leading-none">Cash</span>
-                  <span className="text-[0.6rem] sm:text-[0.75rem] font-bold text-[#1a1f36] truncate leading-tight">₹{todayCashNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                </div>
+            {/* Main Value + Pills side by side */}
+            <div className="flex items-center justify-between gap-2 flex-1 relative z-10 mt-2 sm:mt-3 min-w-0">
+              <div className="text-[1.1rem] sm:text-[1.4rem] md:text-[1.6rem] font-black text-[#1a1f36] leading-none truncate" title={`₹${todayNet.toLocaleString('en-IN')}`}>
+                ₹{todayNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </div>
-              
-              {/* UPI Pill */}
-              <div 
-                className="flex-1 rounded-[8px] sm:rounded-[12px] p-1 sm:p-1.5 flex items-center gap-1 sm:gap-1.5"
-                style={{
-                  background: "linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%)",
-                  boxShadow: "2px 2px 5px rgba(0,0,0,0.03), -2px -2px 5px rgba(255,255,255,1), inset 0 0 0 1px rgba(255,255,255,0.6)"
-                }}
-              >
-                <div className="text-indigo-600 drop-shadow-sm">
-                  <i className="ph-bold ph-qr-code text-[0.7rem] sm:text-[0.9rem]"></i>
+
+              <div className="flex flex-col gap-1.5 shrink-0">
+                {/* CASH Pill */}
+                <div
+                  className="rounded-[8px] sm:rounded-[12px] px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2"
+                  style={{
+                    background: "linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%)",
+                    boxShadow: "2px 2px 5px rgba(0,0,0,0.03), -2px -2px 5px rgba(255,255,255,1), inset 0 0 0 1px rgba(255,255,255,0.6)"
+                  }}
+                >
+                  <div className="text-emerald-600 drop-shadow-sm">
+                    <i className="ph-fill ph-money text-[0.85rem] sm:text-[1.1rem]"></i>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[0.5rem] sm:text-[0.55rem] font-extrabold text-slate-500 uppercase tracking-wider leading-none">Cash</span>
+                    <span className="text-[0.75rem] sm:text-[0.9rem] font-bold text-[#1a1f36] leading-tight">₹{todayCashNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </div>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[0.4rem] sm:text-[0.45rem] font-extrabold text-slate-500 uppercase tracking-wider leading-none">UPI</span>
-                  <span className="text-[0.6rem] sm:text-[0.75rem] font-bold text-[#1a1f36] truncate leading-tight">₹{todayUpiNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+
+                {/* UPI Pill */}
+                <div
+                  className="rounded-[8px] sm:rounded-[12px] px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2"
+                  style={{
+                    background: "linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%)",
+                    boxShadow: "2px 2px 5px rgba(0,0,0,0.03), -2px -2px 5px rgba(255,255,255,1), inset 0 0 0 1px rgba(255,255,255,0.6)"
+                  }}
+                >
+                  <div className="text-indigo-600 drop-shadow-sm">
+                    <i className="ph-bold ph-qr-code text-[0.85rem] sm:text-[1.1rem]"></i>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[0.5rem] sm:text-[0.55rem] font-extrabold text-slate-500 uppercase tracking-wider leading-none">UPI</span>
+                    <span className="text-[0.75rem] sm:text-[0.9rem] font-bold text-[#1a1f36] leading-tight">₹{todayUpiNet.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -409,24 +427,24 @@ export default function OverviewPage() {
             <div className="absolute bottom-0 left-0 right-0 h-[40px] pointer-events-none flex flex-col justify-end overflow-hidden rounded-b-lg sm:rounded-b-[18px] md:rounded-b-[22px]">
               {/* Faint Background Line */}
               <svg viewBox="0 0 200 40" className="absolute bottom-2 left-0 w-full h-[30px] opacity-20" preserveAspectRatio="none">
-                <path d="M0,20 Q20,5 40,20 T80,20 T120,15 T160,25 T200,10" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M0,20 Q20,5 40,20 T80,20 T120,15 T160,25 T200,10" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" />
               </svg>
               {/* Main Line */}
               <svg viewBox="0 0 200 40" className="absolute bottom-2 left-0 w-full h-[30px]" preserveAspectRatio="none">
-                <path d="M0,35 Q20,25 40,30 T80,25 T120,32 T160,20 T200,28" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" className="animate-dash" strokeDasharray="300" strokeDashoffset="300" style={{ animationDelay: "550ms" }}/>
+                <path d="M0,35 Q20,25 40,30 T80,25 T120,32 T160,20 T200,28" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" className="animate-dash" strokeDasharray="300" strokeDashoffset="300" style={{ animationDelay: "550ms" }} />
               </svg>
-              
+
               <div className="flex items-center justify-center gap-1.5 mb-1 opacity-60">
                 <div className="flex gap-0.5">
-                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
-                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
-                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                  <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                  <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                  <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
                 </div>
                 <span className="text-[0.45rem] sm:text-[0.55rem] font-bold text-slate-500 uppercase tracking-widest leading-none">Today</span>
                 <div className="flex gap-0.5">
-                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
-                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
-                   <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                  <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                  <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
+                  <div className="w-[1.5px] h-[1.5px] rounded-full bg-slate-500"></div>
                 </div>
               </div>
             </div>
@@ -471,90 +489,91 @@ export default function OverviewPage() {
 
       {/* Row 2: Income & Expenses */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8 items-start">
-          {/* Card 1: Income Sources */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "300ms" }}>
-            <div className="p-4 sm:p-5 pb-2">
-              <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Income Sources (Today)</h3>
-            </div>
-            <div className="flex-1 p-4 sm:p-5 flex flex-col min-[760px]:flex-row lg:flex-col 2xl:flex-row items-center gap-5 sm:gap-6">
-              {todayIncome === 0 ? (
-                 <div className="w-full text-center text-slate-400 py-10 text-sm">No income recorded today</div>
-              ) : (
-              <>
-              <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0">
-                 <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                   {todayIncomeSegments.map((seg, i) => (
-                     <circle
-                       key={i}
-                       cx="50"
-                       cy="50"
-                       r="40"
-                       fill="none"
-                       stroke={seg.color.stroke}
-                       strokeWidth="16"
-                       strokeDasharray="251.2"
-                       strokeDashoffset={seg.dashoffset}
-                       transform={`rotate(${seg.rotation + 90} 50 50)`}
-                       className={`transition-all duration-300 ease-out cursor-pointer ${hoveredIncCat && hoveredIncCat !== seg.category ? 'opacity-30' : 'opacity-100 hover:stroke-[20px]'}`}
-                       onMouseEnter={() => setHoveredIncCat(seg.category)}
-                       onMouseLeave={() => setHoveredIncCat(null)}
-                     />
-                   ))}
-                 </svg>
-                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                   <span className="text-[0.6rem] font-bold text-slate-400">Total Income</span>
-                   <span className="text-[#0B1E40] font-black text-[1rem] sm:text-[1.1rem]">₹{todayIncome.toLocaleString('en-IN')}</span>
-                 </div>
-              </div>
-              <div className="flex-1 flex flex-col gap-3 w-full">
-                 {todayIncomeSegments.map((seg, i) => {
-                   const iconStr = getRelatableIcon(seg.category);
-                   return (
-                   <div
-                     key={i}
-                     className={`flex items-center justify-between gap-3 group cursor-default transition-all duration-300 relative ${hoveredIncCat === seg.category ? 'sm:translate-x-3 bg-slate-50 p-2 -mx-2 rounded-xl shadow-sm' : ''}`}
-                     onMouseEnter={() => setHoveredIncCat(seg.category)}
-                     onMouseLeave={() => setHoveredIncCat(null)}
-                   >
-                     {hoveredIncCat === seg.category && (
-                       <div className="absolute -left-5 top-1/2 -translate-y-1/2 animate-pulse">
-                         <i className={`ph-fill ph-caret-right ${seg.color.text} text-lg`}></i>
-                       </div>
-                     )}
-                     <div className="flex items-center gap-3 min-w-0">
-                       <div className={`w-10 h-10 rounded-xl ${seg.color.bg} ${seg.color.text} flex items-center justify-center shrink-0 border border-transparent group-hover:scale-110 transition-all`}>
-                         <i className={`ph-bold ${iconStr} text-xl`}></i>
-                       </div>
-                       <span className="text-[0.8rem] font-bold text-[#0B1E40] truncate">{seg.category}</span>
-                     </div>
-                     <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                       <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{seg.amount.toLocaleString('en-IN')}</span>
-                       <span className="text-[0.7rem] text-slate-400 font-bold w-8 text-right">{Math.round(seg.pct * 100)}%</span>
-                     </div>
-                   </div>
-                 )})}
-              </div>
-              </>
-              )}
-            </div>
-            <div className="border-t border-slate-100 p-3 flex justify-end mt-auto">
-               <Link href="/transactions/allTransactions?view=day&type=INCOME" className="text-blue-600 font-bold text-[0.8rem] hover:text-blue-700 flex items-center gap-1 px-2">
-                  View all income <i className="ph-bold ph-arrow-right"></i>
-               </Link>
-            </div>
+        {/* Card 1: Income Sources */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "300ms" }}>
+          <div className="p-4 sm:p-5 pb-2">
+            <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Income Sources (Today)</h3>
           </div>
+          <div className="flex-1 p-4 sm:p-5 flex flex-col min-[760px]:flex-row lg:flex-col 2xl:flex-row items-center gap-5 sm:gap-6">
+            {todayIncome === 0 ? (
+              <div className="w-full text-center text-slate-400 py-10 text-sm">No income recorded today</div>
+            ) : (
+              <>
+                <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0">
+                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    {todayIncomeSegments.map((seg, i) => (
+                      <circle
+                        key={i}
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="none"
+                        stroke={seg.color.stroke}
+                        strokeWidth="16"
+                        strokeDasharray="251.2"
+                        strokeDashoffset={seg.dashoffset}
+                        transform={`rotate(${seg.rotation + 90} 50 50)`}
+                        className={`transition-all duration-300 ease-out cursor-pointer ${hoveredIncCat && hoveredIncCat !== seg.category ? 'opacity-30' : 'opacity-100 hover:stroke-[20px]'}`}
+                        onMouseEnter={() => setHoveredIncCat(seg.category)}
+                        onMouseLeave={() => setHoveredIncCat(null)}
+                      />
+                    ))}
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[0.6rem] font-bold text-slate-400">Total Income</span>
+                    <span className="text-[#0B1E40] font-black text-[1rem] sm:text-[1.1rem]">₹{todayIncome.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+                <div className="flex-1 flex flex-col gap-3 w-full">
+                  {todayIncomeSegments.map((seg, i) => {
+                    const iconStr = getRelatableIcon(seg.category);
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center justify-between gap-3 group cursor-default transition-all duration-300 relative ${hoveredIncCat === seg.category ? 'sm:translate-x-3 bg-slate-50 p-2 -mx-2 rounded-xl shadow-sm' : ''}`}
+                        onMouseEnter={() => setHoveredIncCat(seg.category)}
+                        onMouseLeave={() => setHoveredIncCat(null)}
+                      >
+                        {hoveredIncCat === seg.category && (
+                          <div className="absolute -left-5 top-1/2 -translate-y-1/2 animate-pulse">
+                            <i className={`ph-fill ph-caret-right ${seg.color.text} text-lg`}></i>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-10 h-10 rounded-xl ${seg.color.bg} ${seg.color.text} flex items-center justify-center shrink-0 border border-transparent group-hover:scale-110 transition-all`}>
+                            <i className={`ph-bold ${iconStr} text-xl`}></i>
+                          </div>
+                          <span className="text-[0.8rem] font-bold text-[#0B1E40] truncate">{seg.category}</span>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                          <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{seg.amount.toLocaleString('en-IN')}</span>
+                          <span className="text-[0.7rem] text-slate-400 font-bold w-8 text-right">{Math.round(seg.pct * 100)}%</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="border-t border-slate-100 p-3 flex justify-end mt-auto">
+            <Link href="/transactions/allTransactions?view=day&type=INCOME" className="text-blue-600 font-bold text-[0.8rem] hover:text-blue-700 flex items-center gap-1 px-2">
+              View all income <i className="ph-bold ph-arrow-right"></i>
+            </Link>
+          </div>
+        </div>
 
-          {/* Card 2: Expense Breakdown */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "400ms" }}>
-            <div className="p-4 sm:p-5 pb-2 flex justify-between items-start">
-              <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Expense Breakdown (Today)</h3>
-            </div>
-            <div className="flex-1 p-4 sm:p-5 flex flex-col min-[760px]:flex-row lg:flex-col 2xl:flex-row items-center gap-5 sm:gap-6">
-               {todayExpense === 0 ? (
-                 <div className="w-full text-center text-slate-400 py-10 text-sm">No expenses recorded today</div>
-               ) : (
-               <>
-               <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0">
+        {/* Card 2: Expense Breakdown */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full animate-slide-up" style={{ animationDelay: "400ms" }}>
+          <div className="p-4 sm:p-5 pb-2 flex justify-between items-start">
+            <h3 className="text-[#0B1E40] font-black text-[1.05rem]">Expense Breakdown (Today)</h3>
+          </div>
+          <div className="flex-1 p-4 sm:p-5 flex flex-col min-[760px]:flex-row lg:flex-col 2xl:flex-row items-center gap-5 sm:gap-6">
+            {todayExpense === 0 ? (
+              <div className="w-full text-center text-slate-400 py-10 text-sm">No expenses recorded today</div>
+            ) : (
+              <>
+                <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0">
                   <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
                     {todayExpenseSegments.map((seg, i) => (
                       <circle
@@ -578,45 +597,46 @@ export default function OverviewPage() {
                     <span className="text-[0.6rem] font-bold text-slate-400">Total Expense</span>
                     <span className="text-[#0B1E40] font-black text-[1rem] sm:text-[1.1rem]">₹{todayExpense.toLocaleString('en-IN')}</span>
                   </div>
-               </div>
-               <div className="flex-1 flex flex-col gap-3 w-full">
-                 {sortedTodayExpenses.slice(0, 4).map((seg: any, i: number) => {
-                   const iconStr = getRelatableIcon(seg.category);
-                   const colorClass = getConsistentColorClasses(seg.category);
-                   return (
-                   <div
-                     key={i}
-                     className={`flex items-center justify-between gap-3 group cursor-default transition-all duration-300 relative ${hoveredExpCat === seg.category ? 'sm:translate-x-3 bg-slate-50 p-2 -mx-2 rounded-xl shadow-sm' : ''}`}
-                     onMouseEnter={() => setHoveredExpCat(seg.category)}
-                     onMouseLeave={() => setHoveredExpCat(null)}
-                   >
-                     {hoveredExpCat === seg.category && (
-                       <div className="absolute -left-5 top-1/2 -translate-y-1/2 animate-pulse">
-                         <i className={`ph-fill ph-caret-right ${colorClass.text} text-lg`}></i>
-                       </div>
-                     )}
-                     <div className="flex items-center gap-3 min-w-0">
-                       <div className={`w-10 h-10 rounded-xl ${colorClass.bg} ${colorClass.text} flex items-center justify-center shrink-0 border border-transparent group-hover:scale-110 transition-all`}>
-                         <i className={`ph-bold ${iconStr} text-xl`}></i>
-                       </div>
-                       <span className="text-[0.8rem] font-bold text-[#0B1E40] truncate">{seg.category}</span>
-                     </div>
-                     <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                       <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{seg.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-                       <span className="text-[0.7rem] text-slate-400 font-bold w-8 text-right">{(seg.pct * 100).toFixed(1)}%</span>
-                     </div>
-                   </div>
-                 )})}
-               </div>
-               </>
-               )}
-            </div>
-            <div className="border-t border-slate-100 p-3 flex justify-start mt-auto">
-               <Link href="/transactions/allTransactions?view=day&type=EXPENSE" className="text-orange-500 font-bold text-[0.8rem] hover:text-orange-600 flex items-center gap-1 px-2">
-                  View all expenses <i className="ph-bold ph-arrow-right"></i>
-               </Link>
-            </div>
+                </div>
+                <div className="flex-1 flex flex-col gap-3 w-full">
+                  {sortedTodayExpenses.slice(0, 4).map((seg: any, i: number) => {
+                    const iconStr = getRelatableIcon(seg.category);
+                    const colorClass = getConsistentColorClasses(seg.category);
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center justify-between gap-3 group cursor-default transition-all duration-300 relative ${hoveredExpCat === seg.category ? 'sm:translate-x-3 bg-slate-50 p-2 -mx-2 rounded-xl shadow-sm' : ''}`}
+                        onMouseEnter={() => setHoveredExpCat(seg.category)}
+                        onMouseLeave={() => setHoveredExpCat(null)}
+                      >
+                        {hoveredExpCat === seg.category && (
+                          <div className="absolute -left-5 top-1/2 -translate-y-1/2 animate-pulse">
+                            <i className={`ph-fill ph-caret-right ${colorClass.text} text-lg`}></i>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-10 h-10 rounded-xl ${colorClass.bg} ${colorClass.text} flex items-center justify-center shrink-0 border border-transparent group-hover:scale-110 transition-all`}>
+                            <i className={`ph-bold ${iconStr} text-xl`}></i>
+                          </div>
+                          <span className="text-[0.8rem] font-bold text-[#0B1E40] truncate">{seg.category}</span>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                          <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{seg.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-[0.7rem] text-slate-400 font-bold w-8 text-right">{(seg.pct * 100).toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
+          <div className="border-t border-slate-100 p-3 flex justify-start mt-auto">
+            <Link href="/transactions/allTransactions?view=day&type=EXPENSE" className="text-orange-500 font-bold text-[0.8rem] hover:text-orange-600 flex items-center gap-1 px-2">
+              View all expenses <i className="ph-bold ph-arrow-right"></i>
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Quick Add Transaction */}
@@ -721,21 +741,19 @@ export default function OverviewPage() {
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-lg ${
-                      txn.type === 'INCOME'
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-lg ${txn.type === 'INCOME'
                         ? 'bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 text-emerald-400 shadow-emerald-500/10'
                         : 'bg-gradient-to-br from-red-400/20 to-red-600/20 text-red-400 shadow-red-500/10'
-                    }`}>
+                      }`}>
                       <i className={`ph-fill ${CATEGORY_ICONS[txn.category] || 'ph-dots-three-circle'}`} />
                     </div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
                         <span className="text-white font-bold text-[0.9rem] leading-tight">{txn.category}</span>
-                        <span className={`px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] ${
-                          txn.type === 'INCOME'
+                        <span className={`px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] ${txn.type === 'INCOME'
                             ? 'bg-emerald-500/15 text-emerald-400'
                             : 'bg-red-500/15 text-red-400'
-                        }`}>{txn.type}</span>
+                          }`}>{txn.type}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         {txn.description && (
@@ -755,9 +773,8 @@ export default function OverviewPage() {
                     <span className="text-slate-500 text-[0.7rem] font-semibold">
                       {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </span>
-                    <span className={`text-[1.05rem] font-extrabold tracking-tight ${
-                      txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
-                    }`}>
+                    <span className={`text-[1.05rem] font-extrabold tracking-tight ${txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
                       {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN')}
                     </span>
                   </div>
@@ -843,12 +860,12 @@ export default function OverviewPage() {
                   </div>
                   <div className="flex flex-col items-end shrink-0">
                     <span className="text-xs font-black text-slate-800">{Math.round(seg.pct * 100)}%</span>
-                    <span className="text-[0.65rem] font-bold text-slate-400 whitespace-nowrap">₹{seg.amount.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                    <span className="text-[0.65rem] font-bold text-slate-400 whitespace-nowrap">₹{seg.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                   </div>
                 </div>
               ))}
               {donutSegments.length === 0 && (
-                 <span className="text-xs text-slate-400 text-center py-4">No expenses recorded.</span>
+                <span className="text-xs text-slate-400 text-center py-4">No expenses recorded.</span>
               )}
             </div>
           </div>

@@ -126,10 +126,21 @@ export async function DELETE(
         }
       });
     } else {
-      await prisma.booking.update({
-        where: { id },
-        data: { deletedAt: new Date() },
-      });
+      const existing = await prisma.booking.findUnique({ where: { id } });
+      if (existing) {
+        await prisma.booking.update({
+          where: { id },
+          data: { deletedAt: new Date() },
+        });
+        await prisma.recycleBin.create({
+          data: {
+            itemType: "booking",
+            itemId: id,
+            originalData: existing as any,
+            trashedById: (session.user as any).id,
+          }
+        });
+      }
       await prisma.systemLog.create({
         data: {
           action: "BOOKING_SOFT_DELETED",
