@@ -28,8 +28,8 @@ export async function GET() {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    const dayAfterTomorrow = new Date(today);
+    dayAfterTomorrow.setDate(today.getDate() + 2);
     const next7Days = new Date(today);
     next7Days.setDate(today.getDate() + 7);
     const next14Days = new Date(today);
@@ -65,12 +65,10 @@ export async function GET() {
     }));
 
     // Use SQL aggregates instead of JS computation
-    const msPerDay = 1000 * 60 * 60 * 24;
-
     const [immediateShoots, thisWeekShoots, unconfirmedShoots, pendingDueAgg] = await Promise.all([
       // Bookings today or tomorrow
       prisma.booking.count({
-        where: { deletedAt: null, date: { gte: today, lt: tomorrow } }
+        where: { deletedAt: null, date: { gte: today, lt: dayAfterTomorrow } }
       }),
       // Bookings in next 7 days
       prisma.booking.count({
@@ -87,15 +85,8 @@ export async function GET() {
       }),
     ]);
 
-    // Hot date: most valuable upcoming date
-    const hotDateAgg = await prisma.booking.groupBy({
-      by: ['date'],
-      where: { deletedAt: null, date: { gte: today } },
-      _count: { id: true },
-      _sum: { packageName: false },
-      orderBy: { date: 'asc' },
-    });
-    // Since we can't sum package via order in groupBy, compute from mapped data
+    // Hot date: most valuable upcoming date — computed from loaded data
+    // (need customData for album metrics which is already fetched)
     const dateStats = new Map<string, { count: number; totalPackage: number }>();
     for (const b of dbBookings) {
       if (b.date >= today) {

@@ -88,7 +88,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
   }, [usersData]);
 
   useEffect(() => {
-    if (bookingsData) setAllBookings(bookingsData);
+    if (bookingsData) setAllBookings(bookingsData?.items || []);
   }, [bookingsData]);
 
   useEffect(() => {
