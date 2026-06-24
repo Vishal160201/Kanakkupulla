@@ -76,6 +76,7 @@ model SystemLog {
 
 model Transaction {
   id            String   @id @default(cuid())
+  transactionId String   @unique
   amount        Float
   type          String // "INCOME" | "EXPENSE"
   date          DateTime
@@ -99,6 +100,7 @@ model Transaction {
   @@index([userId])
   @@index([date, type])
   @@index([userId, date])
+  @@index([transactionId])
 }
 
 model Account {

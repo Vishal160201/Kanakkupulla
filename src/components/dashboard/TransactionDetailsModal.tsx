@@ -20,6 +20,7 @@ type CustomField = {
 type TransactionDetailResponse = {
   transaction: {
     id: string;
+    transactionId: string;
     amount: number;
     type: "INCOME" | "EXPENSE";
     date: string;
@@ -140,7 +141,7 @@ export default function TransactionDetailsModal({
   };
 
   const copyId = async () => {
-    await navigator.clipboard.writeText(transactionId);
+    await navigator.clipboard.writeText(transaction?.transactionId ?? transactionId);
     toast.success("Transaction ID copied");
   };
 
@@ -269,7 +270,7 @@ export default function TransactionDetailsModal({
                         onClick={copyId}
                         className="flex min-w-0 items-center justify-end gap-2 font-bold text-slate-700 hover:text-indigo-600"
                       >
-                        <span className="truncate">{transaction.id}</span>
+                        <span className="truncate">{transaction.transactionId}</span>
                         <i className="ph-bold ph-copy shrink-0" />
                       </button>
                     </div>

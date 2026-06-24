@@ -745,6 +745,9 @@ export default function OverviewPage() {
                           <i className={`ph-fill ${MODE_ICONS[txn.paymentMode] || 'ph-wallet'} text-[0.6rem]`} />
                           {txn.paymentMode}
                         </span>
+                        <span className="text-slate-700 text-[0.6rem] font-mono font-semibold">
+                          {txn.transactionId}
+                        </span>
                       </div>
                     </div>
                   </div>

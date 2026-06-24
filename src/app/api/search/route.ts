@@ -55,6 +55,7 @@ export async function GET(request: Request) {
         OR: [
           { description: { contains: query, mode: "insensitive" } },
           { category: { contains: query, mode: "insensitive" } },
+          { transactionId: { contains: query, mode: "insensitive" } },
         ]
       },
       take: 5
@@ -65,8 +66,8 @@ export async function GET(request: Request) {
         id: t.id,
         type: "TRANSACTION",
         title: t.description || t.category,
-        subtitle: `${t.type === 'INCOME' ? '+' : '-'}${t.amount} • ${t.date.toISOString().split('T')[0]}`,
-        link: `/transactions/overview`, // Or specifically edit if we had a view mode
+        subtitle: `${t.transactionId} • ${t.type === 'INCOME' ? '+' : '-'}₹${t.amount} • ${t.date.toISOString().split('T')[0]}`,
+        link: `/transactions/details/${t.id}`,
         icon: "ph-wallet",
         color: t.type === 'INCOME' ? "green" : "red"
       });

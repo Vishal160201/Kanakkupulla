@@ -66,7 +66,7 @@ export async function GET() {
         where: { date: { gte: todayStart, lte: todayEnd } },
         orderBy: { date: 'desc' },
         take: 10,
-        select: { id: true, amount: true, type: true, category: true, paymentMode: true, description: true, date: true },
+        select: { id: true, transactionId: true, amount: true, type: true, category: true, paymentMode: true, description: true, date: true },
       }),
       prisma.transaction.groupBy({
         by: ['type'],
