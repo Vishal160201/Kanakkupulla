@@ -138,7 +138,7 @@ function TransactionsList() {
   const clearAllFilters = () => {
     setTempFilters({ dateFrom: '', dateTo: '', categories: '', amountMin: '', amountMax: '', type: 'ALL', paymentMode: 'ALL' });
     const params = new URLSearchParams();
-    params.set('view', activeView);
+    if (activeView) params.set('view', activeView);
     router.push(`?${params.toString()}`);
     setIsFilterModalOpen(false);
   };
