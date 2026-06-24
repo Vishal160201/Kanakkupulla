@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { TRANSACTION_CATEGORIES, PAYMENT_MODES } from "@/lib/transactionConstants";
 import { broadcastNotification } from "@/lib/notifications";
+import { generateNextTransactionId } from "@/lib/transactionId";
 
 const PAGE_SIZE = 50;
 
@@ -162,8 +163,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Validation failed", errors }, { status: 422 });
     }
 
+    const transactionId = await generateNextTransactionId();
+
     const newTransaction = await prisma.transaction.create({
       data: {
+        transactionId,
         amount: parsedAmount,
         type,
         date: new Date(date),

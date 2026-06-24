@@ -360,7 +360,18 @@ export default function TopNavigation() {
                           <div className="flex justify-between items-start gap-2 mb-1">
                             <span className={`text-[0.85rem] truncate ${notification.isRead ? 'font-semibold text-slate-700' : 'font-bold text-slate-900'}`}>{notification.title}</span>
                             <span className="text-[0.65rem] text-slate-400 shrink-0 whitespace-nowrap mt-0.5">
-                              {new Date(notification.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              {(() => {
+                                const d = new Date(notification.createdAt);
+                                const now = new Date();
+                                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                const yesterday = new Date(today);
+                                yesterday.setDate(yesterday.getDate() - 1);
+                                const notifDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                                const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+                                if (notifDate.getTime() === today.getTime()) return `Today ${timeStr}`;
+                                if (notifDate.getTime() === yesterday.getTime()) return `Yesterday ${timeStr}`;
+                                return `${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} ${timeStr}`;
+                              })()}
                             </span>
                           </div>
                           <p className={`text-[0.8rem] line-clamp-2 ${notification.isRead ? 'text-slate-500' : 'text-slate-700'}`}>

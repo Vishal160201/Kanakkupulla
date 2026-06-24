@@ -175,9 +175,9 @@ function TransactionsList() {
           let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
           return `"${str.replace(/"/g, '""')}"`;
         };
-        const headers = ['ID', 'Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount', 'Attachment URL', 'Custom Data', 'Booking ID'];
+        const headers = ['Transaction ID', 'Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount', 'Attachment URL', 'Custom Data', 'Booking ID'];
         const rows = transactions.map(tx => [
-          escapeCsv(tx.id),
+          escapeCsv(tx.transactionId),
           escapeCsv(new Date(tx.date).toLocaleDateString('en-IN')),
           escapeCsv(tx.type),
           escapeCsv(tx.category),
@@ -215,6 +215,7 @@ function TransactionsList() {
         const doc = new jsPDF();
         doc.text("Transactions Ledger", 14, 15);
         const tableData = transactions.map(tx => [
+          tx.transactionId,
           new Date(tx.date).toLocaleDateString('en-IN'),
           tx.type,
           tx.category,
@@ -224,7 +225,7 @@ function TransactionsList() {
           tx.amount.toString()
         ]);
         autoTable(doc, {
-          head: [['Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount']],
+          head: [['Transaction ID', 'Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount']],
           body: tableData,
           startY: 20,
         });
@@ -413,7 +414,7 @@ function TransactionsList() {
               </div>
             )}
             <ViewSelectorCard 
-              value={activeView}
+              value={activeView ?? ''}
               onChange={(val) => handleViewChange(val)}
             />
 
@@ -576,6 +577,7 @@ function TransactionsList() {
                     <div className="flex min-w-0 items-center gap-2">
                       <span className={`max-w-[110px] truncate text-[9px] font-extrabold px-2 py-0.5 rounded tracking-wider uppercase ${colorClass.bg} ${colorClass.text}`}>{tx.category}</span>
                       <span className="truncate text-[11px] text-slate-400 font-medium">{new Date(tx.date).toLocaleDateString('en-GB')} &middot; {tx.paymentMode}</span>
+                      <span className="hidden sm:inline text-[10px] text-slate-300 font-mono">{tx.transactionId}</span>
                     </div>
                   </div>
                 </div>
