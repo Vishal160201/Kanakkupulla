@@ -29,9 +29,6 @@ export async function GET(request: Request) {
     const paymentMode = searchParams.get("paymentMode");
 
     let whereClause: any = {};
-  // F6: Add userId filter using relation – supports both old and new generated client
-  const userFilter = userId ? { user: { is: { id: userId } } } : undefined;
-
     // 1. Date Logic — F4: Fixed date mutation bug by NOT reusing the same `now` object
     if (dateFrom || dateTo) {
       whereClause.date = {};
@@ -87,8 +84,7 @@ export async function GET(request: Request) {
     const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
     const transactions = await prisma.transaction.findMany({
       where: { 
-        ...whereClause,
-        ...(userFilter ? { userId } : {}),
+        ...whereClause
       },
       orderBy: [
         { date: "desc" },
@@ -99,7 +95,7 @@ export async function GET(request: Request) {
     });
 
     const total = await prisma.transaction.count({
-      where: { ...whereClause, ...(userFilter ? { userId } : {}) },
+      where: { ...whereClause },
     });
 
     return NextResponse.json({ items: transactions, total, page, pageSize: PAGE_SIZE }, {

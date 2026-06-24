@@ -63,7 +63,7 @@ export async function GET() {
         where: { status: { not: 'DELIVERED' } }
       }),
       prisma.transaction.findMany({
-        where: { userId, date: { gte: todayStart, lte: todayEnd } },
+        where: { date: { gte: todayStart, lte: todayEnd } },
         orderBy: { date: 'desc' },
         take: 10,
         select: { id: true, amount: true, type: true, category: true, paymentMode: true, description: true, date: true },
@@ -71,7 +71,7 @@ export async function GET() {
       prisma.transaction.groupBy({
         by: ['type'],
         _sum: { amount: true },
-        where: { userId, date: { gte: todayStart, lte: todayEnd } }
+        where: { date: { gte: todayStart, lte: todayEnd } }
       }),
     ]);
 

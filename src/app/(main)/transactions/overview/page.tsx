@@ -121,9 +121,8 @@ export default function OverviewPage() {
 
   const queryStr = React.useMemo(() => {
     const todayDate = new Date();
-    const lastWeekDate = new Date();
-    lastWeekDate.setDate(todayDate.getDate() - 6);
-    return `?startDate=${lastWeekDate.toISOString().split('T')[0]}&endDate=${todayDate.toISOString().split('T')[0]}`;
+    const yearStart = new Date(todayDate.getFullYear(), 0, 1);
+    return `?startDate=${yearStart.toISOString().split('T')[0]}&endDate=${todayDate.toISOString().split('T')[0]}`;
   }, []);
 
   const { data, error, isLoading } = useSWR(`/api/transactions/overview${queryStr}`, fetcher);
