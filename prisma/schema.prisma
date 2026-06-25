@@ -213,6 +213,7 @@ model Product {
 
 model ProductOrder {
   id          String   @id @default(cuid())
+  orderNumber String?  @unique
   productId   String
   product     Product  @relation(fields: [productId], references: [id])
   quantity    Int      @default(1)
