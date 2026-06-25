@@ -25,11 +25,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { productId, quantity, clientName, clientPhone, customData, createTransaction, amount, paymentMode } = data;
+    const { productId, quantity, clientName, clientPhone, customData, createTransaction, amount, advanceAmount, dueAmount, paymentMode } = data;
 
     if (!productId || !clientName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const updatedCustomData = {
+      ...(customData || {}),
+      advanceAmount,
+      dueAmount
+    };
 
     const order = await prisma.productOrder.create({
       data: {
@@ -37,20 +43,22 @@ export async function POST(request: Request) {
         quantity: quantity || 1,
         clientName,
         clientPhone,
-        customData,
+        customData: updatedCustomData,
         status: "PENDING",
       }
     });
 
-    if (createTransaction && amount > 0) {
+    const txAmount = advanceAmount !== undefined && advanceAmount !== "" ? parseFloat(advanceAmount) : parseFloat(amount);
+
+    if (createTransaction && txAmount > 0) {
       await prisma.transaction.create({
         data: {
           productOrderId: order.id,
-          amount: parseFloat(amount),
+          amount: txAmount,
           type: "INCOME",
           date: new Date(),
           category: "GIFTS_AND_FRAMES",
-          paymentMode: paymentMode || "CASH",
+          paymentMode: paymentMode || "Cash",
           status: "SETTLED",
           description: `Payment for Order ${order.id} - ${clientName}`
         }

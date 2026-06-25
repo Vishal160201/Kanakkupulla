@@ -3,11 +3,12 @@ import prisma from "@/lib/prisma";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const order = await prisma.productOrder.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         product: true,
         transactions: true,
@@ -27,9 +28,10 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const data = await request.json();
     
     // Only allow specific fields to be updated via PATCH for safety
@@ -41,7 +43,7 @@ export async function PATCH(
     if (data.customData) allowedUpdates.customData = data.customData;
 
     const order = await prisma.productOrder.update({
-      where: { id: params.id },
+      where: { id },
       data: allowedUpdates,
       include: { product: true, transactions: true }
     });
@@ -55,13 +57,14 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // We should first check if there are transactions, and handle them if needed.
     // For now, cascade delete or just delete the order (assuming transactions might prevent deletion if constrained)
     await prisma.productOrder.delete({
-      where: { id: params.id }
+      where: { id }
     });
 
     return NextResponse.json({ success: true });

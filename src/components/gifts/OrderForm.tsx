@@ -34,6 +34,9 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
     fld_g_product: 'productId',
     fld_g_quantity: 'quantity',
     fld_g_amount: 'amount',
+    fld_g_advance: 'advanceAmount',
+    fld_g_due: 'dueAmount',
+    fld_g_payment_mode: 'paymentMode',
     fld_g_client_name: 'clientName',
     fld_g_client_phone: 'clientPhone'
   };
@@ -41,7 +44,13 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
   const evaluateVisibility = (rule: any) => {
     if (!rule || !rule.fieldId) return true;
     const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
-    const depValue = formData[depFieldName];
+    let depValue = formData[depFieldName];
+    
+    // Reverse map productId to product name for rule evaluation since rules are configured with names
+    if (depFieldName === 'productId' && depValue) {
+      const p = products.find((prod: any) => prod.id === depValue);
+      if (p) depValue = p.name;
+    }
     
     if (rule.operator === 'EQUALS') return depValue === rule.value;
     if (rule.operator === 'NOT_EQUALS') return depValue !== rule.value;
@@ -63,7 +72,15 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
       // Also store the raw product name in customData just in case
       setFormData(prev => ({ ...prev, rawProductName: value }));
     } else {
-      setFormData(prev => ({ ...prev, [key]: value }));
+      setFormData(prev => {
+        const next = { ...prev, [key]: value };
+        if (key === 'amount' || key === 'advanceAmount') {
+          const t = Number(next.amount) || 0;
+          const a = Number(next.advanceAmount) || 0;
+          next.dueAmount = Math.max(0, t - a).toString();
+        }
+        return next;
+      });
     }
   };
 
@@ -96,8 +113,10 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
       clientName: formData.clientName || "Unknown",
       clientPhone: formData.clientPhone,
       amount: Number(formData.amount) || 0,
+      advanceAmount: formData.advanceAmount ? Number(formData.advanceAmount) : undefined,
+      dueAmount: formData.dueAmount ? Number(formData.dueAmount) : undefined,
       createTransaction: true,
-      paymentMode: "CASH",
+      paymentMode: formData.paymentMode || "Cash",
       customData: {}
     };
 
@@ -188,11 +207,11 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2 bg-[#8C5E2D] hover:bg-[#734A21] text-white rounded-xl shadow-lg transition-all active:scale-95">
-          <PlusCircle size={18} />
-          <span>New Order</span>
-        </Button>
+      <DialogTrigger 
+        render={<Button className="gap-2 bg-[#8C5E2D] hover:bg-[#734A21] text-white rounded-xl shadow-lg transition-all active:scale-95" />}
+      >
+        <PlusCircle size={18} />
+        <span>New Order</span>
       </DialogTrigger>
       
       <DialogContent className="sm:max-w-[600px] bg-slate-50 rounded-2xl border-none shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
@@ -242,8 +261,8 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
         </div>
 
         <DialogFooter className="p-6 bg-white border-t border-gray-100 shrink-0 gap-3">
-          <DialogClose asChild>
-            <Button type="button" variant="ghost" className="rounded-xl font-semibold text-slate-600 hover:bg-slate-100 px-6">Cancel</Button>
+          <DialogClose render={<Button variant="ghost" className="rounded-xl font-semibold text-slate-600 hover:bg-slate-100 px-6" />}>
+            Cancel
           </DialogClose>
           <Button 
             type="submit" 
