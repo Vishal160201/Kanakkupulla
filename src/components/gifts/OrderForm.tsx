@@ -36,6 +36,7 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
     fld_g_amount: 'amount',
     fld_g_advance: 'advanceAmount',
     fld_g_due: 'dueAmount',
+    fld_g_due_date: 'dueDate',
     fld_g_payment_mode: 'paymentMode',
     fld_g_client_name: 'clientName',
     fld_g_client_phone: 'clientPhone'
@@ -214,10 +215,10 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
         <span>New Order</span>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-[600px] bg-slate-50 rounded-2xl border-none shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
-        <DialogHeader className="p-6 pb-5 bg-white border-b border-gray-100 shrink-0">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2">
-            <ShoppingBag className="text-blue-500" />
+      <DialogContent className="w-[95vw] sm:w-full sm:max-w-[600px] bg-slate-50 rounded-2xl border-none shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogHeader className="p-4 sm:p-6 pb-4 sm:pb-5 bg-white border-b border-gray-100 shrink-0">
+          <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <ShoppingBag className="text-blue-500 w-5 h-5 sm:w-6 sm:h-6" />
             Create Gift Order
           </DialogTitle>
         </DialogHeader>
@@ -234,12 +235,12 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
                 if (!evaluateVisibility(section.visibilityRule)) return null;
 
                 return (
-                  <div key={section.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+                  <div key={section.id} className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
+                    <h3 className="text-[0.95rem] sm:text-base font-bold text-slate-800 flex items-center gap-2 mb-3 sm:mb-4">
                       {section.icon && <i className={`ph-fill ${section.icon} text-orange-500`}></i>}
                       {section.title}
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                       {section.fields.map((field: any) => {
                         if (!evaluateVisibility(field.visibilityRule)) return null;
 
@@ -260,15 +261,17 @@ export default function OrderForm({ products, onOrderCreated }: OrderFormProps) 
           </form>
         </div>
 
-        <DialogFooter className="p-6 bg-white border-t border-gray-100 shrink-0 gap-3">
-          <DialogClose render={<Button variant="ghost" className="rounded-xl font-semibold text-slate-600 hover:bg-slate-100 px-6" />}>
-            Cancel
+        <DialogFooter className="p-4 sm:p-6 bg-white border-t border-gray-100 shrink-0 gap-3 sm:gap-4 flex flex-col-reverse sm:flex-row">
+          <DialogClose asChild>
+            <Button variant="ghost" className="rounded-xl font-semibold text-slate-600 hover:bg-slate-100 px-6 w-full sm:w-auto">
+              Cancel
+            </Button>
           </DialogClose>
           <Button 
             type="submit" 
             form="dynamic-gift-form"
             disabled={isSubmitting || !layoutSchema}
-            className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white min-w-[140px] shadow-md transition-all active:scale-95 font-semibold"
+            className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white min-w-[140px] shadow-md transition-all active:scale-95 font-semibold w-full sm:w-auto"
           >
             {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : "Create Order"}
           </Button>
