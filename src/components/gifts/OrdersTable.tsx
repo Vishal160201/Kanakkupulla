@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { MoreVertical, Loader2, Image as ImageIcon } from "lucide-react";
+import { MoreVertical, Loader2, Image as ImageIcon, Edit2, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 interface Order {
@@ -35,51 +35,50 @@ const STATUS_MAP: Record<string, { label: string; dot: string; bg: string; text:
 };
 
 export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps) {
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
-    setUpdatingId(orderId);
+  const handleDelete = async (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation();
+    
+    setDeletingId(orderId);
     try {
-      const res = await fetch(`/api/gifts/orders/${orderId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!res.ok) throw new Error("Failed to update status");
-      
-      toast.success("Status updated successfully");
+      const res = await fetch(`/api/gifts/orders/${orderId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Order deleted successfully");
       onOrderUpdated();
-    } catch (error) {
-      toast.error("Failed to update status");
+    } catch (err) {
+      toast.error("Failed to delete order");
     } finally {
-      setUpdatingId(null);
+      setDeletingId(null);
+      setConfirmDeleteId(null);
     }
   };
 
   return (
     <div className="bg-white/60 backdrop-blur-xl rounded-3xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-      <div className="flex items-center justify-between p-6 pb-4">
-        <h3 className="text-[1.35rem] font-extrabold text-slate-800 tracking-tight">Active Gift Orders</h3>
-        <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors">
+      <div className="flex items-center justify-between p-4 sm:p-6 pb-4">
+        <h3 className="text-[1.15rem] sm:text-[1.35rem] font-extrabold text-slate-800 tracking-tight">Active Gift Orders</h3>
+        <div className="flex gap-2 sm:gap-3">
+          <button className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white rounded-lg text-xs sm:text-sm font-semibold text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors">
             Filter
           </button>
-          <button className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors">
+          <button className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white rounded-lg text-xs sm:text-sm font-semibold text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors hidden sm:block">
             Export PDF
           </button>
         </div>
       </div>
       
       <div className="w-full overflow-x-auto">
-        <table className="w-full text-sm text-left whitespace-nowrap">
-          <thead className="text-[0.7rem] text-slate-400 font-bold uppercase tracking-widest bg-slate-50/50">
+        <table className="w-full text-sm text-left whitespace-nowrap sm:whitespace-normal md:whitespace-nowrap">
+          <thead className="text-[0.65rem] sm:text-[0.7rem] text-slate-400 font-bold uppercase tracking-widest bg-slate-50/50">
             <tr>
-              <th className="px-6 py-4">Client & Product</th>
-              <th className="px-6 py-4">Order ID</th>
-              <th className="px-6 py-4">Placement</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-center">Actions</th>
+              <th className="px-4 sm:px-6 py-3 sm:py-4">Client & Product</th>
+              <th className="hidden md:table-cell px-6 py-4">Order ID</th>
+              <th className="hidden md:table-cell px-6 py-4">Placement</th>
+              <th className="px-4 sm:px-6 py-3 sm:py-4">Status</th>
+              <th className="px-4 sm:px-6 py-3 sm:py-4 text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100/50">
@@ -94,30 +93,37 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                 const statusStyle = STATUS_MAP[order.status] || STATUS_MAP.PENDING;
                 
                 return (
-                  <tr key={order.id} className="hover:bg-white/60 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 flex items-center justify-center text-slate-400 shadow-sm shrink-0">
-                          <ImageIcon size={20} strokeWidth={1.5} />
+                  <tr 
+                    key={order.id} 
+                    onClick={() => router.push(`/gifts/orders/${order.id}`)}
+                    className="hover:bg-slate-50/80 transition-all duration-300 group cursor-pointer relative z-10"
+                  >
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 flex items-center justify-center text-slate-400 shadow-sm shrink-0">
+                          <ImageIcon size={20} strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
                         <div>
-                          <div className="font-bold text-[1.05rem] text-slate-800 tracking-tight">
+                          <div className="font-bold text-[0.95rem] sm:text-[1.05rem] text-slate-800 tracking-tight flex items-center gap-2 flex-wrap">
                             {order.clientName}
+                            <span className="md:hidden text-[0.65rem] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase">#{order.id.slice(-6)}</span>
                           </div>
-                          <div className="text-[0.8rem] text-slate-500 font-medium mt-0.5 flex items-center gap-1.5">
-                            <span>{order.product?.name}</span>
+                          <div className="text-[0.75rem] sm:text-[0.8rem] text-slate-500 font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
+                            <span className="truncate max-w-[120px] sm:max-w-none">{order.product?.name}</span>
                             <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                             <span>Qty: {order.quantity}</span>
+                            <span className="md:hidden w-1 h-1 rounded-full bg-slate-300"></span>
+                            <span className="md:hidden">{formatDistanceToNowStrict(new Date(order.createdAt))} ago</span>
                           </div>
                         </div>
                       </div>
                     </td>
                     
-                    <td className="px-6 py-4">
+                    <td className="hidden md:table-cell px-6 py-4">
                       <span className="font-bold text-slate-700">#{order.id.slice(-6).toUpperCase()}</span>
                     </td>
                     
-                    <td className="px-6 py-4">
+                    <td className="hidden md:table-cell px-6 py-4">
                       <div className="text-slate-700 font-medium">
                         {format(new Date(order.createdAt), "MMM dd, yyyy")}
                       </div>
@@ -126,42 +132,53 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                       </div>
                     </td>
                     
-                    <td className="px-6 py-4">
-                      {updatingId === order.id ? (
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <Loader2 className="animate-spin" size={16} />
-                          <span className="text-xs font-bold">UPDATING</span>
-                        </div>
-                      ) : (
-                        <Select 
-                          value={order.status} 
-                          onValueChange={(val) => val && handleStatusChange(order.id, val)}
-                        >
-                          <SelectTrigger 
-                            className={cn(
-                              "h-8 rounded-full px-3 text-[0.7rem] font-bold tracking-wider uppercase border transition-all w-fit min-w-[140px] shadow-sm",
-                              statusStyle.bg, statusStyle.text, statusStyle.border
-                            )}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={cn("w-1.5 h-1.5 rounded-full", statusStyle.dot)} />
-                              <SelectValue />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="PENDING">PENDING</SelectItem>
-                            <SelectItem value="PROCESSING">IN PRODUCTION</SelectItem>
-                            <SelectItem value="READY">READY FOR PICKUP</SelectItem>
-                            <SelectItem value="DELIVERED">SHIPPED</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
+                      <div 
+                        className={cn(
+                          "h-8 flex items-center gap-2 rounded-full px-3 text-[0.7rem] font-bold tracking-wider uppercase border w-fit shadow-sm",
+                          statusStyle.bg, statusStyle.text, statusStyle.border
+                        )}
+                      >
+                        <span className={cn("w-1.5 h-1.5 rounded-full", statusStyle.dot)} />
+                        {statusStyle.label}
+                      </div>
                     </td>
                     
-                    <td className="px-6 py-4 text-center">
-                      <button className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-                        <MoreVertical size={18} />
-                      </button>
+                    <td className="px-2 sm:px-6 py-3 sm:py-4 text-center">
+                      {confirmDeleteId === order.id ? (
+                        <div className="flex items-center justify-end sm:justify-center gap-2 animate-[fadeIn_0.2s_ease-out]">
+                          <button 
+                            onClick={(e) => handleDelete(e, order.id)}
+                            disabled={deletingId === order.id}
+                            className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[0.65rem] uppercase tracking-wider font-bold hover:bg-red-700 shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+                          >
+                            {deletingId === order.id ? <Loader2 size={12} className="animate-spin" /> : "Confirm"}
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                            className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[0.65rem] uppercase tracking-wider font-bold hover:bg-slate-200 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end sm:justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); router.push(`/gifts/orders/${order.id}`); }}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="View / Edit"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -171,7 +188,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
         </table>
       </div>
       
-      <div className="p-6 border-t border-slate-100/50 flex items-center justify-between text-sm text-slate-500 font-medium">
+      <div className="p-4 sm:p-6 border-t border-slate-100/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm text-slate-500 font-medium">
         <div>
           Showing <span className="font-bold text-slate-700">1-{orders.length}</span> of <span className="font-bold text-slate-700">{orders.length}</span> active orders
         </div>

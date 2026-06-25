@@ -40,7 +40,15 @@ export async function PATCH(
     if (data.quantity !== undefined) allowedUpdates.quantity = data.quantity;
     if (data.clientName) allowedUpdates.clientName = data.clientName;
     if (data.clientPhone !== undefined) allowedUpdates.clientPhone = data.clientPhone;
-    if (data.customData) allowedUpdates.customData = data.customData;
+    if (data.customData) {
+      // Fetch existing order to merge customData
+      const existingOrder = await prisma.productOrder.findUnique({
+        where: { id },
+        select: { customData: true }
+      });
+      const currentCustomData = (existingOrder?.customData as any) || {};
+      allowedUpdates.customData = { ...currentCustomData, ...data.customData };
+    }
 
     const order = await prisma.productOrder.update({
       where: { id },

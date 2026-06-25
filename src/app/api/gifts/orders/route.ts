@@ -33,6 +33,7 @@ export async function POST(request: Request) {
 
     const updatedCustomData = {
       ...(customData || {}),
+      amount,
       advanceAmount,
       dueAmount
     };

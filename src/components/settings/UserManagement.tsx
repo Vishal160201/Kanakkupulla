@@ -132,15 +132,25 @@ export default function UserManagement() {
             users.map((user) => {
               const isCurrentUser = user.id === currentUserId;
               const statusStyle = STATUS_STYLES[user.status] || STATUS_STYLES.ACTIVE;
+              const isSuperAdmin = user.email === "nithyavishalr@gmail.com";
+              const isEditable = isCurrentUser || !isSuperAdmin;
 
               return (
                 <div
                   key={user.id}
-                  onClick={() => setEditTarget(user)}
-                  className={`px-4 py-2.5 flex items-center gap-3 transition-all group rounded-xl border cursor-pointer hover:-translate-y-[1px] hover:shadow-md ${
-                    isCurrentUser ? "bg-[#fcfaff] border-purple-100 shadow-sm hover:border-purple-200" : "bg-white border-gray-100 shadow-sm hover:border-orange-100"
+                  onClick={() => {
+                    if (!isEditable) {
+                      toast.error("This master admin cannot be edited by others.");
+                      return;
+                    }
+                    setEditTarget(user);
+                  }}
+                  className={`px-4 py-2.5 flex items-center gap-3 transition-all group rounded-xl border ${
+                    isEditable ? "cursor-pointer hover:-translate-y-[1px] hover:shadow-md" : "cursor-default"
+                  } ${
+                    isCurrentUser ? "bg-[#fcfaff] border-purple-100 shadow-sm hover:border-purple-200" : "bg-white border-gray-100 shadow-sm " + (isEditable ? "hover:border-orange-100" : "")
                   }`}
-                  title="Click to edit user"
+                  title={isEditable ? "Click to edit user" : "Cannot edit master admin"}
                 >
                   {/* Avatar */}
                   <div className={`w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-sm shrink-0 relative ${getAvatarColor(user.name)}`}>
