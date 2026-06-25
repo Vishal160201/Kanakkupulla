@@ -54,12 +54,12 @@ export async function POST(
     } else if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
       const data: any = entry.originalData;
       try {
-        // Restore any associated transactions
-        const txRestoreResult = await prisma.transaction.updateMany({
-          where: { productOrderId: entry.itemId, deletedAt: { not: null } },
-          data: { deletedAt: null }
-        });
-        console.log(`Restore transactions result: ${txRestoreResult.count}`);
+        console.log(`[DEBUG] (2) Exact order.id being used: ${entry.itemId}`);
+        const debugTxs = await prisma.transaction.findMany({ where: { productOrderId: entry.itemId } });
+        console.log(`[DEBUG] (1) Found by productOrderId:`, JSON.stringify(debugTxs, null, 2));
+        
+        const debugCols = await prisma.$queryRaw`SELECT column_name FROM information_schema.columns WHERE table_name = 'Transaction'`;
+        console.log(`[DEBUG] (3) Transaction columns:`, JSON.stringify(debugCols, null, 2));
 
         await prisma.productOrder.create({
           data: {
@@ -76,6 +76,20 @@ export async function POST(
             updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
           }
         });
+
+        // Restore any associated transactions (find by description since productOrderId is nullified on cascade)
+        // This MUST happen after productOrder is created to satisfy foreign key constraints.
+        const txRestoreResult = await prisma.transaction.updateMany({
+          where: { 
+            description: { contains: entry.itemId },
+            deletedAt: { not: null } 
+          },
+          data: { 
+            deletedAt: null,
+            productOrderId: entry.itemId
+          }
+        });
+        console.log(`Restore transactions result: ${txRestoreResult.count}`);
       } catch (e) {
         console.error("Failed to restore product order", e);
         return NextResponse.json({ error: "Failed to restore product order" }, { status: 500 });
