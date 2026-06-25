@@ -91,21 +91,20 @@ export async function saveBookingAction(formData: FormData) {
     
     let nextBookingNumber = rawData.bookingNumber as string;
     if (!nextBookingNumber) {
-      const allMdBookings = await prisma.booking.findMany({
-        where: { bookingNumber: { startsWith: '#MD-' } },
-        select: { bookingNumber: true }
-      });
-      let maxNum = 0;
-      for (const b of allMdBookings) {
-        if (b.bookingNumber) {
-          const match = b.bookingNumber.match(/#MD-(\d+)/);
-          if (match) {
-            const num = parseInt(match[1]);
-            if (num > maxNum) maxNum = num;
-          }
+      let isUnique = false;
+      const crypto = require('crypto');
+      while (!isUnique) {
+        const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+        nextBookingNumber = `#MD-${suffix}`;
+        
+        const activeExists = await prisma.booking.findFirst({
+          where: { bookingNumber: nextBookingNumber }
+        });
+        
+        if (!activeExists) {
+          isUnique = true;
         }
       }
-      nextBookingNumber = `#MD-${String(maxNum + 1).padStart(3, '0')}`;
     }
 
     const newBooking = await prisma.booking.create({

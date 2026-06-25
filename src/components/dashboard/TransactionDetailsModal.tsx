@@ -37,6 +37,7 @@ type TransactionDetailResponse = {
       client: { name: string };
     } | null;
     user?: { id: string; name?: string | null; email?: string | null } | null;
+    productOrder?: { id: string; orderNumber?: string | null } | null;
     customFields: CustomField[];
   };
   impact: {
@@ -100,13 +101,24 @@ export default function TransactionDetailsModal({
 }: TransactionDetailsModalProps) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const { data, error, isLoading } = useSWR<TransactionDetailResponse>(
     `/api/transactions/${transactionId}`,
     fetcher
   );
 
-  const close = () => router.back();
+  const close = () => {
+    setIsOpen(false);
+    setTimeout(() => router.back(), 100);
+  };
+
+  const handleNavigate = (path: string) => {
+    setIsOpen(false);
+    setTimeout(() => {
+      router.push(path);
+    }, 150);
+  };
 
   const receipt = useMemo(() => {
     const url = data?.transaction.attachmentUrl;
@@ -161,7 +173,7 @@ export default function TransactionDetailsModal({
 
   return (
     <>
-      <Dialog open={!showDeleteConfirm} onOpenChange={(open) => !open && close()}>
+      <Dialog open={isOpen && !showDeleteConfirm} onOpenChange={(open) => !open && close()}>
         <DialogContent
           showCloseButton={false}
           className="!fixed !left-0 !right-0 !bottom-0 !top-auto !flex !w-full !max-w-none !translate-x-0 !translate-y-0 flex-col md:!left-1/2 md:!right-auto md:!top-1/2 md:!bottom-auto md:!-translate-x-1/2 md:!-translate-y-1/2 md:!max-w-[960px] max-h-[96dvh] md:max-h-[90vh] gap-0 overflow-hidden !rounded-t-[28px] !rounded-b-none md:!rounded-[28px] border-0 bg-white p-0 shadow-2xl"
@@ -246,13 +258,26 @@ export default function TransactionDetailsModal({
                     {transaction.booking && (
                       <button
                         type="button"
-                        onClick={() => router.push(`/bookings/details/${transaction.booking?.id}`)}
-                        className="grid w-full grid-cols-[24px_110px_minmax(0,1fr)] items-start gap-2 text-left text-sm sm:grid-cols-[28px_120px_minmax(0,1fr)]"
+                        onClick={() => handleNavigate(`/bookings/details/${transaction.booking?.id}`)}
+                        className="grid w-full grid-cols-[24px_110px_minmax(0,1fr)] items-start gap-2 text-left text-sm sm:grid-cols-[28px_120px_minmax(0,1fr)] mt-1"
                       >
                         <i className="ph-bold ph-calendar-check mt-0.5 text-lg text-slate-400" />
                         <span className="font-semibold text-slate-400">Booking</span>
-                        <span className="text-right font-bold text-indigo-600 hover:underline">
+                        <span className="text-right font-bold text-indigo-600 hover:underline truncate">
                           {transaction.booking.bookingNumber || transaction.booking.client.name}
+                        </span>
+                      </button>
+                    )}
+                    {transaction.productOrder && (
+                      <button
+                        type="button"
+                        onClick={() => handleNavigate(`/gifts/orders/${transaction.productOrder?.id}`)}
+                        className="grid w-full grid-cols-[24px_110px_minmax(0,1fr)] items-start gap-2 text-left text-sm sm:grid-cols-[28px_120px_minmax(0,1fr)] mt-1"
+                      >
+                        <i className="ph-bold ph-package mt-0.5 text-lg text-slate-400" />
+                        <span className="font-semibold text-slate-400">Gift Order</span>
+                        <span className="text-right font-bold text-indigo-600 hover:underline truncate">
+                          {transaction.productOrder.orderNumber || transaction.productOrder.id}
                         </span>
                       </button>
                     )}

@@ -1,19 +1,22 @@
 import prisma from '@/lib/prisma';
+import crypto from 'crypto';
 
 export async function generateNextTransactionId(): Promise<string> {
-  const last = await prisma.transaction.findFirst({
-    where: { transactionId: { startsWith: '#MDTXN-' } },
-    orderBy: { transactionId: 'desc' },
-    select: { transactionId: true },
-  });
-
-  let nextNum = 1;
-  if (last?.transactionId) {
-    const match = last.transactionId.match(/#MDTXN-(\d+)/);
-    if (match) {
-      nextNum = parseInt(match[1], 10) + 1;
+  let isUnique = false;
+  let transactionId = '';
+  
+  while (!isUnique) {
+    const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    transactionId = `#MDTXN-${suffix}`;
+    
+    const activeExists = await prisma.transaction.findFirst({
+      where: { transactionId }
+    });
+    
+    if (!activeExists) {
+      isUnique = true;
     }
   }
 
-  return `#MDTXN-${String(nextNum).padStart(3, '0')}`;
+  return transactionId;
 }

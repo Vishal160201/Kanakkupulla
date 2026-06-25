@@ -94,6 +94,7 @@ model Transaction {
   user          User?    @relation(fields: [userId], references: [id])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
 
   @@index([date])
   @@index([category])
@@ -220,6 +221,7 @@ model ProductOrder {
   status      String   @default("PENDING") // "PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "READY"
   clientName  String
   clientPhone String?
+  dueDate     DateTime?
   customData  Json?    // Specific details based on product
   transactions Transaction[]
   createdAt   DateTime @default(now())

@@ -73,18 +73,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 422 });
     }
 
-    // Find the highest existing booking number via ordered query instead of scanning all records
-    const lastBooking = await prisma.booking.findFirst({
-      where: { bookingNumber: { startsWith: '#MD-' } },
-      orderBy: { createdAt: 'desc' },
-      select: { bookingNumber: true }
-    });
-    let maxNum = 0;
-    if (lastBooking?.bookingNumber) {
-      const match = lastBooking.bookingNumber.match(/#MD-(\d+)/);
-      if (match) maxNum = parseInt(match[1]);
+    let nextBookingNumber = "";
+    let isUnique = false;
+    const crypto = require('crypto');
+    while (!isUnique) {
+      const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+      nextBookingNumber = `#MD-${suffix}`;
+      
+      const activeExists = await prisma.booking.findFirst({
+        where: { bookingNumber: nextBookingNumber }
+      });
+      
+      if (!activeExists) {
+        isUnique = true;
+      }
     }
-    const nextBookingNumber = `#MD-${String(maxNum + 1).padStart(3, '0')}`;
 
     const userId = (session?.user as any)?.id as string | undefined;
 

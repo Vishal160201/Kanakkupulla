@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 import OrderForm from "@/components/gifts/OrderForm";
 import OrdersTable from "@/components/gifts/OrdersTable";
@@ -18,6 +18,15 @@ export default function GiftsPage() {
   const { data: ordersData, mutate } = useSWR("/api/gifts/orders", fetcher);
 
   const orders = ordersData?.orders || [];
+  
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
+  const [formDefaultProduct, setFormDefaultProduct] = useState<string | null>(null);
+
+  const filteredOrders = useMemo(() => {
+    if (!selectedCategory) return orders;
+    return orders.filter((o: any) => o.product?.id === selectedCategory);
+  }, [orders, selectedCategory]);
 
   // Calculate metrics
   const pendingCount = orders.filter((o: any) => o.status === "PENDING").length;
@@ -32,7 +41,7 @@ export default function GiftsPage() {
       <div className="w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-12 flex flex-col gap-8">
         
         {/* Header section */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <h1 className="text-[2rem] font-black text-[#0F172A] tracking-tight">
               Gift Shop
@@ -42,17 +51,48 @@ export default function GiftsPage() {
             </p>
           </div>
           
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             {/* We override the button in the OrderForm trigger via asChild */}
             <OrderForm 
               products={productsData?.products || []} 
               onOrderCreated={() => mutate()} 
+              open={isOrderFormOpen}
+              onOpenChange={setIsOrderFormOpen}
+              defaultProductId={formDefaultProduct}
             />
           </div>
         </div>
 
         {/* Top Metric Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
+        <style dangerouslySetInnerHTML={{__html: `
+          .stat-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 1rem;
+          }
+          @media (min-width: 640px) {
+            .stat-cards-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+          @media (max-height: 500px) and (orientation: landscape) {
+            .stat-cards-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+          @media (min-width: 768px) {
+            .stat-cards-grid {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+          }
+          @media (min-width: 1024px) {
+            .stat-cards-grid {
+              grid-template-columns: repeat(5, minmax(0, 1fr));
+              gap: 1.5rem;
+            }
+          }
+        `}} />
+        <div className="stat-cards-grid">
           
           {/* Pending Card */}
           <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
@@ -149,12 +189,19 @@ export default function GiftsPage() {
         </div>
 
         {/* Product Categories Strip */}
-        <ProductCategoriesStrip />
+        <ProductCategoriesStrip 
+          selectedCategory={selectedCategory}
+          onCategorySelect={(id) => {
+            setSelectedCategory(null);
+            setFormDefaultProduct(id);
+            setIsOrderFormOpen(true);
+          }}
+        />
 
         {/* Content */}
         <div className="flex flex-col mt-4">
           <OrdersTable 
-            orders={orders} 
+            orders={filteredOrders} 
             onOrderUpdated={() => mutate()} 
           />
         </div>

@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { productId, quantity, clientName, clientPhone, customData, createTransaction, amount, advanceAmount, dueAmount, paymentMode } = data;
+    const { productId, quantity, clientName, clientPhone, dueDate, customData, createTransaction, amount, advanceAmount, dueAmount, paymentMode } = data;
 
     if (!productId || !clientName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -36,41 +36,54 @@ export async function POST(request: Request) {
       ...(customData || {}),
       amount,
       advanceAmount,
-      dueAmount
+      dueAmount,
+      paymentMode
     };
+
+    const orderNumber = await generateOrderNumber();
 
     const order = await prisma.productOrder.create({
       data: {
+        orderNumber,
         productId,
         quantity: quantity || 1,
         clientName,
         clientPhone,
+        dueDate: dueDate ? new Date(dueDate) : null,
         customData: updatedCustomData,
         status: "PENDING",
       }
     });
 
-    const txAmount = advanceAmount !== undefined && advanceAmount !== "" ? parseFloat(advanceAmount) : parseFloat(amount);
+    const createdOrder = await prisma.productOrder.findUnique({
+      where: { id: order.id },
+      include: { transactions: true, product: true }
+    });
 
-    if (createTransaction && txAmount > 0) {
+    const txAmount = advanceAmount !== undefined && advanceAmount !== "" ? parseFloat(advanceAmount) : parseFloat(amount);
+    const shouldCreateTx = createTransaction !== undefined ? createTransaction : (txAmount > 0);
+
+    if (shouldCreateTx && txAmount > 0) {
       await prisma.transaction.create({
         data: {
-          productOrderId: order.id,
+          productOrder: { connect: { id: order.id } },
           amount: txAmount,
           type: "INCOME",
           date: new Date(),
           category: "GIFTS_AND_FRAMES",
           paymentMode: paymentMode || "Cash",
           status: "SETTLED",
-          description: `Payment for Order ${order.id} - ${clientName}`
+          description: `Advance Payment for Order ${order.id} - ${clientName}`
         }
       });
+      
+      // Refetch if transaction was created
+      const finalOrder = await prisma.productOrder.findUnique({
+        where: { id: order.id },
+        include: { transactions: true, product: true }
+      });
+      return NextResponse.json({ order: finalOrder });
     }
-
-    const createdOrder = await prisma.productOrder.findUnique({
-      where: { id: order.id },
-      include: { transactions: true, product: true }
-    });
 
     return NextResponse.json({ order: createdOrder });
   } catch (error) {

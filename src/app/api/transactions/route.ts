@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const type = searchParams.get("type");
     const paymentMode = searchParams.get("paymentMode");
 
-    let whereClause: any = {};
+    let whereClause: any = { deletedAt: null };
     // 1. Date Logic — F4: Fixed date mutation bug by NOT reusing the same `now` object
     if (dateFrom || dateTo) {
       whereClause.date = {};
@@ -83,6 +83,9 @@ export async function GET(request: Request) {
 
     // P2: Offset-based pagination (cursor on non-unique sort leads to duplicates)
     const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
+    
+    console.log('whereClause:', JSON.stringify(whereClause));
+    
     const transactions = await prisma.transaction.findMany({
       where: { 
         ...whereClause
@@ -122,16 +125,16 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  // F6: User-scope writes
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
-
   try {
+    // F6: User-scope writes
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id as string;
+
     const body = await request.json();
-    const { amount, type, date, category, paymentMode, description, status, ...restBody } = body;
+    const { amount, type, date, category, paymentMode, description, status, productOrderId, bookingId, ...restBody } = body;
 
     const customData: Record<string, any> = {};
     for (const [key, value] of Object.entries(restBody)) {
@@ -175,6 +178,8 @@ export async function POST(request: Request) {
         paymentMode,
         description: description?.trim() || null,
         status: status || "SETTLED",
+        ...(productOrderId ? { productOrder: { connect: { id: productOrderId } } } : {}),
+        bookingId: bookingId || undefined,
         customData: Object.keys(customData).length > 0 ? customData : undefined,
         ...(userId ? { user: { connect: { id: userId } } } : {}),
       },
@@ -195,9 +200,9 @@ export async function POST(request: Request) {
       status: 201,
       headers: { "Cache-Control": "private, no-store" },
     });
-  } catch (error) {
-    console.error("Error creating transaction:", error);
-    return NextResponse.json({ error: "Failed to create transaction: " + (error as any).message }, { status: 500 });
+  } catch (error: any) {
+    console.error("Failed to create transaction:", error);
+    return NextResponse.json({ error: error.message || "Failed to create transaction.", details: String(error) }, { status: 500 });
   }
 }
 

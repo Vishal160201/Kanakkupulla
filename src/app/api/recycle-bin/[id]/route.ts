@@ -30,8 +30,11 @@ export async function DELETE(
     }
     if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
       try {
+        await prisma.transaction.deleteMany({ where: { productOrderId: entry.itemId } });
         await prisma.productOrder.delete({ where: { id: entry.itemId } });
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error hard deleting product order:", e);
+      }
     }
 
     await prisma.recycleBin.delete({ where: { id } });
