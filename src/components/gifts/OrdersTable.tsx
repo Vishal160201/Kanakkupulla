@@ -135,7 +135,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                       ) : (
                         <Select 
                           value={order.status} 
-                          onValueChange={(val) => handleStatusChange(order.id, val)}
+                          onValueChange={(val) => val && handleStatusChange(order.id, val)}
                         >
                           <SelectTrigger 
                             className={cn(

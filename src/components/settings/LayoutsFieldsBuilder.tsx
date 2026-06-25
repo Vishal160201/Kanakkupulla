@@ -120,7 +120,7 @@ export default function LayoutsFieldsBuilder() {
         else merged.push(dbLayout);
       });
       
-      setLayouts(merged);
+      setLayouts(merged as FormLayout[]);
     } catch (error) {
       toast.error("Failed to load form layouts");
     } finally {

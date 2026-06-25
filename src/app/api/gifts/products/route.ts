@@ -31,8 +31,7 @@ export async function GET() {
       const config = GIFTS_PRODUCTS.find(g => g.id === dbP.id);
       return {
         ...dbP,
-        iconName: config?.icon.displayName,
-        fields: config?.fields || []
+        iconName: config?.icon.displayName
       };
     });
 
