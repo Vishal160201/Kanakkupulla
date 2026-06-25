@@ -457,17 +457,32 @@ export default function TopNavigation() {
                 </div>
               </div>
 
-              {isAdminOrOwner && waStatusData && (
+              {isAdminOrOwner && (
                 <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3">
                   <div className="flex justify-between items-center">
                     <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">WhatsApp Bot</div>
                     <div className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${waStatusData.status === 'READY' ? 'bg-green-500' : waStatusData.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : waStatusData.status === 'ERROR' ? 'bg-red-600' : 'bg-red-500'}`}></div>
-                      <span className="text-[0.65rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Login' : waStatusData.status === 'ERROR' ? 'Error' : 'Disconnected'}</span>
+                      {!waStatusData ? (
+                        <>
+                          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                          <span className="text-[0.65rem] font-bold text-blue-500">Connecting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className={`w-2 h-2 rounded-full ${waStatusData.status === 'READY' ? 'bg-green-500' : waStatusData.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : waStatusData.status === 'ERROR' ? 'bg-red-600' : 'bg-red-500'}`}></div>
+                          <span className="text-[0.65rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Login' : waStatusData.status === 'ERROR' ? 'Error' : 'Disconnected'}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   
-                  {waStatusData.status === 'ERROR' ? (
+                  {!waStatusData ? (
+                     <div className="flex flex-col items-center p-3 bg-blue-50 rounded-xl border border-blue-100 gap-2">
+                       <i className="ph-fill ph-spinner-gap text-blue-500 text-2xl animate-spin"></i>
+                       <span className="text-[0.65rem] text-blue-600 text-center font-semibold">Waking up bot server...</span>
+                       <span className="text-[0.55rem] text-blue-400 text-center">This can take up to 60 seconds on Render.</span>
+                     </div>
+                  ) : waStatusData.status === 'ERROR' ? (
                      <div className="flex flex-col items-center p-3 bg-red-50 rounded-xl border border-red-100 gap-2">
                        <i className="ph-fill ph-warning-circle text-red-500 text-2xl"></i>
                        <span className="text-[0.65rem] text-red-600 text-center font-semibold">Failed to start WhatsApp Bot in this environment.</span>

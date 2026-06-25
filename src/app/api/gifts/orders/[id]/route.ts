@@ -71,7 +71,13 @@ export async function PATCH(
 
       if (Object.keys(advanceTxUpdateData).length > 0) {
         await prisma.transaction.updateMany({
-          where: { productOrderId: order.id, description: { startsWith: 'Advance' } },
+          where: { 
+            productOrderId: order.id, 
+            OR: [
+              { description: { startsWith: 'Advance' } },
+              { description: { startsWith: 'Full Payment' } }
+            ]
+          },
           data: advanceTxUpdateData
         });
       }
