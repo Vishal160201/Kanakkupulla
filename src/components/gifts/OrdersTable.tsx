@@ -20,6 +20,7 @@ interface Order {
   clientPhone: string | null;
   createdAt: string;
   transactions: any[];
+  orderNumber?: string | null;
 }
 
 interface OrdersTableProps {
@@ -106,7 +107,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                         <div>
                           <div className="font-bold text-[0.95rem] sm:text-[1.05rem] text-slate-800 tracking-tight flex items-center gap-2 flex-wrap">
                             {order.clientName}
-                            <span className="md:hidden text-[0.65rem] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase">#{order.id.slice(-6)}</span>
+                            <span className="md:hidden text-[0.65rem] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase">{order.orderNumber || `#${order.id.slice(-6)}`}</span>
                           </div>
                           <div className="text-[0.75rem] sm:text-[0.8rem] text-slate-500 font-medium mt-0.5 flex flex-wrap items-center gap-1.5">
                             <span className="truncate max-w-[120px] sm:max-w-none">{order.product?.name}</span>
@@ -120,7 +121,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                     </td>
                     
                     <td className="hidden md:table-cell px-6 py-4">
-                      <span className="font-bold text-slate-700">#{order.id.slice(-6).toUpperCase()}</span>
+                      <span className="font-bold text-slate-700">{order.orderNumber || `#${order.id.slice(-6).toUpperCase()}`}</span>
                     </td>
                     
                     <td className="hidden md:table-cell px-6 py-4">

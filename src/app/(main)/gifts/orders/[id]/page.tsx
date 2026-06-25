@@ -263,7 +263,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
-                  Order #{order.id.slice(-6).toUpperCase()}
+                  {order.orderNumber || `Order #${order.id.slice(-6).toUpperCase()}`}
                 </h1>
                 <span className={cn("px-2.5 py-1 rounded-md text-[0.65rem] font-bold tracking-widest uppercase border", 
                   STATUS_OPTIONS.find(s => s.value === order.status)?.bg,

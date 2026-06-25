@@ -67,10 +67,32 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = (session.user as any).id as string;
+
   try {
     const { id } = await params;
-    // We should first check if there are transactions, and handle them if needed.
-    // For now, cascade delete or just delete the order (assuming transactions might prevent deletion if constrained)
+    
+    const existing = await prisma.productOrder.findUnique({
+      where: { id }
+    });
+    
+    if (!existing) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    await prisma.recycleBin.create({
+      data: {
+        itemType: "product-order",
+        itemId: id,
+        originalData: JSON.parse(JSON.stringify(existing)),
+        trashedById: userId,
+      }
+    });
+
     await prisma.productOrder.delete({
       where: { id }
     });

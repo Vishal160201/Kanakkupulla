@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { generateOrderNumber } from "@/lib/orderId";
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
@@ -40,8 +41,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Product ID and client name are required" }, { status: 422 });
     }
 
+    const orderNumber = await generateOrderNumber();
+
     const newProductOrder = await prisma.productOrder.create({
       data: {
+        orderNumber,
         productId,
         quantity: parseInt(quantity || "1", 10),
         status: status || "PENDING",

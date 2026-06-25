@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { generateOrderNumber } from "@/lib/orderId";
 
 export async function GET(request: Request) {
   try {
