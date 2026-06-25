@@ -132,9 +132,10 @@ export const DEFAULT_LAYOUTS = [
           title: "Order Details",
           icon: "ph-gift",
           fields: [
-            { id: "fld_g_product", name: "Product", type: "PICK_LIST", mandatory: true, options: ["Keychain", "Mug Print", "Lamination", "Mobile Case", "Fridge Magnet", "Backlight Photo", "Frontlight Photo", "Visiting Card", "Invitation", "Voter ID", "Aadhaar Card", "Smart Card"] },
+            { id: "fld_g_product", name: "Product", type: "PICK_LIST", mandatory: true, options: ["Keychain", "Mug Print", "Lamination", "Photoframe", "Mobile Case", "Fridge Magnet", "Backlight Photo", "Frontlight Photo", "Visiting Card", "Invitation", "Voter ID", "Aadhaar Card", "Smart Card"] },
             { id: "fld_g_quantity", name: "Quantity", type: "NUMBER", mandatory: true },
             { id: "fld_g_due_date", name: "Target Delivery Date", type: "DATE", mandatory: false },
+            { id: "fld_g_reference_image", name: "Reference Image", type: "FILE", mandatory: false },
             { id: "fld_g_size", name: "Size", type: "PICK_LIST", mandatory: false, options: ["A4", "A3", "ID Card", "12x18", "16x20", "20x30"], visibilityRule: { fieldId: "fld_g_product", operator: "CONTAINS", value: "Lamination" } },
             { id: "fld_g_model", name: "Phone Model", type: "SINGLE_LINE", mandatory: false, visibilityRule: { fieldId: "fld_g_product", operator: "EQUALS", value: "Mobile Case" } },
             { id: "fld_g_type", name: "Type", type: "PICK_LIST", mandatory: false, options: ["Matte", "Glossy", "Textured"], visibilityRule: { fieldId: "fld_g_product", operator: "EQUALS", value: "Visiting Card" } },

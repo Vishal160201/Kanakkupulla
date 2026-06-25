@@ -1,18 +1,25 @@
-import { prisma } from './prisma';
+import prisma from './prisma';
+
+import crypto from 'crypto';
 
 export async function generateOrderNumber() {
-  const last = await prisma.productOrder.findFirst({
-    where: { orderNumber: { startsWith: '#MDorder-' } },
-    orderBy: { orderNumber: 'desc' },
-  });
-
-  if (!last || !last.orderNumber) {
-    return '#MDorder-001';
+  let isUnique = false;
+  let orderNumber = '';
+  
+  while (!isUnique) {
+    // Generate a short 6-character hex string (e.g., A1B2C3)
+    const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    orderNumber = `#MDorder-${suffix}`;
+    
+    // Check if it already exists in active orders
+    const activeExists = await prisma.productOrder.findUnique({
+      where: { orderNumber }
+    });
+    
+    if (!activeExists) {
+      isUnique = true;
+    }
   }
-
-  const match = last.orderNumber.match(/#MDorder-(\d+)/);
-  if (!match) return '#MDorder-001';
-
-  const nextNum = parseInt(match[1], 10) + 1;
-  return `#MDorder-${String(nextNum).padStart(3, '0')}`;
+  
+  return orderNumber;
 }

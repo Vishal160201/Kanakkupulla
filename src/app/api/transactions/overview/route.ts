@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
     const userId = (session.user as any).id as string;
 
-    let whereClause: any = {};
+    let whereClause: any = { deletedAt: null };
 
     if (startDateParam || endDateParam) {
       whereClause.date = {};
@@ -59,14 +59,14 @@ export async function GET(req: Request) {
       }),
       // Today's Transactions
       prisma.transaction.findMany({
-        where: { date: { gte: todayStart, lte: todayEnd } },
+        where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null },
         orderBy: { date: 'desc' }
       }),
       // Today's Income + Expense combined
       prisma.transaction.groupBy({
         by: ['type'],
         _sum: { amount: true },
-        where: { date: { gte: todayStart, lte: todayEnd } }
+        where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null }
       }),
     ]);
 

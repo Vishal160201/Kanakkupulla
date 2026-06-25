@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import flatpickr from "flatpickr";
 
+import { cn } from "@/lib/utils";
+import CustomDropdown from "@/components/ui/CustomDropdown";
 import { Booking } from "@/types";
 import CustomSelect from "../ui/CustomSelect";
 import Autocomplete from "../ui/Autocomplete";
@@ -364,63 +366,28 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     if (field.type === 'PICK_LIST') {
       const opts = field.options || [];
       return (
-        <CustomSelect options={opts} value={watch(fieldName as any) || (opts.length > 0 ? opts[0] : '')} onChange={(val) => setValue(fieldName as any, val as any, { shouldValidate: true })} className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 ${isError ? 'border-red-500' : 'border-gray-200'}`} />
+        <CustomDropdown 
+          options={opts} 
+          value={watch(fieldName as any) || (opts.length > 0 ? opts[0] : '')} 
+          onChange={(val) => setValue(fieldName as any, val as any, { shouldValidate: true })} 
+          error={!!isError}
+          placeholder={`Select ${field.name}...`}
+        />
       );
     }
 
     if (field.type === 'MULTI_SELECT') {
       const opts = field.options || [];
       const currentSelected = watch(fieldName as any) || '';
-      const selectedArray = typeof currentSelected === 'string' && currentSelected.trim() ? currentSelected.split(',').map((s:string) => s.trim()) : (Array.isArray(currentSelected) ? currentSelected : []);
-      const isDropdownOpen = statusDropdownOpen === fieldName;
-      
       return (
-        <div className="relative custom-dropdown-container">
-          <button 
-            type="button" 
-            onClick={() => setStatusDropdownOpen(isDropdownOpen ? null : fieldName)}
-            className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] font-medium transition-all hover:bg-slate-50 hover:border-slate-300 ${isError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200'} ${selectedArray.length > 0 ? 'text-slate-800' : 'text-slate-400'}`}
-          >
-            <div className="flex-1 truncate text-left pr-2">
-              {selectedArray.length > 0 ? selectedArray.join(', ') : `Select ${field.name}...`}
-            </div>
-            <i className={`ph-bold ph-caret-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}></i>
-          </button>
-          
-          {isDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 animate-in fade-in slide-in-from-top-2 max-h-[250px] overflow-y-auto">
-               {opts.map((opt: any, idx: number) => {
-                 const label = opt.label || opt.value || opt;
-                 const isSelected = selectedArray.includes(label);
-                 return (
-                   <label
-                     key={idx}
-                     className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-left text-[0.9rem] font-semibold cursor-pointer transition-colors hover:bg-slate-50 group"
-                   >
-                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-orange-500 border-orange-500' : 'bg-white border-gray-300 group-hover:border-orange-400'}`}>
-                       {isSelected && <i className="ph-bold ph-check text-white text-[0.7rem]"></i>}
-                     </div>
-                     <input 
-                       type="checkbox" 
-                       className="hidden"
-                       checked={isSelected}
-                       onChange={(e) => {
-                         let newSelected = [...selectedArray];
-                         if (e.target.checked) {
-                           newSelected.push(label);
-                         } else {
-                           newSelected = newSelected.filter(s => s !== label);
-                         }
-                         setValue(fieldName as any, newSelected.join(', '), { shouldValidate: true });
-                       }}
-                     />
-                     <span className={`${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>{label}</span>
-                   </label>
-                 );
-               })}
-            </div>
-          )}
-        </div>
+        <CustomDropdown
+          options={opts.map((opt: any) => opt.label || opt.value || opt)}
+          value={currentSelected}
+          onChange={(val) => setValue(fieldName as any, val as any, { shouldValidate: true })}
+          isMulti={true}
+          error={!!isError}
+          placeholder={`Select ${field.name}...`}
+        />
       );
     }
 

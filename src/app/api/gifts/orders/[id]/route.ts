@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET(
   request: Request,
@@ -40,6 +42,7 @@ export async function PATCH(
     if (data.quantity !== undefined) allowedUpdates.quantity = data.quantity;
     if (data.clientName) allowedUpdates.clientName = data.clientName;
     if (data.clientPhone !== undefined) allowedUpdates.clientPhone = data.clientPhone;
+    if (data.dueDate !== undefined) allowedUpdates.dueDate = data.dueDate ? new Date(data.dueDate) : null;
     if (data.customData) {
       // Fetch existing order to merge customData
       const existingOrder = await prisma.productOrder.findUnique({
@@ -56,10 +59,28 @@ export async function PATCH(
       include: { product: true, transactions: true }
     });
 
+    // 2) Sync advance transaction if needed
+    if (allowedUpdates.customData?.advanceAmount !== undefined || allowedUpdates.clientName) {
+      const advanceTxUpdateData: any = {};
+      if (allowedUpdates.customData?.advanceAmount !== undefined) {
+        advanceTxUpdateData.amount = parseFloat(allowedUpdates.customData.advanceAmount) || 0;
+      }
+      if (allowedUpdates.clientName) {
+        advanceTxUpdateData.description = `Advance Payment for Order ${order.id} - ${allowedUpdates.clientName}`;
+      }
+
+      if (Object.keys(advanceTxUpdateData).length > 0) {
+        await prisma.transaction.updateMany({
+          where: { productOrderId: order.id, description: { startsWith: 'Advance' } },
+          data: advanceTxUpdateData
+        });
+      }
+    }
+
     return NextResponse.json({ order });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Update order error:", error);
-    return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to update order" }, { status: 500 });
   }
 }
 
@@ -92,6 +113,13 @@ export async function DELETE(
         trashedById: userId,
       }
     });
+
+    // Delete associated transactions first to prevent foreign key constraint failures
+    const txDeleteResult = await prisma.transaction.updateMany({
+      where: { productOrderId: id },
+      data: { deletedAt: new Date() }
+    });
+    console.log('softDelete result:', txDeleteResult.count);
 
     await prisma.productOrder.delete({
       where: { id }

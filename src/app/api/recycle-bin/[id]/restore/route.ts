@@ -54,14 +54,24 @@ export async function POST(
     } else if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
       const data: any = entry.originalData;
       try {
+        // Restore any associated transactions
+        const txRestoreResult = await prisma.transaction.updateMany({
+          where: { productOrderId: entry.itemId, deletedAt: { not: null } },
+          data: { deletedAt: null }
+        });
+        console.log(`Restore transactions result: ${txRestoreResult.count}`);
+
         await prisma.productOrder.create({
           data: {
             id: data.id,
+            orderNumber: data.orderNumber,
             productId: data.productId,
             quantity: data.quantity,
             status: data.status,
             clientName: data.clientName,
             clientPhone: data.clientPhone,
+            customData: data.customData,
+            dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
             createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
             updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
           }

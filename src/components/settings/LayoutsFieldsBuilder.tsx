@@ -73,6 +73,7 @@ const FIELD_TYPES = [
   { value: "DECIMAL", label: ".00 Decimal", icon: "ph-math-operations" },
   { value: "EMAIL", label: "Email", icon: "ph-envelope-simple" },
   { value: "PHONE", label: "Phone", icon: "ph-phone" },
+  { value: "FILE", label: "Attachment", icon: "ph-paperclip" },
   { value: "USER_PICKLIST", label: "User (Single)", icon: "ph-user" },
   { value: "MULTI_USER_PICKLIST", label: "Users (Multiple)", icon: "ph-users" },
 ];

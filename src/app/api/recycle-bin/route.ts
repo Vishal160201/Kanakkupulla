@@ -71,8 +71,8 @@ export async function GET(request: Request) {
         transactionId = data.transactionId || "-";
         originalType = data.type || "transaction";
       } else if (item.itemType === "gift" || item.itemType === "frame" || item.itemType === "product-order") {
-        entryName = data.clientName || `Order`;
-        transactionId = data.orderId || item.itemId.substring(0, 8);
+        entryName = data.customData?.clientName || data.clientName || `Order`;
+        transactionId = data.orderNumber || data.orderId || item.itemId.substring(0, 8);
       }
 
       return {

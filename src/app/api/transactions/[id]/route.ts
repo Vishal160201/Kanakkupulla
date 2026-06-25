@@ -35,6 +35,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           },
         },
         user: { select: { id: true, name: true, email: true } },
+        productOrder: { select: { id: true, orderNumber: true } }
       },
     });
 

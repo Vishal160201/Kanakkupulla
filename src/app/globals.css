@@ -1723,3 +1723,51 @@ select.form-control {
     @apply font-sans;
   }
 }
+
+@media print {
+  /* Hide standard UI elements */
+  aside, header, nav, .sidebar, .topbar {
+    display: none !important;
+  }
+
+  /* Let the main body flow freely without scrollbars */
+  body, html, main, .main-content, .scrollable-area, .flex-1 {
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+  
+  /* Reset backgrounds and shadows for cleaner print */
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    background-color: white !important;
+    padding: 1.5rem !important;
+    margin-bottom: 2rem !important;
+  }
+
+  /* Expand grids to full width in print mode so they don't squish */
+  .print-section.col-span-1 {
+    width: 100% !important;
+    display: block !important;
+  }
+
+  /* Specific resets for layout wrapping */
+  #root, #__next, .h-\[100dvh\] {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}

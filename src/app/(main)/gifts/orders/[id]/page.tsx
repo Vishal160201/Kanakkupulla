@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { format, formatDistanceToNowStrict } from "date-fns";
@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock,
   CreditCard,
@@ -69,8 +70,26 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Status updating state
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
+  const [showDueCollection, setShowDueCollection] = useState(false);
+  const [isCollecting, setIsCollecting] = useState(false);
+  const [showRollbackWarning, setShowRollbackWarning] = useState<string | null>(null);
+  const [collectionInput, setCollectionInput] = useState("");
+  const [collectionError, setCollectionError] = useState<string | null>(null);
+  const [collectionSuccess, setCollectionSuccess] = useState(false);
+
+  const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
+  const paymentDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (paymentDropdownRef.current && !paymentDropdownRef.current.contains(event.target as Node)) {
+        setIsPaymentDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (order && !isEditing) {
@@ -81,7 +100,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         amount: order.customData?.amount || 0,
         advanceAmount: order.customData?.advanceAmount || 0,
         dueAmount: order.customData?.dueAmount || 0,
-        dueDate: order.customData?.dueDate || "",
+        dueDate: order.dueDate || "",
         paymentMode: order.customData?.paymentMode || "CASH",
       });
     }
@@ -110,6 +129,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const totalAmount = Number(customData.amount) || 0;
   const advanceAmount = Number(customData.advanceAmount) || 0;
   const dueAmount = Number(customData.dueAmount) || 0;
+  
+  const collectedAmount = order.transactions?.reduce((sum: number, tx: any) => sum + tx.amount, 0) || 0;
+  const progressPercent = totalAmount > 0 ? Math.round((collectedAmount / totalAmount) * 100) : 0;
 
   // Calculate payment status
   let paymentStatus = "UNPAID";
@@ -127,6 +149,28 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleStatusChange = async (newStatus: string) => {
     if (newStatus === order.status) return;
+    
+    if (order.status === "DELIVERED") {
+      setShowRollbackWarning(newStatus);
+      return;
+    }
+    
+    if (newStatus === "DELIVERED" && dueAmount > 0) {
+      setCollectionInput(dueAmount.toString());
+      setShowDueCollection(true);
+      return;
+    }
+    
+    await executeStatusUpdate(newStatus);
+  };
+
+  const handleConfirmRollback = async () => {
+    if (!showRollbackWarning) return;
+    await executeStatusUpdate(showRollbackWarning);
+    setShowRollbackWarning(null);
+  };
+
+  const executeStatusUpdate = async (newStatus: string) => {
     setIsUpdatingStatus(newStatus);
     try {
       const res = await fetch(`/api/gifts/orders/${order.id}`, {
@@ -136,11 +180,86 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       });
       if (!res.ok) throw new Error("Failed to update status");
       mutate();
-      showNotification("Order status updated", "success");
     } catch (err) {
-      showNotification("Failed to update status", "error");
+      console.error(err);
     } finally {
       setIsUpdatingStatus(null);
+    }
+  };
+
+  const handleConfirmCollection = async () => {
+    const collectVal = Number(collectionInput) || 0;
+    if (collectVal <= 0) {
+      setCollectionError("Please enter a valid amount.");
+      return;
+    }
+    
+    setCollectionError(null);
+    setIsCollecting(true);
+    try {
+      const txRes = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: collectVal,
+          type: "INCOME",
+          date: new Date().toISOString(),
+          category: "GIFTS_AND_FRAMES",
+          paymentMode: customData.paymentMode || "Cash",
+          status: "SETTLED",
+          description: `Due Collection for Order ${order.id} - ${order.clientName}`,
+          productOrderId: order.id,
+        })
+      });
+      
+      let txData;
+      if (!txRes.ok) {
+        const text = await txRes.text();
+        try {
+          txData = JSON.parse(text);
+        } catch {
+          txData = { error: text };
+        }
+        console.error("Transaction Creation Error Response:", txData);
+        throw new Error(txData.details || txData.error || txData.message || "Failed to create due collection transaction");
+      }
+      
+      txData = await txRes.json();
+
+      const res = await fetch(`/api/gifts/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          status: "DELIVERED"
+        }),
+      });
+      
+      let patchData;
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          patchData = JSON.parse(text);
+        } catch {
+          patchData = { error: text };
+        }
+        console.error("Order Status Update Error Response:", patchData);
+        throw new Error(patchData.error || patchData.message || "Failed to update order status");
+      }
+      
+      patchData = await res.json();
+      
+      mutate();
+      router.refresh();
+      setCollectionSuccess(true);
+      setTimeout(() => {
+        setShowDueCollection(false);
+        setCollectionSuccess(false);
+      }, 2000);
+    } catch (err: any) {
+      console.error("handleConfirmCollection error:", err);
+      setCollectionError(err.message || "Failed to process collection.");
+    } finally {
+      setIsCollecting(false);
     }
   };
 
@@ -152,7 +271,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         amount: Number(editForm.amount),
         advanceAmount: Number(editForm.advanceAmount),
         dueAmount: Number(editForm.dueAmount),
-        dueDate: editForm.dueDate,
         paymentMode: editForm.paymentMode,
       };
 
@@ -163,12 +281,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           clientName: editForm.clientName,
           clientPhone: editForm.clientPhone,
           quantity: Number(editForm.quantity),
+          dueDate: editForm.dueDate ? new Date(editForm.dueDate).toISOString() : null,
           customData: updatedCustomData,
         }),
       });
 
       if (!res.ok) throw new Error("Failed to save changes");
       await mutate();
+      router.refresh();
       setIsEditing(false);
       showNotification("Order updated successfully", "success");
     } catch (err) {
@@ -225,8 +345,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     
     doc.text(`Payment Status: ${paymentStatus}`, 120, 130);
     doc.text(`Order Status: ${order.status}`, 120, 140);
-    if (customData.dueDate) {
-      doc.text(`Due Date: ${format(new Date(customData.dueDate), "MMM dd, yyyy")}`, 120, 150);
+    if (order.dueDate) {
+      doc.text(`Due Date: ${format(new Date(order.dueDate), "MMM dd, yyyy")}`, 120, 150);
     }
     
     doc.save(`Invoice_${order.id.slice(-6).toUpperCase()}.pdf`);
@@ -256,7 +376,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex items-start gap-4">
             <button 
               onClick={() => router.push("/gifts")}
-              className="w-10 h-10 mt-1 bg-white rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-50 border border-slate-200 transition-all shadow-sm active:scale-95"
+              className="w-10 h-10 mt-1 bg-white rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-50 border border-slate-200 transition-all shadow-sm active:scale-95 no-print"
             >
               <ChevronRight className="rotate-180" size={20} />
             </button>
@@ -303,51 +423,54 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </>
             ) : (
               <>
-                {showDeleteConfirm ? (
-                  <div className="flex items-center gap-2 bg-red-50 p-1.5 rounded-2xl border border-red-100">
-                    <button 
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                      className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1"
-                    >
-                      {isDeleting ? <Loader2 size={14} className="animate-spin" /> : "Confirm"}
-                    </button>
+                {showDeleteConfirm && (
+                  <div className="fixed sm:static bottom-0 left-0 right-0 z-[100] sm:z-auto p-4 sm:p-1.5 bg-white sm:bg-red-50 border-t border-slate-200 sm:border sm:border-red-100 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] sm:shadow-none flex items-center justify-end sm:justify-start gap-3 sm:gap-2 sm:rounded-2xl animate-[slideUp_0.3s_ease-out] sm:animate-none">
+                    <span className="sm:hidden text-red-600 font-bold text-sm mr-auto">Delete Order?</span>
                     <button 
                       onClick={() => setShowDeleteConfirm(false)}
-                      className="px-3 py-1.5 bg-white text-red-600 border border-red-200 font-bold text-xs rounded-xl hover:bg-red-50 transition-colors"
+                      className="px-5 py-2.5 sm:px-3 sm:py-1.5 bg-slate-100 sm:bg-white text-slate-700 sm:text-red-600 sm:border sm:border-red-200 font-bold text-sm sm:text-xs rounded-xl hover:bg-slate-200 sm:hover:bg-red-50 transition-colors"
                     >
                       Cancel
                     </button>
+                    <button 
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="px-5 py-2.5 sm:px-4 sm:py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-sm sm:text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 sm:gap-1 disabled:opacity-50"
+                    >
+                      {isDeleting ? <Loader2 size={16} className="animate-spin" /> : "Confirm"}
+                    </button>
                   </div>
-                ) : (
+                )}
+                
+                {!showDeleteConfirm && (
                   <button 
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="w-10 h-10 flex items-center justify-center bg-white text-slate-400 hover:text-red-600 rounded-xl border border-slate-200 hover:border-red-200 hover:bg-red-50 transition-colors shadow-sm mr-1"
+                    className="flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center bg-white text-slate-400 hover:text-red-600 rounded-xl border border-slate-200 hover:border-red-200 hover:bg-red-50 transition-colors shadow-sm"
                     title="Delete Order"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 className="w-5 h-5 sm:w-[18px] sm:h-[18px]" />
                   </button>
                 )}
                 
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-800 hover:bg-slate-50 border border-slate-200 transition-all shadow-sm"
+                  className="flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 bg-white rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-800 hover:bg-slate-50 border border-slate-200 transition-all shadow-sm"
                   title="Edit Details"
                 >
-                  <Edit2 size={18} />
+                  <Edit2 className="w-5 h-5 sm:w-[18px] sm:h-[18px]" />
                 </button>
                 <button 
                   onClick={() => window.print()}
-                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-800 hover:bg-slate-50 border border-slate-200 transition-all shadow-sm"
+                  className="flex-shrink-0 w-11 h-11 sm:w-10 sm:h-10 bg-white rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-800 hover:bg-slate-50 border border-slate-200 transition-all shadow-sm"
                   title="Print"
                 >
-                  <Printer size={18} />
+                  <Printer className="w-5 h-5 sm:w-[18px] sm:h-[18px]" />
                 </button>
                 <button 
                   onClick={handleDownloadInvoice}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition-colors shadow-md"
+                  className="flex-shrink-0 w-11 h-11 sm:w-auto sm:px-4 sm:py-2.5 flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition-colors shadow-md"
                 >
-                  <FileDown size={16} /> <span className="hidden sm:inline">Download Invoice</span>
+                  <FileDown className="w-5 h-5 sm:w-[16px] sm:h-[16px]" /> <span className="hidden sm:inline">Download Invoice</span>
                 </button>
               </>
             )}
@@ -356,11 +479,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Status Tracker */}
-          <div className="bg-white rounded-3xl py-3 md:py-4 px-4 md:px-8 border border-slate-100 shadow-sm flex flex-col justify-center col-span-1 lg:col-span-12 relative z-20">
+          <div className="bg-white rounded-3xl py-3 md:py-4 px-4 md:px-8 border border-slate-100 shadow-sm flex flex-col justify-center col-span-1 lg:col-span-12 relative z-20 no-print overflow-hidden">
             
-            <div className="relative flex items-center justify-between w-full max-w-4xl mx-auto min-w-[300px] px-2">
+            <div className="w-full pb-2">
+              <div className="relative flex items-start justify-between w-full max-w-4xl mx-auto px-0 sm:px-2">
               {/* Timeline Background Track */}
-              <div className="absolute left-10 right-10 top-8 flex items-center z-0">
+              <div className="absolute left-8 right-8 sm:left-12 sm:right-12 top-8 flex items-center z-0">
                 <div 
                   className={cn("h-[2px] transition-all duration-1000 ease-out relative", STATUS_OPTIONS[currentStatusIndex > 0 ? currentStatusIndex : 0]?.line)}
                   style={{ width: `${(currentStatusIndex / (STATUS_OPTIONS.length - 1)) * 100}%` }}
@@ -379,7 +503,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 const Icon = status.icon;
 
                 return (
-                  <div key={status.value} className="flex flex-col items-center relative bg-white px-3 z-10 group cursor-pointer" onClick={() => handleStatusChange(status.value)}>
+                  <div key={status.value} className="flex flex-col items-center relative bg-white z-10 group cursor-pointer" onClick={() => handleStatusChange(status.value)}>
                     
                     {/* Circle Icon Container */}
                     <div className="h-16 flex items-center justify-center">
@@ -417,20 +541,102 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       )}
                     </div>
                     
-                    {/* Text Labels - Shown on Hover */}
-                    <div className="absolute top-full mt-3 flex flex-col items-center opacity-0 translate-y-2 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
-                      <span className="text-[0.65rem] font-bold uppercase tracking-widest text-center whitespace-nowrap bg-slate-800 text-white px-3 py-1.5 rounded-lg shadow-xl">
-                        {status.label}
+                    {/* Text Labels - Consistently below icons */}
+                    <div className="mt-2 flex flex-col items-center pointer-events-none w-16 sm:w-24">
+                      <span className={cn(
+                        "text-[11px] font-bold uppercase tracking-widest text-center leading-tight transition-colors",
+                        isCurrent ? "text-slate-800" : "text-slate-400"
+                      )}>
+                        <span className="sm:hidden">{status.label === 'IN PRODUCTION' ? 'IN PROD' : status.label === 'READY FOR PICKUP' ? 'READY' : status.label}</span>
+                        <span className="hidden sm:inline">{status.label}</span>
                       </span>
                       {isCurrent && (
-                        <span className={cn("px-2 py-0.5 rounded-full text-[0.6rem] font-bold mt-1 shadow-sm", status.bg, status.textLabel)}>CURRENT</span>
+                        <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold mt-1 shadow-sm", status.bg, status.textLabel)}>CURRENT</span>
                       )}
                     </div>
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
+
+          {/* Inline Panels */}
+          {showRollbackWarning && (
+            <div className="col-span-1 lg:col-span-12 p-4 bg-orange-50 border border-orange-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-[fadeIn_0.2s_ease-out]">
+              <div>
+                <h4 className="text-sm font-bold text-orange-900 mb-1 flex items-center gap-2">
+                  <AlertTriangle size={16} /> Immutable Ledger Warning
+                </h4>
+                <p className="text-xs text-orange-700 font-medium">
+                  Rolling back from DELIVERED will <span className="font-bold">NOT</span> reverse the linked collection transactions. You must adjust the ledger manually if needed.
+                </p>
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                <button 
+                  onClick={() => setShowRollbackWarning(null)}
+                  className="flex-1 sm:flex-none px-4 py-2 bg-white text-slate-700 text-xs font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleConfirmRollback}
+                  disabled={isUpdatingStatus !== null}
+                  className="flex-1 sm:flex-none flex items-center gap-1.5 px-4 py-2 bg-orange-600 text-white text-xs font-bold rounded-xl hover:bg-orange-700 transition-colors shadow-sm disabled:opacity-70"
+                >
+                  {isUpdatingStatus ? <Loader2 size={14} className="animate-spin inline" /> : null}
+                  Confirm Rollback
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showDueCollection && (
+            <div className="col-span-1 lg:col-span-12 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-[fadeIn_0.2s_ease-out] max-h-[200px] sm:max-h-none overflow-y-auto sm:overflow-visible">
+              <div>
+                <h4 className="text-sm font-bold text-amber-900 mb-1 flex items-center gap-2">
+                  <Wallet size={16} /> Collect Due Amount
+                </h4>
+                <p className="text-xs text-amber-700 font-medium">
+                  Marking as DELIVERED requires collecting remaining due (Total: <span className="font-bold">₹{dueAmount.toLocaleString()}</span>).
+                </p>
+                {collectionError && <p className="text-[0.65rem] font-bold text-red-600 mt-1">{collectionError}</p>}
+                {collectionSuccess && <p className="text-[0.65rem] font-bold text-green-600 mt-1">Collection successful!</p>}
+              </div>
+              <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
+                <div className="relative w-full sm:w-32">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                  <input 
+                    type="number"
+                    value={collectionInput}
+                    onChange={(e) => setCollectionInput(e.target.value)}
+                    disabled={isCollecting || collectionSuccess}
+                    className="w-full bg-white border border-amber-200 rounded-xl pl-6 pr-3 py-2 text-slate-800 font-bold text-xs focus:border-amber-400 focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button 
+                    onClick={() => {
+                      setShowDueCollection(false);
+                      setCollectionError(null);
+                    }}
+                    disabled={isCollecting || collectionSuccess}
+                    className="flex-1 sm:flex-none px-4 py-2 bg-white text-slate-700 text-xs font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleConfirmCollection}
+                    disabled={isCollecting || collectionSuccess}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-xl hover:bg-amber-600 transition-colors shadow-sm disabled:opacity-70"
+                  >
+                    {isCollecting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                    {collectionSuccess ? "Collected" : "Confirm"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Client & Product Info */}
           <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col h-full print-section col-span-1 lg:col-span-7">
@@ -475,6 +681,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     )}
                   </div>
                   
+
+                  
                 </div>
               </div>
 
@@ -512,7 +720,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         min="1"
                         value={editForm.quantity}
                         onChange={e => setEditForm({...editForm, quantity: e.target.value})}
-                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-2 text-slate-800 font-bold focus:border-blue-500 focus:outline-none transition-colors"
+                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-2 text-slate-800 font-bold focus:border-blue-500 focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     ) : (
                       <div className="text-lg font-bold text-slate-800">{order.quantity} x</div>
@@ -532,7 +740,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     ) : (
                       <div className="flex items-center gap-2 text-slate-600 font-medium">
                         <Calendar size={14} className="text-slate-400" />
-                        {customData.dueDate ? format(new Date(customData.dueDate), "MMM dd, yyyy") : "Not set"}
+                        {order.dueDate ? format(new Date(order.dueDate), "MMM dd, yyyy") : "Not set"}
                       </div>
                     )}
                   </div>
@@ -554,16 +762,18 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <p className="text-xs text-slate-500 font-medium mt-0.5">Overview of booking payments</p>
                 </div>
               </div>
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-100">
-                <CheckCircle2 size={14} />
-                {totalAmount > 0 ? Math.round((advanceAmount / totalAmount) * 100) : 0}% Collected
+              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-100">
+                  <CheckCircle2 size={14} />
+                  {progressPercent}% Collected
+                </div>
               </div>
             </div>
 
             <div className="border-t border-slate-100 mb-6 -mx-6"></div>
 
             {isEditing ? (
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mt-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-auto">
                 <div>
                   <label className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Total Amount</label>
                   <div className="relative">
@@ -600,10 +810,44 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
                 <div>
                   <label className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Due Amount</label>
-                  <div className="relative flex items-center w-full bg-slate-50 border-2 border-slate-50 rounded-xl px-4 h-[44px]">
+                  <div className="relative flex items-center w-full bg-slate-50 border-2 border-slate-50 rounded-xl px-4 h-[40px] md:h-[44px]">
                     <span className="text-slate-400 font-bold text-sm mr-2">₹</span>
                     <span className="text-red-500 font-bold text-lg">{editForm.dueAmount}</span>
                   </div>
+                </div>
+                <div className="relative" ref={paymentDropdownRef}>
+                  <label className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Payment Method</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentDropdownOpen(!isPaymentDropdownOpen)}
+                    className="flex h-[40px] md:h-[44px] w-full items-center justify-between bg-slate-50 border-2 border-slate-200 rounded-xl px-4 text-slate-800 font-bold focus:border-blue-500 focus:outline-none transition-colors"
+                  >
+                    <span>{editForm.paymentMode === 'BANK_TRANSFER' ? 'Bank Transfer' : editForm.paymentMode === 'UPI' ? 'UPI' : editForm.paymentMode.charAt(0) + editForm.paymentMode.slice(1).toLowerCase()}</span>
+                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isPaymentDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {isPaymentDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden py-1 animate-[fadeIn_0.15s_ease-out]">
+                      {[
+                        { label: 'Cash', value: 'CASH' },
+                        { label: 'UPI', value: 'UPI' },
+                        { label: 'Card', value: 'CARD' },
+                        { label: 'Bank Transfer', value: 'BANK_TRANSFER' }
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setEditForm({ ...editForm, paymentMode: opt.value });
+                            setIsPaymentDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-blue-50 hover:text-blue-700 ${editForm.paymentMode === opt.value ? 'bg-blue-50 text-blue-700' : 'text-slate-700'}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -622,14 +866,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="md:border-l border-slate-100 md:pl-6 flex flex-col justify-center">
                     <div className="text-[0.6rem] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Collection Progress</div>
                     <div className="flex items-end gap-2 mb-2">
-                      <div className="text-2xl font-black text-slate-800 leading-none">{totalAmount > 0 ? Math.round((advanceAmount / totalAmount) * 100) : 0}%</div>
+                      <div className="text-2xl font-black text-slate-800 leading-none">{progressPercent}%</div>
                       <div className="text-green-600 font-bold text-xs mb-0.5">Collected</div>
                     </div>
                     <div className="w-full bg-slate-100 h-2 rounded-full mb-2 overflow-hidden">
-                      <div className="bg-green-500 h-full rounded-full transition-all" style={{ width: `${totalAmount > 0 ? Math.round((advanceAmount / totalAmount) * 100) : 0}%` }}></div>
+                      <div className="bg-green-500 h-full rounded-full transition-all" style={{ width: `${progressPercent}%` }}></div>
                     </div>
                     <div className="flex items-center gap-3 text-[0.65rem] font-bold text-slate-500">
-                      <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Collected ₹{advanceAmount.toLocaleString()}</div>
+                      <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Collected ₹{collectedAmount.toLocaleString()}</div>
                       <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Pending ₹{dueAmount.toLocaleString()}</div>
                     </div>
                   </div>
@@ -674,10 +918,32 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         <span className="text-base leading-none">-</span>
                       </div>
                     </div>
-                    <div className="text-[0.6rem] font-bold text-indigo-700/70 uppercase tracking-widest mb-0.5 relative z-10">Mode of Payment</div>
-                    <div className="text-xl font-black text-slate-800 relative z-10">{customData.paymentMode || "None"}</div>
+                    <div className="text-[0.6rem] font-bold text-indigo-700/70 uppercase tracking-widest mb-0.5 relative z-10">Payment Method</div>
+                    <div className="text-xl font-black text-slate-800 relative z-10">{customData.paymentMode || "Not set"}</div>
                   </div>
                 </div>
+
+                {order.transactions && order.transactions.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-slate-100">
+                    <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-3">Linked Transactions</div>
+                    <div className="space-y-2">
+                      {order.transactions.map((tx: any) => (
+                        <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                              <Receipt size={14} />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-800">{tx.description || tx.category}</div>
+                              <div className="text-[0.65rem] text-slate-500">{format(new Date(tx.date), "MMM dd, yyyy h:mm a")} • {tx.paymentMode || "Cash"}</div>
+                            </div>
+                          </div>
+                          <div className="text-sm font-bold text-green-600">+₹{tx.amount.toLocaleString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
