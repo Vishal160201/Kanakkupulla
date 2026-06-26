@@ -6,6 +6,7 @@ import flatpickr from "flatpickr";
 
 import { cn } from "@/lib/utils";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import CustomMultiDropdown from "@/components/ui/CustomMultiDropdown";
 import { Booking } from "@/types";
 import CustomSelect from "../ui/CustomSelect";
 import Autocomplete from "../ui/Autocomplete";
@@ -382,12 +383,13 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     if (field.type === 'MULTI_SELECT') {
       const opts = field.options || [];
       const currentSelected = watch(fieldName as any) || '';
+      const selectedArray = typeof currentSelected === 'string' && currentSelected.trim() ? currentSelected.split(',').map((s:string) => s.trim()) : (Array.isArray(currentSelected) ? currentSelected : []);
+      
       return (
-        <CustomDropdown
+        <CustomMultiDropdown
           options={opts.map((opt: any) => opt.label || opt.value || opt)}
-          value={currentSelected}
-          onChange={(val) => setValue(fieldName as any, val as any, { shouldValidate: true })}
-          isMulti={true}
+          value={selectedArray}
+          onChange={(val: any) => setValue(fieldName as any, Array.isArray(val) ? val.join(', ') : val as any, { shouldValidate: true })}
           error={!!isError}
           placeholder={`Select ${field.name}...`}
         />
@@ -398,7 +400,6 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
       const opts = field.statusOptions || [];
       const currentValue = watch(fieldName as any) || (opts.length > 0 ? opts[0].label : '');
       const currentOpt = opts.find((o: any) => o.label === currentValue);
-      const isDropdownOpen = statusDropdownOpen === fieldName;
 
       // Handle future date restriction
       let isRestrictedDate = false;
@@ -416,50 +417,20 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
         }
       }
 
+      // Filter options if restricted (CustomDropdown doesn't currently support disabled individual options, but the user requested replacing custom inline UIs with CustomDropdown. For restricted statuses, we can omit them or just pass them if CustomDropdown doesn't support disabled. Let's omit them if restricted so they can't be selected).
+      const availableOpts = opts.filter((opt: any) => {
+          return !(isRestrictedDate && field.futureDateRestriction?.restrictedStatuses?.includes(opt.label));
+      });
+
       return (
         <div className="relative custom-dropdown-container">
-          <button 
-            type="button" 
-            onClick={() => setStatusDropdownOpen(isDropdownOpen ? null : fieldName)}
-            className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-300 ${isError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-gray-200'}`}
-          >
-            <div className="flex items-center gap-2">
-              <div 
-                className={`w-3 h-3 rounded-full ${!currentOpt?.color?.startsWith('#') ? (currentOpt?.color || 'bg-slate-400') : ''}`}
-                style={currentOpt?.color?.startsWith('#') ? { backgroundColor: currentOpt.color } : {}}
-              ></div>
-              <span>{currentValue || 'Select Status'}</span>
-            </div>
-            <i className={`ph-bold ph-caret-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}></i>
-          </button>
-          
-          {isDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 animate-in fade-in slide-in-from-top-2 max-h-[250px] overflow-y-auto">
-               {opts.map((opt: any, idx: number) => {
-                 const isRestrictedOpt = isRestrictedDate && field.futureDateRestriction?.restrictedStatuses?.includes(opt.label);
-                 return (
-                 <button
-                   key={idx}
-                   type="button"
-                   disabled={isRestrictedOpt}
-                   onClick={() => {
-                     setValue(fieldName as any, opt.label, { shouldValidate: true });
-                     setStatusDropdownOpen(null);
-                   }}
-                   className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-left text-[0.9rem] font-bold transition-colors ${currentValue === opt.label ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'} ${isRestrictedOpt ? 'opacity-50 cursor-not-allowed' : ''}`}
-                 >
-                   <div 
-                     className={`w-3 h-3 rounded-full ${!opt.color?.startsWith('#') ? opt.color : ''} ${isRestrictedOpt ? 'grayscale' : ''}`}
-                     style={opt.color?.startsWith('#') ? { backgroundColor: opt.color } : {}}
-                   ></div>
-                   {opt.label}
-                   {isRestrictedOpt && <i className="ph-fill ph-lock-key ml-auto text-slate-400" title="Restricted for future dates"></i>}
-                   {!isRestrictedOpt && currentValue === opt.label && <i className="ph-bold ph-check ml-auto text-slate-400"></i>}
-                 </button>
-                 );
-               })}
-            </div>
-          )}
+          <CustomDropdown
+            options={availableOpts.map((opt: any) => ({ label: opt.label, value: opt.label, color: opt.color }))}
+            value={currentValue}
+            onChange={(val: any) => setValue(fieldName as any, val as any, { shouldValidate: true })}
+            error={!!isError}
+            placeholder={`Select Status...`}
+          />
         </div>
       );
     }

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { toast } from "sonner";
-import { PlusCircle, ShoppingBag, Loader2 } from "lucide-react";
+import { PlusCircle, ShoppingBag, Loader2, Upload } from "lucide-react";
 import GooglePicker from "@/components/shared/GooglePicker";
 
 interface OrderFormProps {
@@ -61,10 +61,9 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
     let depValue = formData[depFieldName];
 
-    // Reverse map productId to product name for rule evaluation since rules are configured with names
+    // No reverse mapping hack - evaluate against actual values
     if (depFieldName === 'productId' && depValue) {
-      const p = products.find((prod: any) => prod.id === depValue);
-      if (p) depValue = p.name;
+      // Just use the raw ID for evaluation
     }
 
     if (rule.operator === 'EQUALS') return depValue === rule.value;
@@ -81,22 +80,46 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     const key = standardFieldMap[fieldId] || fieldId;
 
     // If selecting a product name, we need to map it to the actual product ID for the backend
-    if (key === 'productId') {
-      const selectedProd = products.find(p => p.name.toLowerCase() === value.toLowerCase());
-      setFormData(prev => ({ ...prev, [key]: selectedProd?.id || value }));
-      // Also store the raw product name in customData just in case
-      setFormData(prev => ({ ...prev, rawProductName: value }));
-    } else {
-      setFormData(prev => {
-        const next = { ...prev, [key]: value };
-        if (key === 'amount' || key === 'advanceAmount') {
-          const t = Number(next.amount) || 0;
-          const a = Number(next.advanceAmount) || 0;
-          next.dueAmount = Math.max(0, t - a).toString();
-        }
-        return next;
-      });
-    }
+    // Remove reverse mapping hacks for productId
+    setFormData(prev => {
+      const next = { ...prev, [key]: value };
+      if (key === 'amount' || key === 'advanceAmount') {
+        const t = Number(next.amount) || 0;
+        const a = Number(next.advanceAmount) || 0;
+        next.dueAmount = Math.max(0, t - a).toString();
+      }
+
+      if (key === 'productId' && layoutSchema) {
+        // Re-evaluate visibility for all fields with the new state
+        // and clear the values of fields that become hidden
+        const isFieldVisible = (rule: any, state: Record<string, any>) => {
+          if (!rule || !rule.fieldId) return true;
+          const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
+          let depValue = state[depFieldName];
+          if (rule.operator === 'EQUALS') return depValue === rule.value;
+          if (rule.operator === 'NOT_EQUALS') return depValue !== rule.value;
+          if (rule.operator === 'CONTAINS') {
+            if (typeof depValue === 'string') return depValue.includes(rule.value);
+            if (Array.isArray(depValue)) return depValue.includes(rule.value);
+            return false;
+          }
+          return true;
+        };
+
+        layoutSchema.sections?.forEach((section: any) => {
+          section.fields?.forEach((f: any) => {
+            if (f.visibilityRule) {
+              if (!isFieldVisible(f.visibilityRule, next)) {
+                const fKey = standardFieldMap[f.id] || f.id;
+                delete next[fKey];
+              }
+            }
+          });
+        });
+      }
+
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,7 +163,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
 
     // Populate customData with anything that isn't a standard field
     Object.keys(formData).forEach(key => {
-      if (!Object.values(standardFieldMap).includes(key) && key !== 'rawProductName') {
+      if (!Object.values(standardFieldMap).includes(key)) {
         payload.customData[key] = formData[key];
       }
     });
@@ -168,17 +191,11 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     const key = standardFieldMap[field.id] || field.id;
     let value = formData[key] || "";
 
-    // Reverse map productId to product name for the PickList UI
-    if (key === 'productId' && value) {
-      const p = products.find(prod => prod.id === value);
-      if (p) value = p.name;
-    }
-
     if (key === 'productId') {
-      const optionStrings = products.map((p: any) => p.name);
+      const options = products.map((p: any) => ({ label: p.name, value: p.id }));
       return (
         <CustomDropdown
-          options={optionStrings}
+          options={options}
           value={value}
           onChange={(val) => handleFieldChange(field.id, val)}
           placeholder={`Select ${field.name}`}
@@ -244,18 +261,25 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
       
       if (value) {
         return (
-          <div className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
+          <div className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex items-center gap-3 overflow-hidden">
               {isDriveFile ? (
                  <img src={value.driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
               ) : (
-                 <i className="ph-fill ph-file text-2xl text-slate-400"></i>
+                 <i className="ph-fill ph-image text-2xl text-blue-500"></i>
               )}
-              <span className="text-sm font-medium text-slate-700 truncate max-w-[200px]">
-                {isDriveFile ? value.driveFile.name : "Local File Selected"}
-              </span>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-[0.85rem] font-bold text-slate-700 truncate max-w-[200px]">
+                  {isDriveFile ? value.driveFile.name : "Local File Selected"}
+                </span>
+                {isDriveFile && value.driveFile.sizeBytes && (
+                  <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider">
+                    {(Number(value.driveFile.sizeBytes) / 1024 / 1024).toFixed(2)} MB
+                  </span>
+                )}
+              </div>
             </div>
-            <button type="button" onClick={() => handleFieldChange(field.id, null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-500 transition-colors">
+            <button type="button" onClick={() => handleFieldChange(field.id, null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white hover:bg-red-50 text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-colors shadow-sm shrink-0">
               <i className="ph-bold ph-x"></i>
             </button>
           </div>
@@ -263,141 +287,149 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
       }
 
       return (
-        <div className="flex flex-col gap-3">
-          <div className="relative">
-            <Input
-              type="file"
-              accept={field.type === 'IMAGE' ? "image/*" : undefined}
-              disabled={uploadProgress[field.id] !== undefined}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+        <div className="flex gap-3">
+          <input
+            id={`file_input_${field.id}`}
+            type="file"
+            accept={field.type === 'IMAGE' ? "image/*" : undefined}
+            disabled={uploadProgress[field.id] !== undefined}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
 
-                // Client-side size validation: 10MB limit
-                if (file.size > 10 * 1024 * 1024) {
-                  toast.error("File exceeds 10MB limit. Please choose a smaller file.");
-                  e.target.value = ''; // Reset input
-                  return;
-                }
+              // Client-side size validation: 10MB limit
+              if (file.size > 10 * 1024 * 1024) {
+                toast.error("File exceeds 10MB limit. Please choose a smaller file.");
+                e.target.value = ''; // Reset input
+                return;
+              }
 
-                let fileToUpload: File | Blob = file;
-                if (file.type.startsWith('image/')) {
-                  try {
-                    fileToUpload = await new Promise<File | Blob>((resolve) => {
-                      const img = new globalThis.Image();
-                      img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let width = img.width;
-                        let height = img.height;
-                        if (width > 1200) {
-                          height = Math.round((height * 1200) / width);
-                          width = 1200;
+              let fileToUpload: File | Blob = file;
+              if (file.type.startsWith('image/')) {
+                try {
+                  fileToUpload = await new Promise<File | Blob>((resolve) => {
+                    const img = new globalThis.Image();
+                    img.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      let width = img.width;
+                      let height = img.height;
+                      if (width > 1200) {
+                        height = Math.round((height * 1200) / width);
+                        width = 1200;
+                      }
+                      canvas.width = width;
+                      canvas.height = height;
+                      const ctx = canvas.getContext('2d');
+                      ctx?.drawImage(img, 0, 0, width, height);
+                      canvas.toBlob((blob) => {
+                        if (blob) {
+                          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                        } else {
+                          resolve(file);
                         }
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx?.drawImage(img, 0, 0, width, height);
-                        canvas.toBlob((blob) => {
-                          if (blob) {
-                            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-                          } else {
-                            resolve(file);
-                          }
-                        }, 'image/jpeg', 0.6);
-                      };
-                      img.onerror = () => resolve(file);
-                      img.src = URL.createObjectURL(file);
-                    });
-                  } catch (err) {
-                    console.error("Compression failed", err);
-                  }
+                      }, 'image/jpeg', 0.6);
+                    };
+                    img.onerror = () => resolve(file);
+                    img.src = URL.createObjectURL(file);
+                  });
+                } catch (err) {
+                  console.error("Compression failed", err);
                 }
+              }
 
-                if (driveStatus?.connected) {
-                  setUploadProgress(prev => ({ ...prev, [field.id]: 0 }));
+              if (driveStatus?.connected) {
+                setUploadProgress(prev => ({ ...prev, [field.id]: 0 }));
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open("POST", "/api/integrations/google/upload", true);
+                
+                xhr.upload.onprogress = (event) => {
+                  if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    setUploadProgress(prev => ({ ...prev, [field.id]: percent }));
+                  }
+                };
+                
+                xhr.onload = () => {
+                  setUploadProgress(prev => {
+                    const next = { ...prev };
+                    delete next[field.id];
+                    return next;
+                  });
                   
-                  const xhr = new XMLHttpRequest();
-                  xhr.open("POST", "/api/integrations/google/upload", true);
-                  
-                  xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                      const percent = Math.round((event.loaded / event.total) * 100);
-                      setUploadProgress(prev => ({ ...prev, [field.id]: percent }));
+                  if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                      const responseData = JSON.parse(xhr.responseText);
+                      handleFieldChange(field.id, { driveFile: responseData });
+                      toast.success("File uploaded to Google Drive");
+                    } catch (err) {
+                      toast.error("Failed to parse upload response");
                     }
-                  };
-                  
-                  xhr.onload = () => {
-                    setUploadProgress(prev => {
-                      const next = { ...prev };
-                      delete next[field.id];
-                      return next;
-                    });
-                    
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                      try {
-                        const responseData = JSON.parse(xhr.responseText);
-                        handleFieldChange(field.id, { driveFile: responseData });
-                        toast.success("File uploaded to Google Drive");
-                      } catch (err) {
-                        toast.error("Failed to parse upload response");
-                      }
-                    } else {
-                      try {
-                        const errData = JSON.parse(xhr.responseText);
-                        toast.error(errData.error || "Upload failed");
-                      } catch {
-                        toast.error("Upload failed");
-                      }
+                  } else {
+                    try {
+                      const errData = JSON.parse(xhr.responseText);
+                      toast.error(errData.error || "Upload failed");
+                    } catch {
+                      toast.error("Upload failed");
                     }
-                  };
-                  
-                  xhr.onerror = () => {
-                    setUploadProgress(prev => {
-                      const next = { ...prev };
-                      delete next[field.id];
-                      return next;
-                    });
-                    toast.error("Network error during upload");
-                  };
-                  
-                  const uploadData = new FormData();
-                  uploadData.append("file", fileToUpload);
-                  uploadData.append("module", "Gifts & Frames");
-                  
-                  // Calculate category from selected product
-                  const categoryName = products.find((p: any) => p.id === formData.productId)?.name || "Uncategorized";
-                  uploadData.append("category", categoryName);
-                  
-                  xhr.send(uploadData);
-                } else {
-                  // Fallback to base64 if Drive is not connected
-                  const reader = new FileReader();
-                  reader.onloadend = () => handleFieldChange(field.id, reader.result);
-                  reader.readAsDataURL(fileToUpload);
-                }
-              }}
-              className="h-[45px] px-4 py-2 rounded-xl border-slate-200 bg-white text-[0.95rem] cursor-pointer"
-            />
+                  }
+                };
+                
+                xhr.onerror = () => {
+                  setUploadProgress(prev => {
+                    const next = { ...prev };
+                    delete next[field.id];
+                    return next;
+                  });
+                  toast.error("Network error during upload");
+                };
+                
+                const uploadData = new FormData();
+                uploadData.append("file", fileToUpload);
+                uploadData.append("module", "Gifts & Frames");
+                
+                // Calculate category from selected product
+                const categoryName = products.find((p: any) => p.id === formData.productId)?.name || "Uncategorized";
+                uploadData.append("category", categoryName);
+                
+                xhr.send(uploadData);
+              } else {
+                // Fallback to base64 if Drive is not connected
+                const reader = new FileReader();
+                reader.onloadend = () => handleFieldChange(field.id, reader.result);
+                reader.readAsDataURL(fileToUpload);
+              }
+            }}
+            style={{ display: 'none' }}
+          />
+          <button
+            type="button"
+            disabled={uploadProgress[field.id] !== undefined}
+            onClick={() => document.getElementById(`file_input_${field.id}`)?.click()}
+            className="flex-1 flex items-center justify-center gap-2 h-[45px] px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[0.95rem] font-medium transition-colors shadow-sm relative overflow-hidden"
+          >
+            {uploadProgress[field.id] !== undefined ? (
+               <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+               <>
+                 <Upload className="w-5 h-5 text-slate-400" />
+                 Upload from Device
+               </>
+            )}
             {uploadProgress[field.id] !== undefined && (
-              <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100 rounded-b-xl overflow-hidden">
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100">
                 <div 
                   className="h-full bg-blue-600 transition-all duration-300" 
                   style={{ width: `${uploadProgress[field.id]}%` }}
                 />
               </div>
             )}
-          </div>
-          {driveStatus?.connected && (
-             <div className="flex items-center gap-3">
-               <div className="h-px bg-slate-200 flex-1"></div>
-               <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">OR</span>
-               <div className="h-px bg-slate-200 flex-1"></div>
-             </div>
-          )}
+          </button>
+          
           {driveStatus?.connected && (
             <GooglePicker 
               onPick={(file) => handleFieldChange(field.id, { driveFile: file })} 
-              className="w-full justify-center py-2.5 shadow-sm border border-blue-100"
+              className="flex-1 justify-center py-2.5 shadow-sm border border-slate-200 h-[45px] bg-white hover:bg-slate-50 rounded-xl"
             />
           )}
         </div>
@@ -457,15 +489,19 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
                       {section.icon && <i className={`ph-fill ${section.icon} text-orange-500`}></i>}
                       {section.title}
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="flex flex-wrap gap-4">
                       {section.fields.map((field: any) => {
-                        if (!evaluateVisibility(field.visibilityRule)) return null;
+                        const isVisible = evaluateVisibility(field.visibilityRule);
                         if (field.id === 'fld_g_due') return null;
 
                         return (
-                          <div key={field.id} className="space-y-1">
+                          <div 
+                            key={field.id} 
+                            className="space-y-1 w-full md:w-[calc(50%-0.5rem)]"
+                            style={{ display: isVisible ? 'block' : 'none' }}
+                          >
                             <label className="text-[0.7rem] font-bold text-slate-500 uppercase tracking-wider">
-                              {field.name} {field.mandatory && <span className="text-red-500">*</span>}
+                              {field.name.replace('REFERANCE', 'REFERENCE')} {field.mandatory && <span className="text-red-500">*</span>}
                             </label>
                             {renderField(field)}
                             {errors[standardFieldMap[field.id] || field.id] && (

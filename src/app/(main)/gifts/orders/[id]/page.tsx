@@ -68,6 +68,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
 
   // Deleting state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -102,7 +103,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         quantity: order.quantity,
         amount: order.customData?.amount || 0,
         advanceAmount: order.customData?.advanceAmount || 0,
-        dueAmount: order.customData?.dueAmount || 0,
+        dueAmount: Math.max(0, (Number(order.customData?.amount) || 0) - (order.transactions?.filter((t: any) => !t.deletedAt).reduce((sum: number, tx: any) => sum + tx.amount, 0) || Number(order.customData?.advanceAmount) || 0)),
         dueDate: order.dueDate || "",
         paymentMode: order.customData?.paymentMode || "CASH",
       });
@@ -130,10 +131,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const customData = order.customData || {};
   const totalAmount = Number(customData.amount) || 0;
-  const advanceAmount = Number(customData.advanceAmount) || 0;
-  const dueAmount = Number(customData.dueAmount) || 0;
+  const advanceAmount = order.transactions?.find((t: any) => !t.deletedAt && t.description?.startsWith('Advance'))?.amount ?? Number(customData.advanceAmount) ?? 0;
   
-  const collectedAmount = order.transactions?.reduce((sum: number, tx: any) => sum + tx.amount, 0) || 0;
+  const collectedAmount = order.transactions?.filter((t: any) => !t.deletedAt).reduce((sum: number, tx: any) => sum + tx.amount, 0) || advanceAmount;
+  const dueAmount = Math.max(0, totalAmount - collectedAmount);
+  
   const progressPercent = totalAmount > 0 ? Math.round((collectedAmount / totalAmount) * 100) : 0;
 
   // Calculate payment status
@@ -210,7 +212,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           category: "GIFTS_AND_FRAMES",
           paymentMode: customData.paymentMode || "Cash",
           status: "SETTLED",
-          description: `Due Collection for Order ${order.id} - ${order.clientName}`,
+          description: `Due Collection for Order ${order.orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} - ${order.clientName} (${order.product?.name || 'Unknown Product'})`,
           productOrderId: order.id,
         })
       });
@@ -229,11 +231,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       
       txData = await txRes.json();
 
+      const newDueAmount = Math.max(0, dueAmount - collectVal);
       const res = await fetch(`/api/gifts/orders/${order.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          status: "DELIVERED"
+          status: "DELIVERED",
+          customData: {
+            dueAmount: newDueAmount
+          }
         }),
       });
       
@@ -316,43 +322,32 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const handleDownloadInvoice = () => {
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text("INVOICE", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Order ID: #${order.id.slice(-6).toUpperCase()}`, 20, 40);
-    doc.text(`Date: ${format(new Date(order.createdAt), "MMM dd, yyyy")}`, 20, 50);
-    
-    doc.text("Client Information:", 20, 70);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${order.clientName}`, 20, 80);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${order.clientPhone || "N/A"}`, 20, 90);
-    
-    doc.text("Product Details:", 120, 70);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${order.product?.name} (x${order.quantity})`, 120, 80);
-    
-    doc.line(20, 100, 190, 100);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("Financial Summary", 20, 120);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Total Amount: Rs. ${totalAmount}`, 20, 130);
-    doc.text(`Advance Paid: Rs. ${advanceAmount}`, 20, 140);
-    doc.text(`Due Amount: Rs. ${dueAmount}`, 20, 150);
-    
-    doc.text(`Payment Status: ${paymentStatus}`, 120, 130);
-    doc.text(`Order Status: ${order.status}`, 120, 140);
-    if (order.dueDate) {
-      doc.text(`Due Date: ${format(new Date(order.dueDate), "MMM dd, yyyy")}`, 120, 150);
-    }
-    
-    doc.save(`Invoice_${order.id.slice(-6).toUpperCase()}.pdf`);
+  const generateInvoice = async () => {
+    setIsGeneratingInvoice(true);
+    setTimeout(async () => {
+      try {
+        const element = document.getElementById('invoice-template');
+        if (!element) return;
+        const html2canvas = (await import("html2canvas")).default;
+        const { jsPDF } = await import("jspdf");
+        
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`Invoice_${order.id.slice(-6).toUpperCase()}.pdf`);
+        showNotification("Invoice generated successfully!", "success");
+      } catch (error) {
+        showNotification("Failed to generate invoice", "error");
+        console.error(error);
+      } finally {
+        setIsGeneratingInvoice(false);
+      }
+    }, 100);
   };
 
   const currentStatusIndex = STATUS_OPTIONS.findIndex(s => s.value === order.status);
@@ -470,10 +465,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <Printer className="w-5 h-5 sm:w-[18px] sm:h-[18px]" />
                 </button>
                 <button 
-                  onClick={handleDownloadInvoice}
-                  className="flex-shrink-0 w-11 h-11 sm:w-auto sm:px-4 sm:py-2.5 flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition-colors shadow-md"
+                  onClick={generateInvoice}
+                  disabled={isGeneratingInvoice}
+                  className="flex-shrink-0 w-11 h-11 sm:w-auto sm:px-4 sm:py-2.5 flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50"
                 >
-                  <FileDown className="w-5 h-5 sm:w-[16px] sm:h-[16px]" /> <span className="hidden sm:inline">Download Invoice</span>
+                  <FileDown className="w-5 h-5 sm:w-[16px] sm:h-[16px]" /> <span className="hidden sm:inline">{isGeneratingInvoice ? "Generating..." : "Download Invoice"}</span>
                 </button>
               </>
             )}
@@ -932,7 +928,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="mt-6 pt-6 border-t border-slate-100">
                     <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-3">Linked Transactions</div>
                     <div className="space-y-2">
-                      {order.transactions.map((tx: any) => (
+                      {order.transactions.filter((tx: any) => !tx.deletedAt).map((tx: any) => (
                         <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
@@ -1003,6 +999,114 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         </div>
 
+      {/* Off-screen Invoice Template */}
+      <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: '800px', backgroundColor: '#ffffff', zIndex: -10 }}>
+         <div id="invoice-template" className="w-[800px] bg-white pt-6 px-12 pb-12 text-[#1F2937]" style={{ fontFamily: 'sans-serif' }}>
+            <div className="flex justify-between items-start">
+               <div className="flex items-center">
+                  <style dangerouslySetInnerHTML={{__html: "@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');"}} />
+                  <span className="text-[#1F2937] leading-none" style={{ fontFamily: '"Great Vibes", cursive', fontSize: '4.5rem', fontWeight: 400 }}>Moondot</span>
+                  <span className="ml-3 text-[0.8rem] text-[#B66D42] tracking-[0.35em] font-medium uppercase mt-4" style={{ fontFamily: 'Inter, sans-serif' }}>STUDIO</span>
+               </div>
+               <div className="border-l-[3px] border-gray-300 pl-5 pt-1">
+                  <h1 className="text-[2.2rem] font-black text-[#1F2937] tracking-[0.1em] uppercase leading-none">Invoice</h1>
+                  <p className="text-[#B66D42] font-bold mt-3 text-sm">Gift Order #MDorder-{order.id.slice(-6).toUpperCase()}</p>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4 mt-12 border-t border-gray-200 pt-6">
+              <div className="flex flex-col border-r border-gray-200">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice No.</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">#MDorder-{order.id.slice(-6).toUpperCase()}-INV</span>
+              </div>
+              <div className="flex flex-col border-r border-gray-200 pl-4">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice Date</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">{new Date().toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</span>
+              </div>
+              <div className="flex flex-col border-r border-gray-200 pl-4">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Due Date</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">{order.dueDate ? new Date(order.dueDate).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : 'N/A'}</span>
+              </div>
+              <div className="flex flex-col pl-4">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Status</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem] uppercase">{order.status}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 mt-8 bg-[#F8F9FA] border-y border-gray-200">
+              <div className="p-5 pr-6 flex flex-col gap-2">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-1">Billed To</span>
+                <span className="text-[0.9rem] text-[#1F2937]">{order.clientName || 'Client Name'}</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Phone: {order.clientPhone || 'N/A'}</span>
+              </div>
+              <div className="p-5 pl-6 flex flex-col gap-2 border-l border-gray-200">
+                <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-1">From</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Moondot Studio</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Photography & Videography</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Chennai, Tamil Nadu, India</span>
+                <span className="text-[0.9rem] text-[#1F2937]">Email: hello@moondotstudio.in</span>
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <h3 className="text-[0.7rem] font-black text-[#1F2937] tracking-[0.15em] uppercase mb-3">PRODUCT & SERVICES</h3>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#1F2937] text-white">
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[5%]">#</th>
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[55%]">DESCRIPTION</th>
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[10%]">QTY</th>
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[15%]">RATE (₹)</th>
+                    <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[15%]">AMOUNT (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-100">
+                    <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
+                    <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{order.product?.name || "Product"}</td>
+                    <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{order.quantity || 1}</td>
+                    <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{(totalAmount / (order.quantity || 1)).toFixed(2)}</td>
+                    <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{totalAmount.toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-8 flex justify-end">
+              <div className="w-[320px] flex flex-col">
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
+                  <span>Subtotal</span>
+                  <span>₹{totalAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
+                  <span className="text-[#1F2937]">Total Amount</span>
+                  <span className="text-[#B66D42]">₹{totalAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
+                  <span>Advance Paid</span>
+                  <span>₹{advanceAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
+                  <span className="text-[#1F2937]">Balance Due</span>
+                  <span className="text-[#B66D42]">₹{dueAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-end pt-3 text-[0.65rem] font-bold text-[#B66D42] tracking-wider uppercase">
+                  PAYMENT PROGRESS: <span className="ml-2">{progressPercent}% PAID</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-16">
+              <h3 className="text-[0.7rem] font-black text-[#1F2937] tracking-[0.15em] uppercase mb-4 text-right">Terms & Notes</h3>
+              <div className="text-[0.85rem] text-[#1F2937] space-y-2.5">
+                <p className="flex items-start gap-2"><span className="text-[#B66D42] font-bold">—</span> Advance payment required to confirm order.</p>
+                <p className="flex items-start gap-2"><span className="text-[#B66D42] font-bold">—</span> Ready for pickup notification will be sent.</p>
+                <p className="flex items-start gap-2"><span className="text-[#B66D42] font-bold">—</span> Balance due before delivery.</p>
+              </div>
+              <p className="text-[#B66D42] italic text-[0.95rem] mt-6" style={{ fontFamily: 'Georgia, serif' }}>Thank you for choosing Moondot Studio to capture your celebration.</p>
+            </div>
+         </div>
+      </div>
       </div>
     </div>
   );

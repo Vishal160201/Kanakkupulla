@@ -6,6 +6,7 @@ import DatePickerInput from "@/components/ui/DatePickerInput";
 import TimePickerInput from "@/components/ui/TimePickerInput";
 import PillSelect from "@/components/ui/PillSelect";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import CustomMultiDropdown from "@/components/ui/CustomMultiDropdown";
 import GooglePicker from "@/components/shared/GooglePicker";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
@@ -351,11 +352,10 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
           <label className="block text-[10px] font-extrabold text-slate-500 tracking-[1.5px] uppercase mb-2">
             {field.name} {field.mandatory && <span className="text-red-500">*</span>}
           </label>
-          <CustomDropdown
+          <CustomMultiDropdown
             options={allOpts.map((opt: any) => opt.label || opt.value || opt)}
-            value={currentSelected}
+            value={selectedArray}
             onChange={(val: any) => set(fieldName)(Array.isArray(val) ? val.join(', ') : val)}
-            isMulti={true}
             error={!!errors[fieldName]}
             placeholder={`Select ${field.name}...`}
           />
@@ -366,52 +366,18 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
 
     if (field.type === 'STATUS_PICKER') {
       const opts = field.statusOptions || [];
-      const currentValue = form[fieldName] || (opts.length > 0 ? opts[0].label : '');
-      const currentOpt = opts.find((o: any) => o.label === currentValue);
-      const isDropdownOpen = statusDropdownOpen === fieldName;
-
       return (
         <div className="relative custom-dropdown-container">
           <label className="block text-[10px] font-extrabold text-slate-500 tracking-[1.5px] uppercase mb-2">
             {field.name} {field.mandatory && <span className="text-red-500">*</span>}
           </label>
-          <button 
-            type="button" 
-            onClick={() => setStatusDropdownOpen(isDropdownOpen ? null : fieldName)}
-            className={`flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] font-bold text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-300 ${isError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-200'}`}
-          >
-            <div className="flex items-center gap-2">
-              <div 
-                className={`w-3 h-3 rounded-full ${!currentOpt?.color?.startsWith('#') ? (currentOpt?.color || 'bg-slate-400') : ''}`}
-                style={currentOpt?.color?.startsWith('#') ? { backgroundColor: currentOpt.color } : {}}
-              ></div>
-              <span>{currentValue || 'Select Status'}</span>
-            </div>
-            <i className={`ph-bold ph-caret-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}></i>
-          </button>
-          
-          {isDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 p-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 animate-in fade-in slide-in-from-top-2 max-h-[250px] overflow-y-auto">
-               {opts.map((opt: any, idx: number) => (
-                 <button
-                   key={idx}
-                   type="button"
-                   onClick={() => {
-                     set(fieldName)(opt.label);
-                     setStatusDropdownOpen(null);
-                   }}
-                   className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-left text-[0.9rem] font-bold transition-colors ${currentValue === opt.label ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-                 >
-                   <div 
-                     className={`w-3 h-3 rounded-full ${!opt.color?.startsWith('#') ? opt.color : ''}`}
-                     style={opt.color?.startsWith('#') ? { backgroundColor: opt.color } : {}}
-                   ></div>
-                   {opt.label}
-                   {currentValue === opt.label && <i className="ph-bold ph-check ml-auto text-slate-400"></i>}
-                 </button>
-               ))}
-            </div>
-          )}
+          <CustomDropdown
+            options={opts.map((opt: any) => ({ label: opt.label, value: opt.label, color: opt.color }))}
+            value={form[fieldName] || (opts.length > 0 ? opts[0].label : '')}
+            onChange={set(fieldName)}
+            error={!!errors[fieldName]}
+            placeholder={`Select Status...`}
+          />
           {errors[fieldName] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[fieldName]}</p>}
         </div>
       );

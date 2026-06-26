@@ -5,23 +5,39 @@ import useSWR from "swr";
 import OrderForm from "@/components/gifts/OrderForm";
 import OrdersTable from "@/components/gifts/OrdersTable";
 import ProductCategoriesStrip from "@/components/gifts/ProductCategoriesStrip";
+import AllOrdersList from "@/components/gifts/AllOrdersList";
 import { Plus, Settings, ShoppingBag, Truck, PackageOpen, CalendarClock, CalendarDays } from "lucide-react";
 import { isTomorrow, isThisWeek } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export default function GiftsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+
   const { data: productsData } = useSWR("/api/gifts/products", fetcher, {
     revalidateOnFocus: false
   });
 
-  const { data: ordersData, mutate } = useSWR("/api/gifts/orders", fetcher);
+  const { data: ordersData, mutate } = useSWR("/api/gifts/orders?excludeStatus=DELIVERED", fetcher);
 
   const orders = ordersData?.orders || [];
   
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
   const [formDefaultProduct, setFormDefaultProduct] = useState<string | null>(null);
+  const activeTab = tabParam === "all-orders" ? "all" : "active";
+  
+  const handleTabChange = (tab: "active" | "all") => {
+    if (tab === "all") {
+      router.push("/gifts?tab=all-orders");
+    } else {
+      router.push("/gifts");
+    }
+  };
 
   const filteredOrders = useMemo(() => {
     if (!selectedCategory) return orders;
@@ -63,7 +79,25 @@ export default function GiftsPage() {
           </div>
         </div>
 
-        {/* Top Metric Cards */}
+        {/* Tabs */}
+        <div className="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit relative z-10">
+          <button 
+            onClick={() => handleTabChange("active")}
+            className={cn("px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 relative", activeTab === "active" ? "text-slate-800 shadow-sm bg-white" : "text-slate-500 hover:text-slate-700")}
+          >
+            Active Orders
+          </button>
+          <button 
+            onClick={() => handleTabChange("all")}
+            className={cn("px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 relative", activeTab === "all" ? "text-slate-800 shadow-sm bg-white" : "text-slate-500 hover:text-slate-700")}
+          >
+            All Orders
+          </button>
+        </div>
+
+        {activeTab === "active" ? (
+          <>
+            {/* Top Metric Cards */}
         <style dangerouslySetInnerHTML={{__html: `
           .stat-cards-grid {
             display: grid;
@@ -205,6 +239,10 @@ export default function GiftsPage() {
             onOrderUpdated={() => mutate()} 
           />
         </div>
+        </>
+        ) : (
+          <AllOrdersList products={productsData?.products || []} />
+        )}
 
       </div>
     </div>

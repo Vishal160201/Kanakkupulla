@@ -772,11 +772,44 @@ export default function OverviewPage() {
                     </div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-bold text-[0.9rem] leading-tight">{txn.category}</span>
-                        <span className={`px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] ${txn.type === 'INCOME'
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-red-500/15 text-red-400'
-                          }`}>{txn.type}</span>
+                        {(() => {
+                          let title = txn.category;
+                          let isGifts = txn.category === 'GIFTS_AND_FRAMES';
+                          let isAdvance = false;
+                          let isDue = false;
+                          if (isGifts && txn.description) {
+                            const match = txn.description.match(/\(([^)]+)\)$/);
+                            if (match) title = match[1];
+                            if (txn.description.startsWith('Advance')) isAdvance = true;
+                            if (txn.description.startsWith('Due')) isDue = true;
+                          }
+                          return (
+                            <>
+                              <span className="text-white font-bold text-[0.9rem] leading-tight">{title}</span>
+                              <span className={`px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] ${txn.type === 'INCOME'
+                                  ? 'bg-emerald-500/15 text-emerald-400'
+                                  : 'bg-red-500/15 text-red-400'
+                                }`}>{txn.type}</span>
+                              {isGifts && (
+                                <>
+                                  <span className="px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] bg-orange-500/15 text-orange-400">
+                                    GIFTS & FRAMES
+                                  </span>
+                                  {isAdvance && (
+                                    <span className="px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] bg-blue-500/15 text-blue-400">
+                                      ADV
+                                    </span>
+                                  )}
+                                  {isDue && (
+                                    <span className="px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] bg-red-500/15 text-red-400">
+                                      DUE
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         {txn.description && (
@@ -796,7 +829,8 @@ export default function OverviewPage() {
                     <span className="text-slate-500 text-[0.7rem] font-semibold">
                       {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </span>
-                    <span className={`text-[1.05rem] font-extrabold tracking-tight ${txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
+                    <span className={`min-w-[100px] text-right text-sm sm:text-base font-black ${
+                        txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
                       }`}>
                       {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN')}
                     </span>
@@ -834,23 +868,25 @@ export default function OverviewPage() {
                         </div>
                       ) : (
                         <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/transactions/${txn.id}/edit`);
-                            }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                            title="Edit transaction"
-                          >
-                            <i className="ph ph-pencil-simple text-lg" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(txn.id); setDeleteError(null); }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-                            title="Delete transaction"
-                          >
-                            <i className="ph ph-trash text-lg" />
-                          </button>
+                          <div className={`flex items-center gap-1 w-[64px] justify-end ${txn.productOrderId || txn.bookingId ? 'invisible' : 'visible'}`}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/transactions/${txn.id}/edit`);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                              title="Edit transaction"
+                            >
+                              <i className="ph ph-pencil-simple text-lg" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(txn.id); setDeleteError(null); }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                              title="Delete transaction"
+                            >
+                              <i className="ph ph-trash text-lg" />
+                            </button>
+                          </div>
                         </>
                       )}
                     </div>
