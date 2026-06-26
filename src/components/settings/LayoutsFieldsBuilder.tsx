@@ -33,6 +33,7 @@ export interface FormField {
     dateFieldId: string;
     restrictedStatuses: string[];
   };
+  restrictFutureDate?: boolean;
   isRecordDate?: boolean;
 }
 
