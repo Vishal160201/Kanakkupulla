@@ -91,6 +91,12 @@ export async function DELETE(
         trashedById: (session.user as any).id,
       }
     });
+    // Delete associated transactions first to prevent foreign key constraint failures
+    const txDeleteResult = await prisma.transaction.updateMany({
+      where: { productOrderId: id },
+      data: { deletedAt: new Date() }
+    });
+    console.log('softDelete result (product-orders API):', txDeleteResult.count);
 
     await prisma.productOrder.delete({
       where: { id },
