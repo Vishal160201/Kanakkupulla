@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ColorPicker } from "../ui/color-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { APP_ICONS_BY_CATEGORY } from "@/lib/appIcons";
+import CustomMultiDropdown from "@/components/ui/CustomMultiDropdown";
 
 export interface FormField {
   id: string;
@@ -25,13 +26,14 @@ export interface FormField {
   visibilityRule?: {
     fieldId: string;
     operator: 'EQUALS' | 'NOT_EQUALS' | 'CONTAINS';
-    value: string;
+    values?: string[];
   };
   futureDateRestriction?: {
     enabled: boolean;
     dateFieldId: string;
     restrictedStatuses: string[];
   };
+  isRecordDate?: boolean;
 }
 
 interface FormSection {
@@ -40,10 +42,11 @@ interface FormSection {
   description?: string;
   icon?: string;
   fields: FormField[];
+  locked?: boolean;
   visibilityRule?: {
     fieldId: string;
     operator: 'EQUALS' | 'NOT_EQUALS' | 'CONTAINS';
-    value: string;
+    values?: string[];
   };
 }
 
@@ -114,7 +117,7 @@ export default function LayoutsFieldsBuilder() {
       if (!res.ok) throw new Error("Failed to fetch layouts");
       const data: FormLayout[] = await res.json();
       
-      const merged = [...DEFAULT_LAYOUTS];
+      const merged: FormLayout[] = [...(DEFAULT_LAYOUTS as unknown as FormLayout[])];
       data.forEach(dbLayout => {
         const idx = merged.findIndex(m => m.formKey === dbLayout.formKey);
         if (idx >= 0) merged[idx] = dbLayout;
@@ -620,15 +623,22 @@ export default function LayoutsFieldsBuilder() {
                  </button>
                </div>
             ) : (
-              activeLayout.schema.sections.map((section) => (
+              activeLayout.schema.sections.map((section) => {
+                const isSectionLocked = section.id === 'sec_booking_financial' || section.locked;
+                return (
                 <div 
                   key={section.id} 
-                  draggable={true}
+                  draggable={!isSectionLocked}
                   onDragStart={(e) => {
+                    if (isSectionLocked) {
+                      e.preventDefault();
+                      return;
+                    }
                     e.stopPropagation();
                     setDraggedSectionId(section.id);
                   }}
                   onDragEnd={() => {
+                    if (isSectionLocked) return;
                     setDraggedSectionId(null);
                     setDragOverSectionId(null);
                   }}
@@ -696,20 +706,20 @@ export default function LayoutsFieldsBuilder() {
                         type="text"
                         value={section.title}
                         onChange={(e) => updateSectionTitle(section.id, e.target.value)}
-                        className={`font-extrabold text-slate-900 bg-transparent border-none outline-none focus:ring-0 p-0 text-xl placeholder:text-slate-300 w-full mb-1 ${section.id === 'sec_booking_financial' ? 'pointer-events-none' : ''}`}
+                        className={`font-extrabold text-slate-900 bg-transparent border-none outline-none focus:ring-0 p-0 text-xl placeholder:text-slate-300 w-full mb-1 ${isSectionLocked ? 'pointer-events-none' : ''}`}
                         placeholder="Section Title"
-                        readOnly={section.id === 'sec_booking_financial'}
+                        readOnly={isSectionLocked}
                       />
                       <input
                         type="text"
                         value={section.description || ""}
                         onChange={(e) => updateSectionDescription(section.id, e.target.value)}
-                        className={`text-[0.95rem] text-slate-500 bg-transparent border-none outline-none focus:ring-0 p-0 w-full placeholder:text-slate-300 ${section.id === 'sec_booking_financial' ? 'pointer-events-none' : ''}`}
+                        className={`text-[0.95rem] text-slate-500 bg-transparent border-none outline-none focus:ring-0 p-0 w-full placeholder:text-slate-300 ${isSectionLocked ? 'pointer-events-none' : ''}`}
                         placeholder="Section Description..."
-                        readOnly={section.id === 'sec_booking_financial'}
+                        readOnly={isSectionLocked}
                       />
                     </div>
-                    {section.id !== 'sec_booking_financial' && (
+                    {!isSectionLocked && (
                       <button
                         onClick={() => removeSection(section.id)}
                         className="opacity-0 group-hover/section:opacity-100 text-slate-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-all"
@@ -729,45 +739,45 @@ export default function LayoutsFieldsBuilder() {
                       
                       return (
                         <div key={field.id} className="relative">
-                          {isDragOver && section.id !== 'sec_booking_financial' && (
+                          {isDragOver && !isSectionLocked && (
                             <div className="absolute -left-3 -top-3 bottom-0 w-1.5 bg-orange-500 rounded-full z-20 shadow-[0_0_8px_rgba(249,115,22,0.6)] animate-pulse"></div>
                           )}
                           <div 
-                            draggable={section.id !== 'sec_booking_financial'}
+                            draggable={!isSectionLocked}
                             onDragStart={(e) => {
-                              if (section.id === 'sec_booking_financial') return;
+                              if (isSectionLocked) return;
                               setDraggedFieldContext({ sectionId: section.id, fieldIndex: idx });
                               e.dataTransfer.effectAllowed = "move";
                               e.dataTransfer.setData("text/plain", `field_${field.id}`);
                             }}
                             onDragEnd={() => {
-                              if (section.id === 'sec_booking_financial') return;
+                              if (isSectionLocked) return;
                               setDraggedFieldContext(null);
                               setDragOverTarget(null);
                             }}
                             onDragOver={(e) => {
-                              if (section.id === 'sec_booking_financial') return;
+                              if (isSectionLocked) return;
                               e.preventDefault();
                               e.stopPropagation();
                               e.dataTransfer.dropEffect = draggedNewFieldType ? "copy" : "move";
                               setDragOverTarget({ sectionId: section.id, fieldIndex: idx });
                             }}
                             onDrop={(e) => {
-                              if (section.id === 'sec_booking_financial') return;
+                              if (isSectionLocked) return;
                               e.stopPropagation();
                               handleDrop(e, section.id, idx);
                             }}
                             onClick={(e) => { 
-                              if (section.id === 'sec_booking_financial') return;
+                              if (isSectionLocked) return;
                               e.stopPropagation(); 
                               setSelectedFieldId(field.id); 
                             }}
                             className={`relative transition-all group/field rounded-2xl p-3 -m-3 ${
-                              section.id === 'sec_booking_financial' ? '' : 'cursor-grab active:cursor-grabbing'
+                              isSectionLocked ? '' : 'cursor-grab active:cursor-grabbing'
                             } ${
                               isSelected 
                                 ? 'bg-orange-50/50 outline outline-2 outline-orange-500 z-10' 
-                                : section.id === 'sec_booking_financial' ? '' : 'hover:bg-slate-100/50 hover:outline hover:outline-1 hover:outline-gray-200'
+                                : isSectionLocked ? '' : 'hover:bg-slate-100/50 hover:outline hover:outline-1 hover:outline-gray-200'
                             }`}
                           >
                             {/* Realistic Label */}
@@ -793,7 +803,7 @@ export default function LayoutsFieldsBuilder() {
                             )}
 
                             {/* Floating Action Menu (Delete) */}
-                            {section.id !== 'sec_booking_financial' && (
+                            {!isSectionLocked && (
                               <div className={`absolute -right-2 -top-2 bg-white border border-gray-200 rounded-full shadow-sm flex items-center transition-opacity z-20 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover/field:opacity-100'}`}>
                                 <button 
                                   onClick={(e) => removeField(section.id, field.id, e)}
@@ -811,7 +821,7 @@ export default function LayoutsFieldsBuilder() {
                   </div>
                     
                   {/* Inline Add Field Area (Drop Zone) */}
-                  {section.id !== 'sec_booking_financial' && (
+                  {!isSectionLocked && (
                     <button
                       onClick={() => addFieldToSection(section.id)}
                       onDragOver={(e) => {
@@ -833,7 +843,8 @@ export default function LayoutsFieldsBuilder() {
                     </button>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -875,6 +886,45 @@ export default function LayoutsFieldsBuilder() {
                     <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Mandatory Field</span>
                   </label>
                 </div>
+
+                {/* Record Date Toggle (DATE only) */}
+                {selectedField.type === "DATE" && (() => {
+                  let existingRecordDateField: any = null;
+                  if (!selectedField.isRecordDate) {
+                    activeLayout.schema.sections.forEach(s => {
+                      s.fields.forEach(f => {
+                        if (f.id !== selectedField.id && f.isRecordDate) {
+                          existingRecordDateField = f;
+                        }
+                      });
+                    });
+                  }
+                  
+                  return (
+                    <div className="pt-2">
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (existingRecordDateField) {
+                              return; // Disabled if another exists
+                            }
+                            updateSelectedField({ isRecordDate: !selectedField.isRecordDate });
+                          }}
+                          className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${existingRecordDateField ? 'bg-slate-200 cursor-not-allowed opacity-50' : selectedField.isRecordDate ? 'bg-orange-500' : 'bg-slate-300'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${selectedField.isRecordDate ? 'translate-x-5' : 'translate-x-0'}`}></span>
+                        </div>
+                        <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Use as Record Date</span>
+                      </label>
+                      {existingRecordDateField && (
+                        <p className="text-red-500 text-[0.7rem] font-medium mt-1">
+                          Only one date field can be the record date. Disable {existingRecordDateField.name} first.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Options for PICK_LIST or MULTI_SELECT */}
                 {(selectedField.type === "PICK_LIST" || selectedField.type === "MULTI_SELECT") && (
@@ -1246,7 +1296,7 @@ export default function LayoutsFieldsBuilder() {
                           const { visibilityRule, ...rest } = selectedField;
                           updateSelectedField({ visibilityRule: undefined } as any); // hack to delete
                         } else {
-                          updateSelectedField({ visibilityRule: { fieldId: '', operator: 'EQUALS', value: '' } });
+                          updateSelectedField({ visibilityRule: { fieldId: '', operator: 'EQUALS', values: [] } });
                         }
                       }}
                       className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${selectedField.visibilityRule ? 'bg-orange-500' : 'bg-slate-300'}`}
@@ -1279,7 +1329,7 @@ export default function LayoutsFieldsBuilder() {
                         </Select>
                       </div>
                       <div className="flex gap-2">
-                        <div className="w-1/3">
+                        <div className="min-w-[120px] shrink-0">
                           <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Operator</label>
                           <Select
                             value={selectedField.visibilityRule.operator}
@@ -1287,47 +1337,42 @@ export default function LayoutsFieldsBuilder() {
                           >
                             <SelectTrigger className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg h-[40px] px-3 outline-none focus:border-orange-500 transition-all">
                               <span className="truncate flex-1 text-left">
-                                {selectedField.visibilityRule?.operator === 'EQUALS' ? 'Equals' : 
-                                 selectedField.visibilityRule?.operator === 'NOT_EQUALS' ? 'Not Equals' : 
+                                {selectedField.visibilityRule?.operator === 'EQUALS' ? 'Is any of' : 
+                                 selectedField.visibilityRule?.operator === 'NOT_EQUALS' ? 'Is not' : 
                                  selectedField.visibilityRule?.operator === 'CONTAINS' ? 'Contains' : 'Operator'}
                               </span>
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="EQUALS">Equals</SelectItem>
-                              <SelectItem value="NOT_EQUALS">Not Equals</SelectItem>
+                              <SelectItem value="EQUALS">Is any of</SelectItem>
+                              <SelectItem value="NOT_EQUALS">Is not</SelectItem>
                               <SelectItem value="CONTAINS">Contains</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="w-2/3">
-                          <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Value</label>
+                        <div className="flex-1 min-w-0">
+                          <label className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Values</label>
                           {(() => {
                             const dependingField = activeLayout.schema.sections.flatMap(s => s.fields).find(f => f.id === selectedField.visibilityRule?.fieldId);
                             if (dependingField && dependingField.options && dependingField.options.length > 0) {
+                              const selectedValues = selectedField.visibilityRule?.values || 
+                                (selectedField.visibilityRule as any)?.value ? [(selectedField.visibilityRule as any).value] : [];
                               return (
-                                <Select
-                                  value={selectedField.visibilityRule.value}
-                                  onValueChange={(val) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, value: val || "" } })}
-                                >
-                                  <SelectTrigger className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg h-[40px] px-3 outline-none focus:border-orange-500 transition-all">
-                                    <span className="truncate flex-1 text-left">
-                                      {selectedField.visibilityRule.value || "Select Value"}
-                                    </span>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {dependingField.options.map(opt => (
-                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                <CustomMultiDropdown
+                                  options={dependingField.options}
+                                  value={selectedValues}
+                                  onChange={(val) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, values: Array.isArray(val) ? val : [val as string] } })}
+                                  placeholder="Select Values..."
+                                />
                               );
                             }
+                            
+                            const textValues = selectedField.visibilityRule?.values?.join(', ') || (selectedField.visibilityRule as any)?.value || '';
                             return (
                               <input
                                 type="text"
-                                value={selectedField.visibilityRule!.value}
-                                onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, value: e.target.value } })}
-                                placeholder="e.g. Wedding"
+                                value={textValues}
+                                onChange={(e) => updateSelectedField({ visibilityRule: { ...selectedField.visibilityRule!, values: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } })}
+                                placeholder="e.g. Wedding, Event"
                                 className="w-full text-sm font-semibold text-slate-800 bg-white border border-gray-300 rounded-lg h-[40px] px-3 outline-none focus:border-orange-500 transition-all"
                               />
                             );

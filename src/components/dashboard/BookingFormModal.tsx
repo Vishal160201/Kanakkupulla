@@ -206,16 +206,19 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
     const depValue = formValues[depFieldName as keyof BookingFormData];
     
+    // Support both new rule.values and old rule.value
+    const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+    
     if (rule.operator === 'EQUALS') {
-      return depValue === rule.value;
+      return ruleValues.includes(depValue as string);
     } else if (rule.operator === 'NOT_EQUALS') {
-      return depValue !== rule.value;
+      return !ruleValues.includes(depValue as string);
     } else if (rule.operator === 'CONTAINS') {
       if (typeof depValue === 'string') {
-        return depValue.includes(rule.value);
+        return ruleValues.some(v => depValue.includes(v));
       }
       if (Array.isArray(depValue)) {
-        return depValue.includes(rule.value);
+        return ruleValues.some(v => depValue.includes(v));
       }
       return false;
     }
@@ -301,6 +304,20 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) formDataObj.append(key, value as string);
     });
+
+    // Check for recordDate
+    if (layoutSchema?.sections) {
+      const recordDateField = layoutSchema.sections
+        .flatMap((s: any) => s.fields)
+        .find((f: any) => f.isRecordDate);
+      if (recordDateField) {
+        const fname = standardFieldMap[recordDateField.id] || recordDateField.id;
+        const recordDateValue = data[fname as keyof BookingFormData];
+        if (recordDateValue) {
+          formDataObj.append('recordDate', recordDateValue as string);
+        }
+      }
+    }
 
     const result = await saveBookingAction(formDataObj);
 

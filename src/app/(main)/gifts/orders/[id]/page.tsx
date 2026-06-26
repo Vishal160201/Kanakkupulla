@@ -81,6 +81,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [collectionInput, setCollectionInput] = useState("");
   const [collectionError, setCollectionError] = useState<string | null>(null);
   const [collectionSuccess, setCollectionSuccess] = useState(false);
+  const [dueCollectionDate, setDueCollectionDate] = useState<string>("");
 
   const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
   const paymentDropdownRef = useRef<HTMLDivElement>(null);
@@ -162,6 +163,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     
     if (newStatus === "DELIVERED" && dueAmount > 0) {
       setCollectionInput(dueAmount.toString());
+      const isBackdated = order.createdAt && new Date(order.createdAt).getTime() < new Date().setHours(0,0,0,0);
+      setDueCollectionDate(isBackdated ? new Date(order.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
       setShowDueCollection(true);
       return;
     }
@@ -208,7 +211,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         body: JSON.stringify({
           amount: collectVal,
           type: "INCOME",
-          date: new Date().toISOString(),
+          date: new Date(dueCollectionDate).toISOString(),
+          createdAt: new Date(dueCollectionDate).toISOString(),
           category: "GIFTS_AND_FRAMES",
           paymentMode: customData.paymentMode || "Cash",
           status: "SETTLED",
@@ -611,6 +615,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     onChange={(e) => setCollectionInput(e.target.value)}
                     disabled={isCollecting || collectionSuccess}
                     className="w-full bg-white border border-amber-200 rounded-xl pl-6 pr-3 py-2 text-slate-800 font-bold text-xs focus:border-amber-400 focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+                <div className="relative w-full sm:w-36">
+                  <input
+                    type="date"
+                    value={dueCollectionDate}
+                    onChange={(e) => setDueCollectionDate(e.target.value)}
+                    disabled={isCollecting || collectionSuccess}
+                    className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-slate-800 font-bold text-xs focus:border-amber-400 focus:outline-none transition-colors"
                   />
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
@@ -1021,7 +1034,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </div>
               <div className="flex flex-col border-r border-gray-200 pl-4">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice Date</span>
-                <span className="font-bold text-[#1F2937] text-[0.95rem]">{new Date().toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem]">{new Date(order.createdAt || new Date()).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</span>
               </div>
               <div className="flex flex-col border-r border-gray-200 pl-4">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Due Date</span>

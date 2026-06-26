@@ -89,7 +89,12 @@ export async function POST(
             productOrderId: entry.itemId
           }
         });
+        
+        const restoredTxs = await prisma.transaction.findMany({ where: { productOrderId: entry.itemId } });
         console.log(`Restore transactions result: ${txRestoreResult.count}`);
+        restoredTxs.forEach(tx => {
+           console.log('order.createdAt:', data.createdAt, 'transaction.date:', tx.date);
+        });
       } catch (e) {
         console.error("Failed to restore product order", e);
         return NextResponse.json({ error: "Failed to restore product order" }, { status: 500 });

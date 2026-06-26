@@ -93,7 +93,7 @@ export const DEFAULT_LAYOUTS = [
           fields: [
             { id: "fld_tx_amount", name: "Amount", type: "CURRENCY", mandatory: true },
             { id: "fld_tx_type", name: "Transaction Type", type: "PICK_LIST", mandatory: true, options: ["INCOME", "EXPENSE"] },
-            { id: "fld_tx_date", name: "Date", type: "DATE", mandatory: true },
+            { id: "fld_tx_date", name: "Date", type: "DATE", mandatory: true, isRecordDate: true },
             { id: "fld_tx_category", name: "Category", type: "PICK_LIST", mandatory: true, options: [
               "Photography Session",
               "Equipment Rent",
@@ -136,10 +136,10 @@ export const DEFAULT_LAYOUTS = [
             { id: "fld_g_quantity", name: "Quantity", type: "NUMBER", mandatory: true },
             { id: "fld_g_due_date", name: "Target Delivery Date", type: "DATE", mandatory: false },
             { id: "fld_g_reference_image", name: "Reference Image", type: "FILE", mandatory: false },
-            { id: "fld_g_size", name: "Size", type: "PICK_LIST", mandatory: false, options: ["A4", "A3", "ID Card", "12x18", "16x20", "20x30"], visibilityRule: { fieldId: "fld_g_product", operator: "CONTAINS", value: "Lamination" } },
-            { id: "fld_g_model", name: "Phone Model", type: "SINGLE_LINE", mandatory: false, visibilityRule: { fieldId: "fld_g_product", operator: "EQUALS", value: "Mobile Case" } },
-            { id: "fld_g_type", name: "Type", type: "PICK_LIST", mandatory: false, options: ["Matte", "Glossy", "Textured"], visibilityRule: { fieldId: "fld_g_product", operator: "EQUALS", value: "Visiting Card" } },
-            { id: "fld_g_event", name: "Event Type", type: "SINGLE_LINE", mandatory: false, visibilityRule: { fieldId: "fld_g_product", operator: "EQUALS", value: "Invitation" } }
+            { id: "fld_g_size", name: "Size", type: "PICK_LIST", mandatory: false, options: ["A4", "A3", "ID Card", "12x18", "16x20", "20x30"], visibilityRule: { fieldId: "fld_g_product", operator: "CONTAINS", values: ["Lamination"] } },
+            { id: "fld_g_model", name: "Phone Model", type: "SINGLE_LINE", mandatory: false, visibilityRule: { fieldId: "fld_g_product", operator: "EQUALS", values: ["Mobile Case"] } },
+            { id: "fld_g_type", name: "Type", type: "PICK_LIST", mandatory: false, options: ["Matte", "Glossy", "Textured"], visibilityRule: { fieldId: "fld_g_product", operator: "EQUALS", values: ["Visiting Card"] } },
+            { id: "fld_g_event", name: "Event Type", type: "SINGLE_LINE", mandatory: false, visibilityRule: { fieldId: "fld_g_product", operator: "EQUALS", values: ["Invitation"] } }
           ]
         },
         {
@@ -155,6 +155,7 @@ export const DEFAULT_LAYOUTS = [
           id: "sec_gift_payment",
           title: "Payment Details",
           icon: "ph-currency-inr",
+          locked: true,
           fields: [
             { id: "fld_g_amount", name: "Total Amount (₹)", type: "CURRENCY", mandatory: true },
             { id: "fld_g_advance", name: "Advance Amount (₹)", type: "CURRENCY", mandatory: false },

@@ -203,9 +203,14 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
       const evaluateVisibility = (rule: any) => {
         if (!rule || !rule.fieldId) return true;
         const depValue = editData[rule.fieldId];
-        if (rule.operator === 'EQUALS') return depValue === rule.value;
-        if (rule.operator === 'NOT_EQUALS') return depValue !== rule.value;
-        if (rule.operator === 'CONTAINS') return typeof depValue === 'string' && depValue.includes(rule.value);
+        const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+        if (rule.operator === 'EQUALS') return ruleValues.includes(depValue as string);
+        if (rule.operator === 'NOT_EQUALS') return !ruleValues.includes(depValue as string);
+        if (rule.operator === 'CONTAINS') {
+          if (typeof depValue === 'string') return ruleValues.some(v => depValue.includes(v));
+          if (Array.isArray(depValue)) return ruleValues.some(v => depValue.includes(v));
+          return false;
+        }
         return true;
       };
 
@@ -594,11 +599,16 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                 {/* 4 Main Columns for Dynamic Sections + Timeline */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {layoutSchema && layoutSchema.sections && layoutSchema.sections.map((section: any) => {
-                    // Evaluate section visibility
                     if (section.visibilityRule && section.visibilityRule.fieldId) {
                       const depVal = (booking as any)[section.visibilityRule.fieldId] || booking.customData?.[section.visibilityRule.fieldId];
-                      if (section.visibilityRule.operator === 'EQUALS' && depVal !== section.visibilityRule.value) return null;
-                      if (section.visibilityRule.operator === 'NOT_EQUALS' && depVal === section.visibilityRule.value) return null;
+                      const ruleValues: string[] = section.visibilityRule.values || (section.visibilityRule.value ? [section.visibilityRule.value] : []);
+                      
+                      if (section.visibilityRule.operator === 'EQUALS' && !ruleValues.includes(depVal as string)) return null;
+                      if (section.visibilityRule.operator === 'NOT_EQUALS' && ruleValues.includes(depVal as string)) return null;
+                      if (section.visibilityRule.operator === 'CONTAINS') {
+                        if (typeof depVal === 'string' && !ruleValues.some(v => depVal.includes(v))) return null;
+                        if (Array.isArray(depVal) && !ruleValues.some(v => depVal.includes(v))) return null;
+                      }
                     }
 
                     // For the Financial section, we skip it here and show it in the dedicated Package & Payment block
@@ -617,8 +627,14 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                             // Evaluate field visibility
                             if (field.visibilityRule && field.visibilityRule.fieldId) {
                               const depVal = (booking as any)[field.visibilityRule.fieldId] || booking.customData?.[field.visibilityRule.fieldId];
-                              if (field.visibilityRule.operator === 'EQUALS' && depVal !== field.visibilityRule.value) return null;
-                              if (field.visibilityRule.operator === 'NOT_EQUALS' && depVal === field.visibilityRule.value) return null;
+                              const ruleValues: string[] = field.visibilityRule.values || (field.visibilityRule.value ? [field.visibilityRule.value] : []);
+
+                              if (field.visibilityRule.operator === 'EQUALS' && !ruleValues.includes(depVal as string)) return null;
+                              if (field.visibilityRule.operator === 'NOT_EQUALS' && ruleValues.includes(depVal as string)) return null;
+                              if (field.visibilityRule.operator === 'CONTAINS') {
+                                if (typeof depVal === 'string' && !ruleValues.some(v => depVal.includes(v))) return null;
+                                if (Array.isArray(depVal) && !ruleValues.some(v => depVal.includes(v))) return null;
+                              }
                             }
 
                             const fieldName = standardFieldMap[field.id] || field.id;

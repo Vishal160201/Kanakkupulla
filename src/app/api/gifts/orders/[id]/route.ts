@@ -80,6 +80,13 @@ export async function PATCH(
           },
           data: advanceTxUpdateData
         });
+        
+        const updatedTx = await prisma.transaction.findFirst({
+           where: { productOrderId: order.id, OR: [{ description: { startsWith: 'Advance' } }, { description: { startsWith: 'Full Payment' } }] }
+        });
+        if (updatedTx) {
+           console.log('order.createdAt:', order.createdAt, 'transaction.date:', updatedTx.date);
+        }
       }
     }
 
