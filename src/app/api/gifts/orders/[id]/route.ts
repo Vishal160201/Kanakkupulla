@@ -66,7 +66,7 @@ export async function PATCH(
         advanceTxUpdateData.amount = parseFloat(allowedUpdates.customData.advanceAmount) || 0;
       }
       if (allowedUpdates.clientName) {
-        advanceTxUpdateData.description = `Advance Payment for Order ${order.id} - ${allowedUpdates.clientName}`;
+        advanceTxUpdateData.description = `Advance Payment for Order ${order.orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} - ${allowedUpdates.clientName}`;
       }
 
       if (Object.keys(advanceTxUpdateData).length > 0) {

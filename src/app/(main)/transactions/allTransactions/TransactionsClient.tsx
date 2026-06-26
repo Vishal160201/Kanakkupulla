@@ -571,43 +571,73 @@ function TransactionsList() {
                     <i className={`ph-bold ${iconClass} text-xl`}></i>
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate font-bold text-slate-900 text-sm mb-1">
-                      {tx.description ? tx.description.split(' - ')[0] : tx.category}
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className={`max-w-[110px] truncate text-[9px] font-extrabold px-2 py-0.5 rounded tracking-wider uppercase ${colorClass.bg} ${colorClass.text}`}>{tx.category}</span>
-                      <span className="truncate text-[11px] text-slate-400 font-medium">{new Date(tx.date).toLocaleDateString('en-GB')} &middot; {tx.paymentMode}</span>
-                      <span className="hidden sm:inline text-[10px] text-slate-300 font-mono">{tx.transactionId}</span>
-                    </div>
+                    {(() => {
+                      let title = tx.description ? tx.description.split(' - ')[0] : tx.category;
+                      let isGifts = tx.category === 'GIFTS_AND_FRAMES';
+                      let isAdvance = false;
+                      let isDue = false;
+                      if (isGifts && tx.description) {
+                        const match = tx.description.match(/\(([^)]+)\)$/);
+                        if (match) title = match[1];
+                        if (tx.description.startsWith('Advance')) isAdvance = true;
+                        if (tx.description.startsWith('Due')) isDue = true;
+                      }
+                      return (
+                        <>
+                          <div className="truncate font-bold text-slate-900 text-sm mb-1">
+                            {title}
+                          </div>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className={`max-w-[110px] truncate text-[9px] font-extrabold px-2 py-0.5 rounded tracking-wider uppercase ${colorClass.bg} ${colorClass.text}`}>
+                              {isGifts ? 'GIFTS & FRAMES' : tx.category}
+                            </span>
+                            {isGifts && isAdvance && (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-blue-50 text-blue-600">
+                                ADV
+                              </span>
+                            )}
+                            {isGifts && isDue && (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-red-50 text-red-600">
+                                DUE
+                              </span>
+                            )}
+                            <span className="truncate text-[11px] text-slate-400 font-medium">{new Date(tx.date).toLocaleDateString('en-GB')} &middot; {tx.paymentMode}</span>
+                            <span className="hidden sm:inline text-[10px] text-slate-300 font-mono">{tx.transactionId}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1 text-right sm:gap-2">
-                  <div>
+                  <div className="min-w-[100px] text-right">
                     <div className={`text-sm font-bold sm:text-base ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {tx.type === 'EXPENSE' ? '-' : ''}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setDeleteId(tx.id);
-                    }}
-                    className="hidden h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 sm:flex sm:opacity-0 sm:group-hover:opacity-100"
-                    title="Delete Transaction"
-                  >
-                    <i className="ph-bold ph-trash"></i>
-                  </button>
-                  {/* U4: Edit button */}
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      router.push(`/transactions/${tx.id}/edit`);
-                    }}
-                    className="hidden h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 sm:flex sm:opacity-0 sm:group-hover:opacity-100"
-                    title="Edit Transaction"
-                  >
-                    <i className="ph-bold ph-pencil-simple"></i>
-                  </button>
+                  <div className="flex items-center gap-1 w-[64px] justify-end">
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDeleteId(tx.id);
+                      }}
+                      className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
+                      title="Delete Transaction"
+                    >
+                      <i className="ph-bold ph-trash"></i>
+                    </button>
+                    {/* U4: Edit button */}
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        router.push(`/transactions/${tx.id}/edit`);
+                      }}
+                      className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
+                      title="Edit Transaction"
+                    >
+                      <i className="ph-bold ph-pencil-simple"></i>
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={(event) => {

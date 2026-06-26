@@ -98,11 +98,13 @@ export async function createNotification(
             text += `\n\nView details: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${link}`;
          }
          try {
+           /* WHATSAPP TEMPORARILY DISABLED
            await fetch(`${BOT_URL}/api/send`, {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ to: cleanPhone, message: text })
            });
+           */
          } catch (e) {
            console.error("Failed to send WhatsApp via bot server:", e);
          }

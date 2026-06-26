@@ -51,7 +51,7 @@ export default function TopNavigation() {
   const { data: waStatusData, mutate: mutateWA } = useSWR(
     isAdminOrOwner ? "/api/whatsapp/status" : null,
     fetcher,
-    { refreshInterval: 5000 }
+    // { refreshInterval: 5000 } // WhatsApp temporarily disabled
   );
 
   const [emailNotifs, setEmailNotifs] = useState(true);
@@ -457,7 +457,8 @@ export default function TopNavigation() {
                 </div>
               </div>
 
-              {isAdminOrOwner && (
+              {/* WHATSAPP TEMPORARILY DISABLED VIA FLAG */}
+              {false /* WHATSAPP_ENABLED */ && isAdminOrOwner && (
                 <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3">
                   <div className="flex justify-between items-center">
                     <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">WhatsApp Bot</div>

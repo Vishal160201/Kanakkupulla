@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Booking } from '@/types';
 import BookingDetailsModal from '@/components/dashboard/BookingDetailsModal';
+import CustomDropdown from "@/components/ui/CustomDropdown";
+import { cn } from "@/lib/utils";
 
 import { updateAlbumTrackingAction } from "@/app/actions";
 import { toast } from "sonner";
@@ -272,16 +274,13 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                           <span className="text-purple-600 font-black text-sm">{a.bookingNumber || `BK-${a.id.substring(a.id.length - 4).toUpperCase()}`}</span>
                         </td>
                         <td className="p-5 whitespace-nowrap">
-      <select 
+      <CustomDropdown 
+        options={[{ label: "Unassigned", value: "" }, ...teamUsers.map(u => ({ label: u.name, value: u.id }))]}
         value={designerId || ""} 
-        onChange={(e) => handleUpdateAlbum(a.id, { customData: { designer: e.target.value } })}
-        className="bg-transparent text-xs font-black text-slate-800 border-none outline-none focus:ring-0 cursor-pointer"
-      >
-        <option value="">Unassigned</option>
-        {teamUsers.map(u => (
-          <option key={u.id} value={u.id}>{u.name}</option>
-        ))}
-      </select>
+        onChange={(val) => handleUpdateAlbum(a.id, { customData: { designer: val } })}
+        className="w-40 bg-transparent border-none outline-none shadow-none text-xs font-black"
+        placeholder="Unassigned"
+      />
    </td>
                         <td className="p-5 whitespace-nowrap flex flex-col">
       <input 
@@ -295,19 +294,17 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
       )}
    </td>
                         <td className="p-5 whitespace-nowrap">
-      <select 
+      <CustomDropdown 
+        options={ALBUM_STATUS_OPTIONS}
         value={a.status || ""} 
-        onChange={(e) => {
+        onChange={(val) => {
           let newProgress = progress;
-          if (e.target.value === 'Delivered' || e.target.value.includes('Completed')) newProgress = 100;
-          handleUpdateAlbum(a.id, { status: e.target.value, customData: { album_progress: newProgress.toString() } });
+          if (val === 'Delivered' || val.includes('Completed')) newProgress = 100;
+          handleUpdateAlbum(a.id, { status: val, customData: { album_progress: newProgress.toString() } });
         }}
-        className={`px-2 py-1 rounded-lg text-[0.75rem] font-black outline-none border-none cursor-pointer ${statusColor}`}
-      >
-        {ALBUM_STATUS_OPTIONS.map(opt => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
+        className={cn("w-36 rounded-lg text-[0.75rem] font-black border-none", statusColor)}
+        placeholder="Select Status"
+      />
    </td>
                         <td className="p-5 w-32 whitespace-nowrap">
       <div className="flex items-center justify-between text-[0.75rem] font-black text-slate-800 mb-1">
@@ -426,16 +423,13 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                         <div className="text-slate-500 font-medium">Designer</div>
                         <div className="font-black text-slate-800 flex items-center gap-2">
     <span className="text-slate-400 font-normal">:</span> 
-    <select 
+    <CustomDropdown 
+      options={[{ label: "Unassigned", value: "" }, ...teamUsers.map(u => ({ label: u.name, value: u.id }))]}
       value={designerId || ""} 
-      onChange={(e) => handleUpdateAlbum(selectedAlbum.id, { customData: { designer: e.target.value } })}
-      className="bg-transparent outline-none cursor-pointer border-b border-dashed border-slate-300"
-    >
-      <option value="">Unassigned</option>
-      {teamUsers.map(u => (
-        <option key={u.id} value={u.id}>{u.name}</option>
-      ))}
-    </select>
+      onChange={(val) => handleUpdateAlbum(selectedAlbum.id, { customData: { designer: val } })}
+      className="w-40 border-b border-dashed border-slate-300 rounded-none shadow-none bg-transparent"
+      placeholder="Unassigned"
+    />
   </div>
                       </div>
                       <div className="grid grid-cols-[110px_1fr] text-[0.85rem] items-center">
