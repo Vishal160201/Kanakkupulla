@@ -87,7 +87,7 @@ export async function GET(req: Request) {
 
     // Fetch Orders & Bookings for Funnel & Avg Order Value
     const orders = await prisma.order.findMany({
-      where: { createdAt: { gte: startDate, lte: endDate } },
+      where: { booking: { date: { gte: startDate, lte: endDate } } },
       include: { booking: { include: { client: true } } }
     });
     
@@ -122,7 +122,7 @@ export async function GET(req: Request) {
 
     // Gifts Performance
     const productOrders = await prisma.productOrder.findMany({
-      where: { createdAt: { gte: startDate, lte: endDate } },
+      where: { date: { gte: startDate, lte: endDate } },
       include: { product: true }
     });
 
@@ -191,7 +191,7 @@ export async function GET(req: Request) {
     // Collection Health
     const collectionHealthMap = new Map();
     orders.forEach(o => {
-      const dateKey = format(new Date(o.createdAt), 'dd MMM');
+      const dateKey = format(new Date(o.booking?.date || o.createdAt), 'dd MMM');
       if (!collectionHealthMap.has(dateKey)) {
         collectionHealthMap.set(dateKey, { date: dateKey, billed: 0, collected: 0, overdue: 0 });
       }

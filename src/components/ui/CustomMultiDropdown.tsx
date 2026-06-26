@@ -40,13 +40,27 @@ export default function CustomMultiDropdown({
   const updateDropdownPosition = useCallback(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownStyle({
-        position: 'fixed',
-        top: `${rect.bottom + 8}px`,
-        left: `${rect.left}px`,
-        width: `${rect.width}px`,
-        zIndex: 9999,
-      });
+      const windowHeight = window.innerHeight;
+      const spaceBelow = windowHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      if (spaceBelow < 300 && spaceAbove > spaceBelow) {
+        setDropdownStyle({
+          position: 'fixed',
+          bottom: `${windowHeight - rect.top + 8}px`,
+          left: `${rect.left}px`,
+          minWidth: `${Math.max(rect.width, 200)}px`,
+          zIndex: 9999,
+        });
+      } else {
+        setDropdownStyle({
+          position: 'fixed',
+          top: `${rect.bottom + 8}px`,
+          left: `${rect.left}px`,
+          minWidth: `${Math.max(rect.width, 200)}px`,
+          zIndex: 9999,
+        });
+      }
     }
   }, [isOpen]);
 
@@ -160,18 +174,17 @@ export default function CustomMultiDropdown({
       style={dropdownStyle}
       className="bg-white rounded-xl shadow-xl border border-gray-100 flex flex-col gap-1 max-h-[300px] animate-in fade-in slide-in-from-top-2 p-2"
     >
-      <div className="flex items-center justify-between px-2 py-1 mb-1 border-b border-slate-100 pb-2">
-        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Options</span>
-        {localValue.length > 0 && (
+      {localValue.length > 0 && (
+        <div className="flex justify-end px-2 py-1 mb-1 border-b border-slate-100 pb-2">
           <button 
             type="button" 
             onClick={handleClearAll}
             className="text-xs text-red-500 hover:text-red-700 font-bold transition-colors flex items-center gap-1"
           >
-            <X size={12} /> Clear All
+            <X size={12} /> Clear
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="options-container overflow-y-auto flex-1 p-1 flex flex-col gap-1 max-h-[200px] custom-scrollbar">
         {options.length === 0 ? (
@@ -201,7 +214,7 @@ export default function CustomMultiDropdown({
                   onChange={() => handleToggle(val)}
                   tabIndex={-1} // Prevent tab stopping on checkboxes, managed by container keys
                 />
-                <span className="truncate flex-1 text-slate-700 font-medium">{label}</span>
+                <span className="whitespace-nowrap flex-1 text-slate-700 font-medium">{label}</span>
               </label>
             );
           })
@@ -227,17 +240,15 @@ export default function CustomMultiDropdown({
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
         className={cn(
-          "flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500",
+          "flex h-[44px] w-full items-center justify-between rounded-lg border bg-white px-3 py-2 text-[14px] font-semibold text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500",
           error ? "border-red-500" : "border-slate-200 hover:border-slate-300",
-          value.length === 0 && "text-slate-400"
+          value.length === 0 && "text-slate-400 font-normal"
         )}
       >
         {value.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <span className="bg-blue-100 text-blue-700 text-xs px-2.5 py-0.5 rounded-full font-bold">
-              {value.length} selected
-            </span>
-          </div>
+          <span className="truncate">
+            {value.length} selected
+          </span>
         ) : (
           <span className="truncate">{placeholder}</span>
         )}

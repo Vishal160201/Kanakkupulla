@@ -90,7 +90,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { productId, quantity, clientName, clientPhone, dueDate, customData, createTransaction, amount, advanceAmount, dueAmount, paymentMode } = data;
+    const { productId, quantity, clientName, clientPhone, dueDate, customData, createTransaction, amount, advanceAmount, dueAmount, paymentMode, recordDate, advanceDate } = data;
+    
+    console.log('advanceDate received:', advanceDate);
 
     if (!productId || !clientName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -116,6 +118,7 @@ export async function POST(request: Request) {
         dueDate: dueDate ? new Date(dueDate) : null,
         customData: updatedCustomData,
         status: "PENDING",
+        ...(recordDate ? { createdAt: new Date(recordDate), date: new Date(recordDate) } : {}),
       }
     });
 
@@ -133,10 +136,11 @@ export async function POST(request: Request) {
           productOrder: { connect: { id: order.id } },
           amount: txAmount,
           type: "INCOME",
-          date: new Date(),
+          date: advanceDate ? new Date(advanceDate) : (recordDate ? new Date(recordDate) : new Date()),
           category: "GIFTS_AND_FRAMES",
           paymentMode: paymentMode || "Cash",
-          description: `Advance Payment for Order ${orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} - ${clientName} (${createdOrder?.product?.name || 'Unknown Product'})`
+          description: `Advance Payment for Order ${orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} - ${clientName} (${createdOrder?.product?.name || 'Unknown Product'})`,
+          ...(advanceDate ? { createdAt: new Date(advanceDate) } : (recordDate ? { createdAt: new Date(recordDate) } : {})),
         }
       });
       

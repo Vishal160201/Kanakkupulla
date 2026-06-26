@@ -19,10 +19,12 @@ export async function saveBookingAction(formData: FormData) {
     const standardKeys = ['id', 'title', 'category', 'date', 'time', 'location', 'phone', 'email', 'package', 'advance', 'due', 'status', 'installments', 'packageName', 'inclusions', 'notes', 'attachments', 'photographers'];
     const customData: Record<string, any> = {};
     for (const [key, value] of Object.entries(rawData)) {
-      if (!standardKeys.includes(key) && key !== 'customData' && !key.startsWith('$ACTION')) {
+      if (!standardKeys.includes(key) && key !== 'customData' && key !== 'recordDate' && !key.startsWith('$ACTION')) {
         customData[key] = value;
       }
     }
+
+    const recordDate = rawData.recordDate ? new Date(rawData.recordDate as string) : undefined;
 
     if (validatedData.id) {
        const existingBooking = await prisma.booking.findUnique({ where: { id: validatedData.id }, include: { client: true, order: true } });
@@ -35,7 +37,7 @@ export async function saveBookingAction(formData: FormData) {
            where: { id: validatedData.id },
            data: {
              category: validatedData.category,
-             date: validatedData.date ? new Date(validatedData.date) : new Date(),
+             date: recordDate ? recordDate : (validatedData.date ? new Date(validatedData.date) : new Date()),
              time: validatedData.time || "",
              location: validatedData.location || "",
              status: validatedData.status,
@@ -113,7 +115,7 @@ export async function saveBookingAction(formData: FormData) {
         bookingNumber: nextBookingNumber,
         clientId: client.id,
         category: validatedData.category,
-        date: validatedData.date ? new Date(validatedData.date) : new Date(),
+        date: recordDate ? recordDate : (validatedData.date ? new Date(validatedData.date) : new Date()),
         time: validatedData.time || "",
         location: validatedData.location || "",
         status: validatedData.status,

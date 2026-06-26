@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { toast } from "sonner";
-import { PlusCircle, ShoppingBag, Loader2, Upload } from "lucide-react";
+import { PlusCircle, ShoppingBag, Loader2, Upload, Paperclip, X } from "lucide-react";
 import GooglePicker from "@/components/shared/GooglePicker";
 
 interface OrderFormProps {
@@ -31,6 +31,8 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [expandedFileFields, setExpandedFileFields] = useState<Record<string, boolean>>({});
+  const [advanceDate, setAdvanceDate] = useState<string | null>(null);
 
   const { data: driveStatus } = useSWR("/api/integrations/google", fetcher);
   const { data: layoutData } = useSWR("/api/settings/layouts/GIFT_ORDER_FORM", fetcher);
@@ -41,8 +43,20 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
       setFormData(defaultProductId ? { productId: defaultProductId } : {});
       setErrors({});
       setUploadProgress({});
+      setExpandedFileFields({});
+      setAdvanceDate(null);
     }
   }, [isOpen, defaultProductId]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as Element).closest('.file-upload-container')) {
+        setExpandedFileFields({});
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const standardFieldMap: Record<string, string> = {
     fld_g_product: 'productId',
@@ -66,11 +80,20 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
       // Just use the raw ID for evaluation
     }
 
-    if (rule.operator === 'EQUALS') return depValue === rule.value;
-    if (rule.operator === 'NOT_EQUALS') return depValue !== rule.value;
-    if (rule.operator === 'CONTAINS') {
-      if (typeof depValue === 'string') return depValue.includes(rule.value);
-      if (Array.isArray(depValue)) return depValue.includes(rule.value);
+    // Support both new rule.values and old rule.value
+    const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+
+    if (rule.operator === 'EQUALS') {
+      return ruleValues.includes(depValue as string);
+    } else if (rule.operator === 'NOT_EQUALS') {
+      return !ruleValues.includes(depValue as string);
+    } else if (rule.operator === 'CONTAINS') {
+      if (typeof depValue === 'string') {
+        return ruleValues.some(v => depValue.includes(v));
+      }
+      if (Array.isArray(depValue)) {
+        return ruleValues.some(v => depValue.includes(v));
+      }
       return false;
     }
     return true;
@@ -95,12 +118,22 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
         const isFieldVisible = (rule: any, state: Record<string, any>) => {
           if (!rule || !rule.fieldId) return true;
           const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
-          let depValue = state[depFieldName];
-          if (rule.operator === 'EQUALS') return depValue === rule.value;
-          if (rule.operator === 'NOT_EQUALS') return depValue !== rule.value;
-          if (rule.operator === 'CONTAINS') {
-            if (typeof depValue === 'string') return depValue.includes(rule.value);
-            if (Array.isArray(depValue)) return depValue.includes(rule.value);
+          const depValue = state[depFieldName];
+
+          // Support both new rule.values and old rule.value
+          const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+
+          if (rule.operator === 'EQUALS') {
+            return ruleValues.includes(depValue as string);
+          } else if (rule.operator === 'NOT_EQUALS') {
+            return !ruleValues.includes(depValue as string);
+          } else if (rule.operator === 'CONTAINS') {
+            if (typeof depValue === 'string') {
+              return ruleValues.some(v => depValue.includes(v));
+            }
+            if (Array.isArray(depValue)) {
+              return ruleValues.some(v => depValue.includes(v));
+            }
             return false;
           }
           return true;
@@ -167,6 +200,23 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
         payload.customData[key] = formData[key];
       }
     });
+
+    // Check for recordDate
+    if (layoutSchema?.sections) {
+      const recordDateField = layoutSchema.sections
+        .flatMap((s: any) => s.fields)
+        .find((f: any) => f.isRecordDate);
+      if (recordDateField) {
+        const fname = standardFieldMap[recordDateField.id] || recordDateField.id;
+        if (formData[fname]) {
+          payload.recordDate = formData[fname];
+        }
+      }
+    }
+
+    if (advanceDate) {
+      payload.advanceDate = advanceDate;
+    }
 
     try {
       const res = await fetch("/api/gifts/orders", {
@@ -247,12 +297,35 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     }
 
     if (field.type === 'DATE') {
+      let isPastDate = false;
+      if (field.isRecordDate && value) {
+        const selectedDate = new Date(value);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        selectedDate.setHours(0,0,0,0);
+        isPastDate = selectedDate < today;
+      }
+
       return (
-        <DatePickerInput
-          value={value}
-          onChange={(dateStr) => handleFieldChange(field.id, dateStr)}
-          placeholder={`Select ${field.name.toLowerCase()}...`}
-        />
+        <div className="flex flex-col gap-2 w-full">
+          <DatePickerInput
+            value={value}
+            onChange={(dateStr) => handleFieldChange(field.id, dateStr)}
+            placeholder={`Select ${field.name.toLowerCase()}...`}
+          />
+          {isPastDate && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex flex-col gap-2 mt-1 animate-in fade-in slide-in-from-top-2">
+              <span className="text-[0.75rem] text-orange-800 font-bold">
+                This order will be backdated. When was the advance collected?
+              </span>
+              <DatePickerInput
+                value={advanceDate || ""}
+                onChange={(dateStr) => setAdvanceDate(dateStr)}
+                placeholder="Advance Payment Date"
+              />
+            </div>
+          )}
+        </div>
       );
     }
 
@@ -286,8 +359,24 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
         );
       }
 
+      if (!value && !expandedFileFields[field.id]) {
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandedFileFields(prev => ({ ...prev, [field.id]: true }));
+            }}
+            className="w-full flex items-center justify-center gap-2 h-[44px] px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[0.95rem] font-medium transition-colors shadow-sm whitespace-nowrap"
+          >
+            <Paperclip className="w-5 h-5 text-slate-400 shrink-0" />
+            Attach Image
+          </button>
+        );
+      }
+
       return (
-        <div className="flex gap-3">
+        <div className="flex gap-3 file-upload-container">
           <input
             id={`file_input_${field.id}`}
             type="file"
@@ -406,7 +495,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
             type="button"
             disabled={uploadProgress[field.id] !== undefined}
             onClick={() => document.getElementById(`file_input_${field.id}`)?.click()}
-            className="flex-1 flex items-center justify-center gap-2 h-[45px] px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[0.95rem] font-medium transition-colors shadow-sm relative overflow-hidden"
+            className="flex-1 flex items-center justify-center gap-2 h-[44px] px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[0.95rem] font-medium transition-colors shadow-sm relative overflow-hidden whitespace-nowrap"
           >
             {uploadProgress[field.id] !== undefined ? (
                <Loader2 className="w-5 h-5 animate-spin" />
@@ -429,7 +518,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
           {driveStatus?.connected && (
             <GooglePicker 
               onPick={(file) => handleFieldChange(field.id, { driveFile: file })} 
-              className="flex-1 justify-center py-2.5 shadow-sm border border-slate-200 h-[45px] bg-white hover:bg-slate-50 rounded-xl"
+              className="flex-1 flex items-center justify-center gap-2 h-[44px] px-4 py-0 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[0.95rem] font-medium transition-colors shadow-sm whitespace-nowrap"
             />
           )}
         </div>
@@ -501,7 +590,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
                             style={{ display: isVisible ? 'block' : 'none' }}
                           >
                             <label className="text-[0.7rem] font-bold text-slate-500 uppercase tracking-wider">
-                              {field.name.replace('REFERANCE', 'REFERENCE')} {field.mandatory && <span className="text-red-500">*</span>}
+                              {field.name.replace(/referance/i, 'REFERENCE')} {field.mandatory && <span className="text-red-500">*</span>}
                             </label>
                             {renderField(field)}
                             {errors[standardFieldMap[field.id] || field.id] && (

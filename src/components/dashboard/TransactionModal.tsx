@@ -146,6 +146,19 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
     const payload = { ...form };
     if (payload.amount) payload.amount = parseFloat(payload.amount);
 
+    // Apply isRecordDate logic
+    if (layoutSchema?.sections) {
+      const recordDateField = layoutSchema.sections
+        .flatMap((s: any) => s.fields)
+        .find((f: any) => f.isRecordDate);
+      if (recordDateField) {
+        const fname = standardFieldMap[recordDateField.id] || recordDateField.id;
+        if (payload[fname]) {
+          payload.recordDate = payload[fname];
+        }
+      }
+    }
+
     try {
       let res: Response;
       if (isEditMode && editTransaction) {
@@ -193,17 +206,20 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
     if (!rule || !rule.fieldId) return true;
     const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
     const depValue = form[depFieldName];
-    
+
+    // Support both new rule.values and old rule.value
+    const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+
     if (rule.operator === 'EQUALS') {
-      return depValue === rule.value;
+      return ruleValues.includes(depValue as string);
     } else if (rule.operator === 'NOT_EQUALS') {
-      return depValue !== rule.value;
+      return !ruleValues.includes(depValue as string);
     } else if (rule.operator === 'CONTAINS') {
       if (typeof depValue === 'string') {
-        return depValue.includes(rule.value);
+        return ruleValues.some(v => depValue.includes(v));
       }
       if (Array.isArray(depValue)) {
-        return depValue.includes(rule.value);
+        return ruleValues.some(v => depValue.includes(v));
       }
       return false;
     }
