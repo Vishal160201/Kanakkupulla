@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -237,6 +237,26 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     }
   };
 
+  const isBackdated = useMemo(() => {
+    if (!layoutSchema) return false;
+    let past = false;
+    layoutSchema.sections?.forEach((sec: any) => {
+      sec.fields?.forEach((fld: any) => {
+        if (fld.isRecordDate) {
+          const val = formData[standardFieldMap[fld.id] || fld.id];
+          if (val) {
+            const selectedDate = new Date(val);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            selectedDate.setHours(0, 0, 0, 0);
+            if (selectedDate < today) past = true;
+          }
+        }
+      });
+    });
+    return past;
+  }, [layoutSchema, formData]);
+
   const renderField = (field: any) => {
     const key = standardFieldMap[field.id] || field.id;
     let value = formData[key] || "";
@@ -297,15 +317,6 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     }
 
     if (field.type === 'DATE') {
-      let isPastDate = false;
-      if (field.isRecordDate && value) {
-        const selectedDate = new Date(value);
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        selectedDate.setHours(0,0,0,0);
-        isPastDate = selectedDate < today;
-      }
-
       return (
         <div className="flex flex-col gap-2 w-full">
           <DatePickerInput
@@ -313,33 +324,21 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
             onChange={(dateStr) => handleFieldChange(field.id, dateStr)}
             placeholder={`Select ${field.name.toLowerCase()}...`}
           />
-          {isPastDate && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex flex-col gap-2 mt-1 animate-in fade-in slide-in-from-top-2">
-              <span className="text-[0.75rem] text-orange-800 font-bold">
-                This order will be backdated. When was the advance collected?
-              </span>
-              <DatePickerInput
-                value={advanceDate || ""}
-                onChange={(dateStr) => setAdvanceDate(dateStr)}
-                placeholder="Advance Payment Date"
-              />
-            </div>
-          )}
         </div>
       );
     }
 
     if (field.type === 'IMAGE' || field.type === 'FILE') {
       const isDriveFile = value?.driveFile;
-      
+
       if (value) {
         return (
           <div className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex items-center gap-3 overflow-hidden">
               {isDriveFile ? (
-                 <img src={value.driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
+                <img src={value.driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
               ) : (
-                 <i className="ph-fill ph-image text-2xl text-blue-500"></i>
+                <i className="ph-fill ph-image text-2xl text-blue-500"></i>
               )}
               <div className="flex flex-col overflow-hidden">
                 <span className="text-[0.85rem] font-bold text-slate-700 truncate max-w-[200px]">
@@ -376,7 +375,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
       }
 
       return (
-        <div className="flex gap-3 file-upload-container">
+        <div className="flex flex-col 2xl:flex-row gap-2 file-upload-container w-full">
           <input
             id={`file_input_${field.id}`}
             type="file"
@@ -428,24 +427,24 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
 
               if (driveStatus?.connected) {
                 setUploadProgress(prev => ({ ...prev, [field.id]: 0 }));
-                
+
                 const xhr = new XMLHttpRequest();
                 xhr.open("POST", "/api/integrations/google/upload", true);
-                
+
                 xhr.upload.onprogress = (event) => {
                   if (event.lengthComputable) {
                     const percent = Math.round((event.loaded / event.total) * 100);
                     setUploadProgress(prev => ({ ...prev, [field.id]: percent }));
                   }
                 };
-                
+
                 xhr.onload = () => {
                   setUploadProgress(prev => {
                     const next = { ...prev };
                     delete next[field.id];
                     return next;
                   });
-                  
+
                   if (xhr.status >= 200 && xhr.status < 300) {
                     try {
                       const responseData = JSON.parse(xhr.responseText);
@@ -463,7 +462,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
                     }
                   }
                 };
-                
+
                 xhr.onerror = () => {
                   setUploadProgress(prev => {
                     const next = { ...prev };
@@ -472,15 +471,15 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
                   });
                   toast.error("Network error during upload");
                 };
-                
+
                 const uploadData = new FormData();
                 uploadData.append("file", fileToUpload);
                 uploadData.append("module", "Gifts & Frames");
-                
+
                 // Calculate category from selected product
                 const categoryName = products.find((p: any) => p.id === formData.productId)?.name || "Uncategorized";
                 uploadData.append("category", categoryName);
-                
+
                 xhr.send(uploadData);
               } else {
                 // Fallback to base64 if Drive is not connected
@@ -495,30 +494,30 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
             type="button"
             disabled={uploadProgress[field.id] !== undefined}
             onClick={() => document.getElementById(`file_input_${field.id}`)?.click()}
-            className="flex-1 flex items-center justify-center gap-2 h-[44px] px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[0.95rem] font-medium transition-colors shadow-sm relative overflow-hidden whitespace-nowrap"
+            className="flex-1 flex items-center justify-center gap-2 h-[44px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors shadow-sm relative overflow-hidden whitespace-nowrap"
           >
             {uploadProgress[field.id] !== undefined ? (
-               <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-               <>
-                 <Upload className="w-5 h-5 text-slate-400" />
-                 Upload from Device
-               </>
+              <>
+                <Upload className="w-4 h-4 text-slate-400 shrink-0" />
+                Upload from Device
+              </>
             )}
             {uploadProgress[field.id] !== undefined && (
               <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100">
-                <div 
-                  className="h-full bg-blue-600 transition-all duration-300" 
+                <div
+                  className="h-full bg-blue-600 transition-all duration-300"
                   style={{ width: `${uploadProgress[field.id]}%` }}
                 />
               </div>
             )}
           </button>
-          
+
           {driveStatus?.connected && (
-            <GooglePicker 
-              onPick={(file) => handleFieldChange(field.id, { driveFile: file })} 
-              className="flex-1 flex items-center justify-center gap-2 h-[44px] px-4 py-0 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[0.95rem] font-medium transition-colors shadow-sm whitespace-nowrap"
+            <GooglePicker
+              onPick={(file) => handleFieldChange(field.id, { driveFile: file })}
+              className="flex-1 flex items-center justify-center gap-2 h-[44px] px-3 py-0 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors shadow-sm whitespace-nowrap"
             />
           )}
         </div>
@@ -581,11 +580,11 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
                     <div className="flex flex-wrap gap-4">
                       {section.fields.map((field: any) => {
                         const isVisible = evaluateVisibility(field.visibilityRule);
-                        if (field.id === 'fld_g_due') return null;
+                        if (field.id === 'fld_g_due' || field.name.toLowerCase().includes('balance paid')) return null;
 
                         return (
-                          <div 
-                            key={field.id} 
+                          <div
+                            key={field.id}
                             className="space-y-1 w-full md:w-[calc(50%-0.5rem)]"
                             style={{ display: isVisible ? 'block' : 'none' }}
                           >
@@ -593,6 +592,18 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
                               {field.name.replace(/referance/i, 'REFERENCE')} {field.mandatory && <span className="text-red-500">*</span>}
                             </label>
                             {renderField(field)}
+                            {field.id === 'fld_g_advance' && isBackdated && (
+                              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex flex-col gap-2 mt-2 animate-in fade-in slide-in-from-top-2">
+                                <span className="text-[0.75rem] text-orange-800 font-bold leading-tight">
+                                  This order will be backdated. When was the advance collected?
+                                </span>
+                                <DatePickerInput
+                                  value={advanceDate || ""}
+                                  onChange={(dateStr) => setAdvanceDate(dateStr)}
+                                  placeholder="Advance Payment Date"
+                                />
+                              </div>
+                            )}
                             {errors[standardFieldMap[field.id] || field.id] && (
                               <p className="text-red-500 text-[0.75rem] font-medium mt-1">
                                 {errors[standardFieldMap[field.id] || field.id]}

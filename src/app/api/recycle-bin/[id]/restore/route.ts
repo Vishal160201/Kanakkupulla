@@ -77,21 +77,32 @@ export async function POST(
           }
         });
 
-        // Restore any associated transactions (find by description since productOrderId is nullified on cascade)
-        // This MUST happen after productOrder is created to satisfy foreign key constraints.
-        const txRestoreResult = await prisma.transaction.updateMany({
-          where: { 
-            description: { contains: entry.itemId },
-            deletedAt: { not: null } 
-          },
-          data: { 
-            deletedAt: null,
-            productOrderId: entry.itemId
-          }
-        });
+        // Restore any associated transactions
+        if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
+          const txIds = data.transactions.map((tx: any) => tx.id);
+          const txRestoreResult = await prisma.transaction.updateMany({
+            where: { id: { in: txIds } },
+            data: { deletedAt: null, productOrderId: entry.itemId }
+          });
+          console.log(`[DEBUG] Restored ${txRestoreResult.count} transactions by ID.`);
+        } else {
+          // Fallback for orders that were deleted before transactions were included in originalData
+          const fallbackString = data.orderNumber || entry.itemId.slice(-6).toUpperCase();
+          const txRestoreResult = await prisma.transaction.updateMany({
+            where: { 
+              description: { contains: fallbackString },
+              deletedAt: { not: null } 
+            },
+            data: {
+              deletedAt: null,
+              productOrderId: entry.itemId
+            }
+          });
+          console.log(`[DEBUG] Restored ${txRestoreResult.count} transactions by description fallback.`);
+        }
         
         const restoredTxs = await prisma.transaction.findMany({ where: { productOrderId: entry.itemId } });
-        console.log(`Restore transactions result: ${txRestoreResult.count}`);
+        console.log(`Restore transactions result: ${restoredTxs.length}`);
         restoredTxs.forEach(tx => {
            console.log('order.createdAt:', data.createdAt, 'transaction.date:', tx.date);
         });

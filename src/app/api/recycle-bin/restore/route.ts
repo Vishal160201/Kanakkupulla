@@ -56,15 +56,39 @@ export async function POST(request: Request) {
           await prisma.productOrder.create({
             data: {
               id: data.id,
+              orderNumber: data.orderNumber,
               productId: data.productId,
               quantity: data.quantity,
               status: data.status,
               clientName: data.clientName,
               clientPhone: data.clientPhone,
+              customData: data.customData,
+              dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
               createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
               updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
             }
           });
+
+          // Restore any associated transactions
+          if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
+            const txIds = data.transactions.map((tx: any) => tx.id);
+            await prisma.transaction.updateMany({
+              where: { id: { in: txIds } },
+              data: { deletedAt: null, productOrderId: entry.itemId }
+            });
+          } else {
+            const fallbackString = data.orderNumber || entry.itemId.slice(-6).toUpperCase();
+            await prisma.transaction.updateMany({
+              where: { 
+                description: { contains: fallbackString },
+                deletedAt: { not: null } 
+              },
+              data: {
+                deletedAt: null,
+                productOrderId: entry.itemId
+              }
+            });
+          }
         } catch (e) {
           console.error("Failed to restore product order", e);
         }

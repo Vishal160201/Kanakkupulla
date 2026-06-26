@@ -98,6 +98,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    const parsedQuantity = quantity ? Number(quantity) : 1;
+    if (parsedQuantity <= 0) {
+      return NextResponse.json({ error: "Quantity must be greater than 0" }, { status: 400 });
+    }
+
     const updatedCustomData = {
       ...(customData || {}),
       amount,
@@ -112,13 +117,13 @@ export async function POST(request: Request) {
       data: {
         orderNumber,
         productId,
-        quantity: quantity || 1,
+        quantity: parsedQuantity,
         clientName,
-        clientPhone,
+        clientPhone: clientPhone || null,
         dueDate: dueDate ? new Date(dueDate) : null,
         customData: updatedCustomData,
         status: "PENDING",
-        ...(recordDate ? { createdAt: new Date(recordDate), date: new Date(recordDate) } : {}),
+        ...(recordDate ? { createdAt: new Date(recordDate) } : {}),
       }
     });
 
