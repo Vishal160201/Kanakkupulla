@@ -300,6 +300,7 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
                 const newD = new Date(`${newDate}T${timeStr}:00`);
                 set(fieldName)(newD.toISOString());
               }} 
+              disableFutureDates={!!field.restrictFutureDate}
             />
             <TimePickerInput 
               value={timeStr}

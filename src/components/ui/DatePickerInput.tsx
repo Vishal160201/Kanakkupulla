@@ -10,9 +10,10 @@ interface DatePickerInputProps {
   hasError?: boolean;
   mode?: 'day' | 'week' | 'month';
   className?: string;
+  disableFutureDates?: boolean;
 }
 
-export default function DatePickerInput({ value, onChange, placeholder, hasError, mode = 'day', className }: DatePickerInputProps) {
+export default function DatePickerInput({ value, onChange, placeholder, hasError, mode = 'day', className, disableFutureDates = false }: DatePickerInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +78,7 @@ export default function DatePickerInput({ value, onChange, placeholder, hasError
           onChange={handleDateChange} 
           onClose={() => setIsOpen(false)} 
           mode={mode}
+          disableFutureDates={disableFutureDates}
         />
       )}
     </div>

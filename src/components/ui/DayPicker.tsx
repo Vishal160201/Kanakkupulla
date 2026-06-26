@@ -8,9 +8,10 @@ interface DayPickerProps {
   onClose: () => void;
   mode?: 'day' | 'week' | 'month';
   align?: 'left' | 'right';
+  disableFutureDates?: boolean;
 }
 
-export default function DayPicker({ currentDate, onChange, onClose, mode = 'day', align = 'left' }: DayPickerProps) {
+export default function DayPicker({ currentDate, onChange, onClose, mode = 'day', align = 'left', disableFutureDates = false }: DayPickerProps) {
   const [viewDate, setViewDate] = useState(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
   const containerRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom');
@@ -181,11 +182,22 @@ export default function DayPicker({ currentDate, onChange, onClose, mode = 'day'
                   const isToday = day.date.toDateString() === new Date().toDateString();
                   const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
                   
+                  const todayMidnight = new Date();
+                  todayMidnight.setHours(0, 0, 0, 0);
+                  const isFuture = disableFutureDates && day.date > todayMidnight;
+                  
                   return (
                     <div 
                       key={dIndex}
-                      className={`flex-1 flex items-center justify-center py-1.5 ${mode === 'day' ? 'cursor-pointer hover:bg-indigo-50' : ''} rounded-lg transition-colors ${day.isCurrentMonth ? 'text-slate-900' : 'text-slate-400'}`}
-                      onClick={() => {
+                      className={`flex-1 flex items-center justify-center py-1.5 rounded-lg transition-colors 
+                        ${day.isCurrentMonth ? 'text-slate-900' : 'text-slate-400'}
+                        ${isFuture ? 'opacity-30 cursor-not-allowed' : mode === 'day' ? 'cursor-pointer hover:bg-indigo-50' : ''}
+                      `}
+                      onClick={(e) => {
+                        if (isFuture) {
+                          e.stopPropagation();
+                          return;
+                        }
                         if (mode === 'day') {
                           onChange(day.date);
                           onClose();
