@@ -43,6 +43,7 @@ import DatePickerInput from "../ui/DatePickerInput";
 import MultiUserPicklist from "../ui/MultiUserPicklist";
 import { deleteBookingAction, updateBookingStatusAction, saveBookingAction } from "@/app/actions";
 import { toast } from "sonner";
+import GooglePicker from "@/components/shared/GooglePicker";
 
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
@@ -79,6 +80,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
   const timeInputRef = useRef<HTMLInputElement>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const { data: driveStatus } = useSWR("/api/integrations/google", fetcher);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1044,6 +1046,23 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                  onChange={(e) => setNewAttachmentUrl(e.target.value)}
                />
              </div>
+             
+             {driveStatus?.connected && (
+               <>
+                 <div className="flex items-center gap-3">
+                   <div className="h-px bg-slate-200 flex-1"></div>
+                   <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">OR</span>
+                   <div className="h-px bg-slate-200 flex-1"></div>
+                 </div>
+                 <GooglePicker 
+                   onPick={(file) => {
+                     setNewAttachmentName(file.name);
+                     setNewAttachmentUrl(file.url);
+                   }} 
+                   className="w-full justify-center py-2.5 shadow-sm border border-blue-100"
+                 />
+               </>
+             )}
            </div>
            <div className="flex gap-3 mt-8">
               <button className="flex-1 px-5 py-2.5 rounded-xl font-bold text-slate-500 bg-gray-50 hover:bg-gray-100 transition-colors" onClick={() => setIsAddAttachmentOpen(false)} disabled={isLoading}>Cancel</button>

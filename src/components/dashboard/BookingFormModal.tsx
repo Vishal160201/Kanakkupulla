@@ -19,6 +19,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "../ui/DatePickerInput";
+import GooglePicker from "@/components/shared/GooglePicker";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -51,6 +52,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
   const [allBookings, setAllBookings] = useState<any[]>([]);
   const [installments, setInstallments] = useState<{amount: string, date: string}[]>([]);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
   const standardFieldMap: Record<string, string> = {
     fld_b_client: 'title', fld_b_phone: 'phone', fld_b_email: 'email',
@@ -60,6 +62,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
 
   const { data: layoutData } = useSWR("/api/settings/layouts/BOOKING_FORM", fetcher);
   const { data: usersData } = useSWR("/api/users", fetcher);
+  const { data: driveStatus } = useSWR("/api/integrations/google", fetcher);
   
   const selectedDateStr = watch('date');
   const { data: bookingsData } = useSWR(selectedDateStr ? `/api/bookings?startDate=${selectedDateStr}&endDate=${selectedDateStr}` : null, fetcher);
@@ -551,6 +554,135 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
       );
     }
     
+    if (field.type === 'IMAGE' || field.type === 'FILE') {
+      const value = watch(fieldName as any);
+      const isDriveFile = (value as any)?.driveFile;
+      
+      if (value) {
+        return (
+          <div className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
+            <div className="flex items-center gap-3 overflow-hidden">
+              {isDriveFile ? (
+                 <img src={(value as any).driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
+              ) : (
+                 <i className="ph-fill ph-file text-2xl text-slate-400"></i>
+              )}
+              <span className="text-sm font-medium text-slate-700 truncate max-w-[200px]">
+                {isDriveFile ? (value as any).driveFile.name : "Local File Selected"}
+              </span>
+            </div>
+            <button type="button" onClick={() => setValue(fieldName as any, '' as any)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-500 transition-colors">
+              <i className="ph-bold ph-x"></i>
+            </button>
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex flex-col gap-3">
+          <div className="relative">
+            <input
+              type="file"
+              accept={field.type === 'IMAGE' ? "image/*" : undefined}
+              disabled={uploadProgress[fieldName] !== undefined}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                if (file.size > 10 * 1024 * 1024) {
+                  toast.error("File exceeds 10MB limit. Please choose a smaller file.");
+                  e.target.value = '';
+                  return;
+                }
+
+                if (driveStatus?.connected) {
+                  setUploadProgress(prev => ({ ...prev, [fieldName]: 0 }));
+                  
+                  const xhr = new XMLHttpRequest();
+                  xhr.open("POST", "/api/integrations/google/upload", true);
+                  
+                  xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                      const percent = Math.round((event.loaded / event.total) * 100);
+                      setUploadProgress(prev => ({ ...prev, [fieldName]: percent }));
+                    }
+                  };
+                  
+                  xhr.onload = () => {
+                    setUploadProgress(prev => {
+                      const next = { ...prev };
+                      delete next[fieldName];
+                      return next;
+                    });
+                    
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                      try {
+                        const responseData = JSON.parse(xhr.responseText);
+                        setValue(fieldName as any, { driveFile: responseData } as any);
+                        toast.success("File uploaded to Google Drive");
+                      } catch (err) {
+                        toast.error("Failed to parse upload response");
+                      }
+                    } else {
+                      try {
+                        const errData = JSON.parse(xhr.responseText);
+                        toast.error(errData.error || "Upload failed");
+                      } catch {
+                        toast.error("Upload failed");
+                      }
+                    }
+                  };
+                  
+                  xhr.onerror = () => {
+                    setUploadProgress(prev => {
+                      const next = { ...prev };
+                      delete next[fieldName];
+                      return next;
+                    });
+                    toast.error("Network error during upload");
+                  };
+                  
+                  const uploadData = new FormData();
+                  uploadData.append("file", file);
+                  uploadData.append("module", "Bookings");
+                  const categoryName = formValues.category || "Uncategorized";
+                  uploadData.append("category", categoryName);
+                  
+                  xhr.send(uploadData);
+                } else {
+                  const reader = new FileReader();
+                  reader.onloadend = () => setValue(fieldName as any, reader.result as any);
+                  reader.readAsDataURL(file);
+                }
+              }}
+              className="h-[45px] w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-[0.95rem] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            />
+            {uploadProgress[fieldName] !== undefined && (
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100 rounded-b-xl overflow-hidden">
+                <div 
+                  className="h-full bg-blue-600 transition-all duration-300" 
+                  style={{ width: `${uploadProgress[fieldName]}%` }}
+                />
+              </div>
+            )}
+          </div>
+          {driveStatus?.connected && (
+             <div className="flex items-center gap-3">
+               <div className="h-px bg-slate-200 flex-1"></div>
+               <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">OR</span>
+               <div className="h-px bg-slate-200 flex-1"></div>
+             </div>
+          )}
+          {driveStatus?.connected && (
+            <GooglePicker 
+              onPick={(file) => setValue(fieldName as any, { driveFile: file } as any)} 
+              className="w-full justify-center py-2.5 shadow-sm border border-blue-100"
+            />
+          )}
+        </div>
+      );
+    }
+
     // Default fallback to text/number input
     const typeAttr = field.type === 'EMAIL' ? 'email' : (field.type === 'NUMBER' || field.type === 'CURRENCY' ? 'text' : 'text');
     return (

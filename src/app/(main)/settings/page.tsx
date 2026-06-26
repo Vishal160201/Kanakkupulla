@@ -6,12 +6,14 @@ import RolesPermissions from "@/components/settings/RolesPermissions";
 import LayoutsFieldsBuilder from "@/components/settings/LayoutsFieldsBuilder";
 import SystemPreferences from "@/components/settings/SystemPreferences";
 import RecycleBin from "@/components/settings/RecycleBin";
+import Integrations from "@/components/settings/Integrations";
 
 const SECTIONS = [
   { id: "users", label: "User Management", icon: "ph-users-three" },
   { id: "permissions", label: "Roles & Permissions", icon: "ph-shield-check" },
   { id: "layouts", label: "Layouts & Fields", icon: "ph-layout" },
   { id: "recycle-bin", label: "Recycle Bin", icon: "ph-trash" },
+  { id: "integrations", label: "Integrations", icon: "ph-plugs-connected" },
   { id: "system", label: "System Preferences", icon: "ph-gear-fine" },
 ] as const;
 
@@ -50,6 +52,7 @@ export default function SettingsPage() {
           {activeSection === "permissions" && <RolesPermissions />}
           {activeSection === "layouts" && <LayoutsFieldsBuilder />}
           {activeSection === "recycle-bin" && <RecycleBin />}
+          {activeSection === "integrations" && <Integrations />}
           {activeSection === "system" && <SystemPreferences />}
         </div>
       </div>

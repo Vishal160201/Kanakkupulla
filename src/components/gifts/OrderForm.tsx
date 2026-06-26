@@ -10,6 +10,7 @@ import DatePickerInput from "@/components/ui/DatePickerInput";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { toast } from "sonner";
 import { PlusCircle, ShoppingBag, Loader2 } from "lucide-react";
+import GooglePicker from "@/components/shared/GooglePicker";
 
 interface OrderFormProps {
   products: any[];
@@ -29,7 +30,9 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
+  const { data: driveStatus } = useSWR("/api/integrations/google", fetcher);
   const { data: layoutData } = useSWR("/api/settings/layouts/GIFT_ORDER_FORM", fetcher);
   const layoutSchema = layoutData?.schema;
 
@@ -37,6 +40,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     if (isOpen) {
       setFormData(defaultProductId ? { productId: defaultProductId } : {});
       setErrors({});
+      setUploadProgress({});
     }
   }, [isOpen, defaultProductId]);
 
@@ -236,21 +240,166 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     }
 
     if (field.type === 'IMAGE' || field.type === 'FILE') {
+      const isDriveFile = value?.driveFile;
+      
+      if (value) {
+        return (
+          <div className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
+            <div className="flex items-center gap-3 overflow-hidden">
+              {isDriveFile ? (
+                 <img src={value.driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
+              ) : (
+                 <i className="ph-fill ph-file text-2xl text-slate-400"></i>
+              )}
+              <span className="text-sm font-medium text-slate-700 truncate max-w-[200px]">
+                {isDriveFile ? value.driveFile.name : "Local File Selected"}
+              </span>
+            </div>
+            <button type="button" onClick={() => handleFieldChange(field.id, null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-500 transition-colors">
+              <i className="ph-bold ph-x"></i>
+            </button>
+          </div>
+        );
+      }
+
       return (
-        <div className="relative">
-          <Input
-            type="file"
-            accept={field.type === 'IMAGE' ? "image/*" : undefined}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onloadend = () => handleFieldChange(field.id, reader.result);
-                reader.readAsDataURL(file);
-              }
-            }}
-            className="h-[45px] px-4 py-2 rounded-xl border-slate-200 bg-white text-[0.95rem] cursor-pointer"
-          />
+        <div className="flex flex-col gap-3">
+          <div className="relative">
+            <Input
+              type="file"
+              accept={field.type === 'IMAGE' ? "image/*" : undefined}
+              disabled={uploadProgress[field.id] !== undefined}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                // Client-side size validation: 10MB limit
+                if (file.size > 10 * 1024 * 1024) {
+                  toast.error("File exceeds 10MB limit. Please choose a smaller file.");
+                  e.target.value = ''; // Reset input
+                  return;
+                }
+
+                let fileToUpload: File | Blob = file;
+                if (file.type.startsWith('image/')) {
+                  try {
+                    fileToUpload = await new Promise<File | Blob>((resolve) => {
+                      const img = new globalThis.Image();
+                      img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > 1200) {
+                          height = Math.round((height * 1200) / width);
+                          width = 1200;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx?.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob((blob) => {
+                          if (blob) {
+                            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                          } else {
+                            resolve(file);
+                          }
+                        }, 'image/jpeg', 0.6);
+                      };
+                      img.onerror = () => resolve(file);
+                      img.src = URL.createObjectURL(file);
+                    });
+                  } catch (err) {
+                    console.error("Compression failed", err);
+                  }
+                }
+
+                if (driveStatus?.connected) {
+                  setUploadProgress(prev => ({ ...prev, [field.id]: 0 }));
+                  
+                  const xhr = new XMLHttpRequest();
+                  xhr.open("POST", "/api/integrations/google/upload", true);
+                  
+                  xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                      const percent = Math.round((event.loaded / event.total) * 100);
+                      setUploadProgress(prev => ({ ...prev, [field.id]: percent }));
+                    }
+                  };
+                  
+                  xhr.onload = () => {
+                    setUploadProgress(prev => {
+                      const next = { ...prev };
+                      delete next[field.id];
+                      return next;
+                    });
+                    
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                      try {
+                        const responseData = JSON.parse(xhr.responseText);
+                        handleFieldChange(field.id, { driveFile: responseData });
+                        toast.success("File uploaded to Google Drive");
+                      } catch (err) {
+                        toast.error("Failed to parse upload response");
+                      }
+                    } else {
+                      try {
+                        const errData = JSON.parse(xhr.responseText);
+                        toast.error(errData.error || "Upload failed");
+                      } catch {
+                        toast.error("Upload failed");
+                      }
+                    }
+                  };
+                  
+                  xhr.onerror = () => {
+                    setUploadProgress(prev => {
+                      const next = { ...prev };
+                      delete next[field.id];
+                      return next;
+                    });
+                    toast.error("Network error during upload");
+                  };
+                  
+                  const uploadData = new FormData();
+                  uploadData.append("file", fileToUpload);
+                  uploadData.append("module", "Gifts & Frames");
+                  
+                  // Calculate category from selected product
+                  const categoryName = products.find((p: any) => p.id === formData.productId)?.name || "Uncategorized";
+                  uploadData.append("category", categoryName);
+                  
+                  xhr.send(uploadData);
+                } else {
+                  // Fallback to base64 if Drive is not connected
+                  const reader = new FileReader();
+                  reader.onloadend = () => handleFieldChange(field.id, reader.result);
+                  reader.readAsDataURL(fileToUpload);
+                }
+              }}
+              className="h-[45px] px-4 py-2 rounded-xl border-slate-200 bg-white text-[0.95rem] cursor-pointer"
+            />
+            {uploadProgress[field.id] !== undefined && (
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100 rounded-b-xl overflow-hidden">
+                <div 
+                  className="h-full bg-blue-600 transition-all duration-300" 
+                  style={{ width: `${uploadProgress[field.id]}%` }}
+                />
+              </div>
+            )}
+          </div>
+          {driveStatus?.connected && (
+             <div className="flex items-center gap-3">
+               <div className="h-px bg-slate-200 flex-1"></div>
+               <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">OR</span>
+               <div className="h-px bg-slate-200 flex-1"></div>
+             </div>
+          )}
+          {driveStatus?.connected && (
+            <GooglePicker 
+              onPick={(file) => handleFieldChange(field.id, { driveFile: file })} 
+              className="w-full justify-center py-2.5 shadow-sm border border-blue-100"
+            />
+          )}
         </div>
       );
     }

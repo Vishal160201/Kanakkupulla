@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { MoreVertical, Loader2, Image as ImageIcon, Edit2, Trash2, Filter, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { getProductIcon } from "@/lib/productIcons";
 
 interface Order {
   id: string;
@@ -21,6 +22,7 @@ interface Order {
   createdAt: string;
   transactions: any[];
   orderNumber?: string | null;
+  customData?: any;
 }
 
 interface OrdersTableProps {
@@ -96,6 +98,8 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
             ) : (
               orders.map((order) => {
                 const statusStyle = STATUS_MAP[order.status] || STATUS_MAP.PENDING;
+                const uiProps = getProductIcon(order.product?.id);
+                const Icon = uiProps.icon;
                 
                 return (
                   <tr 
@@ -105,8 +109,8 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                   >
                     <td className="px-4 sm:px-6 py-3 sm:py-4">
                       <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200/50 flex items-center justify-center text-slate-400 shadow-sm shrink-0">
-                          <ImageIcon size={20} strokeWidth={1.5} className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${uiProps.bg} ${uiProps.color}`}>
+                          <Icon className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={1.5} />
                         </div>
                         <div>
                           <div className="font-bold text-[0.95rem] sm:text-[1.05rem] text-slate-800 tracking-tight flex items-center gap-2 flex-wrap">

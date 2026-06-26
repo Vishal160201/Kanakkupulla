@@ -1,36 +1,22 @@
 "use client";
 
 import React, { useRef } from "react";
-import { 
-  Key, 
-  Coffee, 
-  Files, 
-  Smartphone, 
-  Magnet, 
-  Image as ImageIcon, 
-  ImagePlus, 
-  IdCard, 
-  Mail, 
-  CreditCard,
-  Frame,
-  LucideIcon
-} from "lucide-react";
+import { getProductIcon } from "@/lib/productIcons";
 
-// Same as GIFTS_PRODUCTS but with specific colors for the UI similar to the user's reference
 const CATEGORY_UI = [
-  { id: "keychain", name: "Keychain", icon: Key, color: "text-blue-500", bg: "bg-blue-50" },
-  { id: "mug-print", name: "Mug Print", icon: Coffee, color: "text-amber-600", bg: "bg-amber-50" },
-  { id: "lamination", name: "Lamination", icon: Files, color: "text-teal-500", bg: "bg-teal-50" },
-  { id: "photoframe", name: "Photoframe", icon: Frame, color: "text-yellow-600", bg: "bg-yellow-50" },
-  { id: "mobile-case", name: "Mobile Case", icon: Smartphone, color: "text-purple-500", bg: "bg-purple-50" },
-  { id: "fridge-magnet", name: "Fridge Magnet", icon: Magnet, color: "text-red-500", bg: "bg-red-50" },
-  { id: "backlight-photo", name: "Backlight", icon: ImagePlus, color: "text-indigo-500", bg: "bg-indigo-50" },
-  { id: "frontlight-photo", name: "Frontlight", icon: ImageIcon, color: "text-pink-500", bg: "bg-pink-50" },
-  { id: "visiting-card", name: "Visiting Card", icon: IdCard, color: "text-emerald-600", bg: "bg-emerald-50" },
-  { id: "invitation", name: "Invitation", icon: Mail, color: "text-orange-500", bg: "bg-orange-50" },
-  { id: "voter-id", name: "Voter ID", icon: IdCard, color: "text-slate-500", bg: "bg-slate-50" },
-  { id: "aadhaar-card", name: "Aadhaar Card", icon: CreditCard, color: "text-violet-500", bg: "bg-violet-50" },
-  { id: "smart-card", name: "Smart Card", icon: CreditCard, color: "text-cyan-500", bg: "bg-cyan-50" }
+  { id: "keychain", name: "Keychain" },
+  { id: "mug-print", name: "Mug Print" },
+  { id: "lamination", name: "Lamination" },
+  { id: "photoframe", name: "Photoframe" },
+  { id: "mobile-case", name: "Mobile Case" },
+  { id: "fridge-magnet", name: "Fridge Magnet" },
+  { id: "backlight-photo", name: "Backlight" },
+  { id: "frontlight-photo", name: "Frontlight" },
+  { id: "visiting-card", name: "Visiting Card" },
+  { id: "invitation", name: "Invitation" },
+  { id: "voter-id", name: "Voter ID" },
+  { id: "aadhaar-card", name: "Aadhaar Card" },
+  { id: "smart-card", name: "Smart Card" }
 ];
 
 interface ProductCategoriesStripProps {
@@ -63,7 +49,8 @@ export default function ProductCategoriesStrip({ onCategorySelect, selectedCateg
         `}} />
         
         {CATEGORY_UI.map((cat) => {
-          const Icon = cat.icon;
+          const uiProps = getProductIcon(cat.id);
+          const Icon = uiProps.icon;
           const isSelected = selectedCategory === cat.id;
           
           return (
@@ -74,7 +61,7 @@ export default function ProductCategoriesStrip({ onCategorySelect, selectedCateg
               >
                 <div 
                   className={`w-[48px] h-[48px] cat-btn rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
-                    ${cat.bg} ${cat.color}
+                    ${uiProps.bg} ${uiProps.color}
                     ${isSelected ? 'ring-2 ring-offset-1 ring-blue-400 shadow-sm scale-105' : 'group-hover:scale-105 group-hover:shadow-sm'}
                   `}
                 >

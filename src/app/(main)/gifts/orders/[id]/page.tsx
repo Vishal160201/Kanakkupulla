@@ -31,8 +31,10 @@ import {
   Receipt,
   Wallet,
   TrendingUp,
-  Check
+  Check,
+  Paperclip
 } from "lucide-react";
+import { getProductIcon } from "@/lib/productIcons";
 import { cn } from "@/lib/utils";
 import { jsPDF } from "jspdf";
 import DatePickerInput from "@/components/ui/DatePickerInput";
@@ -52,6 +54,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   
   const { data, error, mutate } = useSWR(`/api/gifts/orders/${resolvedParams.id}`, fetcher);
   const order = data?.order;
+  console.log("order.customData:", order?.customData);
 
   // Custom notification state
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -696,15 +699,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <div>
                     <label className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Product</label>
                     <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                      {customData.image ? (
-                        <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200/50 overflow-hidden shadow-sm shrink-0">
-                          <img src={customData.image} alt="Preview" className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 rounded-xl bg-white border border-slate-200/50 flex items-center justify-center text-slate-400 shadow-sm shrink-0">
-                          <ImageIcon size={20} strokeWidth={1.5} />
-                        </div>
-                      )}
+                      {(() => {
+                        const uiProps = getProductIcon(order.product?.id);
+                        const Icon = uiProps.icon;
+                        return (
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${uiProps.bg} ${uiProps.color}`}>
+                            <Icon size={24} strokeWidth={1.5} />
+                          </div>
+                        );
+                      })()}
                       <div>
                         <div className="font-bold text-slate-800">{order.product?.name}</div>
                         <div className="text-xs text-slate-500 font-medium mt-0.5">ID: {order.product?.id}</div>
@@ -748,6 +751,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
           </div>
+
+
 
           {/* Financial Summary */}
           <div className="bg-white rounded-3xl p-5 md:p-6 border border-slate-100 shadow-sm flex flex-col h-full print-section col-span-1 lg:col-span-5">
@@ -947,6 +952,54 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </div>
+
+          {/* Custom Attachments Section */}
+          {Object.entries(customData).some(([key, val]) => (val as any)?.driveFile || (typeof val === 'string' && val.startsWith('data:image'))) && (
+            <div className="bg-white rounded-3xl p-5 md:p-6 border border-slate-100 shadow-sm flex flex-col print-section col-span-1 lg:col-span-12 mb-6">
+              <div className="flex items-center gap-2 text-sm font-bold text-indigo-800 mb-6">
+                <Paperclip size={16} /> Attachments
+              </div>
+              <div className="flex flex-wrap gap-4">
+                {Object.entries(customData).map(([key, val]: [string, any]) => {
+                  if (val?.driveFile) {
+                    const fileId = val.driveFile.id || val.driveFile.driveFileId;
+                    return (
+                      <a key={key} href={val.driveFile.url || val.driveFile.webViewLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer w-fit min-w-[200px]">
+                        <img 
+                          src={fileId ? `/api/integrations/google/thumbnail?fileId=${fileId}` : val.driveFile.iconUrl} 
+                          alt="Drive File" 
+                          className="w-8 h-8 object-cover rounded-md bg-slate-200"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            if (target.src.includes('/api/integrations/google/thumbnail')) {
+                              // Fallback 1: drive.google.com/thumbnail
+                              target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w200&authuser=0`;
+                            } else if (target.src.includes('drive.google.com/thumbnail')) {
+                              // Fallback 2: lh3 public URL
+                              target.src = `https://lh3.googleusercontent.com/d/${fileId}=w200`;
+                            } else {
+                              // Fallback 3: Generic icon
+                              target.src = val.driveFile.iconUrl;
+                              target.className = "w-8 h-8 object-contain";
+                            }
+                          }}
+                        />
+                        <span className="text-sm font-medium text-slate-700 truncate max-w-[200px]">{val.driveFile.name}</span>
+                      </a>
+                    );
+                  }
+                  if (typeof val === 'string' && val.startsWith('data:image')) {
+                    return (
+                      <div key={key} className="w-24 h-24 rounded-xl border border-slate-200 overflow-hidden bg-slate-100 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.open(val, '_blank')} title="Click to view full size">
+                        <img src={val} alt="Attachment" className="w-full h-full object-cover" />
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+            </div>
+          )}
 
         </div>
 
