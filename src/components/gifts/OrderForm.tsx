@@ -323,6 +323,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
             value={value}
             onChange={(dateStr) => handleFieldChange(field.id, dateStr)}
             placeholder={`Select ${field.name.toLowerCase()}...`}
+            disableFutureDates={!!field.restrictFutureDate}
           />
         </div>
       );
@@ -592,7 +593,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
                               {field.name.replace(/referance/i, 'REFERENCE')} {field.mandatory && <span className="text-red-500">*</span>}
                             </label>
                             {renderField(field)}
-                            {field.id === 'fld_g_advance' && isBackdated && (
+                            {field.id === 'fld_g_advance' && isBackdated && Number(formData.advanceAmount) > 0 && (
                               <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex flex-col gap-2 mt-2 animate-in fade-in slide-in-from-top-2">
                                 <span className="text-[0.75rem] text-orange-800 font-bold leading-tight">
                                   This order will be backdated. When was the advance collected?

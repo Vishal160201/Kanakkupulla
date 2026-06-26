@@ -376,7 +376,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     }
     if (field.type === 'DATE') {
       return (
-        <DatePickerInput value={watch(fieldName as any) || ''} onChange={(date) => setValue(fieldName as any, date, { shouldValidate: true })} placeholder={field.placeholder || "Select Date..."} />
+        <DatePickerInput value={watch(fieldName as any) || ''} onChange={(date) => setValue(fieldName as any, date, { shouldValidate: true })} placeholder={field.placeholder || "Select Date..."} disableFutureDates={!!field.restrictFutureDate} />
       );
     }
     if (field.id === 'fld_b_time') {
