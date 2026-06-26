@@ -168,8 +168,23 @@ model User {
   whatsappNotifs     Boolean            @default(false)
   createdBookings    Booking[]          @relation("BookingCreatedBy")
   updatedBookings    Booking[]          @relation("BookingUpdatedBy")
+  integrations       UserIntegration[]
 
   @@index([status])
+}
+
+model UserIntegration {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String
+  connectedEmail String?
+  customData     Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
 }
 
 model RolePermission {
