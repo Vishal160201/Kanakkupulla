@@ -78,7 +78,10 @@ export async function DELETE(
 
   try {
     const id = (await params).id;
-    const existing = await prisma.productOrder.findUnique({ where: { id } });
+    const existing = await prisma.productOrder.findUnique({ 
+      where: { id },
+      include: { transactions: true }
+    });
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

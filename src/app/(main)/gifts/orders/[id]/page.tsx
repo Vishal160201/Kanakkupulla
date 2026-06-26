@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import useSWR from "swr";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import {
@@ -942,7 +943,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-3">Linked Transactions</div>
                     <div className="space-y-2">
                       {order.transactions.filter((tx: any) => !tx.deletedAt).map((tx: any) => (
-                        <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <Link href={`/transactions/details/${tx.id}`} key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer block">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
                               <Receipt size={14} />
@@ -953,7 +954,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                             </div>
                           </div>
                           <div className="text-sm font-bold text-green-600">+₹{tx.amount.toLocaleString()}</div>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   </div>

@@ -111,7 +111,8 @@ export async function DELETE(
     const { id } = await params;
     
     const existing = await prisma.productOrder.findUnique({
-      where: { id }
+      where: { id },
+      include: { transactions: true }
     });
     
     if (!existing) {
