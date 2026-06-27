@@ -11,7 +11,7 @@ async function getUiPreferences() {
     return uiPreferencesCache.value;
   }
   const setting = await prisma.systemSetting.findUnique({ where: { key: "UI_PREFERENCES" } });
-  const value = (setting?.value as any) || { currencySymbol: "₹", hotDateThreshold: 50000 };
+  const value = (setting?.value as any) || { currencySymbol: "₹", hotDateBenchmark: 50000 };
   uiPreferencesCache = { value, timestamp: Date.now() };
   return value;
 }
@@ -97,16 +97,15 @@ export async function GET() {
         dateStats.set(dStr, existing);
       }
     }
-    let hotDateStr = "";
-    let maxPackageValue = 0;
-    let hotDateCount = 0;
+    // Find all hot dates
+    const hotDates: { date: string; totalAmount: number; count: number }[] = [];
+    const benchmark = prefs.hotDateBenchmark || 50000;
     for (const [dStr, stats] of dateStats) {
-      if (stats.totalPackage > maxPackageValue) {
-        maxPackageValue = stats.totalPackage;
-        hotDateStr = dStr;
-        hotDateCount = stats.count;
+      if (stats.totalPackage >= benchmark) {
+        hotDates.push({ date: dStr, totalAmount: stats.totalPackage, count: stats.count });
       }
     }
+    hotDates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // Album metrics: computed from loaded data (needs customData which is JSON)
     let albumInProgressCount = 0;
@@ -133,9 +132,7 @@ export async function GET() {
         thisWeekShoots,
         pendingDueAmount: pendingDueAgg._sum.due || 0,
         unconfirmedShoots,
-        hotDateStr,
-        maxPackageValue,
-        hotDateCount,
+        hotDates,
         albumInProgressCount,
         pendingAlbumWorksCount
       }

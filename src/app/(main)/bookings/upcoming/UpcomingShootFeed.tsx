@@ -1,10 +1,12 @@
 "use client";
 
 import { Booking } from "@/types";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { useRouter } from "next/navigation";
 
 export default function UpcomingShootFeed({ bookings }: { bookings: Booking[] }) {
   const router = useRouter();
+  const { openBookingDetails } = useGlobalForm();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -68,7 +70,7 @@ export default function UpcomingShootFeed({ bookings }: { bookings: Booking[] })
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {groupBookings.map(booking => (
-                <ShootCard key={booking.id} booking={booking} router={router} group={group} />
+                <ShootCard key={booking.id} booking={booking} openBookingDetails={openBookingDetails} group={group} />
               ))}
             </div>
           </div>
@@ -78,7 +80,7 @@ export default function UpcomingShootFeed({ bookings }: { bookings: Booking[] })
   );
 }
 
-function ShootCard({ booking, router, group }: { booking: Booking, router: any, group: string }) {
+function ShootCard({ booking, openBookingDetails, group }: { booking: Booking, openBookingDetails: (id: string) => void, group: string }) {
   const isToday = group === "Today";
   const pkgAmount = parseFloat(booking.package || "0");
   const advanceAmount = parseFloat(booking.advance || "0");
@@ -119,15 +121,13 @@ function ShootCard({ booking, router, group }: { booking: Booking, router: any, 
   const dateObj = new Date(year, month - 1, day);
   const monthStr = dateObj.toLocaleString('default', { month: 'short' });
   const dayStr = dateObj.getDate().toString().padStart(2, '0');
-  const monthLong = dateObj.toLocaleString('default', { month: 'long' });
-  const ordinalDay = dateObj.getDate() + (dateObj.getDate() % 10 === 1 && dateObj.getDate() !== 11 ? 'st' : dateObj.getDate() % 10 === 2 && dateObj.getDate() !== 12 ? 'nd' : dateObj.getDate() % 10 === 3 && dateObj.getDate() !== 13 ? 'rd' : 'th');
-
+  
   const progressPct = pkgAmount > 0 ? Math.round((advanceAmount / pkgAmount) * 100) : 0;
 
   return (
     <div 
       className={`rounded-2xl p-5 border shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md cursor-pointer flex flex-col gap-4 relative overflow-hidden group ${tierClasses} ${bgClass}`}
-      onClick={() => router.push(`/bookings/details/${booking.id}`)}
+      onClick={() => openBookingDetails(booking.id)}
     >
       {/* Accent Bar indicating tier or Today */}
       {(isToday || isPremium || isMid || isStandard) && (

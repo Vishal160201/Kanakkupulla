@@ -40,7 +40,7 @@ export default async function BookingDetailsPage({ params }: { params: Promise<{
 
   return (
     <div className="flex justify-center items-center h-full w-full">
-      <BookingDetailsModal booking={safeBooking as any} />
+      <BookingDetailsModal />
     </div>
   );
 }

@@ -79,19 +79,41 @@ export async function POST(
 
         // Restore any associated transactions
         if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
-          const txIds = data.transactions.map((tx: any) => tx.id);
-          const txRestoreResult = await prisma.transaction.updateMany({
-            where: { id: { in: txIds } },
-            data: { deletedAt: null, productOrderId: entry.itemId }
-          });
-          console.log(`[DEBUG] Restored ${txRestoreResult.count} transactions by ID.`);
+          for (const tx of data.transactions) {
+            try {
+              await prisma.transaction.upsert({
+                where: { id: tx.id },
+                update: { deletedAt: null, productOrderId: entry.itemId },
+                create: {
+                  id: tx.id,
+                  transactionId: tx.transactionId,
+                  amount: tx.amount,
+                  type: tx.type,
+                  date: new Date(tx.date),
+                  category: tx.category,
+                  paymentMode: tx.paymentMode,
+                  description: tx.description,
+                  status: tx.status,
+                  attachmentUrl: tx.attachmentUrl,
+                  customData: tx.customData,
+                  bookingId: tx.bookingId,
+                  productOrderId: entry.itemId,
+                  userId: tx.userId,
+                  createdAt: tx.createdAt ? new Date(tx.createdAt) : undefined,
+                  updatedAt: tx.updatedAt ? new Date(tx.updatedAt) : undefined,
+                }
+              });
+            } catch (e) {
+              console.error(`Failed to upsert transaction ${tx.id}`, e);
+            }
+          }
+          console.log(`[DEBUG] Upserted ${data.transactions.length} transactions.`);
         } else {
           // Fallback for orders that were deleted before transactions were included in originalData
           const fallbackString = data.orderNumber || entry.itemId.slice(-6).toUpperCase();
           const txRestoreResult = await prisma.transaction.updateMany({
             where: { 
-              description: { contains: fallbackString },
-              deletedAt: { not: null } 
+              description: { contains: fallbackString }
             },
             data: {
               deletedAt: null,

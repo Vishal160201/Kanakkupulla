@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Modals from '@/components/dashboard/Modals';
 import { useBookings } from '@/components/providers/BookingProvider';
+import { useGlobalForm } from '@/components/providers/GlobalFormProvider';
 
 export default function BookingsLayout({
   children,
@@ -14,6 +15,7 @@ export default function BookingsLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { setIsFilterModalOpen, filters, setFilters, hasData } = useBookings();
+  const { openBookingForm } = useGlobalForm();
 
   const isOverview = pathname === '/bookings/overview';
   const isUpcoming = pathname === '/bookings/upcoming';
@@ -210,9 +212,9 @@ export default function BookingsLayout({
           )}
           
           {isOverview && (
-            <Link href="/bookings/new" className="btn btn-primary" style={{ borderRadius: "20px", display: "flex", alignItems: "center", gap: "6px" }}>
+            <button onClick={() => openBookingForm()} className="btn btn-primary" style={{ borderRadius: "20px", display: "flex", alignItems: "center", gap: "6px" }}>
               <i className="ph-bold ph-plus"></i> Add Booking
-            </Link>
+            </button>
           )}
         </div>
       </div>
@@ -226,7 +228,7 @@ export default function BookingsLayout({
 
       {/* FAB (Camera Booking Icon) */}
       {!isOverview && (
-        <div className="fab interactive" onClick={() => router.push("/bookings/new")}>
+        <div className="fab interactive" onClick={() => openBookingForm()}>
           <i className="ph-fill ph-camera text-2xl"></i>
         </div>
       )}

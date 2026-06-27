@@ -4,6 +4,7 @@ import { useBookings } from '../providers/BookingProvider';
 import { Booking } from '@/types';
 import { useRouter } from 'next/navigation';
 import { useSystem } from '@/components/providers/SystemProvider';
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 interface BookingTableProps {
   bookings: Booking[];
@@ -16,6 +17,7 @@ import { useEffect } from 'react';
 export default function BookingTable({ bookings, currentPage = 1, totalPages = 1 }: BookingTableProps) {
   const { filters, setHasData } = useBookings();
   const { preferences } = useSystem();
+  const { openBookingDetails } = useGlobalForm();
   const router = useRouter();
 
   // Sort and filter logic
@@ -102,7 +104,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
             const locColor = locColors[Math.abs(locHash) % locColors.length];
 
             return (
-              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/bookings/details/${b.id}`)}>
+              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" onClick={() => openBookingDetails(b.id)}>
                 <div className="flex-[2] flex items-center gap-3">
                   <div className={`w-[35px] h-[35px] rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-[0.85rem] shrink-0`}>{(b.title || 'U').charAt(0).toUpperCase()}</div>
                   <div className="flex flex-col justify-center">

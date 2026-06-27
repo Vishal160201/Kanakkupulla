@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
 import { MoreVertical, Loader2, Image as ImageIcon, Edit2, Trash2, Filter, Download } from "lucide-react";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getProductIcon } from "@/lib/productIcons";
@@ -39,6 +40,7 @@ const STATUS_MAP: Record<string, { label: string; dot: string; bg: string; text:
 
 export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps) {
   const router = useRouter();
+  const { openGiftOrderDetails } = useGlobalForm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -100,7 +102,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                 return (
                   <tr 
                     key={order.id} 
-                    onClick={() => router.push(`/gifts/orders/${order.id}`)}
+                    onClick={() => openGiftOrderDetails(order.id)}
                     className="hover:bg-slate-50/80 transition-all duration-300 group cursor-pointer relative z-10"
                   >
                     <td className="px-4 sm:px-6 py-3 sm:py-4">
@@ -169,7 +171,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                       ) : (
                         <div className="flex items-center justify-end sm:justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button 
-                            onClick={(e) => { e.stopPropagation(); router.push(`/gifts/orders/${order.id}`); }}
+                            onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }}
                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="View / Edit"
                           >

@@ -93,11 +93,11 @@ export default function SystemPreferences() {
               />
             </div>
             <div>
-              <label className="text-[0.75rem] font-bold text-slate-600 mb-1.5 block">Hot Date Threshold ({prefs.currencySymbol})</label>
+              <label className="text-[0.75rem] font-bold text-slate-600 mb-1.5 block">Hot Date Benchmark ({prefs.currencySymbol})</label>
               <input 
                 type="number" 
-                value={prefs.hotDateThreshold} 
-                onChange={(e) => setPrefs({ ...prefs, hotDateThreshold: Number(e.target.value) })}
+                value={prefs.hotDateBenchmark ?? ''} 
+                onChange={(e) => setPrefs({ ...prefs, hotDateBenchmark: Number(e.target.value) })}
                 className="w-full text-sm font-semibold text-slate-800 border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-orange-500"
               />
               <p className="text-[0.65rem] text-slate-500 mt-1">Bookings with packages above this value will mark the day as "Hot" on the dashboard.</p>

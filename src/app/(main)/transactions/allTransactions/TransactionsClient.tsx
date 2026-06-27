@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense, useRef } from "react
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "@/components/ui/DatePickerInput";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import PillSelect from "@/components/ui/PillSelect";
 import { toast } from "sonner";
 
@@ -62,6 +63,7 @@ function ViewSelectorCard({ value, onChange }: { value: string, onChange: (val: 
 function TransactionsList() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { openTransactionDetails, openTransactionForm } = useGlobalForm();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -563,7 +565,7 @@ function TransactionsList() {
               return (
               <div
                 key={tx.id}
-                onClick={() => router.push(`/transactions/details/${tx.id}`)}
+                onClick={() => openTransactionDetails(tx.id)}
                 className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent p-3 transition-all hover:border-slate-200 hover:bg-slate-50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 sm:p-4 group"
               >
                 <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -630,7 +632,7 @@ function TransactionsList() {
                     <button
                       onClick={(event) => {
                         event.stopPropagation();
-                        router.push(`/transactions/${tx.id}/edit`);
+                        openTransactionForm(tx.id);
                       }}
                       className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
                       title="Edit Transaction"
@@ -642,7 +644,7 @@ function TransactionsList() {
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      router.push(`/transactions/details/${tx.id}`);
+                      openTransactionDetails(tx.id);
                     }}
                     className="ml-1 flex h-8 w-8 items-center justify-center rounded-full text-slate-300 hover:bg-indigo-50 hover:text-indigo-600"
                     aria-label={`View ${tx.category} transaction details`}

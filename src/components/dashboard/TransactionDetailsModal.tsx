@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import useSWR, { mutate } from "swr";
 import { toast } from "sonner";
-
-type TransactionDetailsModalProps = {
-  transactionId: string;
-};
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 type CustomField = {
   id: string;
@@ -96,25 +93,23 @@ const fieldIcon = (type: string, label: string) => {
   return "ph-info";
 };
 
-export default function TransactionDetailsModal({
-  transactionId,
-}: TransactionDetailsModalProps) {
+export default function TransactionDetailsModal() {
   const router = useRouter();
+  const { isTransactionDetailsOpen, transactionDetailsId, closeTransactionDetails, openTransactionForm } = useGlobalForm();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const { data, error, isLoading } = useSWR<TransactionDetailResponse>(
-    `/api/transactions/${transactionId}`,
+    isTransactionDetailsOpen && transactionDetailsId ? `/api/transactions/${transactionDetailsId}` : null,
     fetcher
   );
 
   const close = () => {
-    setIsOpen(false);
-    setTimeout(() => router.back(), 100);
+    closeTransactionDetails();
+
   };
 
   const handleNavigate = (path: string) => {
-    setIsOpen(false);
+    closeTransactionDetails();
     setTimeout(() => {
       router.push(path);
     }, 150);
@@ -135,7 +130,7 @@ export default function TransactionDetailsModal({
   const confirmDelete = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/transactions/${transactionId}`, { method: "DELETE" });
+      const response = await fetch(`/api/transactions/${transactionDetailsId}`, { method: "DELETE" });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || "Delete failed");
@@ -156,7 +151,9 @@ export default function TransactionDetailsModal({
   };
 
   const copyId = async () => {
-    await navigator.clipboard.writeText(transaction?.transactionId ?? transactionId);
+    if (transaction?.transactionId || transactionDetailsId) {
+      await navigator.clipboard.writeText(transaction?.transactionId ?? transactionDetailsId as string);
+    }
     toast.success("Transaction ID copied");
   };
 
@@ -173,7 +170,7 @@ export default function TransactionDetailsModal({
 
   return (
     <>
-      <Dialog open={isOpen && !showDeleteConfirm} onOpenChange={(open) => !open && close()}>
+      <Dialog open={isTransactionDetailsOpen && !showDeleteConfirm} onOpenChange={(open) => !open && close()}>
         <DialogContent
           showCloseButton={false}
           className="!fixed !left-0 !right-0 !bottom-0 !top-auto !flex !w-full !max-w-none !translate-x-0 !translate-y-0 flex-col md:!left-1/2 md:!right-auto md:!top-1/2 md:!bottom-auto md:!-translate-x-1/2 md:!-translate-y-1/2 md:!max-w-[960px] max-h-[96dvh] md:max-h-[90vh] gap-0 overflow-hidden !rounded-t-[28px] !rounded-b-none md:!rounded-[28px] border-0 bg-white p-0 shadow-2xl"
@@ -405,7 +402,10 @@ export default function TransactionDetailsModal({
               <div className="order-1 col-span-2 grid grid-cols-2 gap-2 sm:order-2 sm:col-span-1 sm:flex">
                 <button
                   type="button"
-                  onClick={() => router.push(`/transactions/${transaction.id}/edit`)}
+                  onClick={() => {
+                    close();
+                    openTransactionForm(transaction.id);
+                  }}
                   className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
                   <i className="ph-bold ph-pencil-simple mr-2" />
