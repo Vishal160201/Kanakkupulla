@@ -470,13 +470,13 @@ export default function BookingDetailsModal() {
     if (rule.operator === 'EQUALS') {
       return ruleValues.includes(depVal as string);
     } else if (rule.operator === 'NOT_EQUALS') {
-      return !ruleValues.includes(depValue as string);
+      return !ruleValues.includes(depVal as string);
     } else if (rule.operator === 'CONTAINS') {
       if (typeof depVal === 'string') {
-        return ruleValues.some(v => depValue.includes(v));
+        return ruleValues.some(v => depVal.includes(v));
       }
-      if (Array.isArray(depValue)) {
-        return ruleValues.some(v => depValue.includes(v));
+      if (Array.isArray(depVal)) {
+        return ruleValues.some(v => depVal.includes(v));
       }
       return false;
     }
