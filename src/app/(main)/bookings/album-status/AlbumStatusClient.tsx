@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import { Booking } from '@/types';
-import BookingDetailsModal from '@/components/dashboard/BookingDetailsModal';
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { cn } from "@/lib/utils";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 import { updateAlbumTrackingAction } from "@/app/actions";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 interface AlbumStatusClientProps {
   albums: any[];
   teamUsers?: any[];
+  initialTab?: string;
 }
 
 
@@ -25,11 +26,11 @@ const ALBUM_STATUS_OPTIONS = [
   'Delivered'
 ];
 
-export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [] }: AlbumStatusClientProps) {
+export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [], initialTab = 'Pending' }: AlbumStatusClientProps) {
   const [albums, setAlbums] = useState(initialAlbums);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'All' | 'Work in Progress' | 'Completed' | 'Delivered'>('All');
+  const { openBookingDetails } = useGlobalForm();
+  const [activeTab, setActiveTab] = useState<'Pending' | 'All' | 'Work in Progress' | 'Completed' | 'Delivered' | 'Overdue'>(initialTab as any);
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleUpdateAlbum = async (bookingId: string, updates: { status?: string, customData?: any }) => {
@@ -97,9 +98,19 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
   const filteredAlbums = albums.filter(a => {
     // Tab filter
     const status = (a.status || '').trim().toLowerCase();
+    
+    if (activeTab === 'Pending' && !['shoot completed', 'designing', 'printing', 'album work in progress', 'album completed', 'ready for delivery'].includes(status)) return false;
     if (activeTab === 'Work in Progress' && !['shoot completed', 'designing', 'printing', 'album work in progress'].includes(status)) return false;
     if (activeTab === 'Completed' && !['album completed', 'ready for delivery'].includes(status)) return false;
     if (activeTab === 'Delivered' && status !== 'delivered') return false;
+    if (activeTab === 'Overdue') {
+      let customData: any = {};
+      try { customData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {}); } catch(e) {}
+      const deliveryDateStr = customData.album_delivery_date || customData.delivery_date;
+      if (!deliveryDateStr) return false;
+      const deliveryDate = new Date(deliveryDateStr);
+      if (deliveryDate >= new Date() || status === 'delivered') return false;
+    }
     
     // Search filter
     if (searchQuery) {
@@ -112,29 +123,15 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
     return true;
   });
 
+  const totalCount = albums.length;
+
   return (
     <div className="view-section active w-full fade-in-up">
       <div className="flex flex-col gap-6 max-w-[1400px] mx-auto pb-10">
         
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-[1.8rem] font-black text-slate-900 tracking-tight leading-tight">Album Status</h2>
-            <p className="text-slate-500 text-sm mt-1">Track the progress of your album from designing to delivery.</p>
-          </div>
-          <div className="flex flex-col items-end gap-3">
-            <button className="btn btn-outline border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl px-4 py-2 font-bold text-sm shadow-sm">
-              + Add Album
-            </button>
-            <div className="bg-purple-100 text-purple-700 font-bold px-3 py-1 rounded-full text-xs">
-              {albums.length} Active Albums
-            </div>
-          </div>
-        </div>
-
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+          <div onClick={() => setActiveTab('Work in Progress')} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 cursor-pointer hover:shadow-md transition-shadow">
             <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 text-2xl">
               <i className="ph-fill ph-chart-pie-slice"></i>
             </div>
@@ -144,7 +141,7 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
               <div className="text-xs text-slate-500 mt-0.5">Active albums in designing</div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-emerald-400">
+          <div onClick={() => setActiveTab('Completed')} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-emerald-400 cursor-pointer hover:shadow-md transition-shadow">
             <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 text-2xl">
               <i className="ph-fill ph-check-circle"></i>
             </div>
@@ -154,7 +151,7 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
               <div className="text-xs text-slate-500 mt-0.5">Ready for delivery</div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-blue-400">
+          <div onClick={() => setActiveTab('Delivered')} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-blue-400 cursor-pointer hover:shadow-md transition-shadow">
             <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 text-2xl">
               <i className="ph-fill ph-truck"></i>
             </div>
@@ -164,7 +161,7 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
               <div className="text-xs text-slate-500 mt-0.5">Albums delivered today</div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-red-400">
+          <div onClick={() => setActiveTab('Overdue')} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-red-400 cursor-pointer hover:shadow-md transition-shadow">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-2xl">
               <i className="ph-fill ph-warning-circle"></i>
             </div>
@@ -177,53 +174,56 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
         </div>
 
         {/* Filters Row */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-2">
-          <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto overflow-x-auto">
-            {['All', 'Work in Progress', 'Completed', 'Delivered'].map(tab => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === tab ? 'text-purple-700 border border-purple-200 bg-purple-50/50' : 'text-slate-600 hover:bg-slate-50 border border-transparent'}`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative w-full sm:w-64">
-              <i className="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-              <input 
-                type="text" 
-                placeholder="Search album, client, booking..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400 bg-white"
-              />
+        {totalCount > 0 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-2">
+            <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto overflow-x-auto">
+              {['Pending', 'All', 'Work in Progress', 'Completed', 'Delivered', 'Overdue'].map(tab => (
+                <button 
+                  key={tab}
+                  onClick={() => setActiveTab(tab as any)}
+                  className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === tab ? 'text-purple-700 border border-purple-200 bg-purple-50/50' : 'text-slate-600 hover:bg-slate-50 border border-transparent'}`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
-            <button className="btn btn-outline border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl px-4 py-2 font-bold text-sm shadow-sm flex items-center gap-2">
-              <i className="ph ph-funnel"></i> Filters
-            </button>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <i className="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input 
+                  type="text" 
+                  placeholder="Search album, client, booking..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400 bg-white"
+                />
+              </div>
+              <button className="btn btn-outline border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl px-4 py-2 font-bold text-sm shadow-sm flex items-center gap-2">
+                <i className="ph ph-funnel"></i> Filters
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Main Content Split */}
         <div className="flex flex-col lg:flex-row gap-6 mt-2">
           
           {/* Left Column - List */}
           <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Client / Event</th>
-                    <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Booking ID</th>
-                    <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Designer</th>
-                    <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Delivery Date</th>
-                    <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                    <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Progress</th>
-                    <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest"></th>
-                  </tr>
-                </thead>
+            {filteredAlbums.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Client / Event</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Booking ID</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Designer</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Delivery Date</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Progress</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest"></th>
+                    </tr>
+                  </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredAlbums.map((a: any) => {
                     let cData: any = {};
@@ -322,7 +322,10 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                         <td className="p-5 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
                             <button 
-                              onClick={() => setSelectedAlbumId(a.id)}
+                              onClick={() => {
+                                setSelectedAlbumId(a.id);
+                                openBookingDetails(a.id);
+                              }}
                               className={`px-5 py-1.5 rounded-xl text-sm font-black border transition-colors ${selectedAlbumId === a.id ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-white text-purple-600 border-purple-200 hover:bg-purple-50'}`}
                             >
                               View
@@ -335,27 +338,30 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                       </tr>
                     );
                   })}
-                  {filteredAlbums.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="p-10 text-center text-slate-500">No albums found matching your filters.</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-16 text-slate-400 h-full">
+                <i className="ph-fill ph-images text-5xl mb-4 text-slate-300"></i>
+                <p className="font-bold text-lg text-slate-500">No pending albums.</p>
+              </div>
+            )}
             
             {/* Pagination Mock */}
-            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50 mt-auto">
-              <div className="flex gap-1">
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600"><i className="ph-bold ph-caret-left"></i></button>
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 font-bold text-sm">1</button>
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 font-bold text-sm">2</button>
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600"><i className="ph-bold ph-caret-right"></i></button>
+            {totalCount > 0 && filteredAlbums.length > 0 && (
+              <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50 mt-auto">
+                <div className="flex gap-1">
+                  <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600"><i className="ph-bold ph-caret-left"></i></button>
+                  <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 font-bold text-sm">1</button>
+                  <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 font-bold text-sm">2</button>
+                  <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600"><i className="ph-bold ph-caret-right"></i></button>
+                </div>
+                <div className="text-xs font-bold text-slate-500">
+                  Showing 1 to {Math.min(filteredAlbums.length, 10)} of {filteredAlbums.length} albums
+                </div>
               </div>
-              <div className="text-xs font-bold text-slate-500">
-                Showing 1 to {Math.min(filteredAlbums.length, 10)} of {filteredAlbums.length} albums
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Right Column - Detail Panel */}
@@ -530,7 +536,9 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                           <i className="ph-bold ph-upload-simple"></i> Upload Draft
                         </button>
                         <button 
-                          onClick={() => setIsModalOpen(true)}
+                          onClick={() => {
+                            if (selectedAlbumId) openBookingDetails(selectedAlbumId);
+                          }}
                           className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center justify-center gap-2 transition-colors"
                         >
                           <i className="ph-bold ph-eye"></i> View Details
@@ -548,13 +556,6 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
 
         </div>
       </div>
-      
-      {isModalOpen && selectedAlbum && (
-        <BookingDetailsModal 
-          booking={selectedAlbum} 
-          onClose={() => setIsModalOpen(false)} 
-        />
-      )}
     </div>
   );
 }

@@ -4,7 +4,14 @@ import AlbumStatusClient from "./AlbumStatusClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function AlbumStatusPage() {
+export default async function AlbumStatusPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const params = await searchParams;
+  const initialTab = params?.tab || 'Pending';
+  
   const dbBookings = await prisma.booking.findMany({
     where: { 
       deletedAt: null,
@@ -47,5 +54,5 @@ export default async function AlbumStatusPage() {
     customData: typeof b.customData === 'string' ? b.customData : JSON.stringify(b.customData || {})
   }));
 
-  return <AlbumStatusClient albums={serializedAlbums as any} teamUsers={teamUsers} />;
+  return <AlbumStatusClient albums={serializedAlbums as any} teamUsers={teamUsers} initialTab={initialTab} />;
 }

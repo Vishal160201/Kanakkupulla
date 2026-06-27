@@ -1,20 +1,42 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import MonthYearPicker from "../ui/MonthYearPicker";
 import WeekPicker from "../ui/WeekPicker";
 import DayPicker from "../ui/DayPicker";
 import { Booking } from "@/types";
 import { useSystem } from "@/components/providers/SystemProvider";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import useSWR from "swr";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
-export default function CalendarWidget() {
+import { Suspense } from "react";
+
+function CalendarWidgetInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { preferences } = useSystem();
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1)); // June 2026 default
+  const { openBookingForm, openBookingDetails } = useGlobalForm();
+  
+  const [currentDate, setCurrentDate] = useState(() => {
+    const d = searchParams.get('date');
+    if (d) {
+      const [y, m, day] = d.split('-').map(Number);
+      return new Date(y, m - 1, day);
+    }
+    return new Date();
+  });
+
+  useEffect(() => {
+    const d = searchParams.get('date');
+    if (d) {
+      const [y, m, day] = d.split('-').map(Number);
+      setCurrentDate(new Date(y, m - 1, day));
+    }
+  }, [searchParams]);
+
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [popupDate, setPopupDate] = useState<string | null>(null);
@@ -111,7 +133,7 @@ export default function CalendarWidget() {
       const isToday = i === today.getDate() && month === today.getMonth() && year === today.getFullYear();
       
       const handleCellClick = () => {
-        router.push(`/bookings/new?date=${dateString}`);
+        openBookingForm(undefined, dateString);
       };
 
       cells.push(
@@ -125,7 +147,7 @@ export default function CalendarWidget() {
           {dayBookings.slice(0, 2).map((b: Booking) => {
             const styles = getTierStyles(b.package);
             return (
-              <div key={b.id} className="calendar-event" style={{ backgroundColor: styles.bg, color: styles.color, border: 'none', marginBottom: '2px', padding: '3px 6px', fontSize: '0.65rem', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); router.push(`/bookings/details/${b.id}`); }}>
+              <div key={b.id} className="calendar-event" style={{ backgroundColor: styles.bg, color: styles.color, border: 'none', marginBottom: '2px', padding: '3px 6px', fontSize: '0.65rem', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); }}>
                 <i className="ph-fill ph-calendar-star"></i> {b.title.substring(0, 10)}...
               </div>
             );
@@ -154,13 +176,11 @@ export default function CalendarWidget() {
               </div>
               <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto no-scrollbar">
                 {dayBookings.map((b: Booking) => {
-                  const styles = getTierStyles(b.package);
                   return (
                     <div 
                       key={b.id} 
-                      className="px-2.5 py-1.5 rounded-lg text-[0.75rem] font-extrabold cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-sm" 
-                      style={{ backgroundColor: styles.bg, color: styles.color }} 
-                      onClick={(e) => { e.stopPropagation(); router.push(`/bookings/details/${b.id}`); setPopupDate(null); }}
+                      className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden" 
+                      onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); setPopupDate(null); }}
                     >
                       <i className="ph-fill ph-calendar-star mr-1"></i> {b.title}
                     </div>
@@ -195,8 +215,8 @@ export default function CalendarWidget() {
         const styles = getTierStyles(b.package);
 
         return (
-          <div key={b.id} className="event-block" style={{ top: topOffset, height: 50, backgroundColor: styles.bg, color: styles.color, border: 'none', borderLeft: '3px solid rgba(0,0,0,0.1)' }} onClick={(e) => { e.stopPropagation(); router.push(`/bookings/details/${b.id}`); }}>
-            <div className="event-block-title" style={{ fontWeight: 800 }}>{b.title}</div>
+          <div key={b.id} className="event-block" style={{ top: topOffset, height: 50, backgroundColor: styles.bg, color: styles.color, border: 'none', borderLeft: '3px solid rgba(0,0,0,0.1)' }} onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); }}>
+            <div className="event-title"><i className="ph-fill ph-calendar-star mr-1"></i> {b.title}</div>
             <div className="event-block-time" style={{ opacity: 0.9 }}>{b.time}</div>
           </div>
         );
@@ -225,7 +245,7 @@ export default function CalendarWidget() {
       const isToday = loopDate.toDateString() === new Date().toDateString();
 
       const handleColClick = () => {
-        router.push(`/bookings/new?date=${dateString}`);
+        openBookingForm(undefined, dateString);
       };
 
       return {
@@ -363,5 +383,13 @@ export default function CalendarWidget() {
         })}
       </div>
     </div>
+  );
+}
+
+export default function CalendarWidget() {
+  return (
+    <Suspense fallback={<div>Loading Calendar...</div>}>
+      <CalendarWidgetInner />
+    </Suspense>
   );
 }

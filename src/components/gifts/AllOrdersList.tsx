@@ -12,6 +12,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CustomDropdown from "../ui/CustomDropdown";
 import CustomDateRangePicker from "../ui/CustomDateRangePicker";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 interface AllOrdersListProps {
   products: any[];
@@ -37,6 +38,7 @@ const STATUS_STYLE_MAP: Record<string, { label: string; dot: string; bg: string;
 
 export default function AllOrdersList({ products }: AllOrdersListProps) {
   const router = useRouter();
+  const { openGiftOrderDetails } = useGlobalForm();
   
   // Filter State
   const [statusFilter, setStatusFilter] = useState("");
@@ -417,7 +419,7 @@ export default function AllOrdersList({ products }: AllOrdersListProps) {
                       return (
                         <tr 
                           key={order.id} 
-                          onClick={() => router.push(`/gifts/orders/${order.id}`)}
+                          onClick={() => openGiftOrderDetails(order.id)}
                           className="hover:bg-slate-50/80 transition-all duration-300 group cursor-pointer"
                         >
                           <td className="px-6 py-4">
@@ -463,7 +465,7 @@ export default function AllOrdersList({ products }: AllOrdersListProps) {
                               </div>
                             ) : (
                               <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={(e) => { e.stopPropagation(); router.push(`/gifts/orders/${order.id}`); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                <button onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
                                 <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
                               </div>
                             )}
@@ -488,7 +490,7 @@ export default function AllOrdersList({ products }: AllOrdersListProps) {
                  const dueAmount = pay.totalAmount - pay.paidAmount;
 
                  return (
-                  <div key={order.id} onClick={() => router.push(`/gifts/orders/${order.id}`)} className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer flex flex-col gap-4 relative group">
+                  <div key={order.id} onClick={() => openGiftOrderDetails(order.id)} className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer flex flex-col gap-4 relative group">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-3">
                         <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${uiProps.bg} ${uiProps.color}`}>
@@ -534,7 +536,7 @@ export default function AllOrdersList({ products }: AllOrdersListProps) {
                         </div>
                       ) : (
                         <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <button onClick={(e) => { e.stopPropagation(); router.push(`/gifts/orders/${order.id}`); }} className="p-1.5 bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={14}/></button>
+                           <button onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }} className="p-1.5 bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={14}/></button>
                            <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }} className="p-1.5 bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-red-600 rounded-lg transition-colors"><Trash2 size={14}/></button>
                         </div>
                       )}

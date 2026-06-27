@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, Legend 
@@ -27,6 +28,7 @@ const formatCurrency = (val: number) => `₹${val.toLocaleString('en-IN')}`;
 
 export default function AnalyticsPage() {
   const router = useRouter();
+  const { openGiftOrderDetails } = useGlobalForm();
   const [dateRange, setDateRange] = useState("this-month"); // 'today', 'this-week', 'this-month', 'this-year', 'custom'
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -410,19 +412,16 @@ export default function AnalyticsPage() {
                   <div className="text-sm text-slate-500 italic p-4 text-center bg-slate-50 rounded-xl">No overdue orders found!</div>
                 ) : (
                   filteredOverdue.map((o: any) => (
-                    <div key={o.id} className="flex items-center justify-between p-3 bg-red-50/50 rounded-xl border border-red-100">
+                    <div key={o.id} className="flex items-center justify-between p-3 bg-red-50/50 rounded-xl border border-red-100 cursor-pointer hover:bg-red-100 transition-colors" onClick={() => openGiftOrderDetails(o.id)}>
                       <div>
                         <div className="text-sm font-bold text-slate-800">{o.clientName}</div>
                         <div className="text-[0.65rem] text-slate-500 uppercase">{o.id.slice(-6)}</div>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-extrabold text-red-600">₹{o.amount.toLocaleString('en-IN')}</span>
-                        <button 
-                          onClick={() => router.push(`/gifts/orders/${o.id}`)}
-                          className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors"
-                        >
+                        <div className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors">
                           Collect
-                        </button>
+                        </div>
                       </div>
                     </div>
                   ))

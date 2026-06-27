@@ -23,14 +23,27 @@ import DatePickerInput from "../ui/DatePickerInput";
 import GooglePicker from "@/components/shared/GooglePicker";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { mutate } from "swr";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
-export default function BookingFormModal({ booking }: { booking: Booking | null }) {
+import { Suspense } from "react";
+
+function BookingFormModalInner() {
+  const { isBookingFormOpen, bookingToEditId, bookingInitialDate, closeBookingForm } = useGlobalForm();
+  
+  const { data: fetchedBooking, isLoading: isBookingLoading } = useSWR(
+    bookingToEditId ? `/api/bookings/${bookingToEditId}` : null,
+    fetcher
+  );
+  
+  const booking = bookingToEditId ? fetchedBooking : null;
+
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedDateForNew = searchParams.get('date');
-  const isAddModalOpen = true;
+  const selectedDateForNew = bookingInitialDate;
+  const isAddModalOpen = isBookingFormOpen;
 
   const clientSuggestions: string[] = [];
   const locationSuggestions: string[] = [];
@@ -86,7 +99,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
 
   useEffect(() => {
     if (usersData) {
-      const staff = usersData.filter((u: any) => u.role !== 'CLIENT');
+      const staff = (Array.isArray(usersData) ? usersData : usersData?.users ?? []).filter((u: any) => u.role !== 'CLIENT');
       setTeamUsers(staff.map((u: any) => ({
         id: u.id, name: u.name || 'Unknown', image: u.image, role: u.role
       })));
@@ -110,50 +123,58 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [statusDropdownOpen]);
 
+  // Edit mode pre-fill
   useEffect(() => {
-    if (isAddModalOpen) {
-      if (booking) {
-        const { customData, ...rest } = booking;
-        const b = booking as any;
-        reset({ 
-          ...rest, 
-          package: b.order?.package ? b.order.package.toString() : '',
-          advance: b.order?.advance ? b.order.advance.toString() : '',
-          due: b.order?.due ? b.order.due.toString() : '',
-          ...(customData || {}) 
-        });
-        if (b.order?.installments && Array.isArray(b.order.installments)) {
-          setInstallments(b.order.installments);
-        }
-      } else {
-        const defaultDate = selectedDateForNew || new Date().toISOString().split('T')[0];
-        const defaultValues: any = {
-          title: '', category: 'Wedding', date: defaultDate, time: '10:00 AM', 
-          location: '', phone: '', email: '', package: '', advance: '', due: '', status: 'Confirmed'
-        };
-        // Find the STATUS_PICKER field ID and map it to 'status'
-        let statusFieldId = 'fld_b_status';
-        if (layoutSchema?.sections) {
-          const statusF = layoutSchema.sections.flatMap((s: any) => s.fields).find((f: any) => f.type === 'STATUS_PICKER');
-          if (statusF) statusFieldId = statusF.id;
-        }
-
-        // Auto-initialize STATUS_PICKER fields to their first option
-        if (layoutSchema?.sections) {
-          layoutSchema.sections.forEach((sec: any) => {
-            sec.fields.forEach((f: any) => {
-              if (f.type === 'STATUS_PICKER' && f.statusOptions && f.statusOptions.length > 0) {
-                const fname = (f.id === statusFieldId) ? 'status' : (standardFieldMap[f.id] || f.id);
-                defaultValues[fname] = f.statusOptions[0].label;
-              }
-            });
-          });
-        }
-        reset(defaultValues);
-        if (timeFpInstance) timeFpInstance.setDate('10:00 AM');
+    if (isAddModalOpen && !isBookingLoading && booking) {
+      const { customData, ...rest } = booking;
+      const b = booking as any;
+      reset({ 
+        ...rest, 
+        title: b.client?.name || b.title || '',
+        phone: b.client?.phone || b.phone || '',
+        email: b.client?.email || b.email || '',
+        date: b.date ? (typeof b.date === 'string' ? b.date.split('T')[0] : new Date(b.date).toISOString().split('T')[0]) : '',
+        package: b.order?.package ? b.order.package.toString() : '',
+        advance: b.order?.advance ? b.order.advance.toString() : '',
+        due: b.order?.due ? b.order.due.toString() : '',
+        ...(customData || {}) 
+      });
+      if (b.order?.installments && Array.isArray(b.order.installments)) {
+        setInstallments(b.order.installments);
       }
     }
-  }, [isAddModalOpen, booking, selectedDateForNew, reset, timeFpInstance]);
+  }, [isAddModalOpen, booking, isBookingLoading, reset]);
+
+  // Add mode default initialization
+  useEffect(() => {
+    if (isAddModalOpen && !isBookingLoading && !bookingToEditId) {
+      const defaultDate = selectedDateForNew || new Date().toISOString().split('T')[0];
+      const defaultValues: any = {
+        title: '', category: 'Wedding', date: defaultDate, time: '10:00 AM', 
+        location: '', phone: '', email: '', package: '', advance: '', due: '', status: 'Confirmed'
+      };
+      
+      let statusFieldId = 'fld_b_status';
+      if (layoutSchema?.sections) {
+        const statusF = layoutSchema.sections.flatMap((s: any) => s.fields).find((f: any) => f.type === 'STATUS_PICKER');
+        if (statusF) statusFieldId = statusF.id;
+      }
+
+      if (layoutSchema?.sections) {
+        layoutSchema.sections.forEach((sec: any) => {
+          sec.fields.forEach((f: any) => {
+            if (f.type === 'STATUS_PICKER' && f.statusOptions && f.statusOptions.length > 0) {
+              const fname = (f.id === statusFieldId) ? 'status' : (standardFieldMap[f.id] || f.id);
+              defaultValues[fname] = f.statusOptions[0].label;
+            }
+          });
+        });
+      }
+      reset(defaultValues);
+      if (timeFpInstance) timeFpInstance.setDate('10:00 AM');
+      clearErrors();
+    }
+  }, [isAddModalOpen, bookingToEditId, isBookingLoading, selectedDateForNew, reset, clearErrors, layoutSchema, timeFpInstance]);
 
   useEffect(() => {
     if (isAddModalOpen) {
@@ -202,12 +223,21 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
   const formValues = watch();
 
   const evaluateVisibility = (rule: any) => {
-    if (!rule || !rule.fieldId) return true;
-    const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
-    const depValue = formValues[depFieldName as keyof BookingFormData];
+    if (!rule) return true;
     
-    // Support both new rule.values and old rule.value
+    const dependsOnKey = rule.dependsOn || rule.fieldId;
+    if (!dependsOnKey) return true;
+    
+    const depFieldName = standardFieldMap[dependsOnKey] || dependsOnKey;
+    const depValue = formValues[depFieldName as keyof BookingFormData] !== undefined 
+      ? formValues[depFieldName as keyof BookingFormData] 
+      : (formValues as any)[dependsOnKey];
+    
     const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+    
+    if (rule.dependsOn || rule.fieldId) {
+      console.log(`[BookingForm] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
+    }
     
     if (rule.operator === 'EQUALS') {
       return ruleValues.includes(depValue as string);
@@ -222,6 +252,12 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
       }
       return false;
     }
+    
+    // For pure dependsOn + values format without operator
+    if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) {
+      return rule.values.includes(depValue);
+    }
+    
     return true;
   };
 
@@ -322,8 +358,17 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
     const result = await saveBookingAction(formDataObj);
 
     if (result.success && result.data) {
-      toast.success(booking ? "Booking updated successfully!" : "Booking created successfully!");
-      router.back();
+        toast.success(booking ? "Booking updated successfully!" : "Booking created successfully!");
+        
+        // Use SWR mutate to update cache immediately without full page reload
+        mutate(
+          (key: any) => typeof key === 'string' && key.startsWith('/api/bookings'),
+          undefined,
+          { revalidate: true }
+        );
+        mutate('/api/dashboard/overview');
+        
+        closeBookingForm();
     } else {
       toast.error("Failed to save booking. Please check your inputs.");
     }
@@ -680,7 +725,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
 
   return (
     <Dialog open={isAddModalOpen} onOpenChange={(open) => {
-      if (!open) { router.back(); }
+      if (!open) { closeBookingForm(); }
     }}>
       <DialogContent className="max-w-[800px] sm:max-w-[800px] w-[95vw] sm:w-full p-0 bg-transparent overflow-hidden border-0 shadow-none">
         <motion.div 
@@ -771,7 +816,7 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
           )}
         </div>
         <div className="bg-slate-50 border-t border-gray-100 px-5 py-4 sm:px-10 sm:py-6 flex justify-end gap-3 rounded-b-2xl sm:rounded-b-3xl shrink-0">
-          <button className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-bold text-[0.85rem] sm:text-[0.95rem] bg-transparent text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => router.back()}>Cancel</button>
+          <button className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-bold text-[0.85rem] sm:text-[0.95rem] bg-transparent text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => closeBookingForm()}>Cancel</button>
           <button className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-full font-bold text-[0.85rem] sm:text-[0.95rem] bg-orange-500 text-white shadow-md hover:bg-orange-600 hover:-translate-y-[1px] hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50" disabled={isSubmitting} onClick={handleSubmit(onSubmit, onError)}>
             <i className="ph-fill ph-calendar-plus"></i> {isSubmitting ? "Saving..." : booking ? "Save Changes" : "Register Booking"}
           </button>
@@ -779,5 +824,13 @@ export default function BookingFormModal({ booking }: { booking: Booking | null 
         </motion.div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export default function BookingFormModal() {
+  return (
+    <Suspense fallback={null}>
+      <BookingFormModalInner />
+    </Suspense>
   );
 }

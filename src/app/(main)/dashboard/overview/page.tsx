@@ -3,6 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { Suspense } from "react";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { useRouter } from "next/navigation";
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -33,6 +34,7 @@ const fetcher = async (url: string) => {
 
 function DashboardMetrics() {
   const router = useRouter();
+  const { openBookingDetails } = useGlobalForm();
   const { data, error, isLoading } = useSWR('/api/dashboard/overview', fetcher);
   const today = new Date();
 
@@ -55,13 +57,16 @@ function DashboardMetrics() {
     todayTransactions,
     todayIncome,
     todayExpense,
-    todayNet
+    todayNet,
+    hotDatesCount
   } = data;
+
+  const showHotDates = typeof hotDatesCount === 'number' && hotDatesCount > 0;
 
   return (
     <>
       {/* Quick Stats Grid — Always same row */}
-      <div className="grid grid-cols-3 gap-3 md:gap-5 mb-4">
+      <div className={`grid grid-cols-2 md:grid-cols-${showHotDates ? '4' : '3'} gap-3 md:gap-5 mb-4`}>
         <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-100 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-200">
           <div className="flex justify-between items-start">
             <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex items-center justify-center shadow-sm">
@@ -89,6 +94,24 @@ function DashboardMetrics() {
             </div>
           </div>
         </div>
+
+        {showHotDates && (
+          <Link href="/bookings/allBookings" className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl md:rounded-2xl p-4 md:p-5 border border-orange-200 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-300 group cursor-pointer" style={{ animation: 'fadeIn 0.5s ease-out, slideUp 0.5s ease-out' }}>
+            <div className="flex justify-between items-start">
+              <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 text-white flex items-center justify-center shadow-sm group-hover:shadow-orange-500/30 transition-all">
+                <i className="ph-fill ph-fire text-[1rem] md:text-[1.2rem] animate-pulse origin-bottom" style={{ animationDuration: '1.5s' }}></i>
+              </div>
+              <span className="bg-orange-100 text-orange-600 px-1.5 md:px-2 py-0.5 rounded-md text-[0.5rem] md:text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">High Value</span>
+            </div>
+            <div className="mt-1">
+              <div className="text-orange-600/80 font-bold text-[0.6rem] md:text-[0.7rem] mb-0.5 uppercase tracking-wider">Hot Dates</div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[1.1rem] md:text-[1.5rem] font-extrabold text-orange-600 leading-none tracking-tight">{hotDatesCount}</span>
+                <span className="text-[0.75rem] md:text-[1rem] font-bold text-orange-400/80">Dates</span>
+              </div>
+            </div>
+          </Link>
+        )}
 
         <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-100 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-blue-200">
           <div className="flex justify-between items-start">
@@ -240,7 +263,7 @@ function DashboardMetrics() {
                  <Link href="/bookings/overview" className="text-orange-500 text-sm font-bold mt-2 inline-block">Add Booking</Link>
                </div>
             ) : upcomingShoots.map((shoot: any) => (
-              <div key={shoot.id} onClick={() => router.push(`/bookings/details/${shoot.id}`)} className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 cursor-pointer shadow-sm transition-all hover:translate-x-1 hover:shadow-md hover:bg-orange-100/50">
+              <div key={shoot.id} onClick={() => openBookingDetails(shoot.id)} className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 cursor-pointer shadow-sm transition-all hover:translate-x-1 hover:shadow-md hover:bg-orange-100/50">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
                   <div className="w-[40px] h-[40px] rounded-xl bg-orange-100 text-orange-500 flex items-center justify-center text-[1.2rem] shrink-0">
                     <i className="ph-fill ph-camera"></i>

@@ -71,17 +71,19 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
   };
 
   const evaluateVisibility = (rule: any) => {
-    if (!rule || !rule.fieldId) return true;
-    const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
-    let depValue = formData[depFieldName];
+    if (!rule) return true;
+    
+    const dependsOnKey = rule.dependsOn || rule.fieldId;
+    if (!dependsOnKey) return true;
+    
+    const depFieldName = standardFieldMap[dependsOnKey] || dependsOnKey;
+    const depValue = formData[dependsOnKey] !== undefined ? formData[dependsOnKey] : formData[depFieldName];
 
-    // No reverse mapping hack - evaluate against actual values
-    if (depFieldName === 'productId' && depValue) {
-      // Just use the raw ID for evaluation
-    }
-
-    // Support both new rule.values and old rule.value
     const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+
+    if (rule.dependsOn || rule.fieldId) {
+      console.log(`[OrderForm] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
+    }
 
     if (rule.operator === 'EQUALS') {
       return ruleValues.includes(depValue as string);
@@ -96,56 +98,75 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
       }
       return false;
     }
+    
+    // For pure dependsOn + values format without operator
+    if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) {
+      return rule.values.includes(depValue);
+    }
+    
     return true;
   };
 
   const handleFieldChange = (fieldId: string, value: any) => {
     const key = standardFieldMap[fieldId] || fieldId;
 
-    // If selecting a product name, we need to map it to the actual product ID for the backend
-    // Remove reverse mapping hacks for productId
+    let displayValue = value;
+    if (key === 'productId') {
+      const prod = products.find((p: any) => p.id === value);
+      if (prod) displayValue = prod.name;
+    }
+
     setFormData(prev => {
-      const next = { ...prev, [key]: value };
+      // Store both the standard mapped key and the raw field ID (with display label) so dependsOn can match
+      const next = { ...prev, [key]: value, [fieldId]: displayValue };
+      
       if (key === 'amount' || key === 'advanceAmount') {
         const t = Number(next.amount) || 0;
         const a = Number(next.advanceAmount) || 0;
         next.dueAmount = Math.max(0, t - a).toString();
       }
 
-      if (key === 'productId' && layoutSchema) {
-        // Re-evaluate visibility for all fields with the new state
-        // and clear the values of fields that become hidden
+      // On every change, evaluate visibility and clear hidden fields
+      if (layoutSchema && layoutSchema.sections) {
         const isFieldVisible = (rule: any, state: Record<string, any>) => {
-          if (!rule || !rule.fieldId) return true;
-          const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
-          const depValue = state[depFieldName];
-
-          // Support both new rule.values and old rule.value
+          if (!rule) return true;
+          
+          const dependsOnKey = rule.dependsOn || rule.fieldId;
+          if (!dependsOnKey) return true;
+          
+          const depFieldName = standardFieldMap[dependsOnKey] || dependsOnKey;
+          const depValue = state[dependsOnKey] !== undefined ? state[dependsOnKey] : state[depFieldName];
+          
           const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
-
+          
+          if (rule.dependsOn || rule.fieldId) {
+            console.log(`[OrderForm] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
+          }
+          
           if (rule.operator === 'EQUALS') {
             return ruleValues.includes(depValue as string);
           } else if (rule.operator === 'NOT_EQUALS') {
             return !ruleValues.includes(depValue as string);
           } else if (rule.operator === 'CONTAINS') {
-            if (typeof depValue === 'string') {
-              return ruleValues.some(v => depValue.includes(v));
-            }
-            if (Array.isArray(depValue)) {
-              return ruleValues.some(v => depValue.includes(v));
-            }
+            if (typeof depValue === 'string') return ruleValues.some(v => depValue.includes(v));
+            if (Array.isArray(depValue)) return ruleValues.some(v => depValue.includes(v));
             return false;
           }
+          
+          if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) {
+            return rule.values.includes(depValue);
+          }
+          
           return true;
         };
 
-        layoutSchema.sections?.forEach((section: any) => {
+        layoutSchema.sections.forEach((section: any) => {
           section.fields?.forEach((f: any) => {
-            if (f.visibilityRule) {
-              if (!isFieldVisible(f.visibilityRule, next)) {
-                const fKey = standardFieldMap[f.id] || f.id;
-                delete next[fKey];
-              }
+            const rule = f.visibility || f.visibilityRule;
+            if (rule && !isFieldVisible(rule, next)) {
+              const fKey = standardFieldMap[f.id] || f.id;
+              delete next[fKey];
+              delete next[f.id];
             }
           });
         });
@@ -570,7 +591,8 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
               </div>
             ) : (
               layoutSchema.sections?.map((section: any) => {
-                if (!evaluateVisibility(section.visibilityRule)) return null;
+                const sectionRule = section.visibility || section.visibilityRule;
+                if (!evaluateVisibility(sectionRule)) return null;
 
                 return (
                   <div key={section.id} className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
@@ -580,7 +602,8 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
                     </h3>
                     <div className="flex flex-wrap gap-4">
                       {section.fields.map((field: any) => {
-                        const isVisible = evaluateVisibility(field.visibilityRule);
+                        const rule = field.visibility || field.visibilityRule;
+                        const isVisible = evaluateVisibility(rule);
                         if (field.id === 'fld_g_due' || field.name.toLowerCase().includes('balance paid')) return null;
 
                         return (

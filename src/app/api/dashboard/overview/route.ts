@@ -90,6 +90,29 @@ export async function GET() {
     const todayIncome = todayIncomeItem?._sum.amount || 0;
     const todayExpense = todayExpenseItem?._sum.amount || 0;
 
+    // Calculate Hot Dates
+    const prefsDoc = await prisma.systemSetting.findUnique({
+      where: { key: 'UI_PREFERENCES' }
+    });
+    const prefs = prefsDoc?.value as any || {};
+    const hotDateBenchmark = prefs.hotDateBenchmark ?? prefs.hotDateThreshold ?? 50000;
+
+    const upcomingAllBookings = await prisma.booking.findMany({
+      where: { deletedAt: null, date: { gte: todayStart } },
+      select: {
+        date: true,
+        order: { select: { package: true } }
+      }
+    });
+
+    const dateSums: Record<string, number> = {};
+    for (const b of upcomingAllBookings) {
+      if (!b.date) continue;
+      const dateStr = b.date.toISOString().split('T')[0];
+      dateSums[dateStr] = (dateSums[dateStr] || 0) + (b.order?.package || 0);
+    }
+    const hotDatesCount = Object.values(dateSums).filter(sum => sum >= hotDateBenchmark).length;
+
     return NextResponse.json({
       totalBookings,
       upcomingShoots,
@@ -99,7 +122,8 @@ export async function GET() {
       todayTransactions,
       todayIncome,
       todayExpense,
-      todayNet: todayIncome - todayExpense
+      todayNet: todayIncome - todayExpense,
+      hotDatesCount
     });
 
   } catch (error) {

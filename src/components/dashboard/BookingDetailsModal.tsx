@@ -2,6 +2,9 @@
 
 import { useBookings } from "../providers/BookingProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { mutate } from "swr";
+import { motion } from "framer-motion";
 
 const getFieldIcon = (field: any) => {
   const name = (field.name || '').toLowerCase();
@@ -37,25 +40,32 @@ import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-
 import DatePickerInput from "../ui/DatePickerInput";
 import MultiUserPicklist from "../ui/MultiUserPicklist";
 import { deleteBookingAction, updateBookingStatusAction, saveBookingAction } from "@/app/actions";
 import { toast } from "sonner";
 import GooglePicker from "@/components/shared/GooglePicker";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
-interface BookingDetailsModalProps {
-  booking: Booking | null;
-  onClose?: () => void;
-  onRefresh?: () => void;
-}
-
-export default function BookingDetailsModal({ booking, onClose, onRefresh }: BookingDetailsModalProps) {
+export default function BookingDetailsModal() {
   const router = useRouter();
+  const { openBookingForm, isBookingDetailsOpen, bookingDetailsId, closeBookingDetails } = useGlobalForm();
+  
+  const { data: fetchedBooking, isLoading: isBookingLoading, mutate: refreshBooking } = useSWR(
+    bookingDetailsId ? `/api/bookings/${bookingDetailsId}` : null,
+    fetcher
+  );
+  
+  const booking = bookingDetailsId && fetchedBooking ? {
+    ...fetchedBooking,
+    customData: typeof fetchedBooking.customData === 'string' ? 
+      (() => { try { return JSON.parse(fetchedBooking.customData); } catch(e) { return {}; } })() : 
+      (fetchedBooking.customData || {})
+  } : null;
+
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -201,16 +211,37 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
     // Evaluate mandatory custom fields
     if (layoutSchema && layoutSchema.sections) {
       const evaluateVisibility = (rule: any) => {
-        if (!rule || !rule.fieldId) return true;
-        const depValue = editData[rule.fieldId];
+        if (!rule) return true;
+        
+        const dependsOnKey = rule.dependsOn || rule.fieldId;
+        if (!dependsOnKey) return true;
+        
+        const depValue = editData[dependsOnKey];
         const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
-        if (rule.operator === 'EQUALS') return ruleValues.includes(depValue as string);
-        if (rule.operator === 'NOT_EQUALS') return !ruleValues.includes(depValue as string);
-        if (rule.operator === 'CONTAINS') {
-          if (typeof depValue === 'string') return ruleValues.some(v => depValue.includes(v));
-          if (Array.isArray(depValue)) return ruleValues.some(v => depValue.includes(v));
+
+        if (rule.dependsOn || rule.fieldId) {
+          console.log(`[BookingDetailsModal] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
+        }
+
+        if (rule.operator === 'EQUALS') {
+          return ruleValues.includes(depValue as string);
+        } else if (rule.operator === 'NOT_EQUALS') {
+          return !ruleValues.includes(depValue as string);
+        } else if (rule.operator === 'CONTAINS') {
+          if (typeof depValue === 'string') {
+            return ruleValues.some(v => depValue.includes(v));
+          }
+          if (Array.isArray(depValue)) {
+            return ruleValues.some(v => depValue.includes(v));
+          }
           return false;
         }
+        
+        // For pure dependsOn + values format without operator
+        if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) {
+          return rule.values.includes(depValue);
+        }
+        
         return true;
       };
 
@@ -255,10 +286,11 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
       formData.append("installments", JSON.stringify(finalInstallments));
       const res = await saveBookingAction(formData);
       if (res.success) {
-        toast.success("Booking updated successfully!");
+        toast.success("Booking saved successfully!");
         setIsEditing(false);
-        if (onRefresh) onRefresh();
-        else window.location.reload();
+        refreshBooking();
+        mutate('/api/bookings');
+        mutate('/api/dashboard/overview');
       } else {
         toast.error("Failed to update booking. Check inputs.");
         console.error(res.errors);
@@ -282,9 +314,9 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (res.ok && onRefresh) {
+      if (res.ok && refreshBooking) {
         toast.success("Updated successfully!");
-        onRefresh();
+        refreshBooking();
       } else if (res.ok) {
         toast.success("Updated successfully!");
         window.location.reload(); // fallback
@@ -394,8 +426,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
       if (res.success) {
         toast.success("Booking deleted successfully!");
         setIsDeleteConfirmOpen(false);
-        if (onClose) onClose();
-        else router.back();
+        closeBookingDetails();
       } else {
         toast.error("Failed to delete booking.");
       }
@@ -418,15 +449,61 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
   const albumDesignerVal = albumDesignerId ? booking?.customData?.[albumDesignerId] : null;
   const photographersVal = photographersId ? booking?.customData?.[photographersId] : (booking?.photographers || booking?.customData?.team || []);
   const inclusionsVal = inclusionsId ? booking?.customData?.[inclusionsId] : booking?.inclusions;
-  return (
-    <Dialog open={!!booking && !isDeleteConfirmOpen} onOpenChange={(open) => {
-      if (!open) {
-        if (onClose) onClose();
-        else router.back();
+    const isFieldVisibleForRender = (rule: any) => {
+    if (!rule) return true;
+    
+    const dependsOnKey = rule.dependsOn || rule.fieldId;
+    if (!dependsOnKey) return true;
+    
+    const depFieldName = standardFieldMap[dependsOnKey] || dependsOnKey;
+    const standardDepVal = (booking as any)[depFieldName];
+    const depVal = (standardDepVal !== undefined && standardDepVal !== null && standardDepVal !== '') 
+      ? standardDepVal 
+      : booking.customData?.[depFieldName] || booking.customData?.[dependsOnKey];
+
+    const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+
+    if (rule.dependsOn || rule.fieldId) {
+      console.log(`[BookingDetailsModal-Render] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depVal}', expectedValues=`, ruleValues);
+    }
+
+    if (rule.operator === 'EQUALS') {
+      return ruleValues.includes(depVal as string);
+    } else if (rule.operator === 'NOT_EQUALS') {
+      return !ruleValues.includes(depValue as string);
+    } else if (rule.operator === 'CONTAINS') {
+      if (typeof depVal === 'string') {
+        return ruleValues.some(v => depValue.includes(v));
       }
-    }}>
-      {booking && (
-      <DialogContent className="max-w-[1100px] sm:max-w-[1100px] w-[95vw] md:w-full p-0 bg-[#F5F6F8] rounded-2xl md:rounded-[2rem] overflow-hidden border-0 shadow-2xl h-[95dvh] md:h-[95vh] flex flex-col">
+      if (Array.isArray(depValue)) {
+        return ruleValues.some(v => depValue.includes(v));
+      }
+      return false;
+    }
+    
+    // For pure dependsOn + values format without operator
+    if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) {
+      return rule.values.includes(depVal);
+    }
+    
+    return true;
+  };
+
+  return (
+    <>
+      <Dialog open={isBookingDetailsOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsClosing(true);
+          setTimeout(() => closeBookingDetails(), 200);
+        }
+      }}>
+        <DialogContent className="max-w-[1200px] sm:max-w-[1200px] w-[95vw] p-0 bg-transparent overflow-hidden border-0 shadow-none h-[90vh] md:h-[85vh] flex flex-col">
+          {(!booking || isBookingLoading) ? (
+            <div className="flex-1 bg-white rounded-3xl flex items-center justify-center min-h-[400px]">
+               <div className="w-8 h-8 border-4 border-slate-200 border-t-orange-500 rounded-full animate-spin"></div>
+            </div>
+          ) : (
+      <motion.div className="flex-1 flex flex-col bg-[#F5F6F8] rounded-2xl md:rounded-[2rem] overflow-hidden border-0 shadow-2xl h-[95dvh] md:h-[95vh]">
          {/* Main scrollable area */}
          <div className="flex-1 overflow-y-auto p-4 md:p-8">
              
@@ -597,19 +674,9 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                 </div>
 
                 {/* 4 Main Columns for Dynamic Sections + Timeline */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {layoutSchema && layoutSchema.sections && layoutSchema.sections.map((section: any) => {
-                    if (section.visibilityRule && section.visibilityRule.fieldId) {
-                      const depVal = (booking as any)[section.visibilityRule.fieldId] || booking.customData?.[section.visibilityRule.fieldId];
-                      const ruleValues: string[] = section.visibilityRule.values || (section.visibilityRule.value ? [section.visibilityRule.value] : []);
-                      
-                      if (section.visibilityRule.operator === 'EQUALS' && !ruleValues.includes(depVal as string)) return null;
-                      if (section.visibilityRule.operator === 'NOT_EQUALS' && ruleValues.includes(depVal as string)) return null;
-                      if (section.visibilityRule.operator === 'CONTAINS') {
-                        if (typeof depVal === 'string' && !ruleValues.some(v => depVal.includes(v))) return null;
-                        if (Array.isArray(depVal) && !ruleValues.some(v => depVal.includes(v))) return null;
-                      }
-                    }
+                    if (!isFieldVisibleForRender(section.visibilityRule)) return null;
 
                     // For the Financial section, we skip it here and show it in the dedicated Package & Payment block
                     if (section.id === 'sec_booking_financial') return null;
@@ -625,20 +692,11 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                         <div className="flex flex-col gap-5">
                           {section.fields.map((field: any) => {
                             // Evaluate field visibility
-                            if (field.visibilityRule && field.visibilityRule.fieldId) {
-                              const depVal = (booking as any)[field.visibilityRule.fieldId] || booking.customData?.[field.visibilityRule.fieldId];
-                              const ruleValues: string[] = field.visibilityRule.values || (field.visibilityRule.value ? [field.visibilityRule.value] : []);
-
-                              if (field.visibilityRule.operator === 'EQUALS' && !ruleValues.includes(depVal as string)) return null;
-                              if (field.visibilityRule.operator === 'NOT_EQUALS' && ruleValues.includes(depVal as string)) return null;
-                              if (field.visibilityRule.operator === 'CONTAINS') {
-                                if (typeof depVal === 'string' && !ruleValues.some(v => depVal.includes(v))) return null;
-                                if (Array.isArray(depVal) && !ruleValues.some(v => depVal.includes(v))) return null;
-                              }
-                            }
+                            if (!isFieldVisibleForRender(field.visibilityRule)) return null;
 
                             const fieldName = standardFieldMap[field.id] || field.id;
-                            const val = (booking as any)[fieldName] !== undefined ? (booking as any)[fieldName] : booking.customData?.[fieldName];
+                            const standardVal = (booking as any)[fieldName];
+                            const val = (standardVal !== undefined && standardVal !== null && standardVal !== '') ? standardVal : booking.customData?.[fieldName];
 
                             let displayVal: React.ReactNode = val || 'N/A';
 
@@ -975,16 +1033,13 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                ) : (
                  <>
                    <button onClick={() => {
-                        setIsClosing(true);
-                        setTimeout(() => {
-                           router.push(`/bookings/${booking.id}/edit`);
-                        }, 200);
+                        openBookingForm(booking.id);
+                        closeBookingDetails();
                     }} className="text-[#0B1E40] text-[0.95rem] font-bold hover:text-blue-600 transition-colors flex items-center gap-2">
                       <i className="ph-bold ph-pencil-simple text-lg"></i> Edit Booking
                     </button>
                    <button onClick={() => {
-                     if (onClose) onClose();
-                     else router.back();
+                     closeBookingDetails();
                    }} className="px-8 py-2.5 bg-[#0B1E40] text-[0.95rem] text-white font-bold rounded-xl hover:bg-[#152a52] transition-colors ml-2">
                      Close
                    </button>
@@ -992,9 +1047,10 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                )}
             </div>
          </div>
-      </DialogContent>
-    
-      )}
+          </motion.div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Modal */}
       <Dialog open={isDeleteConfirmOpen} onOpenChange={(open) => !open && setIsDeleteConfirmOpen(false)}>
@@ -1158,7 +1214,7 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.isArray(booking?.inclusions) && booking!.inclusions.length > 0 ? booking!.inclusions.map((item, idx) => (
+                  {Array.isArray(booking?.inclusions) && booking!.inclusions.length > 0 ? booking!.inclusions.map((item: string, idx: number) => (
                     <tr key={idx} className="border-b border-gray-100">
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx + 1}</td>
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{item}</td>
@@ -1219,6 +1275,6 @@ export default function BookingDetailsModal({ booking, onClose, onRefresh }: Boo
             </div>
          </div>
       </div>
-    </Dialog>
+    </>
   );
 }

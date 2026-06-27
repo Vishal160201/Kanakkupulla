@@ -12,21 +12,9 @@ import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
-interface TransactionModalProps {
-  editTransaction?: {
-    id: string;
-    amount: number;
-    type: "INCOME" | "EXPENSE";
-    date: string;
-    category: string;
-    paymentMode: string;
-    description: string | null;
-    status: string;
-    customData?: Record<string, any>;
-  } | null;
-}
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 const standardFieldMap: Record<string, string> = {
   fld_tx_amount: 'amount',
@@ -37,12 +25,35 @@ const standardFieldMap: Record<string, string> = {
   fld_tx_desc: 'description',
 };
 
-export default function TransactionModal({ editTransaction }: TransactionModalProps) {
+import { Suspense } from "react";
+
+function TransactionModalInner() {
+  const { isTransactionFormOpen, transactionToEditId, closeTransactionForm } = useGlobalForm();
+  
+  const { data: fetchedTransaction, isLoading: isTxLoading } = useSWR(
+    transactionToEditId ? `/api/transactions/${transactionToEditId}` : null,
+    fetcher
+  );
+  
+  const editTransaction = transactionToEditId ? fetchedTransaction : null;
+
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isOpen = true;
-  const onClose = () => router.back();
-  const onSuccess = () => router.refresh();
+  const isOpen = isTransactionFormOpen;
+  
+  const onClose = () => {
+    closeTransactionForm();
+  };
+  
+  const onSuccess = () => {
+    mutate(
+      (key: any) => typeof key === 'string' && key.startsWith('/api/transactions'),
+      undefined,
+      { revalidate: true }
+    );
+    mutate('/api/dashboard/overview');
+    closeTransactionForm();
+  };
 
   const [form, setForm] = useState<Record<string, any>>({ type: "INCOME", status: "SETTLED" });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,8 +82,9 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
   const isEditMode = !!editTransaction;
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isTxLoading) {
       if (editTransaction) {
+        const { customData, ...rest } = editTransaction;
         setForm({
           amount: String(editTransaction.amount),
           type: editTransaction.type,
@@ -106,7 +118,7 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
       }
       setErrors({});
     }
-  }, [isOpen, editTransaction, layoutSchema, searchParams]);
+  }, [isOpen, editTransaction, isTxLoading, layoutSchema, searchParams]);
 
   const set = (key: string) => (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -203,12 +215,21 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
   };
 
   const evaluateVisibility = (rule: any) => {
-    if (!rule || !rule.fieldId) return true;
-    const depFieldName = standardFieldMap[rule.fieldId] || rule.fieldId;
-    const depValue = form[depFieldName];
+    if (!rule) return true;
+    
+    const dependsOnKey = rule.dependsOn || rule.fieldId;
+    if (!dependsOnKey) return true;
+    
+    const depFieldName = standardFieldMap[dependsOnKey] || dependsOnKey;
+    const depValue = form[depFieldName] !== undefined 
+      ? form[depFieldName] 
+      : (form as any)[dependsOnKey];
 
-    // Support both new rule.values and old rule.value
     const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+
+    if (rule.dependsOn || rule.fieldId) {
+      console.log(`[TransactionModal] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
+    }
 
     if (rule.operator === 'EQUALS') {
       return ruleValues.includes(depValue as string);
@@ -223,6 +244,12 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
       }
       return false;
     }
+    
+    // For pure dependsOn + values format without operator
+    if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) {
+      return rule.values.includes(depValue);
+    }
+    
     return true;
   };
 
@@ -645,5 +672,13 @@ export default function TransactionModal({ editTransaction }: TransactionModalPr
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export default function TransactionModal() {
+  return (
+    <Suspense fallback={null}>
+      <TransactionModalInner />
+    </Suspense>
   );
 }

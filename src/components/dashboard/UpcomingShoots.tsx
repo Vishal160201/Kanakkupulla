@@ -3,9 +3,11 @@
 import Link from 'next/link';
 import { useRouter } from "next/navigation";
 import { Booking } from '@/types';
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
   const router = useRouter();
+  const { openBookingDetails } = useGlobalForm();
 
   // Parse dates carefully to avoid timezone issues
   const today = new Date();
@@ -60,7 +62,7 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
               <div 
                 key={b.id} 
                 className="group relative flex items-center justify-between bg-white/70 backdrop-blur-md border border-white/80 rounded-2xl p-4 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:bg-white"
-                onClick={() => router.push(`/bookings/details/${b.id}`)}
+                onClick={() => openBookingDetails(b.id)}
               >
                 {/* Modern subtle background glow on hover */}
                 <div className="absolute inset-0 bg-gradient-to-r from-orange-500/0 via-orange-500/0 to-orange-500/[0.03] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>

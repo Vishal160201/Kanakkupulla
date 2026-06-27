@@ -1394,8 +1394,7 @@ export default function LayoutsFieldsBuilder() {
                           {(() => {
                             const dependingField = activeLayout.schema.sections.flatMap(s => s.fields).find(f => f.id === selectedField.visibilityRule?.fieldId);
                             if (dependingField && dependingField.options && dependingField.options.length > 0) {
-                              const selectedValues = selectedField.visibilityRule?.values || 
-                                (selectedField.visibilityRule as any)?.value ? [(selectedField.visibilityRule as any).value] : [];
+                              const selectedValues = Array.isArray(selectedField.visibilityRule?.values) ? selectedField.visibilityRule.values : ((selectedField.visibilityRule as any)?.value ? [(selectedField.visibilityRule as any).value] : []);
                               return (
                                 <CustomMultiDropdown
                                   options={dependingField.options}
