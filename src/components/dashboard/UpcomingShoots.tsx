@@ -43,6 +43,23 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
   grouped.tomorrow.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   grouped.nextWeek.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+  let totalShown = 0;
+  const maxToShow = 5;
+
+  const truncateGroup = (group: Booking[]) => {
+    if (totalShown >= maxToShow) return [];
+    const allowed = maxToShow - totalShown;
+    const toShow = group.slice(0, allowed);
+    totalShown += toShow.length;
+    return toShow;
+  };
+
+  const todayToShow = truncateGroup(grouped.today);
+  const tomorrowToShow = truncateGroup(grouped.tomorrow);
+  const nextWeekToShow = truncateGroup(grouped.nextWeek);
+
+  const hasMore = (grouped.today.length + grouped.tomorrow.length + grouped.nextWeek.length) > 0;
+
   const renderGroup = (title: string, groupBookings: Booking[], emptyMessage: string) => {
     if (groupBookings.length === 0) return null;
 
@@ -142,7 +159,7 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
   };
 
   return (
-    <div className="relative">
+    <div className="relative flex flex-col h-full">
       {/* Decorative subtle background elements */}
       <div className="absolute -top-10 -right-10 w-40 h-40 bg-orange-500/5 rounded-full blur-3xl pointer-events-none"></div>
       
@@ -150,26 +167,31 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
         <h3 className="text-[1.3rem] font-black text-slate-900 tracking-tight flex items-center gap-2">
           Upcoming Shoots
         </h3>
-        <Link 
-          href="/bookings/upcoming" 
-          className="text-[0.75rem] font-black text-orange-500 uppercase tracking-[1.5px] hover:text-orange-600 transition-colors bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg"
-        >
-          View All
-        </Link>
       </div>
       
-      <div className="relative z-10">
-        {renderGroup("Today", grouped.today, "No shoots scheduled for today")}
-        {renderGroup("Tomorrow", grouped.tomorrow, "No shoots scheduled for tomorrow")}
-        {renderGroup("Next 7 Days", grouped.nextWeek, "No shoots scheduled for next week")}
+      <div className="relative z-10 flex-1">
+        {renderGroup("Today", todayToShow, "No shoots scheduled for today")}
+        {renderGroup("Tomorrow", tomorrowToShow, "No shoots scheduled for tomorrow")}
+        {renderGroup("Next 7 Days", nextWeekToShow, "No shoots scheduled for next week")}
         
-        {grouped.today.length === 0 && grouped.tomorrow.length === 0 && grouped.nextWeek.length === 0 && (
+        {!hasMore && (
           <div className="bg-white/40 border border-dashed border-slate-200 rounded-2xl p-6 text-center backdrop-blur-sm">
              <i className="ph ph-calendar-x text-3xl text-slate-300 mb-2"></i>
              <p className="text-sm font-bold text-slate-400">No upcoming shoots</p>
           </div>
         )}
       </div>
+
+      {hasMore && (
+        <div className="mt-4 pt-4 text-center relative z-10 border-t border-slate-100">
+          <Link 
+            href="/bookings/upcoming" 
+            className="text-[0.8rem] font-black text-orange-500 uppercase tracking-widest hover:text-orange-600 transition-colors inline-flex items-center gap-2"
+          >
+            Click here to view all <i className="ph-bold ph-arrow-right"></i>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

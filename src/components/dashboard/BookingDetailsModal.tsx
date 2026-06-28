@@ -215,7 +215,7 @@ export default function BookingDetailsModal() {
     <Dialog open={isBookingDetailsOpen} onOpenChange={(open) => {
       if (!open) closeBookingDetails();
     }}>
-      <DialogContent className="!max-w-[1300px] w-[95vw] h-[95vh] p-0 bg-[#F5F6F8] border-0 overflow-hidden flex flex-col rounded-[2rem] shadow-2xl">
+      <DialogContent className="!max-w-[1300px] w-full sm:w-[95vw] h-[100dvh] sm:h-[90dvh] max-h-[100dvh] sm:max-h-[90dvh] p-0 bg-[#F5F6F8] border-0 overflow-hidden flex flex-col rounded-none sm:rounded-[2rem] shadow-2xl">
         <DialogTitle className="sr-only">Booking Details</DialogTitle>
         
         {(!booking) ? (

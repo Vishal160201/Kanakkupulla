@@ -56,19 +56,25 @@ export default function GiftsPage() {
     <div className="min-h-screen bg-[#FDFBF9] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-100/40 via-[#FDFBF9] to-blue-50/40 p-4 md:p-8">
       <div className="w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-12 flex flex-col gap-8">
         
-        {/* Header section */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[2rem] font-black text-[#0F172A] tracking-tight">
-              Gift Shop
-            </h1>
-            <p className="text-slate-500 font-medium italic mt-1 text-sm">
-              Managing customized memories for your clients.
-            </p>
+        {/* Controls row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Tabs */}
+          <div className="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit relative z-10 order-2 sm:order-1">
+            <button 
+              onClick={() => handleTabChange("active")}
+              className={cn("px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 relative", activeTab === "active" ? "text-slate-800 shadow-sm bg-white" : "text-slate-500 hover:text-slate-700")}
+            >
+              Active Orders
+            </button>
+            <button 
+              onClick={() => handleTabChange("all")}
+              className={cn("px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 relative", activeTab === "all" ? "text-slate-800 shadow-sm bg-white" : "text-slate-500 hover:text-slate-700")}
+            >
+              All Orders
+            </button>
           </div>
-          
-          <div className="relative w-full sm:w-auto">
-            {/* We override the button in the OrderForm trigger via asChild */}
+
+          <div className="relative w-full sm:w-auto order-1 sm:order-2 flex justify-end">
             <OrderForm 
               products={productsData?.products || []} 
               onOrderCreated={() => mutate()} 
@@ -77,22 +83,6 @@ export default function GiftsPage() {
               defaultProductId={formDefaultProduct}
             />
           </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit relative z-10">
-          <button 
-            onClick={() => handleTabChange("active")}
-            className={cn("px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 relative", activeTab === "active" ? "text-slate-800 shadow-sm bg-white" : "text-slate-500 hover:text-slate-700")}
-          >
-            Active Orders
-          </button>
-          <button 
-            onClick={() => handleTabChange("all")}
-            className={cn("px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 relative", activeTab === "all" ? "text-slate-800 shadow-sm bg-white" : "text-slate-500 hover:text-slate-700")}
-          >
-            All Orders
-          </button>
         </div>
 
         {activeTab === "active" ? (
