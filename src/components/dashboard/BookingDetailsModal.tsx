@@ -1,54 +1,59 @@
 "use client";
 
-import { useBookings } from "../providers/BookingProvider";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mutate } from "swr";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { deleteBookingAction, updateBookingStatusAction } from "@/app/actions";
+import { toast } from "sonner";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { 
+  ArrowLeft, Trash2, Download, Receipt, FileText, Upload, Wallet, X,
+  Clock, MapPin, Tag, UserCircle, Calendar, Link as LinkIcon, Phone, Mail, Info,
+  Camera, Image as ImageIcon, LayoutList, Users, FolderOpen, Package,
+  BookOpen, Maximize, Images, Activity, CheckCircle2
+} from "lucide-react";
+
+const fetcher = (url: string) => fetch(url).then(r => r.json());
+
+const getSectionIcon = (title: string) => {
+  const t = (title || '').toLowerCase();
+  if (t.includes('event') || t.includes('shoot')) return <Camera className="w-5 h-5 text-indigo-500" />;
+  if (t.includes('album') || t.includes('deliverable') || t.includes('photo')) return <ImageIcon className="w-5 h-5 text-emerald-500" />;
+  if (t.includes('payment') || t.includes('finance')) return <Wallet className="w-5 h-5 text-emerald-500" />;
+  if (t.includes('client') || t.includes('contact') || t.includes('detail')) return <UserCircle className="w-5 h-5 text-blue-500" />;
+  if (t.includes('team') || t.includes('crew') || t.includes('assign')) return <Users className="w-5 h-5 text-orange-500" />;
+  return <LayoutList className="w-5 h-5 text-slate-500" />;
+}
 
 const getFieldIcon = (field: any) => {
   const name = (field.name || '').toLowerCase();
   
-  // High priority specific matches
-  if (name.includes('email') || name.includes('mail')) return 'ph-envelope-simple text-blue-500';
-  if (name.includes('name') || name.includes('client')) return 'ph-identification-card text-indigo-500';
-  if (name.includes('location') || name.includes('address') || name.includes('city') || name.includes('venue')) return 'ph-map-pin text-rose-500';
-  if (name.includes('inclusion') || name.includes('deliverable') || name.includes('feature')) return 'ph-package text-emerald-500';
-  if (name.includes('pad') || name.includes('cover') || name.includes('material')) return 'ph-swatches text-amber-500';
-  if (name.includes('note') || name.includes('remark') || name.includes('description')) return 'ph-note text-yellow-600';
-
-  // Standard matches
-  if (name.includes('date')) return 'ph-calendar-blank text-blue-500';
-  if (name.includes('time')) return 'ph-clock text-purple-500';
-  if (name.includes('user') || name.includes('person') || name.includes('designer') || name.includes('photographer')) return 'ph-user-circle text-indigo-500';
-  if (name.includes('status') || name.includes('state')) return 'ph-chart-pie-slice text-orange-500';
-  if (name.includes('amount') || name.includes('price') || name.includes('cost')) return 'ph-currency-inr text-emerald-500';
-  if (name.includes('sheet') || name.includes('page')) return 'ph-files text-cyan-500';
-  if (name.includes('type') || name.includes('category') || name.includes('size')) return 'ph-tag text-rose-500';
-  if (name.includes('album') || name.includes('book')) return 'ph-book-open text-teal-500';
-  if (name.includes('link') || name.includes('url')) return 'ph-link text-blue-500';
-  if (name.includes('phone') || name.includes('contact') || name.includes('mobile')) return 'ph-phone text-emerald-500';
+  // Specific complex matches
+  if (name.includes('album type') || name.includes('book')) return <BookOpen className="w-4 h-4 text-emerald-500" />;
+  if (name.includes('photo') || name.includes('image') || name.includes('picture') || name.includes('pic')) return <Images className="w-4 h-4 text-violet-500" />;
+  if (name.includes('status') || name.includes('state')) return <Activity className="w-4 h-4 text-orange-500" />;
+  if (name.includes('size') || name.includes('dimension')) return <Maximize className="w-4 h-4 text-blue-500" />;
   
-  // Ultimate fallback (better than text-aa)
-  return 'ph-info text-slate-400';
+  if (name.includes('email') || name.includes('mail')) return <Mail className="w-4 h-4 text-blue-500" />;
+  if (name.includes('name') || name.includes('client')) return <UserCircle className="w-4 h-4 text-indigo-500" />;
+  if (name.includes('location') || name.includes('address') || name.includes('city') || name.includes('venue')) return <MapPin className="w-4 h-4 text-rose-500" />;
+  if (name.includes('note') || name.includes('remark') || name.includes('description')) return <FileText className="w-4 h-4 text-yellow-600" />;
+  if (name.includes('date')) return <Calendar className="w-4 h-4 text-blue-500" />;
+  if (name.includes('time')) return <Clock className="w-4 h-4 text-purple-500" />;
+  if (name.includes('user') || name.includes('person') || name.includes('designer') || name.includes('photographer')) return <Users className="w-4 h-4 text-indigo-500" />;
+  if (name.includes('amount') || name.includes('price') || name.includes('cost')) return <Wallet className="w-4 h-4 text-emerald-500" />;
+  if (name.includes('category') || name.includes('shoot type')) return <FolderOpen className="w-4 h-4 text-violet-500" />;
+  if (name.includes('inclusion') || name.includes('package') || name.includes('item')) return <Package className="w-4 h-4 text-amber-500" />;
+  if (name.includes('type')) return <Tag className="w-4 h-4 text-rose-500" />;
+  if (name.includes('link') || name.includes('url')) return <LinkIcon className="w-4 h-4 text-blue-500" />;
+  if (name.includes('phone') || name.includes('contact') || name.includes('mobile')) return <Phone className="w-4 h-4 text-emerald-500" />;
+  
+  return <Info className="w-4 h-4 text-slate-400" />;
 };
-
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Booking } from "@/types";
-import { useState, useEffect, useRef } from "react";
-import useSWR from "swr";
-import flatpickr from "flatpickr";
-import "flatpickr/dist/flatpickr.min.css";
-import DatePickerInput from "../ui/DatePickerInput";
-import MultiUserPicklist from "../ui/MultiUserPicklist";
-import { deleteBookingAction, updateBookingStatusAction, saveBookingAction } from "@/app/actions";
-import { toast } from "sonner";
-import GooglePicker from "@/components/shared/GooglePicker";
-import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
-
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export default function BookingDetailsModal() {
   const router = useRouter();
@@ -69,280 +74,11 @@ export default function BookingDetailsModal() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [layoutSchema, setLayoutSchema] = useState<any>(null);
   const [teamUsers, setTeamUsers] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
-  const [newNote, setNewNote] = useState("");
-  const [isAddAttachmentOpen, setIsAddAttachmentOpen] = useState(false);
-  const [newAttachmentName, setNewAttachmentName] = useState("");
-  const [newAttachmentUrl, setNewAttachmentUrl] = useState("");
-  const isEditing = false;
-  const setIsEditing = (v: boolean) => {};
-  const editData: any = {};
-  const setEditData = (v: any) => {};
-  const formErrors: Record<string, boolean> = {};
-  const setFormErrors = (v: any) => {};
-  const installments: {amount: string, date: string}[] = [];
-  const setInstallments = (v: any) => {};
-  const timeInputRef = useRef<HTMLInputElement>(null);
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
-  const { data: driveStatus } = useSWR("/api/integrations/google", fetcher);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (isStatusDropdownOpen || isExportMenuOpen) {
-          e.stopPropagation();
-          setIsStatusDropdownOpen(false);
-          setIsExportMenuOpen(false);
-        }
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => document.removeEventListener("keydown", handleKeyDown, true);
-  }, [isStatusDropdownOpen, isExportMenuOpen]);
-
-  const handleExport = async (format: 'csv' | 'pdf') => {
-    if (!booking) return;
-    setIsExportMenuOpen(false);
-    try {
-      if (format === 'csv') {
-        const escapeCsv = (val: any) => {
-          if (val === null || val === undefined || val === '') return '""';
-          let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
-          return `"${str.replace(/"/g, '""')}"`;
-        };
-        const headers = ['ID', 'Client', 'Phone', 'Email', 'Category', 'Date', 'Time', 'Location', 'Status', 'Package Amount', 'Advance', 'Due', 'Installments', 'Inclusions', 'Notes', 'Custom Data'];
-        const rows = [[
-          escapeCsv(booking.bookingNumber || booking.id.substring(0, 8)),
-          escapeCsv(booking.title),
-          escapeCsv(booking.phone || booking.customData?.fld_b_phone),
-          escapeCsv(booking.email || booking.customData?.fld_b_email),
-          escapeCsv(booking.category),
-          escapeCsv(booking.date ? new Date(booking.date).toLocaleDateString() : ''),
-          escapeCsv(booking.time),
-          escapeCsv(booking.location),
-          escapeCsv(booking.status),
-          escapeCsv(booking.package || (booking as any).order?.package || booking.customData?.fld_b_package),
-          escapeCsv(booking.advance || (booking as any).order?.advance || booking.customData?.fld_b_advance),
-          escapeCsv(booking.due || (booking as any).order?.due),
-          escapeCsv((booking as any).order?.installments),
-          escapeCsv(booking.inclusions),
-          escapeCsv(booking.notes),
-          escapeCsv(booking.customData)
-        ]];
-        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `booking-${booking.bookingNumber || booking.id.substring(0, 8)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } else {
-        const { jsPDF } = await import("jspdf");
-        const html2canvas = (await import("html2canvas")).default;
-        
-        const element = document.getElementById('pdf-content');
-        if (!element) {
-          toast.error("Could not generate PDF");
-          return;
-        }
-
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#F5F6F8' });
-        const imgData = canvas.toDataURL('image/png');
-        
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`booking-${booking.bookingNumber || booking.id.substring(0, 8)}.pdf`);
-      }
-      toast.success("Export successful!");
-    } catch (e) {
-      console.error(e);
-      toast.error("Export failed");
-    }
-  };
-
-  const generateInvoice = async () => {
-    setIsGeneratingInvoice(true);
-    setTimeout(async () => {
-      try {
-        const element = document.getElementById('invoice-template');
-        if (!element) return;
-        const html2canvas = (await import("html2canvas")).default;
-        const { jsPDF } = await import("jspdf");
-        
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`invoice-${booking?.bookingNumber || booking?.id?.substring(0, 8)}.pdf`);
-        toast.success("Invoice generated successfully!");
-      } catch (error) {
-        toast.error("Failed to generate invoice");
-        console.error(error);
-      } finally {
-        setIsGeneratingInvoice(false);
-      }
-    }, 100);
-  };
-
-  const handleEditToggle = () => {};
-
-  const handleSaveEdit = async () => {
-    setIsLoading(true);
-    try {
-    const errors: Record<string, any> = {};
-    if (!editData.title?.trim()) errors.title = true;
-    
-    // Evaluate mandatory custom fields
-    if (layoutSchema && layoutSchema.sections) {
-      const evaluateVisibility = (rule: any) => {
-        if (!rule) return true;
-        
-        const dependsOnKey = rule.dependsOn || rule.fieldId;
-        if (!dependsOnKey) return true;
-        
-        const depValue = editData[dependsOnKey];
-        const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
-
-        if (rule.dependsOn || rule.fieldId) {
-          console.log(`[BookingDetailsModal] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
-        }
-
-        if (rule.operator === 'EQUALS') {
-          return ruleValues.includes(depValue as string);
-        } else if (rule.operator === 'NOT_EQUALS') {
-          return !ruleValues.includes(depValue as string);
-        } else if (rule.operator === 'CONTAINS') {
-          if (typeof depValue === 'string') {
-            return ruleValues.some(v => depValue.includes(v));
-          }
-          if (Array.isArray(depValue)) {
-            return ruleValues.some(v => depValue.includes(v));
-          }
-          return false;
-        }
-        
-        // For pure dependsOn + values format without operator
-        if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) {
-          return rule.values.includes(depValue);
-        }
-        
-        return true;
-      };
-
-      layoutSchema.sections.forEach((section: any) => {
-        if (!evaluateVisibility(section.visibilityRule)) return;
-        section.fields.forEach((field: any) => {
-          if (!evaluateVisibility(field.visibilityRule)) return;
-          const fieldName = field.id;
-          if (field.mandatory && (!editData[fieldName] || (Array.isArray(editData[fieldName]) && editData[fieldName].length === 0))) {
-            errors[fieldName] = true;
-          }
-        });
-      });
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      toast.error("Please fill in all mandatory fields.");
-      setIsLoading(false);
-      return;
-    }
-    setFormErrors({});
-
-      const formData = new FormData();
-      formData.append("id", booking?.id || "");
-      Object.entries(editData).forEach(([k, v]) => {
-        if (k === 'inclusions') {
-          // parse comma separated string to JSON string array for inclusions
-          const arr = String(v).split(',').map(s => s.trim()).filter(Boolean);
-          formData.append(k, JSON.stringify(arr));
-        } else if (typeof v === 'object' && v !== null) {
-          formData.append(k, JSON.stringify(v));
-        } else {
-          formData.append(k, String(v));
-        }
-      });
-      
-      let finalInstallments = installments;
-      if (finalInstallments.length === 0 && Number(editData.advance) > 0) {
-        finalInstallments = [{ amount: editData.advance.toString(), date: new Date().toISOString().split('T')[0] }];
-      }
-      formData.append("installments", JSON.stringify(finalInstallments));
-      const res = await saveBookingAction(formData);
-      if (res.success) {
-        toast.success("Booking saved successfully!");
-        setIsEditing(false);
-        refreshBooking();
-        mutate('/api/bookings');
-        mutate('/api/dashboard/overview');
-      } else {
-        toast.error("Failed to update booking. Check inputs.");
-        console.error(res.errors);
-      }
-    } catch (e) {
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    setIsClosing(false);
-  }, [booking]);
-
-  const updateBookingAPI = async (data: any) => {
-    try {
-      setIsLoading(true);
-      const res = await fetch(`/api/bookings/${booking?.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (res.ok && refreshBooking) {
-        toast.success("Updated successfully!");
-        refreshBooking();
-      } else if (res.ok) {
-        toast.success("Updated successfully!");
-        window.location.reload(); // fallback
-      } else {
-        toast.error("Failed to update booking");
-      }
-    } catch (e) {
-      console.error("Error updating booking", e);
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAddNote = () => {
-    if(!booking) return;
-    setNewNote(booking.notes || booking.customData?.notes || "");
-    setIsAddNoteOpen(true);
-  };
-
-  const handleAddAttachment = () => {
-    if(!booking) return;
-    setNewAttachmentName("Attachment");
-    setNewAttachmentUrl("");
-    setIsAddAttachmentOpen(true);
-  };
 
   const { data: layoutRes } = useSWR("/api/settings/layouts/BOOKING_FORM", fetcher);
   const { data: usersRes } = useSWR("/api/users", fetcher);
@@ -352,86 +88,121 @@ export default function BookingDetailsModal() {
     if (usersRes) setTeamUsers(usersRes);
   }, [layoutRes, usersRes]);
 
-  const getCustomFieldLabel = (fieldId: string) => {
-    if (!layoutSchema || !layoutSchema.sections) return fieldId;
-    for (const section of layoutSchema.sections) {
-      const field = section.fields?.find((f: any) => f.id === fieldId);
-      if (field) return field.name;
-    }
-    return fieldId;
-  };
-
-  const FIELD_ICONS: Record<string, string> = {
-    SINGLE_LINE: "ph-text-t", MULTI_LINE: "ph-text-align-left", PICK_LIST: "ph-list-dashes",
-    STATUS_PICKER: "ph-palette", MULTI_SELECT: "ph-list-checks", DATE: "ph-calendar-blank",
-    CHECKBOX: "ph-check-square", CURRENCY: "ph-currency-inr", PERCENTAGE: "ph-percent",
-    NUMBER: "ph-hash", DECIMAL: "ph-math-operations", EMAIL: "ph-envelope-simple",
-    PHONE: "ph-phone", USER_PICKLIST: "ph-user", MULTI_USER_PICKLIST: "ph-users"
-  };
-
   const standardFieldMap: Record<string, string> = {
     fld_b_client: 'title', fld_b_phone: 'phone', fld_b_email: 'email',
     fld_b_date: 'date', fld_b_time: 'time', fld_b_category: 'category',
     fld_b_location: 'location', fld_b_status: 'status', fld_b_package: 'package', fld_b_advance: 'advance'
   };
 
-
-
   const statusField = layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.type === 'STATUS_PICKER' || f.id === 'fld_b_status');
   const isStatusPicker = statusField?.type === 'STATUS_PICKER';
   const statusOptions = isStatusPicker ? (statusField.statusOptions || []) : [];
   
   const currentOpt = isStatusPicker ? statusOptions.find((o: any) => o.label === booking?.status) : null;
-  const statusColor = currentOpt ? currentOpt.color : (booking?.status === 'Confirmed' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : booking?.status === 'Pending' ? 'bg-red-500' : 'bg-orange-500');
-
-  // Handle future date restriction
-  let isRestrictedDate = false;
-  if (statusField?.futureDateRestriction?.enabled && statusField?.futureDateRestriction?.dateFieldId) {
-    const dependentDateFieldName = standardFieldMap[statusField.futureDateRestriction.dateFieldId] || statusField.futureDateRestriction.dateFieldId;
-    const dependentDateVal = (booking as any)?.[dependentDateFieldName] || booking?.customData?.[dependentDateFieldName];
-    if (dependentDateVal) {
-      const dateObj = new Date(dependentDateVal);
-      dateObj.setHours(0,0,0,0);
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      if (dateObj > today) {
-        isRestrictedDate = true;
-      }
-    }
-  }
 
   const changeStatus = async (newStatus: string) => {
     if (!booking) return;
     setIsUpdatingStatus(true);
     const res = await updateBookingStatusAction(booking.id, newStatus);
     setIsUpdatingStatus(false);
-    
     if (res.success) {
       toast.success(`Status updated to ${newStatus}`);
       setIsStatusDropdownOpen(false);
+      refreshBooking();
     } else {
       toast.error("Failed to update status");
     }
   };
 
-  const handleDeleteClick = () => {
-    setIsDeleteConfirmOpen(true);
-  };
-
   const confirmDelete = async () => {
     if (booking) {
       setIsDeleting(true);
-      const res = await deleteBookingAction(booking.id);
-      setIsDeleting(false);
-      if (res.success) {
-        toast.success("Booking deleted successfully!");
-        setIsDeleteConfirmOpen(false);
-        closeBookingDetails();
-      } else {
-        toast.error("Failed to delete booking.");
+      try {
+        const res = await deleteBookingAction(booking.id);
+        if (res.success) {
+          toast.success("Booking deleted successfully!");
+          setIsDeleteConfirmOpen(false);
+          closeBookingDetails();
+        } else {
+          toast.error("Failed to delete booking.");
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error('Failed to delete booking');
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
+
+  const generateInvoice = async () => {
+    setIsGeneratingInvoice(true);
+    try {
+      const element = document.getElementById('invoice-template');
+      if (!element) {
+        toast.error("Invoice template not found");
+        return;
+      }
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Invoice_${booking.bookingNumber || booking.id.slice(-6).toUpperCase()}.pdf`);
+      toast.success("Invoice generated successfully!");
+    } catch (error) {
+      toast.error("Failed to generate invoice");
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  };
+
+  const exportBooking = async () => {
+    setIsExporting(true);
+    try {
+      const element = document.getElementById('booking-details-content');
+      if (!element) return;
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Booking_Export_${booking.bookingNumber || booking.id.slice(-6).toUpperCase()}.pdf`);
+      toast.success("Booking exported successfully!");
+    } catch (error) {
+      toast.error("Failed to export booking");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const isFieldVisibleForRender = (rule: any) => {
+    if (!rule) return true;
+    const dependsOnKey = rule.dependsOn || rule.fieldId;
+    if (!dependsOnKey) return true;
+    const depFieldName = standardFieldMap[dependsOnKey] || dependsOnKey;
+    const standardDepVal = (booking as any)[depFieldName];
+    const depVal = (standardDepVal !== undefined && standardDepVal !== null && standardDepVal !== '') 
+      ? standardDepVal 
+      : booking.customData?.[depFieldName] || booking.customData?.[dependsOnKey];
+
+    const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
+    if (rule.operator === 'EQUALS') return ruleValues.includes(depVal as string);
+    else if (rule.operator === 'NOT_EQUALS') return !ruleValues.includes(depVal as string);
+    else if (rule.operator === 'CONTAINS') {
+      if (typeof depVal === 'string' || Array.isArray(depVal)) return ruleValues.some(v => depVal.includes(v));
+      return false;
+    }
+    if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) return rule.values.includes(depVal);
+    return true;
+  };
+
   const getDynamicFieldId = (names: string[]) => {
     if (!layoutSchema || !layoutSchema.sections) return null;
     for (const section of layoutSchema.sections) {
@@ -443,713 +214,429 @@ export default function BookingDetailsModal() {
   };
 
   const albumDesignerId = getDynamicFieldId(['album designer', 'album worker']);
-  const photographersId = getDynamicFieldId(['photographers', 'photographer']);
-  const inclusionsId = getDynamicFieldId(['inclusion', 'inclusions']);
-
   const albumDesignerVal = albumDesignerId ? booking?.customData?.[albumDesignerId] : null;
-  const photographersVal = photographersId ? booking?.customData?.[photographersId] : (booking?.photographers || booking?.customData?.team || []);
-  const inclusionsVal = inclusionsId ? booking?.customData?.[inclusionsId] : booking?.inclusions;
-    const isFieldVisibleForRender = (rule: any) => {
-    if (!rule) return true;
-    
-    const dependsOnKey = rule.dependsOn || rule.fieldId;
-    if (!dependsOnKey) return true;
-    
-    const depFieldName = standardFieldMap[dependsOnKey] || dependsOnKey;
-    const standardDepVal = (booking as any)[depFieldName];
-    const depVal = (standardDepVal !== undefined && standardDepVal !== null && standardDepVal !== '') 
-      ? standardDepVal 
-      : booking.customData?.[depFieldName] || booking.customData?.[dependsOnKey];
-
-    const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
-
-    if (rule.dependsOn || rule.fieldId) {
-      console.log(`[BookingDetailsModal-Render] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depVal}', expectedValues=`, ruleValues);
-    }
-
-    if (rule.operator === 'EQUALS') {
-      return ruleValues.includes(depVal as string);
-    } else if (rule.operator === 'NOT_EQUALS') {
-      return !ruleValues.includes(depVal as string);
-    } else if (rule.operator === 'CONTAINS') {
-      if (typeof depVal === 'string') {
-        return ruleValues.some(v => depVal.includes(v));
-      }
-      if (Array.isArray(depVal)) {
-        return ruleValues.some(v => depVal.includes(v));
-      }
-      return false;
-    }
-    
-    // For pure dependsOn + values format without operator
-    if (rule.dependsOn && Array.isArray(rule.values) && !rule.operator) {
-      return rule.values.includes(depVal);
-    }
-    
-    return true;
-  };
 
   return (
-    <>
-      <Dialog open={isBookingDetailsOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsClosing(true);
-          setTimeout(() => closeBookingDetails(), 200);
-        }
-      }}>
-        <DialogContent className="max-w-[1200px] sm:max-w-[1200px] w-[95vw] p-0 bg-transparent overflow-hidden border-0 shadow-none h-[90vh] md:h-[85vh] flex flex-col">
-          {(!booking || isBookingLoading) ? (
-            <div className="flex-1 bg-white rounded-3xl flex items-center justify-center min-h-[400px]">
-               <div className="w-8 h-8 border-4 border-slate-200 border-t-orange-500 rounded-full animate-spin"></div>
-            </div>
-          ) : (
-      <motion.div className="flex-1 flex flex-col bg-[#F5F6F8] rounded-2xl md:rounded-[2rem] overflow-hidden border-0 shadow-2xl h-[95dvh] md:h-[95vh]">
-         {/* Main scrollable area */}
-         <div className="flex-1 overflow-y-auto p-4 md:p-8">
-             
-             
-             {/* New Revamped Layout Begins Here */}
-             <div id="pdf-content" className="max-w-[1100px] mx-auto flex flex-col gap-6 p-4">
+    <Dialog open={isBookingDetailsOpen} onOpenChange={(open) => {
+      if (!open) closeBookingDetails();
+    }}>
+      <DialogContent className="!max-w-[1300px] w-[95vw] h-[95vh] p-0 bg-[#F5F6F8] border-0 overflow-hidden flex flex-col rounded-[2rem] shadow-2xl">
+        <DialogTitle className="sr-only">Booking Details</DialogTitle>
+        
+        {(!booking) ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-20 min-h-[400px]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mb-4" />
+            <p className="text-slate-500 font-medium">Loading booking details...</p>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
+            
+            {/* Header Sticky */}
+            <header className="shrink-0 sticky top-0 z-40 bg-white/50 backdrop-blur-xl border-b border-slate-200/50 px-4 md:px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex flex-col gap-2 w-full md:w-auto">
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-lg tracking-wider">
+                    {booking.bookingNumber || `#${booking.id.slice(-6).toUpperCase()}`}
+                  </span>
+                </div>
+                <h1 className="text-2xl font-black text-[#0B1E40] tracking-tight">{booking.client?.name || booking.title || booking.customData?.fld_b_client || "Untitled Booking"}</h1>
                 
-                {/* Header Row */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-transparent">
-                   <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-3">
-                         <span className="flex items-center gap-1.5 px-3 py-1 bg-orange-100 text-orange-800 font-bold text-[0.8rem] rounded-full">
-                           <i className="ph-fill ph-folder text-orange-600"></i>
-                           {booking.bookingNumber || booking.id.substring(0, 8)}
-                         </span>
-                      </div>
-                      {isEditing ? (
-                        <input className={`text-[2.5rem] font-black text-[#0B1E40] leading-none tracking-tight bg-transparent border-b-2 ${formErrors.title ? "border-red-500" : "border-blue-500"} focus:outline-none w-full mb-2`} value={editData.title} onChange={e => setEditData({...editData, title: e.target.value})} placeholder="Client Name" />
-                      ) : (
-                        <h1 className="text-[2.5rem] font-black text-[#0B1E40] leading-none tracking-tight mb-2">
-                           {booking.title || 'Untitled Booking'}
-                        </h1>
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center shrink-0">
+                      <Tag className="w-3 h-3 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Category</p>
+                      <p className="text-sm font-semibold text-slate-700">{booking.category || "N/A"}</p>
+                    </div>
+                  </div>
+                  
+                  {isStatusPicker && (
+                    <div className="flex items-center gap-2 relative">
+                      <button 
+                        onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${currentOpt?.color || 'bg-white border-slate-200'} transition-all`}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${currentOpt?.color ? 'bg-white' : 'bg-slate-400'}`} />
+                        <span className={`text-sm font-bold ${currentOpt?.color ? 'text-white' : 'text-slate-700'}`}>{booking.status}</span>
+                      </button>
+                      {isStatusDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50">
+                          {statusOptions.map((opt: any) => (
+                            <button
+                              key={opt.label}
+                              onClick={() => changeStatus(opt.label)}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-slate-50 ${booking.status === opt.label ? 'text-indigo-600 bg-indigo-50' : 'text-slate-700'}`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
                       )}
-                      <div className="flex items-center gap-4 mt-1">
-                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                               <i className="ph-fill ph-squares-four text-indigo-500 text-lg"></i>
-                            </div>
-                            <div className="flex flex-col">
-                               <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-wider leading-tight">Category</span>
-                               {isEditing ? (
-                                 <Select value={editData.category} onValueChange={v => setEditData({...editData, category: v})}>
-                                    <SelectTrigger className="w-[120px] bg-transparent border-b border-gray-300 font-bold text-[#0B1E40] text-[0.95rem] shadow-none p-0 h-6">
-                                       <SelectValue placeholder="Category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                       <SelectItem value="Wedding">Wedding</SelectItem>
-                                       <SelectItem value="Fashion">Fashion</SelectItem>
-                                       <SelectItem value="Baby & Kids">Baby & Kids</SelectItem>
-                                       <SelectItem value="Corporate">Corporate</SelectItem>
-                                    </SelectContent>
-                                 </Select>
-                               ) : (
-                                 <span className="text-[#0B1E40] font-bold text-[0.95rem] leading-tight">{booking.category || 'Uncategorized'}</span>
-                               )}
-                            </div>
-                         </div>
-                         
-                         {isStatusPicker && (
-                            <div className="relative ml-4 z-50">
-                              <button 
-                                onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                                disabled={isUpdatingStatus}
-                                className={`flex items-center gap-2.5 bg-white px-4 py-2 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all shadow-sm cursor-pointer ${isUpdatingStatus ? 'opacity-50' : ''}`}
-                              >
-                                <div 
-                                  className={`w-2.5 h-2.5 rounded-full ${!statusColor?.startsWith('#') ? statusColor : ''}`}
-                                  style={statusColor?.startsWith('#') ? { backgroundColor: statusColor, boxShadow: `0 0 8px ${statusColor}80` } : {}}
-                                ></div>
-                                <span className="font-bold text-[0.9rem] text-[#0B1E40]">{booking.status}</span>
-                                <i className={`ph-bold ph-caret-down text-slate-400 transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`}></i>
-                              </button>
-                              {isStatusDropdownOpen && (
-                                <>
-                                  <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setIsStatusDropdownOpen(false); }}></div>
-                                  <div className="absolute top-full left-0 mt-2 p-1.5 bg-white rounded-2xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-top-2 w-64 max-h-[250px] overflow-y-auto z-50">
-                                   {statusOptions.map((opt: any, idx: number) => {
-                                     const isRestrictedOpt = isRestrictedDate && statusField?.futureDateRestriction?.restrictedStatuses?.includes(opt.label);
-                                     return (
-                                     <button
-                                       key={idx}
-                                       disabled={isRestrictedOpt}
-                                       onClick={() => {
-                                         if (!isRestrictedOpt) changeStatus(opt.label);
-                                       }}
-                                       className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[0.9rem] font-bold transition-colors ${booking.status === opt.label ? 'bg-slate-50 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'} ${isRestrictedOpt ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                     >
-                                       <div className={`w-2.5 h-2.5 rounded-full ${opt.color} ${isRestrictedOpt ? 'grayscale' : ''}`}></div>
-                                       <span className="truncate">{opt.label}</span>
-                                       {isRestrictedOpt && <i className="ph-fill ph-lock-key ml-auto text-slate-400" title="Restricted for future dates"></i>}
-                                       {!isRestrictedOpt && booking.status === opt.label && <i className="ph-bold ph-check ml-auto text-slate-400"></i>}
-                                     </button>
-                                     );
-                                   })}
-                                 </div>
-                                </>
-                              )}
-                            </div>
-                         )}
-                      </div>
-                   </div>
-
-                   <div className="flex items-center gap-3" data-html2canvas-ignore="true">
-                      <button onClick={handleDeleteClick} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-200 rounded-xl font-bold text-[0.9rem] text-red-500 hover:bg-red-50 hover:border-red-300 shadow-sm transition-colors">
-                         <i className="ph-bold ph-trash text-lg"></i> Delete
-                      </button>
-                      <div className="relative z-50">
-                        <button onClick={() => setIsExportMenuOpen(!isExportMenuOpen)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl font-bold text-[0.9rem] text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
-                           <i className="ph-bold ph-share-network text-lg"></i> Export
-                        </button>
-                        {isExportMenuOpen && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setIsExportMenuOpen(false)}></div>
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden py-1">
-                              <button onClick={() => handleExport('csv')} className="w-full text-left px-4 py-2.5 text-[0.85rem] font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
-                                <i className="ph-bold ph-file-csv text-lg text-emerald-500"></i> Export as CSV
-                              </button>
-                              <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2.5 text-[0.85rem] font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
-                                <i className="ph-bold ph-file-pdf text-lg text-rose-500"></i> Export as PDF
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      <button onClick={generateInvoice} disabled={isGeneratingInvoice} className="flex items-center gap-2 px-6 py-2.5 bg-[#0B1E40] text-white rounded-xl font-bold text-[0.9rem] hover:bg-[#152a52] shadow-md transition-colors disabled:opacity-50">
-                         <i className={`ph-bold ${isGeneratingInvoice ? 'ph-spinner animate-spin' : 'ph-printer'} text-lg`}></i> {isGeneratingInvoice ? 'Generating...' : 'Invoice'}
-                      </button>
-                   </div>
+                    </div>
+                  )}
                 </div>
+              </div>
 
-                {/* Top Info Bar */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 flex flex-col md:flex-row flex-wrap md:flex-nowrap gap-4 md:gap-8 items-start md:items-center divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                   <div className="flex items-center gap-4 flex-1">
-                      <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                         <i className="ph-fill ph-file-text text-orange-500 text-xl"></i>
-                      </div>
-                      <div className="flex flex-col">
-                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Booking ID</span>
-                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{booking.bookingNumber || booking.id.substring(0, 8)}</span>
-                      </div>
-                   </div>
-                   <div className="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
-                   <div className="flex items-center gap-4 flex-1 min-w-[200px] pt-4 md:pt-0">
-                      <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                         <i className="ph-fill ph-user-plus text-blue-500 text-xl"></i>
-                      </div>
-                      <div className="flex flex-col">
-                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Created By</span>
-                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{(booking as any).createdBy?.name || 'System'}</span>
-                         <span className="text-[0.7rem] font-medium text-slate-500">{(booking as any).createdAt ? new Date((booking as any).createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</span>
-                      </div>
-                   </div>
-                   <div className="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
-                   <div className="flex items-center gap-4 flex-1 min-w-[200px] pt-4 md:pt-0">
-                      <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                         <i className="ph-fill ph-pencil-simple text-orange-500 text-xl"></i>
-                      </div>
-                      <div className="flex flex-col">
-                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Last Updated By</span>
-                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{(booking as any).updatedBy?.name || 'System'}</span>
-                         <span className="text-[0.7rem] font-medium text-slate-500">{(booking as any).updatedAt ? new Date((booking as any).updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + new Date((booking as any).updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}</span>
-                      </div>
-                   </div>
-                   <div className="w-full md:w-px h-px md:h-10 bg-gray-100"></div>
-                   <div className="flex items-center gap-4 flex-1 min-w-[150px] pt-4 md:pt-0">
-                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0 overflow-hidden">
-                         {(albumDesignerVal || booking.customData?.['ALBUM DESIGNER'] || booking.customData?.['ALBUM WORKER']) ? (
-                             <span className="font-black text-purple-700 text-[0.8rem]">{(teamUsers.find(u => u.id === (albumDesignerVal || booking.customData?.['ALBUM DESIGNER'] || booking.customData?.['ALBUM WORKER']))?.name || 'UN').substring(0,2).toUpperCase()}</span>
-                         ) : (
-                             <i className="ph-fill ph-user text-purple-500 text-xl"></i>
-                         )}
-                      </div>
-                      <div className="flex flex-col">
-                         <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Album Designer</span>
-                         <span className="font-bold text-[#0B1E40] text-[0.95rem]">{(albumDesignerVal || booking.customData?.['ALBUM DESIGNER'] || booking.customData?.['ALBUM WORKER']) ? teamUsers.find(u => u.id === (albumDesignerVal || booking.customData?.['ALBUM DESIGNER'] || booking.customData?.['ALBUM WORKER']))?.name || 'Unknown' : 'Unassigned'}</span>
-                      </div>
-                   </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setIsDeleteConfirmOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-sm transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete
+                </button>
+                <button 
+                  onClick={exportBooking}
+                  disabled={isExporting}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-sm transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {isExporting ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" /> : <Upload className="w-4 h-4" />} Export
+                </button>
+                <button 
+                  onClick={generateInvoice}
+                  disabled={isGeneratingInvoice}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#0B1E40] text-white hover:bg-[#152a55] rounded-xl font-bold text-sm transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {isGeneratingInvoice ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Receipt className="w-4 h-4" />} Invoice
+                </button>
+              </div>
+            </header>
+
+            {/* Scrollable Content Area */}
+            <main id="booking-details-content" className="flex-1 overflow-y-auto px-6 py-6">
+              
+              {/* Top Info Strip */}
+              <div className="w-full bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x divide-slate-100">
+                <div className="flex items-center gap-4 w-full lg:px-4">
+                  <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Booking ID</p>
+                    <p className="font-bold text-slate-800">{booking.bookingNumber || `#${booking.id.slice(-6).toUpperCase()}`}</p>
+                  </div>
                 </div>
+                <div className="flex items-center gap-4 w-full lg:px-6">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                    <UserCircle className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Created By</p>
+                    <p className="font-bold text-slate-800">{booking.createdByUser?.name || 'Harish'}</p>
+                    <p className="text-xs text-slate-500">{new Date(booking.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 w-full lg:px-6">
+                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Last Updated By</p>
+                    <p className="font-bold text-slate-800">System</p>
+                    <p className="text-xs text-slate-500">{new Date(booking.updatedAt || booking.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 w-full lg:px-6">
+                  <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
+                    <UserCircle className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Album Designer</p>
+                    <p className="font-bold text-slate-800">{albumDesignerVal ? teamUsers.find(u => u.id === albumDesignerVal)?.name || albumDesignerVal : "Unassigned"}</p>
+                  </div>
+                </div>
+              </div>
 
-                {/* 4 Main Columns for Dynamic Sections + Timeline */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {layoutSchema && layoutSchema.sections && layoutSchema.sections.map((section: any) => {
-                    if (!isFieldVisibleForRender(section.visibilityRule)) return null;
+              {/* Grid Area */}
+              <div className="w-full">
+                
+                {/* Masonry Columns for Dynamic Sections & Client Info */}
+                <div className="columns-1 md:columns-2 xl:columns-3 gap-6 space-y-6">
+                  
+                  {/* Client Info Card */}
+                  <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm break-inside-avoid">
+                    <div className="flex items-center gap-2 mb-6 border-b border-slate-50 pb-4">
+                      <UserCircle className="w-5 h-5 text-indigo-500" />
+                      <h3 className="font-bold text-[#0B1E40]">Client Info</h3>
+                    </div>
+                    <div className="space-y-5">
+                      <div className="flex items-start gap-3 w-full">
+                        <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5">
+                          <UserCircle className="w-4 h-4 text-indigo-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Client Name</p>
+                          <p className="font-bold text-slate-800 text-sm whitespace-pre-wrap break-words">{booking.client?.name || booking.title || booking.customData?.fld_b_client || "N/A"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 w-full">
+                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
+                          <Phone className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Phone Number</p>
+                          <p className="font-bold text-slate-800 text-sm whitespace-pre-wrap break-words">{booking.client?.phone || booking.phone || booking.customData?.fld_b_phone || "N/A"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 w-full">
+                        <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
+                          <Mail className="w-4 h-4 text-blue-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Email Address</p>
+                          <p className="font-bold text-slate-800 text-sm whitespace-pre-wrap break-words">{booking.client?.email || booking.email || booking.customData?.fld_b_email || "N/A"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                    // For the Financial section, we skip it here and show it in the dedicated Package & Payment block
-                    if (section.id === 'sec_booking_financial') return null;
+                  {layoutSchema?.sections?.filter((s: any) => isFieldVisibleForRender(s.visibilityRule) && s.title?.toLowerCase() !== 'financials' && s.title?.toLowerCase() !== 'financial')
+                    .sort((a: any, b: any) => {
+                      const titleA = (a.title || '').toLowerCase();
+                      const titleB = (b.title || '').toLowerCase();
+                      if (titleA.includes('event')) return -1;
+                      if (titleB.includes('event')) return 1;
+                      if (titleA.includes('album')) return -1;
+                      if (titleB.includes('album')) return 1;
+                      return 0;
+                    })
+                    .map((section: any) => {
+                      const visibleFields = section.fields?.filter((f: any) => {
+                        const fname = (f.name || '').toLowerCase();
+                        if (f.id === 'fld_b_client' || f.id === 'fld_b_phone' || f.id === 'fld_b_email') return false; // Handled in client info
+                        if (fname.includes('attachment') || f.type === 'FILE' || f.type === 'ATTACHMENT') return false;
+                        if (fname === 'status' || fname === 'date') return false;
+                        return isFieldVisibleForRender(f.visibilityRule);
+                      }) || [];
+                      
+                      if (visibleFields.length === 0) return null;
 
-                    return (
-                      <div key={section.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
-                        <div className="flex justify-between items-center mb-6">
-                          <div className="flex items-center gap-2.5">
-                            <i className={`ph-duotone ${section.icon || 'ph-squares-four'} text-indigo-500 text-xl`}></i>
-                            <h3 className="text-[1.05rem] font-black text-[#0B1E40]">{section.title}</h3>
+                      // Identify status field inside section to drive timeline
+                      const sectionStatusField = section.fields?.find((f: any) => (f.name||'').toLowerCase().includes('status'));
+                      let currentSectionStatus = null;
+                      if (sectionStatusField) {
+                        currentSectionStatus = standardFieldMap[sectionStatusField.id] ? (booking as any)[standardFieldMap[sectionStatusField.id]] : booking.customData?.[sectionStatusField.id];
+                      }
+
+                      return (
+                        <div key={section.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm break-inside-avoid">
+                          <div className="flex items-center gap-2 mb-6 border-b border-slate-50 pb-4">
+                            {getSectionIcon(section.title)}
+                            <h3 className="font-bold text-[#0B1E40]">{section.title}</h3>
                           </div>
-                        </div>
-                        <div className="flex flex-col gap-5">
-                          {section.fields.map((field: any) => {
-                            // Evaluate field visibility
-                            if (!isFieldVisibleForRender(field.visibilityRule)) return null;
-
-                            const fieldName = standardFieldMap[field.id] || field.id;
-                            const standardVal = (booking as any)[fieldName];
-                            const val = (standardVal !== undefined && standardVal !== null && standardVal !== '') ? standardVal : booking.customData?.[fieldName];
-
-                            let displayVal: React.ReactNode = val || 'N/A';
-
-                            if (field.type === 'DATE' && val) {
-                              displayVal = new Date(val).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                            } else if (field.type === 'USER_PICKLIST') {
-                              const user = teamUsers.find((u: any) => u.id === val);
-                              displayVal = user ? user.name : (val || 'Unassigned');
-                            } else if (field.type === 'MULTI_USER_PICKLIST') {
-                              let userIds: string[] = [];
-                              if (Array.isArray(val)) userIds = val;
-                              else if (typeof val === 'string') userIds = val.split(',').map((s: string) => s.trim()).filter(Boolean);
-                              const users = userIds.map((id: string) => teamUsers.find((u: any) => u.id === id)?.name || id);
-                              displayVal = users.length > 0 ? users.join(', ') : 'Unassigned';
-                            } else if (field.type === 'MULTI_SELECT' && Array.isArray(val)) {
-                              displayVal = val.join(', ');
-                            } else if (field.type === 'CURRENCY' && val) {
-                              displayVal = `₹${parseFloat(val).toLocaleString()}`;
-                            }
-
-                            const iconClass = getFieldIcon(field);
-                            const [iconName, iconColor] = iconClass.split(' ');
-                            const bgClass = iconColor.replace('text-', 'bg-').replace('500', '50').replace('400', '50');
-
-                            return (
-                              <div key={field.id} className="flex items-center gap-4">
-                                <div className={`w-8 h-8 rounded-full ${bgClass} flex items-center justify-center shrink-0`}>
-                                  <i className={`ph-fill ${iconName} ${iconColor} text-[1.1rem]`}></i>
-                                </div>
-                                <div className="flex flex-col flex-1 min-w-0">
-                                  <span className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest truncate">{field.name}</span>
-                                  <span className="font-bold text-[#0B1E40] text-[0.95rem] break-words whitespace-pre-wrap">{displayVal}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                   {/* Timeline */}
-                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
-                      <div className="flex justify-between items-center mb-6">
-                         <h3 className="text-[1.05rem] font-black text-[#0B1E40]">Timeline</h3>
-                      </div>
-                      <div className="flex flex-col relative">
-                         {(() => {
-                           const activeIndex = statusOptions.findIndex((o: any) => o.label === booking.status);
-                           const isCompleted = activeIndex === statusOptions.length - 1 && booking.status === 'Completed';
-                           
-                           return statusOptions.map((opt: any, idx: number) => {
-                             const isPast = activeIndex > idx || isCompleted;
-                             const isCurrent = activeIndex === idx && !isCompleted;
-                             
-                             let circleClass = '';
-                             let icon = null;
-                             
-                             if (isPast) {
-                               circleClass = 'bg-emerald-500 shadow-[0_0_0_4px_white] z-20';
-                               icon = <i className="ph-bold ph-check text-white text-xs"></i>;
-                             } else if (isCurrent) {
-                               circleClass = 'bg-blue-500 border-[6px] border-white shadow-[0_0_0_1px_#3b82f6] z-20';
-                               icon = <div className="w-1.5 h-1.5 rounded-full bg-white"></div>;
-                             } else {
-                               circleClass = 'bg-gray-200 border-[4px] border-white z-20';
-                             }
-                             
-                             return (
-                               <div key={idx} className="flex gap-4 mb-5 relative">
-                                  {idx < statusOptions.length - 1 && (
-                                     <div className={`absolute left-[11px] top-6 h-[calc(100%+20px)] w-0.5 z-0 ${isPast ? 'bg-emerald-500' : 'bg-gray-100'}`}></div>
-                                  )}
-                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${circleClass}`}>
-                                     {icon}
-                                  </div>
-                                  <div className="flex flex-col z-10 bg-white/50 pr-2">
-                                     <span className={`font-bold text-[0.9rem] ${isCurrent || isPast ? 'text-[#0B1E40]' : 'text-slate-500'}`}>{opt.label}</span>
-                                     <span className="text-slate-400 text-[0.7rem] font-semibold mt-0.5">{isCurrent ? 'In Progress' : isPast ? 'Completed' : 'Pending'}</span>
-                                  </div>
-                               </div>
-                             );
-                           });
-                         })()}
-                      </div>
-                   </div>
-                </div>
-                {/* Package & Payment */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col mt-2">
-                   <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
-                         <i className="ph-fill ph-camera text-orange-500 text-xl"></i>
-                      </div>
-                      <div className="flex flex-col">
-                         <h3 className="text-[1.1rem] font-black text-[#0B1E40]">Package & Payment</h3>
-                         <span className="text-[0.8rem] font-medium text-slate-500">Summary of package details and payment status.</span>
-                      </div>
-                   </div>
-                   
-                   {isEditing ? (
-                      <div className="flex flex-col 2xl:flex-row 2xl:items-start justify-between gap-8 mb-8 pl-1">
-                        <div className="flex flex-wrap xl:flex-nowrap items-start gap-6 xl:gap-8 mt-6 2xl:mt-0 w-full">
-                           {/* 1. Total Amount */}
-                           <div className="flex flex-col bg-orange-50/50 p-4 rounded-2xl border border-orange-50 min-w-[140px]">
-                              <span className="text-[0.75rem] font-bold text-slate-500 mb-2">Total Amount</span>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                                <input type="number" className="h-[45px] w-[140px] rounded-xl border border-orange-200 bg-white pl-8 pr-4 text-[1.1rem] font-black text-amber-700 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={editData.package} onChange={e => {
-                                  const pkg = e.target.value;
-                                  const advance = editData.advance || 0;
-                                  const due = Math.max(0, Number(pkg) - advance);
-                                  setEditData({...editData, package: pkg, due});
-                                }} placeholder="Amount" />
-                              </div>
-                           </div>
-
-                           <div className="hidden xl:block w-px h-16 bg-gray-100 mt-2"></div>
-                           
-                           {/* 2. Paid */}
-                           <div className="flex flex-col min-w-[140px]">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-[0.75rem] font-bold text-slate-400">Paid</span>
-                                <button type="button" onClick={() => {
-                                  if (installments.length === 0 && Number(editData.advance) > 0) {
-                                    setInstallments([
-                                      { amount: editData.advance.toString(), date: new Date().toISOString().split('T')[0] },
-                                      { amount: '', date: new Date().toISOString().split('T')[0] }
-                                    ]);
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="space-y-5 flex-1 min-w-0">
+                              {visibleFields.map((field: any) => {
+                                const standardKey = standardFieldMap[field.id];
+                                let val = standardKey ? (booking as any)[standardKey] : booking.customData?.[field.id];
+                                
+                                const fname = (field.name || '').toLowerCase();
+                                if (val && (field.type === 'USER_PICKLIST' || field.type === 'MULTI_USER_PICKLIST' || fname.includes('photographer') || fname.includes('designer'))) {
+                                  let ids: string[] = [];
+                                  if (typeof val === 'string') {
+                                    if (val.startsWith('[')) {
+                                      try { ids = JSON.parse(val); } catch(e) { ids = [val]; }
+                                    } else {
+                                      ids = val.split(',').map(s => s.trim());
+                                    }
+                                  } else if (Array.isArray(val)) {
+                                    ids = val;
                                   } else {
-                                    setInstallments([...installments, { amount: '', date: new Date().toISOString().split('T')[0] }]);
+                                    ids = [String(val)];
                                   }
-                                }} className="text-[0.7rem] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors">
-                                  <i className="ph-bold ph-plus"></i> Add Installment
-                                </button>
-                              </div>
-                              {installments.length === 0 ? (
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                                  <input type="number" className="h-[45px] w-[140px] rounded-xl border border-gray-200 bg-white pl-8 pr-4 text-[1.1rem] font-black text-emerald-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={editData.advance} onChange={e => {
-                                    const advance = e.target.value;
-                                    const pkg = editData.package || 0;
-                                    const due = Math.max(0, pkg - Number(advance));
-                                    setEditData({...editData, advance, due});
-                                  }} placeholder="Amount" />
-                                </div>
-                               ) : (
-                                 <div className="flex flex-col gap-2 min-w-[240px]">
-                                    {installments.map((inst, idx) => (
-                                      <div key={idx} className="flex gap-2 items-center">
-                                        <div className="flex-1 relative">
-                                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[0.8rem]">₹</span>
-                                          <input type="number" value={inst.amount} onChange={(e) => {
-                                             const newInst = [...installments];
-                                             newInst[idx].amount = e.target.value;
-                                             setInstallments(newInst);
-                                             
-                                             const sum = newInst.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-                                             const pkg = editData.package || 0;
-                                             const due = Math.max(0, pkg - sum);
-                                             setEditData({...editData, advance: sum, due});
-                                          }} className="h-[40px] w-full rounded-xl border border-gray-200 bg-white pl-7 pr-3 text-[0.95rem] font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="Amt" />
-                                        </div>
-                                        <div className="flex-1">
-                                          <DatePickerInput value={inst.date} onChange={(date) => {
-                                             const newInst = [...installments];
-                                             newInst[idx].date = date;
-                                             setInstallments(newInst);
-                                          }} className="flex h-[40px] w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-3 text-[0.85rem] focus:border-orange-500" />
-                                        </div>
-                                        <button type="button" onClick={() => {
-                                           const newInst = installments.filter((_, i) => i !== idx);
-                                           setInstallments(newInst);
-                                           const sum = newInst.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-                                           const pkg = editData.package || 0;
-                                           const due = Math.max(0, pkg - sum);
-                                           setEditData({...editData, advance: sum, due});
-                                        }} className="w-[40px] h-[40px] rounded-xl bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center shrink-0 transition-colors">
-                                          <i className="ph-bold ph-trash"></i>
-                                        </button>
-                                      </div>
-                                    ))}
-                                    <div className="text-[0.85rem] text-slate-600 font-bold self-start mt-1 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg">
-                                      Total Paid: <span className="text-emerald-600 text-[1.05rem]">₹{editData.advance || '0'}</span>
+                                  val = ids.map((id: string) => teamUsers.find((u: any) => u.id === id)?.name || id).join(', ');
+                                } else if (val && field.type === 'DATE') {
+                                  val = new Date(val).toLocaleDateString();
+                                }
+
+                                if (val === undefined || val === null || val === '') val = "N/A";
+                                if (Array.isArray(val)) val = val.join(', ');
+
+                                return (
+                                  <div key={field.id} className="flex items-start gap-3 w-full">
+                                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0 mt-0.5">
+                                      {getFieldIcon(field)}
                                     </div>
-                                 </div>
-                               )}
-                           </div>
-
-                           <div className="hidden xl:block w-px h-16 bg-gray-100 mt-2"></div>
-                           
-                           {/* 3. Pending Due */}
-                           <div className="flex flex-col min-w-[140px]">
-                              <span className="text-[0.75rem] font-bold text-slate-400 mb-2">Pending Due</span>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-red-300 font-bold">₹</span>
-                                <input type="number" disabled className="h-[45px] w-[140px] rounded-xl border border-red-100 bg-red-50/50 pl-8 pr-4 text-[1.1rem] font-black text-red-500 cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={editData.due} readOnly />
-                              </div>
-                           </div>
-                        </div>
-                     </div>
-                   ) : (
-                     <div className="flex flex-col mb-2">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mt-4">
-                           <div className="flex items-center justify-between p-5 rounded-2xl border border-orange-100/80 bg-orange-50/20">
-                              <div className="flex flex-col">
-                                 <span className="text-[0.75rem] font-bold text-slate-500 mb-1">Total Amount</span>
-                                 <span className="font-black text-amber-800 text-[1.8rem] leading-none tracking-tight">₹{parseFloat(booking.package || '0').toLocaleString()}</span>
-                              </div>
-                              <div className="w-11 h-11 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
-                                 <i className="ph-fill ph-wallet text-orange-500 text-[1.4rem]"></i>
-                              </div>
-                           </div>
-
-                           <div className="flex items-center justify-between p-5 rounded-2xl border border-emerald-100/80 bg-emerald-50/20">
-                              <div className="flex flex-col">
-                                 <span className="text-[0.75rem] font-bold text-slate-500 mb-1">Paid</span>
-                                 <span className="font-black text-emerald-600 text-[1.8rem] leading-none tracking-tight">₹{parseFloat(booking.advance || '0').toLocaleString()}</span>
-                              </div>
-                              <div className="w-11 h-11 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                                 <i className="ph-fill ph-shield-check text-emerald-500 text-[1.4rem]"></i>
-                              </div>
-                           </div>
-
-                           <div className="flex items-center justify-between p-5 rounded-2xl border border-red-100/80 bg-red-50/20">
-                              <div className="flex flex-col">
-                                 <span className="text-[0.75rem] font-bold text-slate-500 mb-1">Pending Due</span>
-                                 <span className="font-black text-red-500 text-[1.8rem] leading-none tracking-tight">₹{parseFloat(booking.due || '0').toLocaleString()}</span>
-                              </div>
-                              <div className="w-11 h-11 rounded-full bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
-                                 <i className="ph-fill ph-receipt text-red-500 text-[1.4rem]"></i>
-                              </div>
-                           </div>
-                        </div>
-                     </div>
-                   )}
-
-                    {(() => {
-                       const advance = parseFloat(isEditing ? editData.advance : booking.advance || '0');
-                       const total = parseFloat(isEditing ? editData.package : booking.package || '0');
-                       const divisor = total > 0 ? total : 1;
-                       const percentage = Math.round(Math.min(100, (advance / divisor) * 100));
-                       return (
-                          <div className="flex items-center gap-4">
-                             <div className="flex-1 h-2.5 bg-gray-100 rounded-full relative">
-                                <div className="h-full bg-amber-600 rounded-full transition-all duration-1000 relative" style={{ width: `${percentage}%` }}>
-                                   {percentage > 0 && (
-                                     <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[14px] h-[14px] bg-amber-700 rounded-full translate-x-1/2"></div>
-                                   )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">{field.name}</p>
+                                      <p className="font-bold text-slate-800 text-sm whitespace-pre-wrap break-words">{val}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {(section.title.toLowerCase().includes('album') || section.title.toLowerCase().includes('event')) && (() => {
+                              const steps = section.title.toLowerCase().includes('album') 
+                                ? ['Pending', 'Designing', 'Printing', 'Delivered'] 
+                                : ['Pending', 'Confirmed', 'Completed'];
+                                
+                              return (
+                                <div className="shrink-0 w-28 pt-2">
+                                  <div className="relative border-l-2 border-slate-100 ml-2 space-y-6">
+                                    {steps.map((step, idx) => {
+                                      const isActive = currentSectionStatus === step || (!currentSectionStatus && idx === 0);
+                                      const isPast = steps.indexOf(currentSectionStatus) > idx;
+                                      return (
+                                        <div key={step} className="relative pl-5">
+                                          <div className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 border-white ${(isActive || isPast) ? 'bg-indigo-500' : 'bg-slate-200'}`} />
+                                          <p className={`font-bold text-xs ${(isActive || isPast) ? 'text-slate-800' : 'text-slate-400'}`}>{step}</p>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                             </div>
-                             <span className="text-[0.8rem] font-bold text-slate-600 shrink-0">{percentage}% Paid</span>
+                              );
+                            })()}
                           </div>
-                       );
-                    })()}
-                 </div>
-                 
-                 {/* Notes, Attachments, Photographers */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
-                   <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between">
-                      <div className="flex items-center gap-2 mb-4">
-                         <i className="ph-fill ph-note text-yellow-500 text-lg"></i>
-                         <h3 className="text-[0.95rem] font-black text-[#0B1E40]">Notes</h3>
-                      </div>
-                      <div className="flex items-center justify-between mt-auto">
-                         <span className="text-slate-400 text-[0.85rem] font-medium">{booking.notes || booking.customData?.notes ? '1 note added' : 'No notes added'}</span>
-                         <button 
-                            onClick={handleAddNote}
-                            disabled={isLoading}
-                            className="px-4 py-2 border border-dashed border-gray-300 rounded-xl text-slate-500 font-bold text-[0.8rem] hover:bg-slate-50 transition-colors flex items-center gap-1.5 disabled:opacity-50">
-                            <i className="ph-bold ph-plus"></i> Add Note
-                         </button>
-                      </div>
-                   </div>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                   <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between">
-                      <div className="flex items-center gap-2 mb-4">
-                         <i className="ph-fill ph-paperclip text-blue-500 text-lg"></i>
-                         <h3 className="text-[0.95rem] font-black text-[#0B1E40]">Attachments {(booking.attachments || booking.customData?.attachments)?.length ? `(${(booking.attachments || booking.customData?.attachments).length})` : '(0)'}</h3>
+                  {/* Package & Payment */}
+                  <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                        <Wallet className="w-4 h-4" />
                       </div>
-                      <div className="flex items-center justify-between mt-auto">
-                         <span className="text-slate-400 text-[0.85rem] font-medium">{(booking.attachments || booking.customData?.attachments)?.length ? `${(booking.attachments || booking.customData?.attachments).length} files uploaded` : 'No files uploaded yet'}</span>
-                         <button 
-                            onClick={handleAddAttachment}
-                            disabled={isLoading}
-                            className="px-4 py-2 border border-dashed border-blue-200 bg-blue-50/50 rounded-xl text-blue-600 font-bold text-[0.8rem] hover:bg-blue-50 transition-colors flex items-center gap-1.5 disabled:opacity-50">
-                            <i className="ph-bold ph-upload-simple"></i> Upload Files
-                         </button>
+                      <div>
+                        <h3 className="font-bold text-[#0B1E40]">Package & Payment</h3>
+                        <p className="text-xs text-slate-500">Summary of package details and payment status.</p>
                       </div>
-                   </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                      <div className="bg-orange-50/50 rounded-2xl p-4 flex items-center justify-between border border-orange-100">
+                        <div>
+                          <p className="text-xs font-bold text-orange-600/70 mb-1">Total Amount</p>
+                          <p className="text-2xl font-black text-orange-700">₹{booking.order?.package || booking.customData?.fld_b_package || '0'}</p>
+                        </div>
+                        <Wallet className="w-8 h-8 text-orange-200" />
+                      </div>
+                      <div className="bg-emerald-50/50 rounded-2xl p-4 flex items-center justify-between border border-emerald-100">
+                        <div>
+                          <p className="text-xs font-bold text-emerald-600/70 mb-1">Paid</p>
+                          <p className="text-2xl font-black text-emerald-700">₹{booking.advance || booking.customData?.fld_b_advance || '0'}</p>
+                        </div>
+                        <Wallet className="w-8 h-8 text-emerald-200" />
+                      </div>
+                      <div className="bg-rose-50/50 rounded-2xl p-4 flex items-center justify-between border border-rose-100">
+                        <div>
+                          <p className="text-xs font-bold text-rose-600/70 mb-1">Pending Due</p>
+                          <p className="text-2xl font-black text-rose-700">
+                            ₹{(Number(booking.order?.package || booking.customData?.fld_b_package || 0) - Number(booking.order?.advance || booking.customData?.fld_b_advance || 0))}
+                          </p>
+                        </div>
+                        <Receipt className="w-8 h-8 text-rose-200" />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 flex items-center gap-4">
+                      <div className="h-2 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-emerald-500 rounded-full"
+                          style={{ width: `${Math.min(100, (Number(booking.order?.advance || booking.customData?.fld_b_advance || 0) / Math.max(1, Number(booking.order?.package || booking.customData?.fld_b_package || 1))) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs font-bold text-slate-600 w-16 text-right">
+                        {Math.round((Number(booking.order?.advance || booking.customData?.fld_b_advance || 0) / Math.max(1, Number(booking.order?.package || booking.customData?.fld_b_package || 1))) * 100)}% Paid
+                      </p>
+                    </div>
+                  </div>
 
-                   {/* Photographers card has been moved to Event Details */}
+                  {/* Bottom Extra Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full">
+                      <div className="flex items-center gap-2 mb-6">
+                        <FileText className="w-5 h-5 text-yellow-600" />
+                        <h3 className="font-bold text-[#0B1E40]">Notes</h3>
+                      </div>
+                      <div className="flex-1 flex items-center justify-between mt-auto">
+                        <p className="text-sm text-slate-400 font-medium">No notes added</p>
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-sm font-bold border border-slate-200 transition-colors">
+                          + Add Note
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full">
+                      <div className="flex items-center gap-2 mb-6">
+                        <LinkIcon className="w-5 h-5 text-blue-500" />
+                        <h3 className="font-bold text-[#0B1E40]">Attachments (0)</h3>
+                      </div>
+                      <div className="flex-1 flex items-center justify-between mt-auto">
+                        <p className="text-sm text-slate-400 font-medium">No files uploaded yet</p>
+                        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-bold border border-blue-200 transition-colors">
+                          <Upload className="w-3.5 h-3.5" /> Upload Files
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
                 </div>
+            </main>
 
-                {/* Client References */}
-                {(booking as any).galleryUrl && (
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mt-2 mb-8">
-                   <div className="flex justify-between items-center mb-5">
-                      <div className="flex items-center gap-2">
-                         <i className="ph-duotone ph-users-three text-[#0B1E40] text-xl"></i>
-                         <h3 className="text-[1.1rem] font-black text-[#0B1E40]">Client References</h3>
-                      </div>
-                      <a href={(booking as any).galleryUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold text-[0.85rem] cursor-pointer hover:underline">View Link</a>
-                   </div>
-                   <div className="w-full bg-gray-50 rounded-xl p-4 border border-gray-100 flex items-center gap-3">
-                     <i className="ph-bold ph-link text-slate-400 text-lg"></i>
-                     <a href={(booking as any).galleryUrl} target="_blank" rel="noreferrer" className="text-blue-500 font-bold text-[0.9rem] hover:underline truncate">{(booking as any).galleryUrl}</a>
-                   </div>
-                </div>
-                )}
-
-                {/* Custom Dynamic Fields moved above Package & Payment */}
-
-                </div>
-             </div>
-             {/* New Revamped Layout Ends Here */}
-
-
-         {/* Flat Action Center Footer */}
-         <div className="shrink-0 bg-white border-t border-gray-100 px-6 py-4 flex flex-col md:flex-row justify-between items-center z-50">
-            <div className="flex items-center gap-3">
-               <span className="text-[0.75rem] font-black text-slate-400 uppercase tracking-widest">Action Center</span>
-               <span className="font-bold text-[#0B1E40] text-[0.95rem]">Viewing: {booking.bookingNumber || booking.id.substring(0,8)}</span>
+            {/* Bottom Sticky Action Bar */}
+            <div className="shrink-0 h-20 bg-white border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] px-6 flex items-center justify-between z-40 rounded-b-[2rem]">
+              <div className="flex items-center gap-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Action Center</p>
+                <p className="text-sm font-bold text-slate-800 border-l border-slate-200 pl-3">Viewing: {booking.bookingNumber || `#${booking.id.slice(-6).toUpperCase()}`}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => {
+                    openBookingForm(booking.id, undefined);
+                    closeBookingDetails();
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-sm transition-colors"
+                >
+                  Edit Booking
+                </button>
+                <button 
+                  onClick={() => closeBookingDetails()}
+                  className="px-8 py-2.5 bg-[#0B1E40] text-white hover:bg-[#152a55] rounded-xl font-bold text-sm transition-colors shadow-lg shadow-blue-900/20"
+                >
+                  Close
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-6 mt-4 md:mt-0">
-               {isEditing ? (
-                 <>
-                   <button onClick={() => setIsEditing(false)} className="px-6 py-2 bg-gray-100 text-[#0B1E40] text-[0.95rem] font-bold rounded-xl hover:bg-gray-200 transition-colors ml-2" disabled={isLoading}>
-                     Cancel Edit
-                   </button>
-                   <button onClick={handleSaveEdit} className="px-8 py-2.5 bg-blue-600 text-[0.95rem] text-white font-bold rounded-xl hover:bg-blue-700 transition-colors ml-2 shadow-md shadow-blue-500/30 flex items-center gap-2" disabled={isLoading}>
-                     {isLoading ? "Saving..." : <><i className="ph-bold ph-floppy-disk text-lg"></i> Save Changes</>}
-                   </button>
-                 </>
-               ) : (
-                 <>
-                   <button onClick={() => {
-                        openBookingForm(booking.id);
-                        closeBookingDetails();
-                    }} className="text-[#0B1E40] text-[0.95rem] font-bold hover:text-blue-600 transition-colors flex items-center gap-2">
-                      <i className="ph-bold ph-pencil-simple text-lg"></i> Edit Booking
-                    </button>
-                   <button onClick={() => {
-                     closeBookingDetails();
-                   }} className="px-8 py-2.5 bg-[#0B1E40] text-[0.95rem] text-white font-bold rounded-xl hover:bg-[#152a52] transition-colors ml-2">
-                     Close
-                   </button>
-                 </>
-               )}
-            </div>
-         </div>
-          </motion.div>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Delete Confirmation Modal */}
-      <Dialog open={isDeleteConfirmOpen} onOpenChange={(open) => !open && setIsDeleteConfirmOpen(false)}>
-        {booking && (
-        <DialogContent className="max-w-[400px] p-8 text-center bg-white rounded-3xl border-0 shadow-2xl !rounded-3xl">
-          <div className="w-16 h-16 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-3xl mx-auto mb-5">
-            <i className="ph-fill ph-trash"></i>
           </div>
-          <DialogTitle className="text-xl font-extrabold text-slate-900 mb-2">Delete Booking</DialogTitle>
-          <p className="text-slate-500 text-[0.95rem] leading-relaxed mb-8">
-            Are you sure you want to delete the booking for <strong className="text-slate-900">{booking.title}</strong>? This action cannot be undone.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <button className="flex-1 px-5 py-2.5 rounded-full font-bold text-[0.95rem] text-slate-700 bg-white border border-gray-200 hover:bg-slate-50 transition-colors" onClick={() => setIsDeleteConfirmOpen(false)} disabled={isDeleting}>Cancel</button>
-            <button className="flex-1 px-5 py-2.5 rounded-full font-bold text-[0.95rem] text-white bg-red-500 hover:bg-red-600 shadow-md transition-all flex items-center justify-center gap-2" onClick={confirmDelete} disabled={isDeleting}>
-              {isDeleting ? "Deleting..." : "Delete"}
-            </button>
-          </div>
-        </DialogContent>
         )}
+      </DialogContent>
+      
+      {/* Delete Confirmation Modal */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent className="max-w-md w-[95vw] rounded-3xl p-6 bg-white border-0 shadow-2xl">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-6">
+              <Trash2 className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 mb-2">Delete Booking?</h3>
+            <p className="text-slate-500 mb-8 font-medium">This action cannot be undone. This will permanently remove the booking and all related data.</p>
+            <div className="flex items-center gap-3 w-full">
+              <button 
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
-
-      {/* Add Note Modal */}
-      <Dialog open={isAddNoteOpen} onOpenChange={setIsAddNoteOpen}>
-         <DialogContent className="max-w-[400px] p-8 bg-white rounded-3xl border-0 shadow-2xl !rounded-3xl">
-           <DialogTitle className="text-xl font-extrabold text-[#0B1E40] mb-4">Add Note</DialogTitle>
-           <textarea 
-             className="w-full min-h-[120px] p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-[0.9rem]"
-             placeholder="Enter note for this booking..."
-             value={newNote}
-             onChange={(e) => setNewNote(e.target.value)}
-           ></textarea>
-           <div className="flex gap-3 mt-6">
-             <button className="flex-1 px-5 py-2.5 rounded-xl font-bold text-slate-500 bg-gray-50 hover:bg-gray-100 transition-colors" onClick={() => setIsAddNoteOpen(false)} disabled={isLoading}>Cancel</button>
-             <button className="flex-1 px-5 py-2.5 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors disabled:opacity-50" onClick={() => {
-                updateBookingAPI({ notes: newNote });
-                setIsAddNoteOpen(false);
-             }} disabled={isLoading}>Save Note</button>
-           </div>
-         </DialogContent>
-      </Dialog>
-
-      {/* Add Attachment Modal */}
-      <Dialog open={isAddAttachmentOpen} onOpenChange={setIsAddAttachmentOpen}>
-         <DialogContent className="max-w-[400px] p-8 bg-white rounded-3xl border-0 shadow-2xl !rounded-3xl">
-           <DialogTitle className="text-xl font-extrabold text-[#0B1E40] mb-4">Add Attachment</DialogTitle>
-           <div className="flex flex-col gap-4">
-             <div className="flex flex-col gap-1.5">
-               <label className="text-[0.8rem] font-bold text-slate-500">File Name</label>
-               <input 
-                 type="text"
-                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-[0.9rem]"
-                 placeholder="e.g. Final Album"
-                 value={newAttachmentName}
-                 onChange={(e) => setNewAttachmentName(e.target.value)}
-               />
-             </div>
-             <div className="flex flex-col gap-1.5">
-               <label className="text-[0.8rem] font-bold text-slate-500">Attachment URL</label>
-               <input 
-                 type="url"
-                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-[0.9rem]"
-                 placeholder="https://..."
-                 value={newAttachmentUrl}
-                 onChange={(e) => setNewAttachmentUrl(e.target.value)}
-               />
-             </div>
-             
-             {driveStatus?.connected && (
-               <>
-                 <div className="flex items-center gap-3">
-                   <div className="h-px bg-slate-200 flex-1"></div>
-                   <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">OR</span>
-                   <div className="h-px bg-slate-200 flex-1"></div>
-                 </div>
-                 <GooglePicker 
-                   onPick={(file) => {
-                     setNewAttachmentName(file.name);
-                     setNewAttachmentUrl(file.url);
-                   }} 
-                   className="w-full justify-center py-2.5 shadow-sm border border-blue-100"
-                 />
-               </>
-             )}
-           </div>
-           <div className="flex gap-3 mt-8">
-              <button className="flex-1 px-5 py-2.5 rounded-xl font-bold text-slate-500 bg-gray-50 hover:bg-gray-100 transition-colors" onClick={() => setIsAddAttachmentOpen(false)} disabled={isLoading}>Cancel</button>
-             <button className="flex-1 px-5 py-2.5 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors disabled:opacity-50" onClick={() => {
-                if(!newAttachmentUrl || !newAttachmentName) return;
-                const existingAttachments = Array.isArray(booking?.attachments) ? booking?.attachments : 
-                             (Array.isArray(booking?.customData?.attachments) ? booking?.customData?.attachments : []);
-                const newAttachments = [...existingAttachments, { name: newAttachmentName, url: newAttachmentUrl, addedAt: new Date().toISOString() }];
-                updateBookingAPI({ attachments: newAttachments });
-                setIsAddAttachmentOpen(false);
-             }} disabled={isLoading || !newAttachmentName || !newAttachmentUrl}>Upload File</button>
-           </div>
-         </DialogContent>
-      </Dialog>
-
+    
       {/* Off-screen Invoice Template */}
       <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: '800px', backgroundColor: '#ffffff', zIndex: -10 }}>
          <div id="invoice-template" className="w-[800px] bg-white pt-6 px-12 pb-12 text-[#1F2937]" style={{ fontFamily: 'sans-serif' }}>
@@ -1180,7 +667,7 @@ export default function BookingDetailsModal() {
               </div>
               <div className="flex flex-col pl-4">
                 <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Status</span>
-                <span className="font-bold text-[#1F2937] text-[0.95rem] uppercase">{Number(booking?.due || 0) > 0 ? 'DRAFT' : 'PAID'}</span>
+                <span className="font-bold text-[#1F2937] text-[0.95rem] uppercase">{Number(booking?.order?.due || 0) > 0 ? 'DRAFT' : 'PAID'}</span>
               </div>
             </div>
 
@@ -1219,16 +706,16 @@ export default function BookingDetailsModal() {
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx + 1}</td>
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{item}</td>
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking?.package || 0).toFixed(2) : "0.00"}</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking?.package || 0).toFixed(2) : "0.00"}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking?.order?.package || 0).toFixed(2) : "0.00"}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{idx === 0 ? Number(booking?.order?.package || 0).toFixed(2) : "0.00"}</td>
                     </tr>
                   )) : (
                     <tr className="border-b border-gray-100">
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{booking?.category || 'Standard'} Package</td>
                       <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking?.package || 0).toFixed(2)}</td>
-                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking?.package || 0).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking?.order?.package || 0).toFixed(2)}</td>
+                      <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(booking?.order?.package || 0).toFixed(2)}</td>
                     </tr>
                   )}
                 </tbody>
@@ -1239,7 +726,7 @@ export default function BookingDetailsModal() {
               <div className="w-[320px] flex flex-col">
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
                   <span>Subtotal</span>
-                  <span>₹{Number(booking?.package || 0).toFixed(2)}</span>
+                  <span>₹{Number(booking?.order?.package || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
                   <span>Tax / GST (0%)</span>
@@ -1247,18 +734,18 @@ export default function BookingDetailsModal() {
                 </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
                   <span className="text-[#1F2937]">Total Amount</span>
-                  <span className="text-[#B66D42]">₹{Number(booking?.package || 0).toFixed(2)}</span>
+                  <span className="text-[#B66D42]">₹{Number(booking?.order?.package || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
                   <span>Paid</span>
-                  <span>₹{Number(booking?.advance || 0).toFixed(2)}</span>
+                  <span>₹{Number(booking?.order?.advance || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
                   <span className="text-[#1F2937]">Balance Due</span>
-                  <span className="text-[#B66D42]">₹{Number(booking?.due || 0).toFixed(2)}</span>
+                  <span className="text-[#B66D42]">₹{Number(booking?.order?.due || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-end pt-3 text-[0.65rem] font-bold text-[#B66D42] tracking-wider uppercase">
-                  PAYMENT PROGRESS: <span className="ml-2">{Math.round(((Number(booking?.advance || 0)) / (Number(booking?.package || 1) || 1)) * 100)}% Paid</span>
+                  PAYMENT PROGRESS: <span className="ml-2">{Math.round(((Number(booking?.order?.advance || 0)) / (Number(booking?.order?.package || 1) || 1)) * 100)}% Paid</span>
                 </div>
               </div>
             </div>
@@ -1275,6 +762,6 @@ export default function BookingDetailsModal() {
             </div>
          </div>
       </div>
-    </>
+    </Dialog>
   );
 }

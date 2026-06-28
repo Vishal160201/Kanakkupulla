@@ -35,8 +35,7 @@ import {
   Wallet,
   TrendingUp,
   Check,
-  Paperclip,
-  Download
+  Paperclip
 } from "lucide-react";
 import { getProductIcon } from "@/lib/productIcons";
 import { cn } from "@/lib/utils";
@@ -53,7 +52,7 @@ const STATUS_OPTIONS = [
 ];
 
 export default function OrderDetailsPanel() {
-  const { isGiftOrderDetailsOpen, giftOrderDetailsId, closeGiftOrderDetails, openTransactionDetails } = useGlobalForm();
+  const { isGiftOrderDetailsOpen, giftOrderDetailsId, closeGiftOrderDetails } = useGlobalForm();
   
   const { data, error, mutate } = useSWR(giftOrderDetailsId ? `/api/gifts/orders/${giftOrderDetailsId}` : null, fetcher);
   const order = data?.order;
@@ -71,10 +70,7 @@ export default function OrderDetailsPanel() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Exporting state
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
 
   // Deleting state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -252,7 +248,7 @@ export default function OrderDetailsPanel() {
     setIsGeneratingInvoice(true);
     setTimeout(async () => {
       try {
-        const element = document.getElementById('gift-invoice-template');
+        const element = document.getElementById('invoice-template');
         if (!element) return;
         const html2canvas = (await import("html2canvas")).default;
         const { jsPDF } = await import("jspdf");
@@ -262,7 +258,7 @@ export default function OrderDetailsPanel() {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`Invoice_${order.orderNumber || order.id.slice(-6).toUpperCase()}.pdf`);
+        pdf.save(`Invoice_${order.id.slice(-6).toUpperCase()}.pdf`);
         showNotification("Invoice generated successfully!", "success");
       } catch (error) {
         showNotification("Failed to generate invoice", "error");
@@ -272,35 +268,13 @@ export default function OrderDetailsPanel() {
     }, 100);
   };
 
-  const exportOrder = async () => {
-    setIsExporting(true);
-    try {
-      const element = document.getElementById('order-details-content');
-      if (!element) return;
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Order_Export_${order.orderNumber || order.id.slice(-6).toUpperCase()}.pdf`);
-      showNotification("Order exported successfully!", "success");
-    } catch (error) {
-      showNotification("Failed to export order", "error");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const currentStatusIndex = order ? STATUS_OPTIONS.findIndex(s => s.value === order.status) : 0;
 
   return (
     <Dialog open={isGiftOrderDetailsOpen} onOpenChange={(open) => {
       if (!open) closeGiftOrderDetails();
     }}>
-      <DialogContent className="max-w-[1200px] sm:max-w-[1200px] w-[95vw] p-0 bg-[#F5F6F8] overflow-hidden border-0 shadow-none h-[90vh] md:h-[95vh] flex flex-col rounded-[2rem]">
+      <DialogContent className="max-w-[850px] w-[95vw] p-0 bg-[#F5F6F8] overflow-hidden border-0 shadow-none h-[90vh] md:h-[95vh] flex flex-col rounded-[2rem]">
         {(!order && !error) ? (
           <div className="flex-1 flex flex-col items-center justify-center p-20 min-h-[400px]">
             <Loader2 className="h-10 w-10 text-orange-500 animate-spin mb-4" />
@@ -317,7 +291,7 @@ export default function OrderDetailsPanel() {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex-1 flex flex-col w-full mx-auto h-full overflow-hidden"
+            className="flex-1 flex flex-col w-full mx-auto"
           >
             {/* Minimal Header */}
             <header className="shrink-0 sticky top-0 z-40 bg-[#F5F6F8] px-4 md:px-8 py-5 md:py-6 flex items-center justify-between">
@@ -333,26 +307,10 @@ export default function OrderDetailsPanel() {
                   <p className="text-xs text-slate-500 font-medium">Viewing order details</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={exportOrder}
-                  disabled={isExporting}
-                  className="hidden md:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-xl font-bold text-sm transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export PDF
-                </button>
-                <button 
-                  onClick={generateInvoice}
-                  disabled={isGeneratingInvoice}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#0B1E40] text-white hover:bg-[#152a55] rounded-xl font-bold text-sm transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {isGeneratingInvoice ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Receipt className="w-4 h-4" />} Invoice
-                </button>
-              </div>
             </header>
 
             {/* Main Content Area */}
-            <main id="order-details-content" className="flex-1 overflow-y-auto px-4 md:px-8 pb-12">
+            <main className="flex-1 overflow-y-auto px-4 md:px-8 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Status Tracker */}
           <div className="bg-white rounded-3xl py-3 md:py-4 px-4 md:px-8 border border-slate-100 shadow-sm flex flex-col justify-center col-span-1 lg:col-span-12 relative z-20 no-print overflow-hidden">
@@ -815,7 +773,7 @@ export default function OrderDetailsPanel() {
                     <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-3">Linked Transactions</div>
                     <div className="space-y-2">
                       {order.transactions.filter((tx: any) => !tx.deletedAt).map((tx: any) => (
-                        <div onClick={() => openTransactionDetails(tx.id)} key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer block">
+                        <Link href={`/transactions/details/${tx.id}`} key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer block">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
                               <Receipt size={14} />
@@ -826,7 +784,7 @@ export default function OrderDetailsPanel() {
                             </div>
                           </div>
                           <div className="text-sm font-bold text-green-600">+₹{tx.amount.toLocaleString()}</div>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   </div>
@@ -885,120 +843,6 @@ export default function OrderDetailsPanel() {
 
         </div>
             </main>
-
-            {/* Off-screen Invoice Template */}
-            <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: '800px', backgroundColor: '#ffffff', zIndex: -10 }}>
-               <div id="gift-invoice-template" className="w-[800px] bg-white pt-6 px-12 pb-12 text-[#1F2937]" style={{ fontFamily: 'sans-serif' }}>
-                  <div className="flex justify-between items-start">
-                     <div className="flex items-center">
-                        <style dangerouslySetInnerHTML={{__html: "@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');"}} />
-                        <span className="text-[#1F2937] leading-none" style={{ fontFamily: '"Great Vibes", cursive', fontSize: '4.5rem', fontWeight: 400 }}>Moondot</span>
-                        <span className="ml-3 text-[0.8rem] text-[#B66D42] tracking-[0.35em] font-medium uppercase mt-4" style={{ fontFamily: 'Inter, sans-serif' }}>STUDIO</span>
-                     </div>
-                     <div className="border-l-[3px] border-gray-300 pl-5 pt-1">
-                        <h1 className="text-[2.2rem] font-black text-[#1F2937] tracking-[0.1em] uppercase leading-none">Invoice</h1>
-                        <p className="text-[#B66D42] font-bold mt-3 text-sm">Order {order?.orderNumber?.startsWith('#') ? '' : '#'}{order?.orderNumber || order?.id?.substring(0, 8)}</p>
-                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-4 mt-12 border-t border-gray-200 pt-6">
-                    <div className="flex flex-col border-r border-gray-200">
-                      <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice No.</span>
-                      <span className="font-bold text-[#1F2937] text-[0.95rem]">{order?.orderNumber || order?.id?.substring(0, 8)}-INV</span>
-                    </div>
-                    <div className="flex flex-col border-r border-gray-200 pl-4">
-                      <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Invoice Date</span>
-                      <span className="font-bold text-[#1F2937] text-[0.95rem]">{new Date().toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</span>
-                    </div>
-                    <div className="flex flex-col border-r border-gray-200 pl-4">
-                      <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Due Date</span>
-                      <span className="font-bold text-[#1F2937] text-[0.95rem]">{order?.dueDate ? new Date(order.dueDate).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col pl-4">
-                      <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-2">Status</span>
-                      <span className="font-bold text-[#1F2937] text-[0.95rem] uppercase">{Number(customData?.dueAmount || 0) > 0 ? 'DRAFT' : 'PAID'}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 mt-8 bg-[#F8F9FA] border-y border-gray-200">
-                    <div className="p-5 pr-6 flex flex-col gap-2">
-                      <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-1">Billed To</span>
-                      <span className="text-[0.9rem] text-[#1F2937]">{order?.clientName || 'Client Name'}</span>
-                      <span className="text-[0.9rem] text-[#1F2937]">Phone: {order?.clientPhone || 'N/A'}</span>
-                      <span className="text-[0.9rem] text-[#1F2937]">Item: {order?.product?.name || 'Product'}</span>
-                    </div>
-                    <div className="p-5 pl-6 flex flex-col gap-2 border-l border-gray-200">
-                      <span className="text-[0.65rem] font-bold text-gray-500 tracking-widest uppercase mb-1">From</span>
-                      <span className="text-[0.9rem] text-[#1F2937]">Moondot Studio</span>
-                      <span className="text-[0.9rem] text-[#1F2937]">Photography & Videography</span>
-                      <span className="text-[0.9rem] text-[#1F2937]">Chennai, Tamil Nadu, India</span>
-                      <span className="text-[0.9rem] text-[#1F2937]">Email: hello@moondotstudio.in</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-8">
-                    <h3 className="text-[0.7rem] font-black text-[#1F2937] tracking-[0.15em] uppercase mb-3">Order Details</h3>
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#1F2937] text-white">
-                          <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[5%]">#</th>
-                          <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[55%]">DESCRIPTION</th>
-                          <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[10%]">QTY</th>
-                          <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[15%]">RATE (₹)</th>
-                          <th className="py-2.5 px-4 text-[0.7rem] font-bold tracking-wider w-[15%]">AMOUNT (₹)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-b border-gray-100">
-                          <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">1</td>
-                          <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{order?.product?.name || 'Item'}</td>
-                          <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{order?.quantity || 1}</td>
-                          <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{(Number(customData?.amount || 0) / Number(order?.quantity || 1)).toFixed(2)}</td>
-                          <td className="py-3 px-4 text-[0.85rem] text-[#1F2937]">{Number(customData?.amount || 0).toFixed(2)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="mt-8 flex justify-end">
-                    <div className="w-[320px] flex flex-col">
-                      <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
-                        <span>Subtotal</span>
-                        <span>₹{Number(customData?.amount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
-                        <span>Tax / GST (0%)</span>
-                        <span>₹0.00</span>
-                      </div>
-                      <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
-                        <span className="text-[#1F2937]">Total Amount</span>
-                        <span className="text-[#B66D42]">₹{Number(customData?.amount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
-                        <span>Paid</span>
-                        <span>₹{Number(customData?.advanceAmount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
-                        <span className="text-[#1F2937]">Balance Due</span>
-                        <span className="text-[#B66D42]">₹{Number(customData?.dueAmount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-end pt-3 text-[0.65rem] font-bold text-[#B66D42] tracking-wider uppercase">
-                        PAYMENT PROGRESS: <span className="ml-2">{Math.round(((Number(customData?.advanceAmount || 0)) / (Number(customData?.amount || 1) || 1)) * 100)}% Paid</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-12 pt-6 border-t border-gray-200">
-                    <h4 className="text-[0.7rem] font-bold text-gray-400 uppercase tracking-widest mb-2">Terms & Conditions</h4>
-                    <p className="text-[0.65rem] text-gray-500 leading-relaxed">
-                      1. Please note that all invoices are due by the designated due date.<br/>
-                      2. For any inquiries concerning this invoice, please contact hello@moondotstudio.in.<br/>
-                      3. Thank you for choosing Moondot Studio for your special moments.
-                    </p>
-                  </div>
-               </div>
-            </div>
-
           </motion.div>
         )}
       </DialogContent>

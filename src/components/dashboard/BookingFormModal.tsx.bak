@@ -21,7 +21,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "../ui/DatePickerInput";
 import GooglePicker from "@/components/shared/GooglePicker";
-import FileAttachment from "@/components/ui/FileAttachment";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { mutate } from "swr";
@@ -67,7 +66,8 @@ function BookingFormModalInner() {
   const [allBookings, setAllBookings] = useState<any[]>([]);
   const [installments, setInstallments] = useState<{amount: string, date: string}[]>([]);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<string | null>(null);
-  
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+
   const standardFieldMap: Record<string, string> = {
     fld_b_client: 'title', fld_b_phone: 'phone', fld_b_email: 'email',
     fld_b_date: 'date', fld_b_time: 'time', fld_b_category: 'category',
@@ -125,42 +125,25 @@ function BookingFormModalInner() {
 
   // Edit mode pre-fill
   useEffect(() => {
-    if (isAddModalOpen && !isBookingLoading && booking && layoutSchema) {
+    if (isAddModalOpen && !isBookingLoading && booking) {
+      const { customData, ...rest } = booking;
       const b = booking as any;
-      
-      let parsedCustomData: any = {};
-      if (typeof b.customData === 'string') {
-        try { parsedCustomData = JSON.parse(b.customData); } catch (e) {}
-      } else if (b.customData && typeof b.customData === 'object') {
-        parsedCustomData = b.customData;
-      }
-      
-      const formValues: any = {
-        title: b.client?.name || b.title || parsedCustomData.fld_b_client || '',
-        phone: b.client?.phone || b.phone || parsedCustomData.fld_b_phone || '',
-        email: b.client?.email || b.email || parsedCustomData.fld_b_email || '',
-        date: b.date ? (typeof b.date === 'string' ? b.date.split('T')[0] : new Date(b.date).toISOString().split('T')[0]) : (parsedCustomData.fld_b_date || ''),
-        time: b.time || parsedCustomData.fld_b_time || '',
-        category: b.category || parsedCustomData.fld_b_category || '',
-        location: b.location || parsedCustomData.fld_b_location || '',
-        status: b.status || parsedCustomData.fld_b_status || '',
-        package: b.order?.package ? b.order.package.toString() : (parsedCustomData.fld_b_package || ''),
-        advance: b.order?.advance ? b.order.advance.toString() : (parsedCustomData.fld_b_advance || ''),
+      reset({ 
+        ...rest, 
+        title: b.client?.name || b.title || '',
+        phone: b.client?.phone || b.phone || '',
+        email: b.client?.email || b.email || '',
+        date: b.date ? (typeof b.date === 'string' ? b.date.split('T')[0] : new Date(b.date).toISOString().split('T')[0]) : '',
+        package: b.order?.package ? b.order.package.toString() : '',
+        advance: b.order?.advance ? b.order.advance.toString() : '',
         due: b.order?.due ? b.order.due.toString() : '',
-        ...parsedCustomData
-      };
-
-      reset(formValues);
-      
-      if (timeFpInstance && formValues.time) {
-        timeFpInstance.setDate(formValues.time);
-      }
-      
+        ...(customData || {}) 
+      });
       if (b.order?.installments && Array.isArray(b.order.installments)) {
         setInstallments(b.order.installments);
       }
     }
-  }, [isAddModalOpen, booking?.id, isBookingLoading, reset, timeFpInstance, layoutSchema]);
+  }, [isAddModalOpen, booking, isBookingLoading, reset]);
 
   // Add mode default initialization
   useEffect(() => {
@@ -180,22 +163,15 @@ function BookingFormModalInner() {
       if (layoutSchema?.sections) {
         layoutSchema.sections.forEach((sec: any) => {
           sec.fields.forEach((f: any) => {
-            const fname = (f.id === statusFieldId && f.type === 'STATUS_PICKER') ? 'status' : (standardFieldMap[f.id] || f.id);
-            
             if (f.type === 'STATUS_PICKER' && f.statusOptions && f.statusOptions.length > 0) {
+              const fname = (f.id === statusFieldId) ? 'status' : (standardFieldMap[f.id] || f.id);
               defaultValues[fname] = f.statusOptions[0].label;
-            } else if ((f.type === 'PICK_LIST' || f.type === 'CATEGORY_PICKER' || f.id === 'fld_b_category') && f.options && f.options.length > 0) {
-              defaultValues[fname] = f.options[0].label || f.options[0] || '';
-            }
-
-            if (f.defaultValue) {
-              defaultValues[fname] = f.defaultValue;
             }
           });
         });
       }
       reset(defaultValues);
-      if (timeFpInstance) timeFpInstance.setDate(defaultValues.time || '10:00 AM');
+      if (timeFpInstance) timeFpInstance.setDate('10:00 AM');
       clearErrors();
     }
   }, [isAddModalOpen, bookingToEditId, isBookingLoading, selectedDateForNew, reset, clearErrors, layoutSchema, timeFpInstance]);
@@ -613,16 +589,130 @@ function BookingFormModalInner() {
     
     if (field.type === 'IMAGE' || field.type === 'FILE') {
       const value = watch(fieldName as any);
+      const isDriveFile = (value as any)?.driveFile;
+      
+      if (value) {
+        return (
+          <div className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50">
+            <div className="flex items-center gap-3 overflow-hidden">
+              {isDriveFile ? (
+                 <img src={(value as any).driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
+              ) : (
+                 <i className="ph-fill ph-file text-2xl text-slate-400"></i>
+              )}
+              <span className="text-sm font-medium text-slate-700 truncate max-w-[200px]">
+                {isDriveFile ? (value as any).driveFile.name : "Local File Selected"}
+              </span>
+            </div>
+            <button type="button" onClick={() => setValue(fieldName as any, '' as any)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-500 transition-colors">
+              <i className="ph-bold ph-x"></i>
+            </button>
+          </div>
+        );
+      }
+
       return (
-        <FileAttachment
-          id={fieldName}
-          type={field.type}
-          value={value}
-          onChange={(val) => setValue(fieldName as any, val as any)}
-          driveStatus={driveStatus}
-          moduleName="Bookings"
-          categoryName={formValues.category || "Uncategorized"}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="relative">
+            <input
+              type="file"
+              accept={field.type === 'IMAGE' ? "image/*" : undefined}
+              disabled={uploadProgress[fieldName] !== undefined}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                if (file.size > 10 * 1024 * 1024) {
+                  toast.error("File exceeds 10MB limit. Please choose a smaller file.");
+                  e.target.value = '';
+                  return;
+                }
+
+                if (driveStatus?.connected) {
+                  setUploadProgress(prev => ({ ...prev, [fieldName]: 0 }));
+                  
+                  const xhr = new XMLHttpRequest();
+                  xhr.open("POST", "/api/integrations/google/upload", true);
+                  
+                  xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                      const percent = Math.round((event.loaded / event.total) * 100);
+                      setUploadProgress(prev => ({ ...prev, [fieldName]: percent }));
+                    }
+                  };
+                  
+                  xhr.onload = () => {
+                    setUploadProgress(prev => {
+                      const next = { ...prev };
+                      delete next[fieldName];
+                      return next;
+                    });
+                    
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                      try {
+                        const responseData = JSON.parse(xhr.responseText);
+                        setValue(fieldName as any, { driveFile: responseData } as any);
+                        toast.success("File uploaded to Google Drive");
+                      } catch (err) {
+                        toast.error("Failed to parse upload response");
+                      }
+                    } else {
+                      try {
+                        const errData = JSON.parse(xhr.responseText);
+                        toast.error(errData.error || "Upload failed");
+                      } catch {
+                        toast.error("Upload failed");
+                      }
+                    }
+                  };
+                  
+                  xhr.onerror = () => {
+                    setUploadProgress(prev => {
+                      const next = { ...prev };
+                      delete next[fieldName];
+                      return next;
+                    });
+                    toast.error("Network error during upload");
+                  };
+                  
+                  const uploadData = new FormData();
+                  uploadData.append("file", file);
+                  uploadData.append("module", "Bookings");
+                  const categoryName = formValues.category || "Uncategorized";
+                  uploadData.append("category", categoryName);
+                  
+                  xhr.send(uploadData);
+                } else {
+                  const reader = new FileReader();
+                  reader.onloadend = () => setValue(fieldName as any, reader.result as any);
+                  reader.readAsDataURL(file);
+                }
+              }}
+              className="h-[45px] w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-[0.95rem] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            />
+            {uploadProgress[fieldName] !== undefined && (
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100 rounded-b-xl overflow-hidden">
+                <div 
+                  className="h-full bg-blue-600 transition-all duration-300" 
+                  style={{ width: `${uploadProgress[fieldName]}%` }}
+                />
+              </div>
+            )}
+          </div>
+          {driveStatus?.connected && (
+             <div className="flex items-center gap-3">
+               <div className="h-px bg-slate-200 flex-1"></div>
+               <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">OR</span>
+               <div className="h-px bg-slate-200 flex-1"></div>
+             </div>
+          )}
+          {driveStatus?.connected && (
+            <GooglePicker 
+              onPick={(file) => setValue(fieldName as any, { driveFile: file } as any)} 
+              className="w-full justify-center py-2.5 shadow-sm border border-blue-100"
+            />
+          )}
+        </div>
       );
     }
 

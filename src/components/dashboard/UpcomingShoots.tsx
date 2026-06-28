@@ -72,16 +72,47 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
                 )}
                 
                 <div className="flex items-center gap-4 relative z-10">
-                  <div className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center font-black text-[1.1rem] shadow-sm transition-all duration-300 ${
+                  <div className={`w-[48px] h-[42px] shrink-0 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all duration-300 ${
                     title === "Today" 
                       ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-500/20 group-hover:shadow-orange-500/40' 
                       : 'bg-gradient-to-br from-slate-100 to-slate-50 text-slate-600 group-hover:from-orange-50 group-hover:to-orange-100 group-hover:text-orange-600'
                   }`}>
-                    {(b.title || 'U').charAt(0).toUpperCase()}
+                    {(() => {
+                      let t = b.time;
+                      if (!t && b.customData) {
+                        try {
+                          const parsed = typeof b.customData === 'string' ? JSON.parse(b.customData) : b.customData;
+                          t = parsed.fld_b_time || parsed.fld_b_start_time || parsed.startTime || parsed.time;
+                          
+                          if (!t) {
+                            // Fallback: search for any key containing 'time' that has a time-like value
+                            for (const key of Object.keys(parsed)) {
+                              if (key.toLowerCase().includes('time') && typeof parsed[key] === 'string' && parsed[key].includes(':')) {
+                                t = parsed[key];
+                                break;
+                              }
+                            }
+                          }
+                        } catch (e) {}
+                      }
+                      
+                      return t ? (
+                        <>
+                          <span className="text-[0.8rem] font-black leading-none">{t.split(' ')[0]}</span>
+                          {t.split(' ')[1] && (
+                            <span className="text-[0.55rem] font-bold uppercase mt-0.5 opacity-90">{t.split(' ')[1]}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[1.1rem] font-black">
+                          {(b.title || (b as any).client?.name || 'U').charAt(0).toUpperCase()}
+                        </span>
+                      );
+                    })()}
                   </div>
                   
-                  <div className="flex flex-col">
-                    <h4 className="font-extrabold text-[0.95rem] text-slate-800 leading-tight group-hover:text-orange-600 transition-colors">{b.title}</h4>
+                  <div className="flex flex-col overflow-hidden">
+                    <h4 className="font-extrabold text-[0.95rem] text-slate-800 leading-tight group-hover:text-orange-600 transition-colors truncate">{b.title || (b as any).client?.name || 'Untitled'}</h4>
                     <span className="font-semibold text-[0.65rem] text-slate-400 uppercase tracking-widest mt-0.5 group-hover:text-slate-500 transition-colors">
                       {b.bookingNumber || b.id.substring(0, 8)}
                     </span>

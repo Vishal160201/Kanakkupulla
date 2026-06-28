@@ -1,5 +1,5 @@
-"use client";
 import FileAttachment from "@/components/ui/FileAttachment";
+"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
@@ -47,6 +47,14 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     }
   }, [isOpen, defaultProductId]);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as Element).closest('.file-upload-container')) {
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const standardFieldMap: Record<string, string> = {
     fld_g_product: 'productId',

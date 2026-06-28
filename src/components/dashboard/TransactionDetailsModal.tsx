@@ -95,7 +95,7 @@ const fieldIcon = (type: string, label: string) => {
 
 export default function TransactionDetailsModal() {
   const router = useRouter();
-  const { isTransactionDetailsOpen, transactionDetailsId, closeTransactionDetails, openTransactionForm } = useGlobalForm();
+  const { isTransactionDetailsOpen, transactionDetailsId, closeTransactionDetails, openTransactionForm, openBookingDetails, openGiftOrderDetails } = useGlobalForm();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { data, error, isLoading } = useSWR<TransactionDetailResponse>(
@@ -108,10 +108,19 @@ export default function TransactionDetailsModal() {
 
   };
 
-  const handleNavigate = (path: string) => {
+  const handleNavigateToBooking = (bookingId?: string) => {
+    if (!bookingId) return;
     closeTransactionDetails();
     setTimeout(() => {
-      router.push(path);
+      openBookingDetails(bookingId);
+    }, 150);
+  };
+
+  const handleNavigateToOrder = (orderId?: string) => {
+    if (!orderId) return;
+    closeTransactionDetails();
+    setTimeout(() => {
+      openGiftOrderDetails(orderId);
     }, 150);
   };
 
@@ -255,7 +264,7 @@ export default function TransactionDetailsModal() {
                     {transaction.booking && (
                       <button
                         type="button"
-                        onClick={() => handleNavigate(`/bookings/details/${transaction.booking?.id}`)}
+                        onClick={() => handleNavigateToBooking(transaction.booking?.id)}
                         className="grid w-full grid-cols-[24px_110px_minmax(0,1fr)] items-start gap-2 text-left text-sm sm:grid-cols-[28px_120px_minmax(0,1fr)] mt-1"
                       >
                         <i className="ph-bold ph-calendar-check mt-0.5 text-lg text-slate-400" />
@@ -268,7 +277,7 @@ export default function TransactionDetailsModal() {
                     {transaction.productOrder && (
                       <button
                         type="button"
-                        onClick={() => handleNavigate(`/gifts/orders/${transaction.productOrder?.id}`)}
+                        onClick={() => handleNavigateToOrder(transaction.productOrder?.id)}
                         className="grid w-full grid-cols-[24px_110px_minmax(0,1fr)] items-start gap-2 text-left text-sm sm:grid-cols-[28px_120px_minmax(0,1fr)] mt-1"
                       >
                         <i className="ph-bold ph-package mt-0.5 text-lg text-slate-400" />
