@@ -120,13 +120,15 @@ export async function POST(request: Request) {
 
     // Notify Admins about the new booking
     // Fire and forget
-    broadcastNotification(
-      "New Booking Request",
-      `A new ${category || 'Wedding'} booking for ${newBooking.client?.name || 'a client'} has been created!`,
-      "BOOKING",
-      `/bookings/details/${newBooking.id}`,
-      userId
-    ).catch(console.error);
+    broadcastNotification({
+      title: "New Booking Request",
+      message: `A new ${category || 'Wedding'} booking for ${newBooking.client?.name || 'a client'} has been created!`,
+      type: "BOOKING_CREATED",
+      actionUrl: `/bookings/details/${newBooking.id}`,
+      entityId: newBooking.id,
+      entityType: "booking",
+      skipUserId: userId
+    }).catch(console.error);
 
     return NextResponse.json(newBooking, {
       status: 201,

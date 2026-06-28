@@ -38,7 +38,8 @@ export default async function AlbumStatusPage({
     
     const isAlbum = b.category === 'Album' || 
                    (customData as any)?.fld_b_inclusions?.includes('Album') || 
-                   (customData as any)?.album_status;
+                   (customData as any)?.album_status ||
+                   (b as any).albumStatus;
     const bStatus = (b.status || '').trim().toLowerCase();
     
     return isAlbum || ['shoot completed', 'designing', 'printing', 'album work in progress'].includes(bStatus);

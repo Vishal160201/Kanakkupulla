@@ -50,6 +50,7 @@ export async function GET() {
         date: true,
         time: true,
         status: true,
+        albumStatus: true,
         customData: true,
         client: { select: { name: true, phone: true, email: true } },
         order: { select: { package: true, advance: true, due: true } },
@@ -117,13 +118,16 @@ export async function GET() {
     for (const b of dbBookings) {
       const isAlbum = b.category === 'Album' ||
         (b.customData as any)?.fld_b_inclusions?.includes('Album') ||
-        (b.customData as any)?.album_status;
+        (b.customData as any)?.album_status ||
+        (b as any).albumStatus;
       const bStatus = (b.status || '').trim().toLowerCase();
-      if (bStatus === 'shoot completed' || (isAlbum && bStatus === 'pending')) {
+      const aStatus = ((b as any).albumStatus || '').trim().toLowerCase();
+      
+      if (bStatus === 'shoot completed' || (isAlbum && bStatus === 'pending') || aStatus === 'pending') {
         pendingAlbumWorksCount++;
-      } else if (bStatus === 'designing' || bStatus === 'printing' || bStatus === 'album work in progress') {
+      } else if (bStatus === 'designing' || bStatus === 'printing' || bStatus === 'album work in progress' || aStatus === 'in_progress') {
         albumInProgressCount++;
-      } else if (isAlbum && bStatus !== 'delivered' && bStatus !== 'shoot completed' && bStatus !== 'pending') {
+      } else if (isAlbum && bStatus !== 'delivered' && bStatus !== 'shoot completed' && bStatus !== 'pending' && aStatus !== 'delivered') {
         albumInProgressCount++;
       }
     }

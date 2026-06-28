@@ -25,7 +25,7 @@ export default function MainLayout({
             <Sidebar />
             <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden">
               <TopNavigation />
-              <div className="flex-1 overflow-x-hidden overflow-y-auto bg-[#fafafa] p-4 md:p-8 relative">
+              <div className="flex-1 overflow-x-hidden overflow-y-auto bg-[#fafafa] p-4 md:p-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8 relative">
                 <PageTransition>
                   {children}
                 </PageTransition>

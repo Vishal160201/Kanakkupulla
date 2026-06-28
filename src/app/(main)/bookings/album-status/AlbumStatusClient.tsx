@@ -61,20 +61,22 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
 
   const selectedAlbum = albums.find(a => a.id === selectedAlbumId) || null;
 
-  // Derive metrics
   const workInProgressCount = albums.filter(a => {
     const status = (a.status || '').trim().toLowerCase();
-    return ['shoot completed', 'designing', 'printing', 'album work in progress'].includes(status);
+    const aStatus = (a.albumStatus || '').trim().toLowerCase();
+    return ['shoot completed', 'designing', 'printing', 'album work in progress'].includes(status) || aStatus === 'in_progress';
   }).length;
   
   const completedCount = albums.filter(a => {
     const status = (a.status || '').trim().toLowerCase();
-    return ['album completed', 'ready for delivery'].includes(status);
+    const aStatus = (a.albumStatus || '').trim().toLowerCase();
+    return ['album completed', 'ready for delivery'].includes(status) || aStatus === 'delivered';
   }).length;
 
   const deliveredCount = albums.filter(a => {
     const status = (a.status || '').trim().toLowerCase();
-    return status === 'delivered';
+    const aStatus = (a.albumStatus || '').trim().toLowerCase();
+    return status === 'delivered' || aStatus === 'delivered';
   }).length;
 
   // Simple overdue check logic
@@ -87,7 +89,8 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
     const deliveryDateStr = customData.album_delivery_date || customData.delivery_date;
     if (deliveryDateStr) {
       const deliveryDate = new Date(deliveryDateStr);
-      if (deliveryDate < new Date() && a.status?.toLowerCase() !== 'delivered') {
+      const aStatus = (a.albumStatus || '').trim().toLowerCase();
+      if (deliveryDate < new Date() && a.status?.toLowerCase() !== 'delivered' && aStatus !== 'delivered') {
         return true;
       }
     }
@@ -97,18 +100,30 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
   const filteredAlbums = albums.filter(a => {
     // Tab filter
     const status = (a.status || '').trim().toLowerCase();
+    const aStatus = (a.albumStatus || '').trim().toLowerCase();
     
-    if (activeTab === 'Pending' && !['shoot completed', 'designing', 'printing', 'album work in progress', 'album completed', 'ready for delivery'].includes(status)) return false;
-    if (activeTab === 'Work in Progress' && !['shoot completed', 'designing', 'printing', 'album work in progress'].includes(status)) return false;
-    if (activeTab === 'Completed' && !['album completed', 'ready for delivery'].includes(status)) return false;
-    if (activeTab === 'Delivered' && status !== 'delivered') return false;
+    if (activeTab === 'Pending') {
+      const isPending = aStatus === 'pending' || ['shoot completed', 'designing', 'printing', 'album work in progress', 'album completed', 'ready for delivery'].includes(status);
+      if (!isPending) return false;
+    }
+    if (activeTab === 'Work in Progress') {
+      const isWip = aStatus === 'in_progress' || ['shoot completed', 'designing', 'printing', 'album work in progress'].includes(status);
+      if (!isWip) return false;
+    }
+    if (activeTab === 'Completed') {
+      const isCompleted = ['album completed', 'ready for delivery'].includes(status);
+      if (!isCompleted && aStatus !== 'delivered') return false; // Or 'completed' if added to enum later
+    }
+    if (activeTab === 'Delivered') {
+      if (status !== 'delivered' && aStatus !== 'delivered') return false;
+    }
     if (activeTab === 'Overdue') {
       let customData: any = {};
       try { customData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {}); } catch(e) {}
       const deliveryDateStr = customData.album_delivery_date || customData.delivery_date;
       if (!deliveryDateStr) return false;
       const deliveryDate = new Date(deliveryDateStr);
-      if (deliveryDate >= new Date() || status === 'delivered') return false;
+      if (deliveryDate >= new Date() || status === 'delivered' || aStatus === 'delivered') return false;
     }
     
     // Search filter
@@ -219,7 +234,6 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                       <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Designer</th>
                       <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Delivery Date</th>
                       <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Progress</th>
                       <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest"></th>
                     </tr>
                   </thead>
@@ -303,19 +317,6 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
         }}
         className={cn("w-36 rounded-lg text-[0.75rem] font-black border-none", statusColor)}
         placeholder="Select Status"
-      />
-   </td>
-                        <td className="p-5 w-32 whitespace-nowrap">
-      <div className="flex items-center justify-between text-[0.75rem] font-black text-slate-800 mb-1">
-        <span>{progress}%</span>
-      </div>
-      <input 
-        type="range" 
-        min="0" 
-        max="100" 
-        value={progress}
-        onChange={(e) => handleUpdateAlbum(a.id, { customData: { album_progress: e.target.value } })}
-        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
       />
    </td>
                         <td className="p-5 text-right whitespace-nowrap">
@@ -463,16 +464,6 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                       <div className="grid grid-cols-[110px_1fr] text-[0.85rem] items-center">
                         <div className="text-slate-500 font-medium">Album Type</div>
                         <div className="font-black text-slate-800 flex items-center gap-2"><span className="text-slate-400 font-normal">:</span> {cData.fld_b_album_type || cData.album_type || 'Premium'}</div>
-                      </div>
-                      <div className="grid grid-cols-[110px_1fr] text-[0.85rem] items-center">
-                        <div className="text-slate-500 font-medium">Progress</div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400 font-normal">:</span>
-                          <span className="font-black text-slate-800">{progress}%</span>
-                          <div className="w-24 bg-slate-200 rounded-full h-1.5 ml-2">
-                            <div className={`h-1.5 rounded-full ${progress === 100 ? 'bg-emerald-500' : 'bg-orange-500'}`} style={{ width: `${progress}%` }}></div>
-                          </div>
-                        </div>
                       </div>
                       <div className="grid grid-cols-[110px_1fr] text-[0.85rem] items-start">
                         <div className="text-slate-500 font-medium">Remarks</div>

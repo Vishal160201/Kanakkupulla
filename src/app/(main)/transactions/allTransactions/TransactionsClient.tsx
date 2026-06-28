@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { toast } from "sonner";
+import BudgetOverview from "@/components/dashboard/BudgetOverview";
+import HighPriorityAlerts from "@/components/dashboard/HighPriorityAlerts";
 
 function ViewSelectorCard({ value, onChange }: { value: string, onChange: (val: string) => void }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -366,6 +368,9 @@ function TransactionsList() {
 
   return (
     <div className="animate-fade-in w-full">
+      <HighPriorityAlerts />
+      <BudgetOverview />
+
       {/* Transaction Activity */}
       <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 animate-slide-up" style={{ animationDelay: "100ms" }}>
         

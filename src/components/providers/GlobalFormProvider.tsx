@@ -16,7 +16,8 @@ interface GlobalFormContextType {
   
   isTransactionFormOpen: boolean;
   transactionToEditId: string | null;
-  openTransactionForm: (transactionId?: string) => void;
+  transactionInitialData?: Record<string, any>;
+  openTransactionForm: (transactionId?: string, initialData?: Record<string, any>) => void;
   closeTransactionForm: () => void;
 
   isTransactionDetailsOpen: boolean;
@@ -42,6 +43,7 @@ export function GlobalFormProvider({ children }: { children: ReactNode }) {
 
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [transactionToEditId, setTransactionToEditId] = useState<string | null>(null);
+  const [transactionInitialData, setTransactionInitialData] = useState<Record<string, any> | undefined>(undefined);
 
   const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
   const [transactionDetailsId, setTransactionDetailsId] = useState<string | null>(null);
@@ -73,14 +75,18 @@ export function GlobalFormProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setBookingDetailsId(null), 300);
   };
 
-  const openTransactionForm = (transactionId?: string) => {
+  const openTransactionForm = (transactionId?: string, initialData?: Record<string, any>) => {
     setTransactionToEditId(transactionId || null);
+    if (initialData) setTransactionInitialData(initialData);
     setIsTransactionFormOpen(true);
   };
 
   const closeTransactionForm = () => {
     setIsTransactionFormOpen(false);
-    setTimeout(() => setTransactionToEditId(null), 300);
+    setTimeout(() => {
+      setTransactionToEditId(null);
+      setTransactionInitialData(undefined);
+    }, 300);
   };
 
   const openTransactionDetails = (transactionId: string) => {
@@ -107,7 +113,7 @@ export function GlobalFormProvider({ children }: { children: ReactNode }) {
     <GlobalFormContext.Provider value={{
       isBookingFormOpen, bookingToEditId, bookingInitialDate, openBookingForm, closeBookingForm,
       isBookingDetailsOpen, bookingDetailsId, openBookingDetails, closeBookingDetails,
-      isTransactionFormOpen, transactionToEditId, openTransactionForm, closeTransactionForm,
+      isTransactionFormOpen, transactionToEditId, transactionInitialData, openTransactionForm, closeTransactionForm,
       isTransactionDetailsOpen, transactionDetailsId, openTransactionDetails, closeTransactionDetails,
       isGiftOrderDetailsOpen, giftOrderDetailsId, openGiftOrderDetails, closeGiftOrderDetails
     }}>

@@ -16,7 +16,7 @@ export async function saveBookingAction(formData: FormData) {
     const validatedData = bookingSchema.parse(rawData);
     
     // Extract custom dynamic fields that are not part of the standard validatedData
-    const standardKeys = ['id', 'title', 'category', 'date', 'time', 'location', 'phone', 'email', 'package', 'advance', 'due', 'status', 'installments', 'packageName', 'inclusions', 'notes', 'attachments', 'photographers'];
+    const standardKeys = ['id', 'title', 'category', 'date', 'time', 'location', 'phone', 'email', 'package', 'advance', 'due', 'status', 'installments', 'packageName', 'inclusions', 'notes', 'attachments', 'photographers', 'albumStatus', 'galleryDelivered'];
     const customData: Record<string, any> = {};
     for (const [key, value] of Object.entries(rawData)) {
       if (!standardKeys.includes(key) && key !== 'customData' && key !== 'recordDate' && !key.startsWith('$ACTION')) {
@@ -46,6 +46,8 @@ export async function saveBookingAction(formData: FormData) {
              notes: rawData.notes ? String(rawData.notes) : undefined,
              attachments: rawData.attachments ? JSON.parse(String(rawData.attachments)) : undefined,
              photographers: rawData.photographers ? JSON.parse(String(rawData.photographers)) : undefined,
+             albumStatus: validatedData.albumStatus ? (validatedData.albumStatus.toUpperCase() as any) : undefined,
+             galleryDelivered: validatedData.galleryDelivered !== undefined ? (validatedData.galleryDelivered === 'true' || validatedData.galleryDelivered === true) : undefined,
              customData: Object.keys(customData).length > 0 ? customData : undefined,
              ...( (session?.user as any)?.id ? { updatedBy: { connect: { id: (session?.user as any)?.id } } } : {} ),
            }
@@ -74,13 +76,15 @@ export async function saveBookingAction(formData: FormData) {
          });
 
          // Fire and forget notification to prevent blocking UI
-         broadcastNotification(
-           "Booking Updated",
-           `The booking ${existingBooking.bookingNumber || ''} has been updated.`,
-           "BOOKING",
-           `/bookings/details/${validatedData.id}`,
-           (session?.user as any)?.id
-         ).catch(e => console.error("Notification error:", e));
+         broadcastNotification({
+           title: "Booking Updated",
+           message: `The booking ${existingBooking.bookingNumber || ''} has been updated.`,
+           type: "BOOKING_UPDATED",
+           actionUrl: `/bookings/details/${validatedData.id}`,
+           entityId: validatedData.id,
+           entityType: "booking",
+           skipUserId: (session?.user as any)?.id
+         }).catch(e => console.error("Notification error:", e));
 
          revalidatePath('/', 'layout');
          return { success: true, data: validatedData as Booking };
@@ -124,6 +128,8 @@ export async function saveBookingAction(formData: FormData) {
         notes: rawData.notes ? String(rawData.notes) : undefined,
         attachments: rawData.attachments ? JSON.parse(String(rawData.attachments)) : undefined,
         photographers: rawData.photographers ? JSON.parse(String(rawData.photographers)) : undefined,
+        albumStatus: validatedData.albumStatus ? (validatedData.albumStatus.toUpperCase() as any) : undefined,
+        galleryDelivered: validatedData.galleryDelivered !== undefined ? (validatedData.galleryDelivered === 'true' || validatedData.galleryDelivered === true) : undefined,
         customData: Object.keys(customData).length > 0 ? customData : undefined,
         createdById: (session?.user as any)?.id || undefined,
         updatedById: (session?.user as any)?.id || undefined,
@@ -153,13 +159,15 @@ export async function saveBookingAction(formData: FormData) {
     });
 
     // Fire and forget notification to prevent blocking UI
-    broadcastNotification(
-      "New Booking Created",
-      `A new booking (${nextBookingNumber}) has been created for ${validatedData.title}.`,
-      "BOOKING",
-      `/bookings/details/${newBooking.id}`,
-      (session?.user as any)?.id
-    ).catch(e => console.error("Notification error:", e));
+    broadcastNotification({
+      title: "New Booking Created",
+      message: `A new booking (${nextBookingNumber}) has been created for ${validatedData.title}.`,
+      type: "BOOKING_CREATED",
+      actionUrl: `/bookings/details/${newBooking.id}`,
+      entityId: newBooking.id,
+      entityType: "booking",
+      skipUserId: (session?.user as any)?.id
+    }).catch(e => console.error("Notification error:", e));
 
     revalidatePath('/', 'layout');
 
@@ -209,9 +217,13 @@ export async function deleteBookingAction(id: string) {
 export async function updateBookingStatusAction(bookingId: string, newStatus: string) {
   try {
     const session = await getServerSession(authOptions);
+    const dataToUpdate: any = { status: newStatus };
+    if (newStatus === 'Shoot Completed' || newStatus === 'Completed') {
+      dataToUpdate.albumStatus = 'PENDING';
+    }
     const booking = await prisma.booking.update({
       where: { id: bookingId },
-      data: { status: newStatus }
+      data: dataToUpdate
     });
     
     await prisma.systemLog.create({
@@ -219,13 +231,15 @@ export async function updateBookingStatusAction(bookingId: string, newStatus: st
     });
     
     // Fire and forget notification to prevent blocking UI
-    broadcastNotification(
-      "Booking Status Changed",
-      `Booking ${booking.bookingNumber || ''} status has been updated to ${newStatus}.`,
-      "BOOKING",
-      `/bookings/details/${bookingId}`,
-      (session?.user as any)?.id
-    ).catch(e => console.error("Notification error:", e));
+    broadcastNotification({
+      title: "Booking Status Changed",
+      message: `Booking ${booking.bookingNumber || ''} status has been updated to ${newStatus}.`,
+      type: "BOOKING_UPDATED",
+      actionUrl: `/bookings/details/${bookingId}`,
+      entityId: bookingId,
+      entityType: "booking",
+      skipUserId: (session?.user as any)?.id
+    }).catch(e => console.error("Notification error:", e));
 
     revalidatePath('/', 'layout');
     return { success: true };

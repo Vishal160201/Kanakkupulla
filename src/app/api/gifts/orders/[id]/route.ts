@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { broadcastNotification } from "@/lib/notifications";
 
 export async function GET(
   request: Request,
@@ -83,9 +84,19 @@ export async function PATCH(
         const updatedTx = await prisma.transaction.findFirst({
            where: { productOrderId: order.id, OR: [{ description: { startsWith: 'Advance' } }, { description: { startsWith: 'Full Payment' } }] }
         });
-        if (updatedTx) {
-        }
       }
+    }
+
+    if (data.status) {
+      const typeStr = data.status === "DELIVERED" ? "ORDER_DELIVERED" : "ORDER_STATUS_CHANGED";
+      broadcastNotification({
+        title: "Order Status Updated",
+        message: `Order ${order.orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} is now ${data.status}.`,
+        type: typeStr as any,
+        actionUrl: `/gifts`,
+        entityId: order.id,
+        entityType: "order"
+      }).catch(console.error);
     }
 
     return NextResponse.json({ order });

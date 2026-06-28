@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     await prisma.systemLog.create({
       data: {
         action: "PRODUCT_ORDER_CREATED",
-        details: `Created product order ID: ${newProductOrder.id} for product ${newProductOrder.product.name}`,
+        details: `New Order Received - Order ID: ${newProductOrder.id} for product ${newProductOrder.product?.name || 'Multiple Items'}`,
         userId: (session.user as any).id,
       }
     });

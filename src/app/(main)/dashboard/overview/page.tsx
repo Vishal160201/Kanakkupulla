@@ -5,6 +5,8 @@ import useSWR from "swr";
 import { Suspense } from "react";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { useRouter } from "next/navigation";
+import HighPriorityAlerts from "@/components/dashboard/HighPriorityAlerts";
+import OverdueBookingBanners from "@/components/bookings/OverdueBookingBanners";
 
 const CATEGORY_ICONS: Record<string, string> = {
   "Photography Session": "ph-camera",
@@ -344,7 +346,9 @@ function DashboardSkeleton() {
 
 export default function OverviewPage() {
   return (
-    <section id="view-dashboard" className="flex flex-col gap-8 w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-20">
+    <section id="view-dashboard" className="flex flex-col gap-4 w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-20">
+      <OverdueBookingBanners />
+      <HighPriorityAlerts />
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardMetrics />
       </Suspense>

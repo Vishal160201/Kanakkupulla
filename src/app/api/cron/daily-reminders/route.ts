@@ -61,13 +61,16 @@ export async function GET(request: Request) {
 
       for (const userId of recipients) {
         if (typeof userId === "string") {
-          await createNotification(
+          await createNotification({
             userId,
             title,
             message,
-            "ALERT",
-            `/bookings/details/${booking.id}`
-          );
+            type: "HOT_DATE_ALERT",
+            actionUrl: `/bookings/details/${booking.id}`,
+            entityId: booking.id,
+            entityType: "booking",
+            priority: "HIGH"
+          });
           notificationsSent++;
         }
       }

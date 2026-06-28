@@ -87,10 +87,11 @@ export default function BookingDetailsModal() {
   const standardFieldMap: Record<string, string> = {
     fld_b_client: 'title', fld_b_phone: 'phone', fld_b_email: 'email',
     fld_b_date: 'date', fld_b_time: 'time', fld_b_category: 'category',
-    fld_b_location: 'location', fld_b_status: 'status', fld_b_package: 'package', fld_b_advance: 'advance'
+    fld_b_location: 'location', fld_b_status: 'status', fld_b_package: 'package', fld_b_advance: 'advance',
+    fld_b_album_status: 'albumStatus', fld_gallery_delivered: 'galleryDelivered'
   };
 
-  const statusField = layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.type === 'STATUS_PICKER' || f.id === 'fld_b_status');
+  const statusField = layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.id === 'fld_b_status') || layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.type === 'STATUS_PICKER');
   const isStatusPicker = statusField?.type === 'STATUS_PICKER';
   const statusOptions = isStatusPicker ? (statusField.statusOptions || []) : [];
   
@@ -462,10 +463,11 @@ export default function BookingDetailsModal() {
                               })}
                             </div>
                             
-                            {(section.title.toLowerCase().includes('album') || section.title.toLowerCase().includes('event')) && (() => {
-                              const steps = section.title.toLowerCase().includes('album') 
-                                ? ['Pending', 'Designing', 'Printing', 'Delivered'] 
-                                : ['Pending', 'Confirmed', 'Completed'];
+                            {(sectionStatusField && sectionStatusField.statusOptions?.length > 0) && (() => {
+                              // Build dynamic steps from layout settings, excluding 'Cancelled' as it's not a progressive step
+                              const steps = sectionStatusField.statusOptions
+                                .map((o: any) => o.label)
+                                .filter((label: string) => label.toLowerCase() !== 'cancelled');
                                 
                               return (
                                 <div className="shrink-0 w-28 pt-2">

@@ -128,7 +128,7 @@ export async function GET(req: Request) {
 
     const productRevenue = productOrders.reduce((acc, po) => {
       const name = po.product?.name || 'Unknown';
-      acc[name] = (acc[name] || 0) + po.quantity; 
+      acc[name] = (acc[name] || 0) + Number(po.quantity || 1); 
       return acc;
     }, {} as Record<string, number>);
     
@@ -212,7 +212,7 @@ export async function GET(req: Request) {
         clientName: o.booking?.client?.name || 'Unknown',
         amount: o.due,
         date: o.booking?.date,
-        products: productOrders.filter(po => po.clientName === o.booking?.client?.name).map(po => po.product?.name) // Rough matching for filtering
+        products: productOrders.filter(po => po.clientName === o.booking?.client?.name).flatMap(po => [po.product?.name].filter(Boolean))
       };
     }).slice(0, 10);
 

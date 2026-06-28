@@ -44,43 +44,39 @@ export default function TopNavigation() {
 
   const notifications = notificationsData?.notifications || [];
   const unreadCount = notificationsData?.unreadCount || 0;
+  const unreadReminderCount = notificationsData?.unreadReminderCount || 0;
   const prevUnreadCount = useRef(unreadCount);
 
-  const isAdminOrOwner = (session?.user as any)?.role === "STUDIO_OWNER" || (session?.user as any)?.role === "ADMIN";
-
-  const { data: waStatusData, mutate: mutateWA } = useSWR(
-    isAdminOrOwner ? "/api/whatsapp/status" : null,
-    fetcher,
-    // { refreshInterval: 5000 } // WhatsApp temporarily disabled
-  );
-
-  const [emailNotifs, setEmailNotifs] = useState(true);
+  const { data: systemInfo } = useSWR("/api/ping", fetcher, { refreshInterval: 60000 });
   const [pushNotifs, setPushNotifs] = useState(true);
 
 
 
-  const [waPhoneNumber, setWaPhoneNumber] = useState("");
-  const [isPairingLoading, setIsPairingLoading] = useState(false);
+  const [emailNotifs, setEmailNotifs] = useState(true);
 
-  const requestPairingCode = async () => {
-    if (!waPhoneNumber) return;
-    setIsPairingLoading(true);
-    try {
-      const res = await fetch('/api/whatsapp/pair', {
-        method: 'POST',
-        body: JSON.stringify({ phoneNumber: waPhoneNumber }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        alert("Failed to get pairing code: " + (data.error || "Please try again or check your server logs. WhatsApp may have rate-limited this number."));
-      }
-      mutateWA();
-    } catch (e) {
-      alert("Failed to get pairing code. Please try again.");
-    } finally {
-      setIsPairingLoading(false);
+  // Swipe-to-dismiss state for mobile notifications
+  const [startY, setStartY] = useState<number | null>(null);
+  const [deltaY, setDeltaY] = useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setStartY(e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (startY === null) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startY;
+    if (diff > 0) {
+      setDeltaY(diff);
     }
+  };
+
+  const handleTouchEnd = () => {
+    if (deltaY > 100) {
+      setIsNotificationsOpen(false);
+    }
+    setStartY(null);
+    setDeltaY(0);
   };
 
   const updatePreferences = async (email: boolean, push: boolean) => {
@@ -161,9 +157,20 @@ export default function TopNavigation() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch(`/api/notifications/read-all`, { method: "POST" });
+      await fetch("/api/notifications/read-all", { method: "PATCH" });
       mutateNotifications();
-    } catch (e) {
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleSnooze = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/api/notifications/${id}/snooze`, { method: "PATCH" });
+      mutateNotifications();
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -173,13 +180,24 @@ export default function TopNavigation() {
   const userInitials = userName.substring(0, 2).toUpperCase();
   const isStudioOwner = userRole === "ADMIN";
 
+  const getNotificationIcon = (type: string) => {
+      return (
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${type === 'PAYMENT_DUE_REMINDER' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+          <i className={`ph-fill ${
+            type?.includes('BOOKING') || type === 'HOT_DATE_ALERT' ? 'ph-calendar-check' : 
+            type?.includes('PAYMENT') ? 'ph-receipt' : 
+            type?.includes('ORDER') ? 'ph-package' : 
+            'ph-bell'} text-[1.1rem]`}></i>
+        </div>
+      );
+  };
+
   const roleLabels: Record<string, string> = {
     ADMIN: "Studio Owner",
     STAFF: "Staff",
     PHOTOGRAPHER: "Photographer",
   };
   
-  // Simple logic to set page title
   let title = "Moondot studio";
   if (pathname.includes("bookings")) title = "Bookings Management";
   else if (pathname.includes("galleries")) title = "Galleries Management";
@@ -191,13 +209,25 @@ export default function TopNavigation() {
   return (
     <header className={`relative flex ${title ? 'justify-between' : 'justify-end'} items-center px-4 md:px-10 py-4 md:py-5 bg-slate-50 z-50`}>
       <div className="flex items-center gap-3">
-        {/* Hamburger Menu (Mobile Only) */}
         <button 
           onClick={toggleSidebar}
           className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
         >
           <i className="ph-bold ph-list text-[1.4rem]"></i>
         </button>
+
+        {pathname.includes("settings") && (
+          <button 
+            onClick={() => {
+              const search = new URLSearchParams(window.location.search);
+              search.set("menu", "open");
+              router.push(`${pathname}?${search.toString()}`);
+            }}
+            className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-orange-50 border border-orange-200 text-orange-600 shadow-sm hover:bg-orange-100 transition-colors"
+          >
+            <i className="ph-bold ph-faders text-[1.4rem]"></i>
+          </button>
+        )}
 
         {title && title === "Moondot studio" ? (
           <div className="relative hidden sm:block">
@@ -241,9 +271,7 @@ export default function TopNavigation() {
       </div>
       
       <div className="flex items-center gap-3 md:gap-5">
-        {/* Search Bar - Responsive */}
         <div ref={searchRef} className="relative">
-          {/* Mobile Search Icon */}
           <button 
             className="md:hidden w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white border border-gray-200 text-slate-600 shadow-sm"
             onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
@@ -251,7 +279,6 @@ export default function TopNavigation() {
             <i className="ph-bold ph-magnifying-glass text-[1.4rem]"></i>
           </button>
 
-          {/* Desktop Search Bar or Expanded Mobile Search */}
           <div className={`
             absolute right-0 top-14 md:top-auto md:relative md:flex bg-white border border-gray-200 rounded-2xl md:rounded-full px-4 py-2 items-center gap-2.5 w-[calc(100vw-32px)] sm:w-[300px] shadow-lg md:shadow-sm transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent z-[100]
             ${isMobileSearchOpen ? 'flex' : 'hidden'}
@@ -273,8 +300,10 @@ export default function TopNavigation() {
           </div>
           
           {isSearchFocused && searchQuery.length >= 2 && (
-            <div className="absolute top-[calc(100%+8px)] right-0 md:left-0 w-[calc(100vw-32px)] sm:w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[60dvh] overflow-y-auto no-scrollbar">
-              <div className="px-4 pb-2 text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Search Results</div>
+            <>
+              <div className="fixed inset-0 z-[90] md:hidden" onClick={() => setIsSearchFocused(false)}></div>
+              <div className="fixed md:absolute top-[80px] md:top-[calc(100%+8px)] left-4 right-4 md:left-0 md:right-auto md:w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[calc(100dvh-100px)] md:max-h-[60dvh] overflow-y-auto no-scrollbar">
+                <div className="px-4 pb-2 text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Search Results</div>
               
               {!isSearchLoading && (!searchResults?.results || searchResults.results.length === 0) ? (
                 <div className="px-4 py-6 text-center flex flex-col items-center justify-center text-slate-400">
@@ -305,7 +334,8 @@ export default function TopNavigation() {
                   ))}
                 </div>
               )}
-            </div>
+              </div>
+            </>
           )}
         </div>
         
@@ -315,18 +345,29 @@ export default function TopNavigation() {
             className="bg-white border border-gray-200 rounded-full w-[45px] h-[45px] flex items-center justify-center relative cursor-pointer shadow-sm hover:bg-slate-50 transition-colors"
           >
             <i className="ph-fill ph-bell text-slate-600 text-[1.4rem]"></i>
-            {unreadCount > 0 && (
+            {unreadCount + unreadReminderCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[0.65rem] font-bold px-1.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center border-2 border-white box-content shadow-sm">
-                {unreadCount > 99 ? '99+' : unreadCount}
+                {unreadCount + unreadReminderCount > 99 ? '99+' : unreadCount + unreadReminderCount}
               </span>
             )}
           </button>
 
           {isNotificationsOpen && (
-            <div className="absolute top-[calc(100%+10px)] right-0 w-[calc(100vw-32px)] sm:w-[350px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 z-50 overflow-hidden flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-slate-50/50">
-                <h3 className="font-bold text-slate-900 text-[0.95rem]">Notifications</h3>
-                {unreadCount > 0 && (
+            <>
+              <div className="fixed inset-0 z-[45] md:hidden bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setIsNotificationsOpen(false)}></div>
+              <div 
+                className={`fixed md:absolute inset-x-0 bottom-0 md:bottom-auto md:top-[calc(100%+10px)] md:left-auto md:right-0 md:w-[380px] bg-white rounded-t-3xl md:rounded-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] md:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border-t md:border border-gray-100 z-50 flex flex-col max-h-[85dvh] md:max-h-[70dvh] overflow-hidden transform origin-bottom md:origin-top-right ${deltaY === 0 ? 'transition-all animate-slide-up-mobile md:animate-none' : ''}`}
+                style={{ transform: deltaY > 0 ? `translateY(${deltaY}px)` : undefined }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                <div className="w-[40px] h-[4px] bg-[#e2e8f0] rounded-[2px] mx-auto my-[8px] md:hidden shrink-0"></div>
+                <div className="flex justify-between items-center px-5 pb-5 pt-2 md:p-4 border-b border-gray-100 bg-slate-50/50 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-[1.1rem] md:text-[0.95rem]">Notifications</h3>
+                  </div>
+                {unreadCount + unreadReminderCount > 0 && (
                   <button 
                     onClick={handleMarkAllAsRead}
                     className="text-[0.75rem] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
@@ -344,46 +385,75 @@ export default function TopNavigation() {
                   </div>
                 ) : (
                   <div className="flex flex-col">
-                    {notifications.map((notification: any) => (
-                      <div 
-                        key={notification.id}
-                        onClick={() => handleMarkAsRead(notification.id, notification.link)}
-                        className={`p-4 border-b border-gray-50 flex gap-3 cursor-pointer transition-colors ${notification.isRead ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/30 hover:bg-blue-50/60'}`}
-                      >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${notification.isRead ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-600'}`}>
-                          <i className={`ph-fill ${notification.type === 'BOOKING' ? 'ph-calendar-check' : notification.type === 'PAYMENT' ? 'ph-receipt' : notification.type === 'ALERT' ? 'ph-warning-circle' : 'ph-bell'} text-[1.1rem]`}></i>
-                        </div>
-                        <div className="flex flex-col flex-1 min-w-0">
-                          <div className="flex justify-between items-start gap-2 mb-1">
-                            <span className={`text-[0.85rem] truncate ${notification.isRead ? 'font-semibold text-slate-700' : 'font-bold text-slate-900'}`}>{notification.title}</span>
-                            <span className="text-[0.65rem] text-slate-400 shrink-0 whitespace-nowrap mt-0.5">
-                              {(() => {
-                                const d = new Date(notification.createdAt);
-                                const now = new Date();
-                                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                                const yesterday = new Date(today);
-                                yesterday.setDate(yesterday.getDate() - 1);
-                                const notifDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-                                const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-                                if (notifDate.getTime() === today.getTime()) return `Today ${timeStr}`;
-                                if (notifDate.getTime() === yesterday.getTime()) return `Yesterday ${timeStr}`;
-                                return `${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} ${timeStr}`;
-                              })()}
-                            </span>
+                    {(() => {
+                      const todayNotifs = notifications.filter((n: any) => {
+                        const d = new Date(n.createdAt);
+                        const now = new Date();
+                        return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                      });
+                      const earlierNotifs = notifications.filter((n: any) => {
+                        const d = new Date(n.createdAt);
+                        const now = new Date();
+                        return !(d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear());
+                      });
+
+                      const renderNotif = (notification: any) => (
+                        <div 
+                          key={notification.id}
+                          onClick={() => handleMarkAsRead(notification.id, notification.actionUrl)}
+                          className={`p-4 border-b border-gray-50 flex gap-3 cursor-pointer transition-colors group ${!notification.isRead ? 'bg-blue-50/30 hover:bg-blue-50/60' : 'bg-white hover:bg-slate-50'}`}
+                        >
+                          {getNotificationIcon(notification.type)}
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <div className="flex justify-between items-start gap-2 mb-1">
+                              <span className={`text-[0.85rem] truncate ${!notification.isRead ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>{notification.title}</span>
+                              <span className="text-[0.65rem] text-slate-400 shrink-0 whitespace-nowrap mt-0.5">
+                                {new Date(notification.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              </span>
+                            </div>
+                            <p className={`text-[0.8rem] line-clamp-2 ${!notification.isRead ? 'text-slate-700' : 'text-slate-500'}`}>
+                              {notification.message}
+                            </p>
+                            {[
+                              'ORDER_STATUS_STALE', 'BOOKING_STATUS_STALE', 'PAYMENT_DUE_REMINDER', 
+                              'ADVANCE_NOT_COLLECTED', 'GALLERY_NOT_DELIVERED', 'ALBUM_PENDING_REMINDER'
+                            ].includes(notification.type) && (
+                              <button
+                                onClick={(e) => handleSnooze(notification.id, e)}
+                                className="mt-2 text-[0.7rem] font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded hover:bg-orange-100 transition-colors self-start"
+                              >
+                                Snooze 1 day
+                              </button>
+                            )}
                           </div>
-                          <p className={`text-[0.8rem] line-clamp-2 ${notification.isRead ? 'text-slate-500' : 'text-slate-700'}`}>
-                            {notification.message}
-                          </p>
+                          {!notification.isRead && (
+                            <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${notification.type?.includes('REMINDER') ? 'bg-orange-500' : 'bg-blue-500'}`}></div>
+                          )}
                         </div>
-                        {!notification.isRead && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0"></div>
-                        )}
-                      </div>
-                    ))}
+                      );
+
+                      return (
+                        <>
+                          {todayNotifs.length > 0 && (
+                            <>
+                              <div className="bg-slate-50 px-4 py-1.5 border-b border-gray-100 text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest sticky top-0 z-10">Today</div>
+                              {todayNotifs.map(renderNotif)}
+                            </>
+                          )}
+                          {earlierNotifs.length > 0 && (
+                            <>
+                              <div className="bg-slate-50 px-4 py-1.5 border-b border-gray-100 text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest sticky top-0 z-10">Earlier</div>
+                              {earlierNotifs.map(renderNotif)}
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
             </div>
+            </>
           )}
         </div>
 
@@ -396,8 +466,10 @@ export default function TopNavigation() {
           </div>
 
           {isProfileOpen && (
-            <div className="absolute top-[calc(100%+10px)] right-0 w-[calc(100vw-32px)] sm:w-[260px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 p-5 z-50 max-h-[60dvh] overflow-y-auto no-scrollbar">
-              <div className="flex justify-between items-center mb-5">
+            <>
+              <div className="fixed inset-0 z-[45] md:hidden" onClick={() => setIsProfileOpen(false)}></div>
+              <div className="fixed md:absolute top-[80px] md:top-[calc(100%+10px)] left-4 right-4 md:left-auto md:right-0 md:w-[320px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 p-5 z-50 max-h-[calc(100dvh-100px)] md:max-h-[70dvh] overflow-y-auto no-scrollbar">
+                <div className="flex justify-between items-center mb-5 shrink-0">
                 <button 
                   onClick={() => signOut({ callbackUrl: '/login' })}
                   className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
@@ -453,79 +525,10 @@ export default function TopNavigation() {
                   </button>
                 </div>
               </div>
-
-              {/* WHATSAPP TEMPORARILY DISABLED VIA FLAG */}
-              {false /* WHATSAPP_ENABLED */ && isAdminOrOwner && (
-                <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-3">
-                  <div className="flex justify-between items-center">
-                    <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">WhatsApp Bot</div>
-                    <div className="flex items-center gap-1.5">
-                      {!waStatusData ? (
-                        <>
-                          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                          <span className="text-[0.65rem] font-bold text-blue-500">Connecting...</span>
-                        </>
-                      ) : (
-                        <>
-                          <div className={`w-2 h-2 rounded-full ${waStatusData.status === 'READY' ? 'bg-green-500' : waStatusData.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : waStatusData.status === 'ERROR' ? 'bg-red-600' : 'bg-red-500'}`}></div>
-                          <span className="text-[0.65rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Login' : waStatusData.status === 'ERROR' ? 'Error' : 'Disconnected'}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {!waStatusData ? (
-                     <div className="flex flex-col items-center p-3 bg-blue-50 rounded-xl border border-blue-100 gap-2">
-                       <i className="ph-fill ph-spinner-gap text-blue-500 text-2xl animate-spin"></i>
-                       <span className="text-[0.65rem] text-blue-600 text-center font-semibold">Waking up bot server...</span>
-                       <span className="text-[0.55rem] text-blue-400 text-center">This can take up to 60 seconds on Render.</span>
-                     </div>
-                  ) : waStatusData.status === 'ERROR' ? (
-                     <div className="flex flex-col items-center p-3 bg-red-50 rounded-xl border border-red-100 gap-2">
-                       <i className="ph-fill ph-warning-circle text-red-500 text-2xl"></i>
-                       <span className="text-[0.65rem] text-red-600 text-center font-semibold">Failed to start WhatsApp Bot in this environment.</span>
-                       <span className="text-[0.55rem] text-red-400 text-center break-all">{waStatusData.error || "Unknown Error"}</span>
-                       <button onClick={() => { fetch('/api/whatsapp/status'); mutateWA(); }} className="mt-1 px-3 py-1 bg-red-100 text-red-600 text-[0.65rem] font-bold rounded hover:bg-red-200 transition-colors">
-                         Retry Connection
-                       </button>
-                     </div>
-                  ) : waStatusData.status === 'READY' ? (
-                     <button 
-                       onClick={async () => {
-                         await fetch('/api/whatsapp/logout', { method: 'POST' });
-                         mutateWA();
-                       }}
-                       className="w-full py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-bold hover:bg-red-50 transition-colors"
-                     >
-                       Disconnect Bot
-                     </button>
-                  ) : waStatusData.pairingCode ? (
-                     <div className="flex flex-col items-center p-3 bg-slate-50 rounded-xl border border-gray-200">
-                       <span className="text-[1.5rem] font-mono font-bold tracking-[0.2em] text-slate-800">{waStatusData.pairingCode.match(/.{1,4}/g)?.join('-') || waStatusData.pairingCode}</span>
-                       <span className="text-[0.65rem] text-slate-500 mt-2 text-center">Open WhatsApp &gt; Linked Devices &gt; Link with Phone Number</span>
-                     </div>
-                  ) : waStatusData.qrCode ? (
-                     <div className="flex flex-col items-center p-2 bg-slate-50 rounded-xl border border-gray-200">
-                       <img src={waStatusData.qrCode} alt="WhatsApp Login QR" className="w-full max-w-[150px] rounded-lg" />
-                       <span className="text-[0.65rem] text-slate-500 mt-2 text-center">Open WhatsApp &gt; Linked Devices &gt; Scan QR</span>
-                       
-                       <div className="w-full mt-3 pt-3 border-t border-gray-200 flex flex-col gap-2">
-                         <span className="text-[0.65rem] font-bold text-slate-500 uppercase text-center">OR Link with Phone</span>
-                         <div className="flex gap-2">
-                           <input type="text" value={waPhoneNumber} onChange={e => setWaPhoneNumber(e.target.value)} placeholder="+919876543210" className="flex-1 text-xs px-2 py-1.5 border border-gray-200 rounded-lg outline-none focus:border-blue-500 bg-white" />
-                           <button onClick={requestPairingCode} disabled={isPairingLoading} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 disabled:opacity-50">
-                             {isPairingLoading ? '...' : 'Get Code'}
-                           </button>
-                         </div>
-                       </div>
-                     </div>
-                  ) : null}
-                </div>
-              )}
-
             </div>
-          )}
-        </div>
+          </>
+        )}
+      </div>
       </div>
     </header>
   );
