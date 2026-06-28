@@ -75,7 +75,7 @@ function TransactionsList() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
-  const hasMore = currentPage * 50 < totalCount;
+  const totalPages = Math.ceil(totalCount / 25);
   
   const activeView = searchParams.get('view');
   const filterParams = {
@@ -329,7 +329,7 @@ function TransactionsList() {
       if (res.ok) {
         const data = await res.json();
         const items = data.items ?? [];
-        setTransactions(prev => pageNum ? [...prev, ...items] : items);
+        setTransactions(items);
         setCurrentPage(pageNum || 1);
         setTotalCount(data.total ?? 0);
       } else if (res.status === 401) {
@@ -374,7 +374,7 @@ function TransactionsList() {
             <h2 className="text-xl font-bold text-slate-900">Transaction History</h2>
             {/* U6 FIX: Hide record count while loading */}
               {!isLoading && (
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{transactions.length}{hasMore ? '+' : ''} Records</div>
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{totalCount} Records</div>
             )}
           </div>
           
@@ -656,20 +656,33 @@ function TransactionsList() {
           )}
         </div>
 
-        {/* F5/P2: Load More button */}
-        {hasMore && (
-          <div className="flex justify-center mt-6">
-            <button
-              onClick={() => fetchTransactions(currentPage + 1)}
-              disabled={isLoadingMore}
-              className="px-8 py-3 rounded-xl border border-slate-200 bg-white font-bold text-sm text-slate-700 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center gap-2 disabled:opacity-50"
-            >
-              {isLoadingMore ? (
-                <><i className="ph ph-circle-notch animate-spin"></i> Loading...</>
-              ) : (
-                <><i className="ph-bold ph-arrow-down"></i> Load More</>  
-              )}
-            </button>
+        {/* F5/P2: Pagination Controls */}
+        {totalCount > 25 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-6 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 gap-4">
+            <div className="text-[0.8rem] font-bold text-slate-500 uppercase tracking-wider">
+              Showing {((currentPage - 1) * 25) + 1} to {Math.min(currentPage * 25, totalCount)} of {totalCount} entries
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => fetchTransactions(currentPage - 1)}
+                disabled={currentPage === 1 || isLoadingMore}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white font-bold text-[0.85rem] text-slate-700 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <i className="ph-bold ph-caret-left"></i> Prev
+              </button>
+              
+              <div className="hidden sm:flex items-center justify-center px-4 font-bold text-[0.85rem] text-slate-700 bg-white border border-slate-200 rounded-xl shadow-sm">
+                Page {currentPage} of {totalPages}
+              </div>
+
+              <button
+                onClick={() => fetchTransactions(currentPage + 1)}
+                disabled={currentPage >= totalPages || isLoadingMore}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white font-bold text-[0.85rem] text-slate-700 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                Next <i className="ph-bold ph-caret-right"></i>
+              </button>
+            </div>
           </div>
         )}
       </div>

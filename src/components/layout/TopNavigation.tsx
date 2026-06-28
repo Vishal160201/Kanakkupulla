@@ -186,6 +186,7 @@ export default function TopNavigation() {
   else if (pathname.includes("analytics")) title = "Analytics";
   else if (pathname.includes("transactions")) title = "Ledger & Analytics";
   else if (pathname.includes("settings")) title = "Settings";
+  else if (pathname.includes("gifts")) title = "Gifts & Frames";
   
   return (
     <header className={`relative flex ${title ? 'justify-between' : 'justify-end'} items-center px-4 md:px-10 py-4 md:py-5 bg-slate-50 z-50`}>
@@ -272,7 +273,7 @@ export default function TopNavigation() {
           </div>
           
           {isSearchFocused && searchQuery.length >= 2 && (
-            <div className="absolute top-[calc(100%+8px)] right-0 md:left-0 w-[calc(100vw-32px)] sm:w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[400px] overflow-y-auto no-scrollbar">
+            <div className="absolute top-[calc(100%+8px)] right-0 md:left-0 w-[calc(100vw-32px)] sm:w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[60dvh] overflow-y-auto no-scrollbar">
               <div className="px-4 pb-2 text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Search Results</div>
               
               {!isSearchLoading && (!searchResults?.results || searchResults.results.length === 0) ? (
@@ -335,7 +336,7 @@ export default function TopNavigation() {
                 )}
               </div>
               
-              <div className="max-h-[400px] overflow-y-auto no-scrollbar">
+              <div className="max-h-[60dvh] overflow-y-auto no-scrollbar">
                 {notifications.length === 0 ? (
                   <div className="py-10 flex flex-col items-center justify-center text-slate-400">
                     <i className="ph-fill ph-bell-slash text-3xl mb-2 text-slate-300"></i>
@@ -395,7 +396,7 @@ export default function TopNavigation() {
           </div>
 
           {isProfileOpen && (
-            <div className="absolute top-[calc(100%+10px)] right-0 w-[calc(100vw-32px)] sm:w-[260px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 p-5 z-50">
+            <div className="absolute top-[calc(100%+10px)] right-0 w-[calc(100vw-32px)] sm:w-[260px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 p-5 z-50 max-h-[60dvh] overflow-y-auto no-scrollbar">
               <div className="flex justify-between items-center mb-5">
                 <button 
                   onClick={() => signOut({ callbackUrl: '/login' })}

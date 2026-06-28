@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/notifications";
 import { generateNextTransactionId } from "@/lib/transactionId";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 export async function GET(request: Request) {
   // F6: User-scope all queries

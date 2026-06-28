@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
 
-      <body className={cn("flex h-screen overflow-hidden bg-slate-50 text-slate-900 antialiased", inter.className)}>
+      <body className={cn("flex h-[100dvh] fixed inset-0 w-full overflow-hidden bg-slate-50 text-slate-900 antialiased", inter.className)}>
         <AuthProvider>
           {children}
           <Toaster position="top-right" richColors closeButton />

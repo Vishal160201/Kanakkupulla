@@ -632,13 +632,13 @@ function BookingFormModalInner() {
     <Dialog open={isAddModalOpen} onOpenChange={(open) => {
       if (!open) { closeBookingForm(); }
     }}>
-      <DialogContent className="max-w-[800px] sm:max-w-[800px] w-[95vw] sm:w-full p-0 bg-transparent overflow-hidden border-0 shadow-none">
+      <DialogContent className="max-w-[800px] sm:max-w-[800px] w-[95vw] sm:w-full p-0 bg-transparent overflow-visible border-0 shadow-none">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ duration: 0.3, type: "spring", bounce: 0.4 }}
-          className="bg-white rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90dvh]"
+          className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[90dvh] relative overflow-hidden"
         >
         <DialogHeader className="bg-slate-50 border-b border-gray-100 px-5 py-5 sm:px-10 sm:py-8 relative shrink-0">
           <div className="flex flex-col">
