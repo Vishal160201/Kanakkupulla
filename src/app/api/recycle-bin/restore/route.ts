@@ -48,7 +48,6 @@ export async function POST(request: Request) {
             }
           });
         } catch (e) {
-          console.error("Failed to restore transaction", e);
         }
       } else if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
         const data: any = entry.originalData;
@@ -96,7 +95,6 @@ export async function POST(request: Request) {
                   }
                 });
               } catch (e) {
-                console.error(`Failed to upsert transaction ${tx.id}`, e);
               }
             }
           } else {
@@ -112,7 +110,6 @@ export async function POST(request: Request) {
             });
           }
         } catch (e) {
-          console.error("Failed to restore product order", e);
         }
       }
     }
@@ -132,7 +129,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error bulk restoring recycle bin:", error);
     return NextResponse.json({ error: "Failed to restore items" }, { status: 500 });
   }
 }

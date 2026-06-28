@@ -151,7 +151,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (error) {
-    console.error("Error fetching transaction:", error);
     return NextResponse.json({ error: "Failed to fetch transaction" }, { status: 500 });
   }
 }
@@ -214,7 +213,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error updating transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
 }
@@ -250,7 +248,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error deleting transaction:", error);
     return NextResponse.json({ error: "Failed to delete transaction: " + (error as any).message }, { status: 500 });
   }
 }

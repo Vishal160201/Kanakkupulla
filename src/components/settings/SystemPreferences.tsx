@@ -19,7 +19,6 @@ export default function SystemPreferences() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error(err);
         toast.error("Failed to load settings");
         setLoading(false);
       });
@@ -37,7 +36,6 @@ export default function SystemPreferences() {
       if (!res.ok) throw new Error("Failed to save settings");
       toast.success("System preferences saved successfully!");
     } catch (err) {
-      console.error(err);
       toast.error("Failed to save settings");
     } finally {
       setSaving(false);

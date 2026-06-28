@@ -39,7 +39,6 @@ export default function GooglePicker({ onPick, className = "" }: GooglePickerPro
       setToken(data.accessToken);
       return data.accessToken;
     } catch (e) {
-      console.error(e);
       alert("Please connect Google Drive in Settings first.");
       return null;
     }

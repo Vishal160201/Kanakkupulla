@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { FileDashed, Funnel, Trash, ArrowCounterClockwise, CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { FileDashed, Trash, ArrowCounterClockwise, CaretLeft, CaretRight } from "@phosphor-icons/react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 

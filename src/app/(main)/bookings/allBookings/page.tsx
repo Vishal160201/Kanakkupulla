@@ -15,7 +15,7 @@ export default async function AllBookingsPage({
   const limit = 10;
   const skip = (page - 1) * limit;
 
-  let whereClause: any = { deletedAt: null };
+  const whereClause: any = { deletedAt: null };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

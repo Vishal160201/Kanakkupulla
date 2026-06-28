@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const page = pageParam ? parseInt(pageParam, 10) : null;
     const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : 25;
 
-    let whereClause: any = {};
+    const whereClause: any = {};
     if (status) {
       if (status.includes(",")) {
         whereClause.status = { in: status.split(",").map(s => s.trim()) };
@@ -82,7 +82,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ orders, totalCount });
   } catch (error) {
-    console.error("Fetch orders error:", error);
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
   }
 }
@@ -92,7 +91,6 @@ export async function POST(request: Request) {
     const data = await request.json();
     const { productId, quantity, clientName, clientPhone, dueDate, customData, createTransaction, amount, advanceAmount, dueAmount, paymentMode, recordDate, advanceDate } = data;
     
-    console.log('advanceDate received:', advanceDate);
 
     if (!productId || !clientName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -159,7 +157,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ order: createdOrder });
   } catch (error) {
-    console.error("Create order error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

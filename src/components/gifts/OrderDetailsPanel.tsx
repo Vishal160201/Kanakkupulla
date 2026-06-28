@@ -1,33 +1,23 @@
 "use client";
-import Link from "next/link";
 
 import useSWR, { mutate as globalMutate } from "swr";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
-import { format, formatDistanceToNowStrict } from "date-fns";
+import { format } from "date-fns";
 import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
   ChevronDown,
-  ChevronRight,
   Clock,
   CreditCard,
-  Edit2,
-  Image as ImageIcon,
   Loader2,
   Package,
   Phone,
-  Save,
-  Trash2,
   User,
   AlertTriangle,
-  FileDown,
-  Printer,
-  Link as LinkIcon,
-  X,
   Settings,
   PackageOpen,
   ShoppingBag,
@@ -40,7 +30,6 @@ import {
 } from "lucide-react";
 import { getProductIcon } from "@/lib/productIcons";
 import { cn } from "@/lib/utils";
-import { jsPDF } from "jspdf";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -57,7 +46,6 @@ export default function OrderDetailsPanel() {
   
   const { data, error, mutate } = useSWR(giftOrderDetailsId ? `/api/gifts/orders/${giftOrderDetailsId}` : null, fetcher);
   const order = data?.order;
-  console.log("order.customData:", order?.customData);
 
   // Custom notification state
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -157,7 +145,6 @@ export default function OrderDetailsPanel() {
       if (!res.ok) throw new Error("Failed to update status");
       mutate();
     } catch (err) {
-      console.error(err);
     } finally {
       setIsUpdatingStatus(null);
     }

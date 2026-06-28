@@ -8,7 +8,6 @@ export async function GET() {
     const rolePermissions = await prisma.rolePermission.findMany();
     return NextResponse.json(rolePermissions);
   } catch (error) {
-    console.error('Error fetching role permissions:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -22,7 +21,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(newRolePermission, { status: 201 });
   } catch (error) {
-    console.error('Error creating role permission:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

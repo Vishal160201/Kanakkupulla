@@ -99,7 +99,6 @@ export async function getOrCreateFolder(name: string, parentId: string | null, a
       await prisma.systemSetting.delete({ where: { key: cacheKey } });
     }
   } catch (err) {
-    console.warn("Failed to read/verify folder cache from DB", err);
   }
 
   let folderId: string | null = null;
@@ -151,7 +150,6 @@ export async function getOrCreateFolder(name: string, parentId: string | null, a
         create: { key: cacheKey, value: folderId }
       });
     } catch (err) {
-      console.warn("Failed to cache folderId in DB", err);
     }
   }
 

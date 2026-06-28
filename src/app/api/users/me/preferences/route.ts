@@ -24,7 +24,6 @@ export async function GET(request: Request) {
       pushNotifications: user.pushNotifications
     });
   } catch (error) {
-    console.error("Error fetching preferences:", error);
     return NextResponse.json({ error: "Failed to fetch preferences" }, { status: 500 });
   }
 }
@@ -60,7 +59,6 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error updating preferences:", error);
     return NextResponse.json(
       { error: "Failed to update preferences" },
       { status: 500 }

@@ -8,7 +8,6 @@ export async function GET() {
     const formLayouts = await prisma.formLayout.findMany();
     return NextResponse.json(formLayouts);
   } catch (error) {
-    console.error('Error fetching form layouts:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -22,7 +21,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(newFormLayout, { status: 201 });
   } catch (error) {
-    console.error('Error creating form layout:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -22,7 +22,6 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error fetching product orders:", error);
     return NextResponse.json({ error: "Failed to fetch product orders" }, { status: 500 });
   }
 }
@@ -70,7 +69,6 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error creating product order:", error);
     return NextResponse.json({ error: "Failed to create product order" }, { status: 500 });
   }
 }

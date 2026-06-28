@@ -92,7 +92,6 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error fetching recycle bin:", error);
     return NextResponse.json({ error: "Failed to fetch recycle bin" }, { status: 500 });
   }
 }
@@ -121,7 +120,6 @@ export async function DELETE(request: Request) {
           await prisma.order.deleteMany({ where: { bookingId: entry.itemId } });
           await prisma.booking.delete({ where: { id: entry.itemId } });
         } catch (e) {
-          console.error("Error hard deleting booking:", e);
         }
       }
       // Product orders if they use deletedAt
@@ -148,7 +146,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error bulk deleting recycle bin:", error);
     return NextResponse.json({ error: "Failed to delete items" }, { status: 500 });
   }
 }

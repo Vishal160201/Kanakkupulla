@@ -4,11 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import flatpickr from "flatpickr";
 
-import { cn } from "@/lib/utils";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import CustomMultiDropdown from "@/components/ui/CustomMultiDropdown";
-import { Booking } from "@/types";
-import CustomSelect from "../ui/CustomSelect";
 import Autocomplete from "../ui/Autocomplete";
 import UserPicklist from "../ui/UserPicklist";
 import MultiUserPicklist, { UserItem } from "../ui/MultiUserPicklist";
@@ -20,7 +17,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "../ui/DatePickerInput";
-import GooglePicker from "@/components/shared/GooglePicker";
 import FileAttachment from "@/components/ui/FileAttachment";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -260,7 +256,6 @@ function BookingFormModalInner() {
     const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
     
     if (rule.dependsOn || rule.fieldId) {
-      console.log(`[BookingForm] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
     }
     
     if (rule.operator === 'EQUALS') {

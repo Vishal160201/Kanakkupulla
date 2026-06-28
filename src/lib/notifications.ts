@@ -59,7 +59,6 @@ export async function createNotification(
           if (e.statusCode === 410 || e.statusCode === 404) {
             await prisma.pushSubscription.delete({ where: { id: sub.id } });
           } else {
-            console.error("Web push error:", e);
           }
         }
       }
@@ -80,7 +79,6 @@ export async function createNotification(
           </div>`
         });
       } catch (e) {
-        console.error("Email send error:", e);
       }
     }
 
@@ -106,14 +104,12 @@ export async function createNotification(
            });
            */
          } catch (e) {
-           console.error("Failed to send WhatsApp via bot server:", e);
          }
        }
     }
 
     return notification;
   } catch (error) {
-    console.error("Failed to create notification:", error);
     return null;
   }
 }
@@ -140,7 +136,6 @@ export async function broadcastNotification(
       .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value !== null)
       .map(r => r.value);
   } catch (error) {
-    console.error("Failed to broadcast notification:", error);
     return null;
   }
 }

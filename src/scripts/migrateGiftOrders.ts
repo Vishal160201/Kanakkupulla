@@ -1,7 +1,6 @@
 import prisma from "../lib/prisma";
 
 async function main() {
-  console.log("Starting ProductOrder migration...");
   const orders = await prisma.productOrder.findMany();
 
   let migratedCount = 0;
@@ -40,12 +39,10 @@ async function main() {
     migratedCount++;
   }
 
-  console.log(`Successfully migrated ${migratedCount} ProductOrder records.`);
 }
 
 main()
   .catch((e) => {
-    console.error("Migration failed:", e);
     process.exit(1);
   })
   .finally(async () => {

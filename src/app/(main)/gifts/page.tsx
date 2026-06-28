@@ -6,7 +6,7 @@ import OrderForm from "@/components/gifts/OrderForm";
 import OrdersTable from "@/components/gifts/OrdersTable";
 import ProductCategoriesStrip from "@/components/gifts/ProductCategoriesStrip";
 import AllOrdersList from "@/components/gifts/AllOrdersList";
-import { Plus, Settings, ShoppingBag, Truck, PackageOpen, CalendarClock, CalendarDays } from "lucide-react";
+import { Settings, ShoppingBag, PackageOpen, CalendarClock, CalendarDays } from "lucide-react";
 import { isTomorrow, isThisWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";

@@ -23,7 +23,6 @@ export async function GET(
 
     return NextResponse.json({ order });
   } catch (error) {
-    console.error("Fetch order error:", error);
     return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
   }
 }
@@ -85,14 +84,12 @@ export async function PATCH(
            where: { productOrderId: order.id, OR: [{ description: { startsWith: 'Advance' } }, { description: { startsWith: 'Full Payment' } }] }
         });
         if (updatedTx) {
-           console.log('order.createdAt:', order.createdAt, 'transaction.date:', updatedTx.date);
         }
       }
     }
 
     return NextResponse.json({ order });
   } catch (error: any) {
-    console.error("Update order error:", error);
     return NextResponse.json({ error: error.message || "Failed to update order" }, { status: 500 });
   }
 }
@@ -133,7 +130,6 @@ export async function DELETE(
       where: { productOrderId: id },
       data: { deletedAt: new Date() }
     });
-    console.log('softDelete result:', txDeleteResult.count);
 
     await prisma.productOrder.delete({
       where: { id }
@@ -141,7 +137,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete order error:", error);
     return NextResponse.json({ error: "Failed to delete order" }, { status: 500 });
   }
 }

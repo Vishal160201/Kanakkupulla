@@ -79,7 +79,6 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error("Error running daily reminders cron:", error);
     return NextResponse.json(
       { error: "Failed to run cron job" },
       { status: 500 }

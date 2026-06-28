@@ -35,7 +35,6 @@ export function SystemProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-      console.error("Failed to load system preferences", e);
     } finally {
       setLoading(false);
     }

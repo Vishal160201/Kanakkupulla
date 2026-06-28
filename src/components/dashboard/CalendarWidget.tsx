@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import MonthYearPicker from "../ui/MonthYearPicker";
 import WeekPicker from "../ui/WeekPicker";
@@ -42,8 +42,8 @@ function CalendarWidgetInner() {
   const [popupDate, setPopupDate] = useState<string | null>(null);
 
   // Calculate bounds
-  let startDate = new Date(currentDate);
-  let endDate = new Date(currentDate);
+  const startDate = new Date(currentDate);
+  const endDate = new Date(currentDate);
   if (view === 'month') {
     startDate.setDate(1);
     startDate.setMonth(startDate.getMonth() - 1); // fetch a bit of prev month

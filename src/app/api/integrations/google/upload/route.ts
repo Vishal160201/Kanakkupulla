@@ -69,24 +69,17 @@ export async function POST(req: Request) {
     let body = buildBody(folderId);
 
     // --- DEBUG LOGGING ---
-    console.log("--- GOOGLE DRIVE UPLOAD DEBUG ---");
     try {
       const tokenInfoRes = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessToken}`);
       const tokenInfo = await tokenInfoRes.text();
-      console.log("Token validity:", tokenInfoRes.status, tokenInfo);
     } catch (tokenErr: any) {
-      console.log("Failed to check token validity:", tokenErr.message);
     }
 
     const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
-    console.log("Request Method: POST");
-    console.log("Request URL:", uploadUrl);
     console.log("Request Headers:", {
       "Authorization": `Bearer [REDACTED]`,
       "Content-Type": `multipart/related; boundary=${boundary}`
     });
-    console.log("Request Body Size (bytes):", body.length);
-    console.log("-----------------------------------");
 
     const doUpload = () => fetch(uploadUrl, {
       method: "POST",
@@ -101,7 +94,6 @@ export async function POST(req: Request) {
 
     // RETRY LOGIC ON 404
     if (uploadRes.status === 404) {
-      console.log("Got 404, clearing folder cache and retrying...");
       await prisma.systemSetting.deleteMany({
         where: { key: { startsWith: `google_drive_folder_${userId}_` } }
       });
@@ -112,7 +104,6 @@ export async function POST(req: Request) {
 
     if (!uploadRes.ok) {
       const errText = await uploadRes.text();
-      console.error("Google Drive Upload Error:", errText);
       return NextResponse.json({ error: "Failed to upload file to Google Drive" }, { status: uploadRes.status });
     }
 
@@ -152,7 +143,6 @@ export async function POST(req: Request) {
     });
 
   } catch (err: any) {
-    console.error("Drive upload error:", err.message, err.response?.data);
     if (err.message === "reauth_required" || err.message === "No Google Drive account connected") {
       return NextResponse.json({ error: err.message }, { status: 401 });
     }

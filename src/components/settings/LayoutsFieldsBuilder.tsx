@@ -142,7 +142,6 @@ export default function LayoutsFieldsBuilder() {
         setAllUsers(data);
       }
     } catch (e) {
-      console.error("Failed to fetch users", e);
     }
   }, []);
 
@@ -322,7 +321,7 @@ export default function LayoutsFieldsBuilder() {
       let movedField: FormField | null = null;
       
       // Extract the field
-      let tempSections = activeLayout.schema.sections.map(s => {
+      const tempSections = activeLayout.schema.sections.map(s => {
         if (s.id === sourceSectionId) {
           const fields = [...s.fields];
           movedField = fields.splice(sourceIndex, 1)[0];

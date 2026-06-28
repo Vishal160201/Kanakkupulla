@@ -14,7 +14,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     }
     return NextResponse.json(passwordResetToken);
   } catch (error) {
-    console.error('Error fetching password reset token:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -28,7 +27,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ token
     });
     return NextResponse.json({ message: 'Password reset token deleted successfully' });
   } catch (error) {
-    console.error('Error deleting password reset token:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

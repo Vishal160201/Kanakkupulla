@@ -171,7 +171,6 @@ export async function saveBookingAction(formData: FormData) {
     if (error instanceof z.ZodError) {
       return { success: false, errors: error.flatten().fieldErrors };
     }
-    console.error("Booking save error:", error);
     return { success: false, errors: { _form: [error instanceof Error ? error.message : "An unexpected error occurred while saving the booking."] } };
   }
 }
@@ -264,7 +263,6 @@ export async function updateAlbumTrackingAction(bookingId: string, updates: { st
     revalidatePath('/', 'layout');
     return { success: true };
   } catch (e) {
-    console.error("updateAlbumTrackingAction error:", e);
     return { success: false, error: "Failed to update album tracking" };
   }
 }

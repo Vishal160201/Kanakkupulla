@@ -41,7 +41,6 @@ export default function Integrations() {
         setNeedsReauth(!!data.reauthRequired);
       }
     } catch (e) {
-      console.error(e);
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +59,6 @@ export default function Integrations() {
         login_hint: session?.user?.email ?? "",
       });
     } catch (e) {
-      console.error(e);
       toast.error("Failed to initiate connection. Please try again.");
     }
   };
@@ -80,7 +78,6 @@ export default function Integrations() {
       setDisconnectInput("");
       toast.success("Google Drive disconnected successfully");
     } catch (e) {
-      console.error(e);
       toast.error("Failed to disconnect Google Drive");
     } finally {
       setIsDisconnecting(false);

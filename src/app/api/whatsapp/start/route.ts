@@ -28,7 +28,6 @@ export async function POST() {
       return NextResponse.json({ error: "Bot server responded with an error." }, { status: res.status });
     }
   } catch (error: any) {
-    console.error("Failed to start/wake WhatsApp Bot Server:", error);
     
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {
       return NextResponse.json({

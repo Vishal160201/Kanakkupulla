@@ -37,7 +37,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ inUse: count > 0, count });
   } catch (error) {
-    console.error("Error checking usage:", error);
     return NextResponse.json({ error: "Failed to check usage" }, { status: 500 });
   }
 }

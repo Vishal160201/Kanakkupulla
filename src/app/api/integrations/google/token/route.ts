@@ -13,7 +13,6 @@ export async function GET() {
     const accessToken = await getGoogleDriveToken(session);
     return NextResponse.json({ accessToken });
   } catch (error: any) {
-    console.error("Error fetching/refreshing Google token", error);
     if (error.message === "reauth_required") {
       return NextResponse.json({ error: 'reauth_required' }, { status: 401 });
     }

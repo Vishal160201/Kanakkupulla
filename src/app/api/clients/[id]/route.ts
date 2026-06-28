@@ -27,7 +27,6 @@ export async function GET(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error fetching client:", error);
     return NextResponse.json({ error: "Failed to fetch client" }, { status: 500 });
   }
 }
@@ -59,7 +58,6 @@ export async function PUT(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error updating client:", error);
     return NextResponse.json({ error: "Failed to update client" }, { status: 500 });
   }
 }
@@ -83,7 +81,6 @@ export async function DELETE(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error deleting client:", error);
     return NextResponse.json({ error: "Failed to delete client" }, { status: 500 });
   }
 }

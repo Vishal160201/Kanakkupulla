@@ -25,7 +25,6 @@ export async function DELETE(
         await prisma.order.deleteMany({ where: { bookingId: entry.itemId } });
         await prisma.booking.delete({ where: { id: entry.itemId } });
       } catch (e) {
-        console.error("Error hard deleting booking:", e);
       }
     }
     if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
@@ -33,7 +32,6 @@ export async function DELETE(
         await prisma.transaction.deleteMany({ where: { productOrderId: entry.itemId } });
         await prisma.productOrder.delete({ where: { id: entry.itemId } });
       } catch (e) {
-        console.error("Error hard deleting product order:", e);
       }
     }
 
@@ -49,7 +47,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting recycle bin item:", error);
     return NextResponse.json({ error: "Failed to delete item" }, { status: 500 });
   }
 }

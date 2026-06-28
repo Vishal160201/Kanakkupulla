@@ -28,7 +28,6 @@ const DEFAULT_SETTINGS = {
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
-  console.log("System Settings API GET - Session:", session ? "Exists" : "Null");
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -55,7 +54,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json(settingsMap);
   } catch (error) {
-    console.error("Error fetching system settings:", error);
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
   }
 }
@@ -86,7 +84,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updatedSetting);
   } catch (error) {
-    console.error("Error updating system setting:", error);
     return NextResponse.json({ error: "Failed to update setting" }, { status: 500 });
   }
 }

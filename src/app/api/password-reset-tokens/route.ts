@@ -11,7 +11,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(newPasswordResetToken, { status: 201 });
   } catch (error) {
-    console.error('Error creating password reset token:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

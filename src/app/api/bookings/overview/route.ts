@@ -143,7 +143,6 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error("Bookings Overview API Error:", error);
     return NextResponse.json({ error: "Failed to fetch bookings overview" }, { status: 500 });
   }
 }

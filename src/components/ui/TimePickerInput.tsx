@@ -16,7 +16,7 @@ export default function TimePickerInput({ value, onChange, className }: TimePick
   const parseTime = (time: string) => {
     if (!time) return { h: 12, m: 0, ap: 'PM' };
     const [hStr, mStr] = time.split(':');
-    let h24 = parseInt(hStr, 10);
+    const h24 = parseInt(hStr, 10);
     const m = parseInt(mStr, 10);
     const ap = h24 >= 12 ? 'PM' : 'AM';
     let h12 = h24 % 12;

@@ -55,7 +55,7 @@ export default function BookingsLayout({
       if (format === 'csv') {
         const escapeCsv = (val: any) => {
           if (val === null || val === undefined || val === '') return '""';
-          let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+          const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
           return `"${str.replace(/"/g, '""')}"`;
         };
 
@@ -121,7 +121,6 @@ export default function BookingsLayout({
         doc.save(`bookings_export_${new Date().toISOString().split('T')[0]}.pdf`);
       }
     } catch (error) {
-      console.error("Export failed", error);
       alert("Failed to export schedule.");
     } finally {
       setIsExporting(false);

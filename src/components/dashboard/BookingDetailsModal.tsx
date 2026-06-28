@@ -1,20 +1,16 @@
 "use client";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mutate } from "swr";
-import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { deleteBookingAction, updateBookingStatusAction } from "@/app/actions";
 import { toast } from "sonner";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
-import { 
-  ArrowLeft, Trash2, Download, Receipt, FileText, Upload, Wallet, X,
+import { Trash2, Receipt, FileText, Upload, Wallet,
   Clock, MapPin, Tag, UserCircle, Calendar, Link as LinkIcon, Phone, Mail, Info,
   Camera, Image as ImageIcon, LayoutList, Users, FolderOpen, Package,
-  BookOpen, Maximize, Images, Activity, CheckCircle2
+  BookOpen, Maximize, Images, Activity
 } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
@@ -127,7 +123,6 @@ export default function BookingDetailsModal() {
           toast.error("Failed to delete booking.");
         }
       } catch (error) {
-        console.error(error);
         toast.error('Failed to delete booking');
       } finally {
         setIsDeleting(false);

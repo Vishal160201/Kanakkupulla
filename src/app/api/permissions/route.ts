@@ -71,7 +71,6 @@ export async function GET() {
 
     return NextResponse.json(permissions);
   } catch (error) {
-    console.error("Error fetching permissions:", error);
     return NextResponse.json({ error: "Failed to fetch permissions" }, { status: 500 });
   }
 }
@@ -112,7 +111,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("Error updating permission:", error);
     return NextResponse.json({ error: "Failed to update permission" }, { status: 500 });
   }
 }

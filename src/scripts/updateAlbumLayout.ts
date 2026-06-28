@@ -6,7 +6,6 @@ async function main() {
   });
 
   if (!layout || !layout.schema) {
-    console.log("No layout found.");
     return;
   }
 
@@ -14,19 +13,17 @@ async function main() {
   let albumSectionExists = false;
 
   if (schema.sections) {
-    for (let section of schema.sections) {
+    for (const section of schema.sections) {
       if (section.title.toLowerCase().includes('album') || section.id === 'sec_booking_album') {
         albumSectionExists = true;
         // Remove visibility rule
         if (section.visibilityRule) {
-          console.log("Removing visibility rule from:", section.title);
           delete section.visibilityRule;
         }
       }
     }
 
     if (!albumSectionExists) {
-      console.log("Adding Album Details section to existing layout...");
       // Add it before Financials or at the end
       const albumSection = {
         id: "sec_booking_album",
@@ -57,7 +54,6 @@ async function main() {
       data: { schema }
     });
 
-    console.log("Successfully updated BOOKING_FORM layout schema.");
   }
 }
 

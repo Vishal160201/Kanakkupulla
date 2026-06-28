@@ -766,7 +766,7 @@ export default function OverviewPage() {
                       <div className="flex items-center gap-2">
                         {(() => {
                           let title = txn.category;
-                          let isGifts = txn.category === 'GIFTS_AND_FRAMES';
+                          const isGifts = txn.category === 'GIFTS_AND_FRAMES';
                           let isAdvance = false;
                           let isDue = false;
                           if (isGifts && txn.description) {

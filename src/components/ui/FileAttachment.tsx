@@ -123,7 +123,6 @@ export default function FileAttachment({
                 img.src = URL.createObjectURL(file);
               });
             } catch (err) {
-              console.error("Compression failed", err);
             }
           }
 

@@ -34,7 +34,6 @@ export async function GET(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error fetching booking:", error);
     return NextResponse.json({ error: "Failed to fetch booking" }, { status: 500 });
   }
 }
@@ -95,7 +94,6 @@ export async function PUT(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error updating booking:", error);
     return NextResponse.json({ error: "Failed to update booking" }, { status: 500 });
   }
 }
@@ -138,7 +136,6 @@ export async function DELETE(
           where: { bookingId: id },
           data: { deletedAt: new Date() }
         });
-        console.log('softDelete result (bookings API):', txDeleteResult.count);
         await prisma.recycleBin.create({
           data: {
             itemType: "booking",
@@ -161,7 +158,6 @@ export async function DELETE(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error deleting booking:", error);
     return NextResponse.json({ error: "Failed to delete booking" }, { status: 500 });
   }
 }

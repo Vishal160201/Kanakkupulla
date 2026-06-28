@@ -7,10 +7,6 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   
   // If no SMTP settings are provided, log to console for development
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('========================================================');
-    console.log(`[MAIL SIMULATION] Password Reset Email to: ${email}`);
-    console.log(`[MAIL SIMULATION] Reset Link: ${resetLink}`);
-    console.log('========================================================');
     return;
   }
 
