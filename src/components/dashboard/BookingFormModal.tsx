@@ -70,7 +70,8 @@ function BookingFormModalInner() {
   const standardFieldMap: Record<string, string> = {
     fld_b_client: 'title', fld_b_phone: 'phone', fld_b_email: 'email',
     fld_b_date: 'date', fld_b_time: 'time', fld_b_category: 'category',
-    fld_b_location: 'location', fld_b_status: 'status', fld_b_package: 'package', fld_b_advance: 'advance'
+    fld_b_location: 'location', fld_b_status: 'status', fld_b_package: 'package', fld_b_advance: 'advance',
+    fld_b_album_status: 'albumStatus', fld_gallery_delivered: 'galleryDelivered'
   };
 
   const { data: layoutData } = useSWR("/api/settings/layouts/BOOKING_FORM", fetcher);

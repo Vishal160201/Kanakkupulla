@@ -44,10 +44,10 @@ export const DEFAULT_LAYOUTS = [
             { id: "fld_b_album_type", name: "Album Type", type: "PICK_LIST", mandatory: false, options: ["Standard", "Premium", "Mini", "None"] },
             { id: "fld_b_album_status", name: "Album Status", type: "STATUS_PICKER", mandatory: false, statusOptions: [
               { label: "Pending", color: "#f43f5e" },
-              { label: "Designing", color: "#f59e0b" },
-              { label: "Printing", color: "#3b82f6" },
+              { label: "In_Progress", color: "#f59e0b" },
               { label: "Delivered", color: "#10b981" }
-            ] }
+            ] },
+            { id: "fld_gallery_delivered", name: "Gallery Delivered", type: "CHECKBOX", mandatory: false }
           ]
         },
         {

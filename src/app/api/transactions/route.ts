@@ -184,13 +184,53 @@ export async function POST(request: Request) {
 
     if (type === "INCOME") {
       // Fire and forget so we don't block the UI
-      broadcastNotification(
-        "Payment Received",
-        `A payment of ₹${parsedAmount} was logged via ${paymentMode}.`,
-        "PAYMENT",
-        `/transactions`,
-        userId
-      ).catch(console.error);
+      broadcastNotification({
+        title: "Payment Received",
+        message: `A payment of ₹${parsedAmount} was logged via ${paymentMode}.`,
+        type: "PAYMENT_RECEIVED",
+        actionUrl: `/transactions`,
+        entityId: newTransaction.id,
+        entityType: "transaction",
+        skipUserId: userId
+      }).catch(console.error);
+    } else if (type === "EXPENSE") {
+      // Check Budget limits
+      const txDate = recordDate ? new Date(recordDate) : new Date(date);
+      const month = txDate.getMonth() + 1;
+      const year = txDate.getFullYear();
+      
+      const budget = await prisma.categoryBudget.findFirst({
+        where: { category, month, year }
+      });
+
+      if (budget) {
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+        
+        const categoryExpenses = await prisma.transaction.aggregate({
+          where: {
+            type: "EXPENSE",
+            category,
+            date: { gte: startDate, lte: endDate },
+            status: "SETTLED"
+          },
+          _sum: { amount: true }
+        });
+        
+        const totalSpent = categoryExpenses._sum.amount || 0;
+        
+        if (totalSpent > budget.monthlyLimit) {
+           broadcastNotification({
+             title: "Budget Exceeded",
+             message: `⚠️ ${category} budget exceeded by ₹${totalSpent - budget.monthlyLimit}.`,
+             type: "BUDGET_EXCEEDED",
+             actionUrl: `/settings`,
+             entityId: budget.id,
+             entityType: "budget",
+             priority: "HIGH"
+           }).catch(console.error);
+        }
+      }
     }
 
     return NextResponse.json(newTransaction, {

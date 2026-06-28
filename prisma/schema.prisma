@@ -47,11 +47,13 @@ model Booking {
   inclusions    Json? // Array of inclusion strings
   notes         String?       @db.Text
   attachments   Json? // Array of attachment objects/urls
-  photographers Json? // Array of user IDs assigned
-  deletedAt     DateTime? // Soft delete flag
-  order         Order?
-  transactions  Transaction[]
-  createdAt     DateTime      @default(now())
+  photographers    Json? // Array of user IDs assigned
+  deletedAt        DateTime? // Soft delete flag
+  galleryDelivered Boolean       @default(false)
+  albumStatus      AlbumStatus   @default(PENDING)
+  order            Order?
+  transactions     Transaction[]
+  createdAt        DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   createdById   String?
   createdBy     User?         @relation("BookingCreatedBy", fields: [createdById], references: [id])
@@ -160,6 +162,7 @@ model User {
   accounts           Account[]
   sessions           Session[]
   transactions       Transaction[]
+  categoryBudgets    CategoryBudget[]
   notifications      Notification[]
   pushSubscriptions  PushSubscription[]
   emailNotifications Boolean            @default(true)
@@ -169,6 +172,7 @@ model User {
   createdBookings    Booking[]          @relation("BookingCreatedBy")
   updatedBookings    Booking[]          @relation("BookingUpdatedBy")
   integrations       UserIntegration[]
+  notificationPrefs  Json?
 
   @@index([status])
 }
@@ -233,12 +237,15 @@ model ProductOrder {
   productId   String
   product     Product  @relation(fields: [productId], references: [id])
   quantity    Int      @default(1)
+
   status      String   @default("PENDING") // "PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "READY"
   clientName  String
   clientPhone String?
   dueDate     DateTime?
-  customData  Json?    // Specific details based on product
+  customData  Json?
+  
   transactions Transaction[]
+  
   date        DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -262,17 +269,52 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 }
 
+enum AlbumStatus {
+  PENDING
+  IN_PROGRESS
+  DELIVERED
+}
+
+enum NotificationType {
+  BOOKING_CREATED
+  BOOKING_UPDATED
+  PAYMENT_RECEIVED
+  PAYMENT_OVERDUE
+  ORDER_CREATED
+  ORDER_STATUS_CHANGED
+  ORDER_DELIVERED
+  GALLERY_DELIVERED
+  HOT_DATE_ALERT
+  ORDER_STATUS_STALE
+  BOOKING_STATUS_STALE
+  PAYMENT_DUE_REMINDER
+  ADVANCE_NOT_COLLECTED
+  GALLERY_NOT_DELIVERED
+  ALBUM_PENDING_REMINDER
+}
+
+enum NotificationPriority {
+  HIGH
+  NORMAL
+  LOW
+}
+
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String // e.g., "BOOKING", "PAYMENT", "SYSTEM", "ALERT"
-  title     String
-  message   String   @db.Text
-  link      String? // Optional URL to navigate to when clicked
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String               @id @default(cuid())
+  userId     String
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  message    String               @db.Text
+  link       String?              // Kept for backward compatibility
+  actionUrl  String?              // Optional URL to navigate to when clicked
+  isRead     Boolean              @default(false)
+  entityId   String?
+  entityType String?              // 'booking' | 'order' | 'transaction' | 'budget' | 'expense'
+  priority   String               @default("NORMAL")
+  snoozedUntil DateTime?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
 
   @@index([userId])
   @@index([isRead])
@@ -301,4 +343,17 @@ model RecycleBin {
 
   @@index([itemType])
   @@index([trashedAt])
+}
+
+model CategoryBudget {
+  id           String   @id @default(cuid())
+  category     String
+  monthlyLimit Float
+  month        Int
+  year         Int
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@unique([category, month, year, userId])
 }

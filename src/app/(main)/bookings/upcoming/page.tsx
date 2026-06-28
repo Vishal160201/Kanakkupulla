@@ -36,7 +36,7 @@ export default async function UpcomingBookingsPage() {
   }));
 
   return (
-    <div className="max-w-5xl mx-auto pb-12">
+    <div className="w-full pb-12">
       <div className="mb-6 flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">Upcoming Shoots</h2>

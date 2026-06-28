@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/orderId";
+import { broadcastNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -154,6 +155,16 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ order: finalOrder });
     }
+
+    // Notify about new order
+    broadcastNotification({
+      title: "New Product Order",
+      message: `Order ${orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} received for ${clientName}.`,
+      type: "ORDER_CREATED",
+      actionUrl: `/gifts`,
+      entityId: order.id,
+      entityType: "order"
+    }).catch(console.error);
 
     return NextResponse.json({ order: createdOrder });
   } catch (error) {

@@ -82,13 +82,15 @@ export async function PUT(
 
     // Notify admins about the update
       // Fire and forget
-      broadcastNotification(
-        "Booking Status Update",
-        `Booking ${updated.bookingNumber || `#${updated.id.substring(0, 8)}`} status changed to ${status}.`,
-        "BOOKING",
-        `/bookings/details/${updated.id}`,
-        (session?.user as any)?.id
-      ).catch(console.error);
+      broadcastNotification({
+        title: "Booking Status Update",
+        message: `Booking ${updated.bookingNumber || `#${updated.id.substring(0, 8)}`} status changed to ${status}.`,
+        type: "BOOKING_UPDATED",
+        actionUrl: `/bookings/details/${updated.id}`,
+        entityId: updated.id,
+        entityType: "booking",
+        skipUserId: (session?.user as any)?.id
+      }).catch(console.error);
 
     return NextResponse.json(updated, {
       headers: { "Cache-Control": "private, no-store" },

@@ -23,20 +23,60 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
 
+    const priority = searchParams.get("priority");
+    const isReadParam = searchParams.get("isRead");
+
+    const whereClause: any = { userId: user.id };
+    // Removed priority temporarily as requested
+    if (isReadParam !== null) {
+      whereClause.isRead = isReadParam === 'true';
+    }
+
+    // Don't fetch notifications that are currently snoozed
+    const now = new Date();
+    whereClause.OR = [
+      { snoozedUntil: null },
+      { snoozedUntil: { lt: now } }
+    ];
+
     const notifications = await prisma.notification.findMany({
-      where: { userId: user.id },
+      where: whereClause,
       orderBy: { createdAt: "desc" },
       take: limit,
     });
 
-    const unreadCount = await prisma.notification.count({
-      where: { userId: user.id, isRead: false },
+    const reminderTypes = [
+      'ORDER_STATUS_STALE',
+      'BOOKING_STATUS_STALE',
+      'PAYMENT_DUE_REMINDER',
+      'ADVANCE_NOT_COLLECTED',
+      'GALLERY_NOT_DELIVERED',
+      'ALBUM_PENDING_REMINDER'
+    ];
+
+    const unreadRegularCount = await prisma.notification.count({
+      where: { 
+        userId: user.id, 
+        isRead: false,
+        type: { notIn: reminderTypes as any[] },
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lt: now } }]
+      },
     });
 
-    return NextResponse.json({ notifications, unreadCount });
-  } catch (error) {
+    const unreadReminderCount = await prisma.notification.count({
+      where: { 
+        userId: user.id, 
+        isRead: false,
+        type: { in: reminderTypes as any[] },
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lt: now } }]
+      },
+    });
+
+    return NextResponse.json({ notifications, unreadCount: unreadRegularCount, unreadReminderCount });
+  } catch (error: any) {
+    console.error("API Notifications Error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch notifications" },
+      { error: "Failed to fetch notifications", details: error.message },
       { status: 500 }
     );
   }

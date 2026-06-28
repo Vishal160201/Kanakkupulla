@@ -6,6 +6,7 @@ import useSWR from 'swr';
 
 
 import { useRouter } from 'next/navigation';
+import OverdueBookingBanners from '@/components/bookings/OverdueBookingBanners';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -29,6 +30,8 @@ function BookingsDataView() {
 
   return (
     <>
+      <OverdueBookingBanners />
+      
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
         <div onClick={() => router.push('/bookings/allBookings?filter=today_tomorrow')} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-red-200 cursor-pointer group">

@@ -14,6 +14,8 @@ export const bookingSchema = z.object({
   due: z.string().optional(),
   installments: z.string().optional(),
   status: z.string(),
+  albumStatus: z.string().optional().or(z.literal("")),
+  galleryDelivered: z.union([z.boolean(), z.string()]).optional(),
 }).catchall(z.any());
 
 export type BookingFormData = z.infer<typeof bookingSchema>;

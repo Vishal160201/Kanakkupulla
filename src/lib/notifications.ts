@@ -20,13 +20,19 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export async function createNotification(
-  userId: string,
-  title: string,
-  message: string,
-  type: string,
-  link?: string
-) {
+import { NotificationType, NotificationPriority } from "@prisma/client";
+
+export async function createNotification(params: {
+  userId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  actionUrl?: string;
+  entityId?: string;
+  entityType?: string;
+  priority?: NotificationPriority;
+}) {
+  const { userId, title, message, type, actionUrl, entityId, entityType, priority = "NORMAL" } = params;
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -35,9 +41,17 @@ export async function createNotification(
 
     if (!user) return null;
 
+    // Check notification preferences
+    if (user.notificationPrefs) {
+      const prefs = user.notificationPrefs as Record<string, boolean>;
+      if (prefs[type] === false) {
+        return null; // User disabled this type
+      }
+    }
+
     // 1. Create in Database
     const notification = await prisma.notification.create({
-      data: { userId, title, message, type, link },
+      data: { userId, title, message, type, actionUrl, entityId, entityType, priority },
     });
 
     // 2. Send Web Push
@@ -45,7 +59,7 @@ export async function createNotification(
       const payload = JSON.stringify({
         title,
         body: message,
-        url: link || "/",
+        url: actionUrl || "/",
         icon: "/assets/logo.png"
       });
 
@@ -75,7 +89,7 @@ export async function createNotification(
             <h2 style="color: #ea580c; font-weight: bold; font-size: 24px;">Moondot Studio</h2>
             <h3>${title}</h3>
             <p>${message}</p>
-            ${link ? `<a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${link}" style="display: inline-block; padding: 10px 20px; background: #0f172a; color: #fff; text-decoration: none; border-radius: 5px; margin-top: 15px;">View Details</a>` : ''}
+            ${actionUrl ? `<a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${actionUrl}" style="display: inline-block; padding: 10px 20px; background: #0f172a; color: #fff; text-decoration: none; border-radius: 5px; margin-top: 15px;">View Details</a>` : ''}
           </div>`
         });
       } catch (e) {
@@ -86,14 +100,14 @@ export async function createNotification(
     if (user.phone) {
        const cleanPhone = user.phone.replace(/[^0-9]/g, '');
        if (cleanPhone.length >= 10) {
-         let prefix = '';
-         if (title.includes('New Booking')) prefix = '🆕 *New Booking Alert*';
-         else if (title.includes('Booking Status Changed')) prefix = '🔄 *Status Update*';
-         else prefix = '🔔 *Moondot Notification*';
+         let prefix = '🔔 *Moondot Notification*';
+         if (priority === 'HIGH') prefix = '🚨 *High Priority Alert*';
+         else if (type === 'BOOKING_CREATED') prefix = '🆕 *New Booking Alert*';
+         else if (type === 'BOOKING_UPDATED') prefix = '🔄 *Status Update*';
 
          let text = `${prefix}\n\n${message}`;
-         if (link) {
-            text += `\n\nView details: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${link}`;
+         if (actionUrl) {
+            text += `\n\nView details: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${actionUrl}`;
          }
          try {
            /* WHATSAPP TEMPORARILY DISABLED
@@ -114,23 +128,41 @@ export async function createNotification(
   }
 }
 
-export async function broadcastNotification(
-  title: string,
-  message: string,
-  type: string,
-  link?: string,
-  skipUserId?: string | null
-) {
+export async function broadcastNotification(params: {
+  title: string;
+  message: string;
+  type: NotificationType;
+  actionUrl?: string;
+  entityId?: string;
+  entityType?: string;
+  priority?: NotificationPriority;
+  skipUserId?: string | null;
+}) {
+  const { skipUserId, ...notificationParams } = params;
   try {
     const users = await prisma.user.findMany({
       where: { status: "ACTIVE" },
-      select: { id: true },
+      select: { id: true, role: true },
     });
+    
+    // Fetch role permissions for this notification type
+    const rolePermissions = await prisma.rolePermission.findMany({
+      where: { permission: `notify_${notificationParams.type}` }
+    });
+    
+    const rolesEnabled = rolePermissions.filter(rp => rp.enabled).map(rp => rp.role);
+    
+    // Always include ADMINs even if not explicitly set (or respect their setting if set)
+    const adminPerm = rolePermissions.find(rp => rp.role === 'ADMIN');
+    if (!adminPerm || adminPerm.enabled) {
+      if (!rolesEnabled.includes('ADMIN')) rolesEnabled.push('ADMIN');
+    }
 
     const results = await Promise.allSettled(
       users
         .filter(user => !(skipUserId && user.id === skipUserId))
-        .map(user => createNotification(user.id, title, message, type, link))
+        .filter(user => rolesEnabled.includes(user.role))
+        .map(user => createNotification({ ...notificationParams, userId: user.id }))
     );
     return results
       .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value !== null)

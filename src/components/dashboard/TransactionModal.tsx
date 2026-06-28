@@ -28,7 +28,7 @@ const standardFieldMap: Record<string, string> = {
 import { Suspense } from "react";
 
 function TransactionModalInner() {
-  const { isTransactionFormOpen, transactionToEditId, closeTransactionForm } = useGlobalForm();
+  const { isTransactionFormOpen, transactionToEditId, transactionInitialData, closeTransactionForm } = useGlobalForm();
   
   const { data: fetchedTransaction, isLoading: isTxLoading } = useSWR(
     transactionToEditId ? `/api/transactions/${transactionToEditId}` : null,
@@ -108,8 +108,8 @@ function TransactionModalInner() {
             }
           });
         });
-        const urlType = searchParams.get('type');
-        const urlCategory = searchParams.get('category');
+        const urlType = searchParams.get('type') || transactionInitialData?.type;
+        const urlCategory = searchParams.get('category') || transactionInitialData?.category;
         if (urlType) defaultForm.type = urlType;
         if (urlCategory) defaultForm.category = urlCategory;
         
@@ -117,7 +117,7 @@ function TransactionModalInner() {
       }
       setErrors({});
     }
-  }, [isOpen, editTransaction, isTxLoading, layoutSchema, searchParams]);
+  }, [isOpen, editTransaction, isTxLoading, layoutSchema, searchParams, transactionInitialData]);
 
   const set = (key: string) => (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 

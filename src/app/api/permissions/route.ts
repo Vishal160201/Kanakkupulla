@@ -94,12 +94,12 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "role, permission, and enabled are required" }, { status: 422 });
     }
 
-    // Prevent modifying ADMIN permissions
-    if (role === "ADMIN") {
-      return NextResponse.json({ error: "Cannot modify ADMIN permissions" }, { status: 400 });
+    // Prevent modifying core ADMIN permissions, but allow notification preferences
+    if (role === "ADMIN" && !permission.startsWith("notify_")) {
+      return NextResponse.json({ error: "Cannot modify core ADMIN permissions" }, { status: 400 });
     }
 
-    if (!DEFAULT_PERMISSIONS.includes(permission)) {
+    if (!DEFAULT_PERMISSIONS.includes(permission) && !permission.startsWith("notify_")) {
       return NextResponse.json({ error: "Invalid permission" }, { status: 422 });
     }
 

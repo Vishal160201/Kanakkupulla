@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Modals from '@/components/dashboard/Modals';
 import { useBookings } from '@/components/providers/BookingProvider';
 import { useGlobalForm } from '@/components/providers/GlobalFormProvider';
+import OverdueBookingBanners from '@/components/bookings/OverdueBookingBanners';
 
 export default function BookingsLayout({
   children,

@@ -7,15 +7,14 @@ const connectionString = process.env.DATABASE_URL || '';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-let prisma: PrismaClient;
-
+// Force delete to recreate with new schema
 if (globalForPrisma.prisma) {
-  delete (globalForPrisma as any).prisma; // Force cache clear to load RecycleBin
+  delete (globalForPrisma as any).prisma;
 }
 
-if (globalForPrisma.prisma) {
-  prisma = globalForPrisma.prisma;
-} else {
+let prisma: PrismaClient;
+
+if (process.env.NODE_ENV === 'production') {
   const pool = new Pool({ 
     connectionString,
     max: 10,
@@ -24,9 +23,18 @@ if (globalForPrisma.prisma) {
   });
   const adapter = new PrismaPg(pool);
   prisma = new PrismaClient({ adapter });
+} else {
+  if (!globalForPrisma.prisma) {
+    const pool = new Pool({ 
+      connectionString,
+      max: 10,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000 
+    });
+    const adapter = new PrismaPg(pool);
+    globalForPrisma.prisma = new PrismaClient({ adapter });
+  }
+  prisma = globalForPrisma.prisma;
 }
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-
 export default prisma;
-// Force Next.js Fast Refresh to re-evaluate this module and load the new Prisma client
