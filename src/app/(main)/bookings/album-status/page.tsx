@@ -1,5 +1,4 @@
 import prisma from "@/lib/prisma";
-import { Booking } from "@/types";
 import AlbumStatusClient from "./AlbumStatusClient";
 
 export const dynamic = "force-dynamic";

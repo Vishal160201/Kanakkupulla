@@ -48,18 +48,14 @@ export async function POST(
           }
         });
       } catch (e) {
-        console.error("Failed to restore transaction", e);
         return NextResponse.json({ error: "Failed to restore transaction" }, { status: 500 });
       }
     } else if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
       const data: any = entry.originalData;
       try {
-        console.log(`[DEBUG] (2) Exact order.id being used: ${entry.itemId}`);
         const debugTxs = await prisma.transaction.findMany({ where: { productOrderId: entry.itemId } });
-        console.log(`[DEBUG] (1) Found by productOrderId:`, JSON.stringify(debugTxs, null, 2));
         
         const debugCols = await prisma.$queryRaw`SELECT column_name FROM information_schema.columns WHERE table_name = 'Transaction'`;
-        console.log(`[DEBUG] (3) Transaction columns:`, JSON.stringify(debugCols, null, 2));
 
         await prisma.productOrder.create({
           data: {
@@ -104,10 +100,8 @@ export async function POST(
                 }
               });
             } catch (e) {
-              console.error(`Failed to upsert transaction ${tx.id}`, e);
             }
           }
-          console.log(`[DEBUG] Upserted ${data.transactions.length} transactions.`);
         } else {
           // Fallback for orders that were deleted before transactions were included in originalData
           const fallbackString = data.orderNumber || entry.itemId.slice(-6).toUpperCase();
@@ -120,16 +114,12 @@ export async function POST(
               productOrderId: entry.itemId
             }
           });
-          console.log(`[DEBUG] Restored ${txRestoreResult.count} transactions by description fallback.`);
         }
         
         const restoredTxs = await prisma.transaction.findMany({ where: { productOrderId: entry.itemId } });
-        console.log(`Restore transactions result: ${restoredTxs.length}`);
         restoredTxs.forEach(tx => {
-           console.log('order.createdAt:', data.createdAt, 'transaction.date:', tx.date);
         });
       } catch (e) {
-        console.error("Failed to restore product order", e);
         return NextResponse.json({ error: "Failed to restore product order" }, { status: 500 });
       }
     }
@@ -147,7 +137,6 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error restoring recycle bin item:", error);
     return NextResponse.json({ error: "Failed to restore item" }, { status: 500 });
   }
 }

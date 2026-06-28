@@ -3,7 +3,6 @@
 import CalendarWidget from '@/components/dashboard/CalendarWidget';
 import UpcomingShoots from '@/components/dashboard/UpcomingShoots';
 import useSWR from 'swr';
-import Link from 'next/link';
 
 
 import { useRouter } from 'next/navigation';

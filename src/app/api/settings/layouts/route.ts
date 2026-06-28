@@ -16,7 +16,6 @@ export async function GET() {
     });
     return NextResponse.json(layouts);
   } catch (error) {
-    console.error("Error fetching form layouts:", error);
     return NextResponse.json({ error: "Failed to fetch form layouts" }, { status: 500 });
   }
 }
@@ -52,7 +51,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("Error updating form layout:", error);
     return NextResponse.json({ error: "Failed to update form layout" }, { status: 500 });
   }
 }

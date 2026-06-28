@@ -23,14 +23,12 @@ export async function GET() {
     });
     
     if (!res.ok) {
-      console.log(`Failed bot response: [${res.status}] ${res.url}`);
     }
 
     try {
       const data = await res.json();
       return NextResponse.json(data);
     } catch (parseError) {
-      console.error("Failed to parse Bot response:", parseError);
       return NextResponse.json({ 
         connected: false, 
         status: 'ERROR',
@@ -38,7 +36,6 @@ export async function GET() {
       });
     }
   } catch (error: any) {
-    console.error("Failed to connect to WhatsApp Bot Server:", error);
     
     // If it was a timeout, it might be Render cold starting
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {

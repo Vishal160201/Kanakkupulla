@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Booking } from '@/types';
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { cn } from "@/lib/utils";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";

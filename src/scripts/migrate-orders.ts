@@ -1,13 +1,11 @@
 import prisma from '../lib/prisma';
 
 async function main() {
-  console.log("Starting migration of ProductOrder customData...");
   
   const orders = await prisma.productOrder.findMany({
     include: { transactions: true }
   });
   
-  console.log(`Found ${orders.length} orders.`);
   
   let migratedCount = 0;
   
@@ -26,7 +24,6 @@ async function main() {
     }
     
     if (currentAmount === undefined) {
-      console.log(`Updating Order ${order.id}: currentAmount=${currentAmount}, expectedAmount=${expectedAmount}, advance=${advance}, due=${due}`);
       
       const updatedCustomData = {
         ...customData,
@@ -44,12 +41,10 @@ async function main() {
     }
   }
   
-  console.log(`Migration complete. Updated ${migratedCount} orders.`);
 }
 
 main()
   .catch(e => {
-    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

@@ -42,7 +42,6 @@ export async function GET(
 
     return NextResponse.json(layout);
   } catch (error) {
-    console.error(`Error fetching layout ${formKey}:`, error);
     return NextResponse.json({ error: "Failed to fetch form layout" }, { status: 500 });
   }
 }

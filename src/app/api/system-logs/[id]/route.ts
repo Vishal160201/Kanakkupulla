@@ -14,7 +14,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
     return NextResponse.json(log);
   } catch (error) {
-    console.error('Error fetching system log:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -30,7 +29,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
     return NextResponse.json(updatedLog);
   } catch (error) {
-    console.error('Error updating system log:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -44,7 +42,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     });
     return NextResponse.json({ message: 'System log deleted successfully' });
   } catch (error) {
-    console.error('Error deleting system log:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

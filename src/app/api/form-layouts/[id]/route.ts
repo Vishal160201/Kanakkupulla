@@ -14,7 +14,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
     return NextResponse.json(formLayout);
   } catch (error) {
-    console.error('Error fetching form layout:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -30,7 +29,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
     return NextResponse.json(updatedFormLayout);
   } catch (error) {
-    console.error('Error updating form layout:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -44,7 +42,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     });
     return NextResponse.json({ message: 'Form layout deleted successfully' });
   } catch (error) {
-    console.error('Error deleting form layout:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

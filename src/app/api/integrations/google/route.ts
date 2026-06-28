@@ -34,12 +34,10 @@ export async function GET() {
         return NextResponse.json({ connected: false, reauthRequired: true });
       }
     } catch (e) {
-      console.error("Failed to fetch Google user info", e);
     }
 
     return NextResponse.json({ connected: true, email });
   } catch (error) {
-    console.error("Error fetching Google Drive status", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -65,7 +63,6 @@ export async function DELETE() {
           headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
       } catch (e) {
-        console.error("Failed to revoke token", e);
       }
     }
 
@@ -78,7 +75,6 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error disconnecting Google Drive", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

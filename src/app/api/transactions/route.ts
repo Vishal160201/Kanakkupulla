@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { TRANSACTION_CATEGORIES, PAYMENT_MODES } from "@/lib/transactionConstants";
 import { broadcastNotification } from "@/lib/notifications";
 import { generateNextTransactionId } from "@/lib/transactionId";
 
@@ -29,7 +28,7 @@ export async function GET(request: Request) {
     const type = searchParams.get("type");
     const paymentMode = searchParams.get("paymentMode");
 
-    let whereClause: any = { deletedAt: null };
+    const whereClause: any = { deletedAt: null };
     // 1. Date Logic — F4: Fixed date mutation bug by NOT reusing the same `now` object
     if (dateFrom || dateTo) {
       whereClause.date = {};
@@ -84,7 +83,6 @@ export async function GET(request: Request) {
     // P2: Offset-based pagination (cursor on non-unique sort leads to duplicates)
     const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
     
-    console.log('whereClause:', JSON.stringify(whereClause));
     
     const transactions = await prisma.transaction.findMany({
       where: { 
@@ -108,7 +106,6 @@ export async function GET(request: Request) {
       },
     });
   } catch (error: any) {
-    console.error("Error fetching transactions:", error);
 
     if (
       error.message?.toLowerCase().includes("timeout") ||
@@ -201,7 +198,6 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error: any) {
-    console.error("Failed to create transaction:", error);
     return NextResponse.json({ error: error.message || "Failed to create transaction.", details: String(error) }, { status: 500 });
   }
 }
@@ -258,7 +254,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updated, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
-    console.error("Error updating transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
 }

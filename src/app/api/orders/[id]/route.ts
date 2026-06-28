@@ -33,7 +33,6 @@ export async function GET(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error fetching order:", error);
     return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
   }
 }
@@ -65,7 +64,6 @@ export async function PUT(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error updating order:", error);
     return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
   }
 }
@@ -89,7 +87,6 @@ export async function DELETE(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error deleting order:", error);
     return NextResponse.json({ error: "Failed to delete order" }, { status: 500 });
   }
 }

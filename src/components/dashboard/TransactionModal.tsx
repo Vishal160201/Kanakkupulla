@@ -4,10 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import TimePickerInput from "@/components/ui/TimePickerInput";
-import PillSelect from "@/components/ui/PillSelect";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import CustomMultiDropdown from "@/components/ui/CustomMultiDropdown";
-import GooglePicker from "@/components/shared/GooglePicker";
 import FileAttachment from "@/components/ui/FileAttachment";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
@@ -207,7 +205,6 @@ function TransactionModalInner() {
         }
       }
     } catch (e) {
-      console.error(e);
       toast.error("Network error. Please check your connection.");
     } finally {
       setIsSubmitting(false);
@@ -228,7 +225,6 @@ function TransactionModalInner() {
     const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
 
     if (rule.dependsOn || rule.fieldId) {
-      console.log(`[TransactionModal] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
     }
 
     if (rule.operator === 'EQUALS') {

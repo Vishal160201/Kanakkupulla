@@ -1,17 +1,15 @@
 "use client";
 import FileAttachment from "@/components/ui/FileAttachment";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { toast } from "sonner";
-import { PlusCircle, ShoppingBag, Loader2, Upload, Paperclip, X } from "lucide-react";
-import GooglePicker from "@/components/shared/GooglePicker";
+import { PlusCircle, ShoppingBag, Loader2 } from "lucide-react";
 
 interface OrderFormProps {
   products: any[];
@@ -72,7 +70,6 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
 
     if (rule.dependsOn || rule.fieldId) {
-      console.log(`[OrderForm] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
     }
 
     if (rule.operator === 'EQUALS') {
@@ -130,7 +127,6 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
           const ruleValues: string[] = rule.values || (rule.value ? [rule.value] : []);
           
           if (rule.dependsOn || rule.fieldId) {
-            console.log(`[OrderForm] visibility check: dependsOn='${dependsOnKey}', formDataValue='${depValue}', expectedValues=`, ruleValues);
           }
           
           if (rule.operator === 'EQUALS') {
@@ -270,7 +266,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
 
   const renderField = (field: any) => {
     const key = standardFieldMap[field.id] || field.id;
-    let value = formData[key] || "";
+    const value = formData[key] || "";
 
     if (key === 'productId') {
       const options = products.map((p: any) => ({ label: p.name, value: p.id }));

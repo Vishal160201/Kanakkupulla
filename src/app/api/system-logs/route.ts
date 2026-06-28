@@ -29,7 +29,6 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error fetching system logs:", error);
     return NextResponse.json({ error: "Failed to fetch system logs" }, { status: 500 });
   }
 }

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
-import PillSelect from "@/components/ui/PillSelect";
 import { toast } from "sonner";
 
 function ViewSelectorCard({ value, onChange }: { value: string, onChange: (val: string) => void }) {
@@ -174,7 +173,7 @@ function TransactionsList() {
       if (format === 'csv') {
         const escapeCsv = (val: any) => {
           if (val === null || val === undefined || val === '') return '""';
-          let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+          const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
           return `"${str.replace(/"/g, '""')}"`;
         };
         const headers = ['Transaction ID', 'Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount', 'Attachment URL', 'Custom Data', 'Booking ID'];
@@ -249,7 +248,6 @@ function TransactionsList() {
         doc.save(`kanakkupulla-ledger-${new Date().toISOString().split('T')[0]}.pdf`);
       }
     } catch (e) {
-      console.error(e);
       toast.error("Export failed");
     } finally {
       setIsExporting(false);
@@ -356,7 +354,6 @@ function TransactionsList() {
         toast.error("Failed to delete. Please try again.");
       }
     } catch (e) {
-      console.error(e);
       toast.error("Network error. Please try again.");
     }
     setIsDeleting(false);
@@ -575,7 +572,7 @@ function TransactionsList() {
                   <div className="min-w-0">
                     {(() => {
                       let title = tx.description ? tx.description.split(' - ')[0] : tx.category;
-                      let isGifts = tx.category === 'GIFTS_AND_FRAMES';
+                      const isGifts = tx.category === 'GIFTS_AND_FRAMES';
                       let isAdvance = false;
                       let isDue = false;
                       if (isGifts && tx.description) {

@@ -23,7 +23,6 @@ export async function POST(request: Request) {
           await prisma.order.deleteMany({ where: { bookingId: entry.itemId } });
           await prisma.booking.delete({ where: { id: entry.itemId } });
         } catch (e) {
-          console.error("Error hard deleting booking:", e);
         }
       }
       if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
@@ -45,7 +44,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error emptying recycle bin:", error);
     return NextResponse.json({ error: "Failed to empty recycle bin" }, { status: 500 });
   }
 }

@@ -77,7 +77,6 @@ export default function TopNavigation() {
       }
       mutateWA();
     } catch (e) {
-      console.error(e);
       alert("Failed to get pairing code. Please try again.");
     } finally {
       setIsPairingLoading(false);
@@ -119,7 +118,6 @@ export default function TopNavigation() {
         alert("Push notification permission was denied in browser settings.");
       }
     } catch (e) {
-      console.error('Push error:', e);
       alert("Failed to subscribe to push notifications. Ensure you are on HTTPS or localhost.");
     }
   };
@@ -158,7 +156,6 @@ export default function TopNavigation() {
       setIsNotificationsOpen(false);
       if (link) router.push(link);
     } catch (e) {
-      console.error(e);
     }
   };
 
@@ -167,7 +164,6 @@ export default function TopNavigation() {
       await fetch(`/api/notifications/read-all`, { method: "POST" });
       mutateNotifications();
     } catch (e) {
-      console.error(e);
     }
   };
 

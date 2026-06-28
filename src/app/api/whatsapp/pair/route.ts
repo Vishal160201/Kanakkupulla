@@ -22,7 +22,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error requesting pairing code:", error);
     return NextResponse.json({ error: "Failed to request pairing code" }, { status: 500 });
   }
 }

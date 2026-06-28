@@ -44,7 +44,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: "A temporary password has been generated. Please contact your Studio Admin." });
   } catch (error) {
-    console.error("Forgot password error:", error);
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }

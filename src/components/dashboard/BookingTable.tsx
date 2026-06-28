@@ -55,10 +55,70 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm overflow-hidden flex flex-col">
-      <div className="overflow-x-auto w-full no-scrollbar">
+    <div className="bg-white border border-gray-200 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-sm overflow-hidden flex flex-col">
+      
+      {/* Mobile Card List (block on mobile, hidden on tablet/desktop) */}
+      <div className="block md:hidden space-y-4">
+        {sorted.map(b => {
+          const d = new Date(b.date);
+          const displayDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const badgeClass = getCategoryColor(b.category);
+          
+          let statusDotClass = 'bg-slate-300';
+          let statusTextClass = 'text-slate-500';
+          let customStatusStyle = {};
+          if (preferences?.statusColors?.[b.status]) {
+            customStatusStyle = {
+              '--status-bg': preferences.statusColors[b.status].bg,
+              '--status-text': preferences.statusColors[b.status].text
+            };
+            statusDotClass = '';
+            statusTextClass = '';
+          } else {
+            if (b.status === 'Confirmed') { statusDotClass = 'bg-emerald-500'; statusTextClass = 'text-emerald-700'; }
+            else if (b.status === 'Pending') { statusDotClass = 'bg-red-500'; statusTextClass = 'text-red-700'; }
+            else if (b.status === 'Partial') { statusDotClass = 'bg-orange-500'; statusTextClass = 'text-orange-700'; }
+          }
+
+          const displayId = b.bookingNumber || `#${b.id.substring(b.id.length - 6).toUpperCase()}`;
+          const avatarColor = getAvatarColor(b.title);
+          
+          return (
+            <div key={b.id} className="p-4 border border-slate-100 rounded-xl bg-slate-50 flex flex-col gap-3 shadow-sm cursor-pointer" onClick={() => openBookingDetails(b.id)}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-[40px] h-[40px] rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-[0.9rem] shrink-0`}>{(b.title || 'U').charAt(0).toUpperCase()}</div>
+                  <div className="flex flex-col justify-center">
+                    <h4 className="font-extrabold text-[0.95rem] text-slate-900 leading-tight">{b.title}</h4>
+                    <p className="font-bold text-[0.65rem] text-slate-400 tracking-[0.5px] uppercase">{displayId}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200" style={customStatusStyle}>
+                  <div className={`w-2 h-2 rounded-full ${statusDotClass}`} style={customStatusStyle && {'backgroundColor': 'var(--status-bg)'}}></div>
+                  <span className={`text-[0.7rem] font-bold ${statusTextClass}`} style={customStatusStyle && {'color': 'var(--status-text)'}}>{b.status}</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-1 rounded-xl text-[0.7rem] font-extrabold tracking-[0.5px] ${badgeClass}`}>{b.category}</span>
+                <span className="text-[0.8rem] font-semibold text-slate-500 px-2 border-l border-slate-200">{displayDate}</span>
+                <span className="text-[0.8rem] font-semibold text-slate-500 px-2 border-l border-slate-200">{b.time}</span>
+              </div>
+              
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 mt-1">
+                <div className={`px-2.5 py-1 rounded-lg text-[0.8rem] font-extrabold tracking-[0.5px] ${parseFloat(b.package || '0') > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' : 'text-slate-500 bg-white border border-slate-200'}`}>
+                    {preferences?.currencySymbol || '₹'} {parseFloat(b.package || '0').toLocaleString('en-IN')}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Table Layout (hidden on mobile, block on tablet/desktop) */}
+      <div className="hidden md:block overflow-x-auto w-full no-scrollbar">
         <div className="min-w-[900px]">
-          <div className="flex px-4 py-3 border-b border-gray-200 text-slate-500 font-extrabold text-[0.7rem] uppercase tracking-[1px]">
+          <div className="flex px-4 py-3 border-b border-gray-200 text-slate-500 font-extrabold text-[0.7rem] uppercase tracking-[1px] sticky top-0 z-10 bg-white">
             <div className="flex-[2]">Client</div>
             <div className="flex-[1.5]">Category</div>
             <div className="flex-[1.5]">Date & Time</div>
@@ -141,6 +201,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
           })}
           </div>
         </div>
+      </div>
         
         {/* Pagination Controls */}
         {totalPages > 1 && (
@@ -200,6 +261,5 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
           </div>
         )}
       </div>
-    </div>
   );
 }

@@ -11,7 +11,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(newPushSubscription, { status: 201 });
   } catch (error) {
-    console.error('Error creating push subscription:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

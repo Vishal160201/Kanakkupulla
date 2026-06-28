@@ -49,7 +49,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, purgedCount });
   } catch (error) {
-    console.error("Error purging recycle bin:", error);
     return NextResponse.json({ error: "Failed to purge recycle bin" }, { status: 500 });
   }
 }

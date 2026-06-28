@@ -54,7 +54,6 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error fetching bookings:", error);
     return NextResponse.json({ error: "Failed to fetch bookings" }, { status: 500 });
   }
 }
@@ -134,7 +133,6 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error creating booking:", error);
     return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
   }
 }

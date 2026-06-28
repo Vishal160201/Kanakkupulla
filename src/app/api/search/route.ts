@@ -75,7 +75,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ results });
   } catch (error) {
-    console.error("Search API Error:", error);
     return NextResponse.json({ error: "Failed to search" }, { status: 500 });
   }
 }

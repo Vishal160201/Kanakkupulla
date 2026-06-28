@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
-import { MoreVertical, Loader2, Image as ImageIcon, Edit2, Trash2, Filter, Download } from "lucide-react";
+import { Loader2, Image as ImageIcon, Edit2, Trash2, Filter } from "lucide-react";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";

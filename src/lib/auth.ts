@@ -110,12 +110,9 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      console.log("[NextAuth] signIn callback triggered for provider:", account?.provider);
       if (account?.provider === "google-drive") {
         try {
-          console.log("[NextAuth] account data:", JSON.stringify(account, null, 2));
           if (!account.providerAccountId) {
-            console.error("[NextAuth] Missing providerAccountId!");
             return false;
           }
           
@@ -127,7 +124,6 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (existingAccount) {
-            console.log("[NextAuth] Updating existing account:", existingAccount.id);
             // Check UserIntegration for matching email
             const integration = await prisma.userIntegration.findUnique({
               where: { userId_provider: { userId: existingAccount.userId, provider: "google-drive" } }
@@ -143,7 +139,6 @@ export const authOptions: NextAuthOptions = {
                       headers: { "Content-Type": "application/x-www-form-urlencoded" }
                     });
                   } catch (e) {
-                    console.error("Failed to revoke unauthorized token", e);
                   }
                 }
                 return `/settings?error=DriveEmailMismatch&expectedEmail=${encodeURIComponent(integration.connectedEmail)}`;
@@ -166,7 +161,6 @@ export const authOptions: NextAuthOptions = {
               },
             });
           } else {
-            console.log("[NextAuth] Account not found, proceeding with NextAuth linkAccount");
             // If linking a new account, we need to save the connected email as well
             if (user?.id && profile?.email) {
               const integration = await prisma.userIntegration.findUnique({
@@ -193,7 +187,6 @@ export const authOptions: NextAuthOptions = {
 
           return true;
         } catch (error) {
-          console.error("[NextAuth] Error in signIn callback for google-drive:", error);
           return false;
         }
       }

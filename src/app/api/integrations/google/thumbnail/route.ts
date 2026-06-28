@@ -26,7 +26,6 @@ export async function GET(req: Request) {
     });
 
     if (!response.ok) {
-      console.error("Failed to fetch thumbnail from Google Drive:", response.status, response.statusText);
       return NextResponse.json({ error: "Failed to fetch thumbnail" }, { status: response.status });
     }
 
@@ -41,7 +40,6 @@ export async function GET(req: Request) {
       }
     });
   } catch (err: any) {
-    console.error("Thumbnail error:", err.message);
     if (err.message === "reauth_required" || err.message === "No Google Drive account connected") {
       return NextResponse.json({ error: err.message }, { status: 401 });
     }

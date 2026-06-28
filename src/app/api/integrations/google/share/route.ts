@@ -42,13 +42,11 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Failed to share Google Drive file", errorData);
       return NextResponse.json({ error: "Failed to share file" }, { status: response.status });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error setting file permissions", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

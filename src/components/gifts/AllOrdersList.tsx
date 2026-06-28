@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import useSWR from "swr";
-import { format, formatDistanceToNowStrict } from "date-fns";
-import { Loader2, LayoutGrid, LayoutList, ChevronLeft, ChevronRight, X, Filter, Download, Image as ImageIcon, Edit2, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { Loader2, LayoutGrid, LayoutList, ChevronLeft, ChevronRight, X, Filter, Download, Edit2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getProductIcon } from "@/lib/productIcons";

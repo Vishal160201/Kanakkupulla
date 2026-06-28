@@ -14,7 +14,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
     return NextResponse.json(rolePermission);
   } catch (error) {
-    console.error('Error fetching role permission:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -30,7 +29,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
     return NextResponse.json(updatedRolePermission);
   } catch (error) {
-    console.error('Error updating role permission:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -44,7 +42,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     });
     return NextResponse.json({ message: 'Role permission deleted successfully' });
   } catch (error) {
-    console.error('Error deleting role permission:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

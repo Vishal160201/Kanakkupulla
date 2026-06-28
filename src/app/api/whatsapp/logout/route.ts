@@ -13,7 +13,6 @@ export async function POST() {
   try {
     await fetch(`${BOT_URL}/api/logout`, { method: 'POST' });
   } catch (error) {
-    console.error("Failed to disconnect from external bot server:", error);
   }
 
   return NextResponse.json({ success: true });

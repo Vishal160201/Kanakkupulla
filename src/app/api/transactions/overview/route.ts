@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
     const userId = (session.user as any).id as string;
 
-    let whereClause: any = { deletedAt: null };
+    const whereClause: any = { deletedAt: null };
 
     if (startDateParam || endDateParam) {
       whereClause.date = {};
@@ -97,7 +97,6 @@ export async function GET(req: Request) {
     });
 
   } catch (error) {
-    console.error("Transactions Overview API Error:", error);
     return NextResponse.json({ error: "Failed to fetch transactions overview" }, { status: 500 });
   }
 }

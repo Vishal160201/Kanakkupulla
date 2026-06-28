@@ -70,7 +70,6 @@ export async function GET() {
     const filteredTodayTxCount = await prisma.transaction.count({
       where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null }
     });
-    console.log('transaction count before filter:', allTodayTxCount, 'after deletedAt filter:', filteredTodayTxCount);
 
     const [todayTransactions, todayTypeAgg] = await Promise.all([
       prisma.transaction.findMany({
@@ -128,7 +127,6 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error("Dashboard API Error:", error);
     return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 });
   }
 }

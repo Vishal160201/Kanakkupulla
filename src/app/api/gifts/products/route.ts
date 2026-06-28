@@ -37,7 +37,6 @@ export async function GET() {
 
     return NextResponse.json({ products: enrichedProducts });
   } catch (error) {
-    console.error("Fetch products error:", error);
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
   }
 }

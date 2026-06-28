@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
@@ -9,8 +9,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, Legend 
 } from "recharts";
 import { 
-  TrendingUp, TrendingDown, DollarSign, Target, ShoppingBag, PieChart as PieChartIcon, 
-  ArrowRight, Users, Briefcase, Info, AlertTriangle, Calendar, CheckCircle2, CircleDashed, X
+  TrendingUp, TrendingDown, DollarSign, Target, ShoppingBag, PieChart as PieChartIcon, Users, Briefcase, Info, X
 } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());

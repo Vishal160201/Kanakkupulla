@@ -57,7 +57,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, updatedCount });
   } catch (error) {
-    console.error("Error migrating value:", error);
     return NextResponse.json({ error: "Failed to migrate value" }, { status: 500 });
   }
 }

@@ -14,7 +14,6 @@ async function main() {
         schema: giftLayout.schema 
       }
     });
-    console.log('Successfully patched GIFT_ORDER_FORM layout in database');
   }
 }
 

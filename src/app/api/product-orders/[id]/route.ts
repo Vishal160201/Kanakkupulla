@@ -29,7 +29,6 @@ export async function GET(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error fetching product order:", error);
     return NextResponse.json({ error: "Failed to fetch product order" }, { status: 500 });
   }
 }
@@ -62,7 +61,6 @@ export async function PUT(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error updating product order:", error);
     return NextResponse.json({ error: "Failed to update product order" }, { status: 500 });
   }
 }
@@ -99,7 +97,6 @@ export async function DELETE(
       where: { productOrderId: id },
       data: { deletedAt: new Date() }
     });
-    console.log('softDelete result (product-orders API):', txDeleteResult.count);
 
     await prisma.productOrder.delete({
       where: { id },
@@ -109,7 +106,6 @@ export async function DELETE(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    console.error("Error deleting product order:", error);
     return NextResponse.json({ error: "Failed to delete product order" }, { status: 500 });
   }
 }

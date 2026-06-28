@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Booking, FilterState } from '@/types';
+import { FilterState } from '@/types';
 
 interface BookingContextType {
   filters: FilterState;
