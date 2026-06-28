@@ -1,5 +1,6 @@
 "use client";
 import FileAttachment from "@/components/ui/FileAttachment";
+import { uploadFileToDrive } from "@/lib/uploadHelper";
 
 import React, { useState, useEffect, useMemo } from "react";
 import useSWR from "swr";
@@ -202,11 +203,30 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     };
 
     // Populate customData with anything that isn't a standard field
-    Object.keys(formData).forEach(key => {
-      if (!Object.values(standardFieldMap).includes(key)) {
-        payload.customData[key] = formData[key];
+    try {
+      const uploadPromises = [];
+      for (const key of Object.keys(formData)) {
+        const value = formData[key];
+        if (typeof window !== 'undefined' && (value instanceof File || value instanceof Blob)) {
+           const categoryName = products.find((p: any) => p.id === formData.productId)?.name || "Uncategorized";
+           uploadPromises.push(
+             uploadFileToDrive(value as File, 'Gifts & Frames', categoryName)
+               .then(uploaded => ({ key, uploaded }))
+           );
+        } else if (!Object.values(standardFieldMap).includes(key)) {
+          payload.customData[key] = value;
+        }
       }
-    });
+      
+      const uploadResults = await Promise.all(uploadPromises);
+      for (const result of uploadResults) {
+        payload.customData[result.key] = result.uploaded.driveFile;
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload file");
+      setIsSubmitting(false);
+      return;
+    }
 
     // Check for recordDate
     if (layoutSchema?.sections) {

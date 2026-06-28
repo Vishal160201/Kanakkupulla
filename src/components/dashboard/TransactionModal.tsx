@@ -10,6 +10,7 @@ import FileAttachment from "@/components/ui/FileAttachment";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
+import { uploadFileToDrive } from "@/lib/uploadHelper";
 
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
@@ -155,6 +156,28 @@ function TransactionModalInner() {
 
     const payload = { ...form };
     if (payload.amount) payload.amount = parseFloat(payload.amount);
+
+    try {
+      const uploadPromises = [];
+      for (const key in payload) {
+        const value = payload[key];
+        if (typeof window !== 'undefined' && (value instanceof File || value instanceof Blob)) {
+          uploadPromises.push(
+            uploadFileToDrive(value as File, 'Transactions', payload.category || 'Uncategorized', payload.date)
+              .then(uploaded => ({ key, uploaded }))
+          );
+        }
+      }
+      
+      const uploadResults = await Promise.all(uploadPromises);
+      for (const result of uploadResults) {
+        payload[result.key] = result.uploaded.driveFile;
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload file");
+      setIsSubmitting(false);
+      return;
+    }
 
     // Apply isRecordDate logic
     if (layoutSchema?.sections) {
