@@ -28,6 +28,9 @@ export default function FileAttachment({
   const [uploadProgress, setUploadProgress] = useState<number | undefined>(undefined);
 
   const isDriveFile = (value as any)?.driveFile;
+  const isLocalFile = typeof window !== 'undefined' && (value instanceof File || value instanceof Blob);
+  const fileName = isDriveFile ? value.driveFile.name : (isLocalFile ? (value as File).name || "Local File" : "Local File Selected");
+  const fileSize = isDriveFile && value.driveFile.sizeBytes ? Number(value.driveFile.sizeBytes) : (isLocalFile ? value.size : null);
 
   if (value) {
     return (
@@ -44,13 +47,13 @@ export default function FileAttachment({
           )}
           <div className="flex flex-col overflow-hidden">
             <span className="text-[0.85rem] font-bold text-slate-700 truncate max-w-[200px]">
-              {isDriveFile ? value.driveFile.name : "Local File Selected"}
+              {fileName}
             </span>
-            {isDriveFile && value.driveFile.sizeBytes && (
+            {fileSize ? (
               <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider">
-                {(Number(value.driveFile.sizeBytes) / 1024 / 1024).toFixed(2)} MB
+                {(fileSize / 1024 / 1024).toFixed(2)} MB {isLocalFile ? "(Pending Upload)" : ""}
               </span>
-            )}
+            ) : null}
           </div>
         </div>
         <button type="button" onClick={() => { onChange(null); setExpanded(false); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-white hover:bg-red-50 text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-colors shadow-sm shrink-0">
@@ -89,7 +92,7 @@ export default function FileAttachment({
 
           // Client-side size validation: 10MB limit
           if (file.size > 10 * 1024 * 1024) {
-            toast.error("File exceeds 10MB limit. Please choose a smaller file.");
+            toast.error("File too large (max 10MB)");
             e.target.value = ''; // Reset input
             return;
           }
@@ -127,50 +130,7 @@ export default function FileAttachment({
           }
 
           if (driveStatus?.connected) {
-            setUploadProgress(0);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", "/api/integrations/google/upload", true);
-
-            xhr.upload.onprogress = (event) => {
-              if (event.lengthComputable) {
-                const percent = Math.round((event.loaded / event.total) * 100);
-                setUploadProgress(percent);
-              }
-            };
-
-            xhr.onload = () => {
-              setUploadProgress(undefined);
-
-              if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                  const responseData = JSON.parse(xhr.responseText);
-                  onChange({ driveFile: responseData });
-                  toast.success("File uploaded to Google Drive");
-                } catch (err) {
-                  toast.error("Failed to parse upload response");
-                }
-              } else {
-                try {
-                  const errData = JSON.parse(xhr.responseText);
-                  toast.error(errData.error || "Upload failed");
-                } catch {
-                  toast.error("Upload failed");
-                }
-              }
-            };
-
-            xhr.onerror = () => {
-              setUploadProgress(undefined);
-              toast.error("Network error during upload");
-            };
-
-            const uploadData = new FormData();
-            uploadData.append("file", fileToUpload);
-            uploadData.append("module", moduleName);
-            uploadData.append("category", categoryName);
-
-            xhr.send(uploadData);
+            onChange(fileToUpload);
           } else {
             // Fallback to base64 if Drive is not connected
             const reader = new FileReader();

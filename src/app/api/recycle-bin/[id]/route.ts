@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getGoogleDriveToken } from "@/lib/googleDriveAuth";
 
 export async function DELETE(
   request: Request,
@@ -28,6 +29,34 @@ export async function DELETE(
       }
     }
     if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
+      // 1. Delete associated Drive files
+      if (entry.originalData && typeof entry.originalData === "object") {
+        const customData = (entry.originalData as any).customData;
+        if (customData && typeof customData === "object") {
+          for (const key of Object.keys(customData)) {
+            const val = customData[key];
+            if (val && typeof val === "object" && val.id) {
+              const driveFileId = val.id;
+              try {
+                const accessToken = await getGoogleDriveToken(session);
+                if (accessToken) {
+                  const deleteRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${accessToken}` }
+                  });
+                  if (!deleteRes.ok) {
+                    console.error(`Failed to delete drive file ${driveFileId}:`, await deleteRes.text());
+                  }
+                }
+              } catch (err) {
+                console.error(`Error deleting drive file ${driveFileId}:`, err);
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Delete database records
       try {
         await prisma.transaction.deleteMany({ where: { productOrderId: entry.itemId } });
         await prisma.productOrder.delete({ where: { id: entry.itemId } });

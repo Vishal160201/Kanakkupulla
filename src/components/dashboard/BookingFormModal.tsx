@@ -22,6 +22,7 @@ import FileAttachment from "@/components/ui/FileAttachment";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mutate } from "swr";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { uploadFileToDrive } from "@/lib/uploadHelper";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -44,6 +45,8 @@ function BookingFormModalInner() {
 
   const clientSuggestions: string[] = [];
   const locationSuggestions: string[] = [];
+
+  const [isSubmittingLocal, setIsSubmittingLocal] = useState(false);
 
   const { register, handleSubmit, reset, setValue, watch, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -355,9 +358,42 @@ function BookingFormModalInner() {
       });
     }
 
+    // Handle file uploads
+    setIsSubmittingLocal(true);
+    try {
+      const uploadPromises = [];
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof window !== 'undefined' && (value instanceof File || value instanceof Blob)) {
+          uploadPromises.push(
+            uploadFileToDrive(value as File, 'Bookings', data.category || 'Uncategorized', data.date)
+              .then(uploaded => ({ key, uploaded }))
+          );
+        } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+          (data as any)[key] = JSON.stringify(value);
+        }
+      }
+      
+      const uploadResults = await Promise.all(uploadPromises);
+      for (const result of uploadResults) {
+        (data as any)[result.key] = JSON.stringify(result.uploaded);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload file");
+      setIsSubmittingLocal(false);
+      return;
+    }
+
     const formDataObj = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) formDataObj.append(key, value as string);
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object' && !Array.isArray(value)) {
+          formDataObj.append(key, JSON.stringify(value));
+        } else if (Array.isArray(value)) {
+          formDataObj.append(key, value.join(', '));
+        } else {
+          formDataObj.append(key, value as string);
+        }
+      }
     });
 
     // Check for recordDate
@@ -391,6 +427,7 @@ function BookingFormModalInner() {
     } else {
       toast.error("Failed to save booking. Please check your inputs.");
     }
+    setIsSubmittingLocal(false);
   };
 
   const onError = (errors: any) => {
@@ -722,8 +759,8 @@ function BookingFormModalInner() {
         </div>
         <div className="bg-slate-50 border-t border-gray-100 px-5 py-4 sm:px-10 sm:py-6 flex justify-end gap-3 rounded-b-2xl sm:rounded-b-3xl shrink-0">
           <button className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-bold text-[0.85rem] sm:text-[0.95rem] bg-transparent text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => closeBookingForm()}>Cancel</button>
-          <button className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-full font-bold text-[0.85rem] sm:text-[0.95rem] bg-orange-500 text-white shadow-md hover:bg-orange-600 hover:-translate-y-[1px] hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50" disabled={isSubmitting} onClick={handleSubmit(onSubmit, onError)}>
-            <i className="ph-fill ph-calendar-plus"></i> {isSubmitting ? "Saving..." : booking ? "Save Changes" : "Register Booking"}
+          <button className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-full font-bold text-[0.85rem] sm:text-[0.95rem] bg-orange-500 text-white shadow-md hover:bg-orange-600 hover:-translate-y-[1px] hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50" disabled={isSubmitting || isSubmittingLocal} onClick={handleSubmit(onSubmit, onError)}>
+            <i className="ph-fill ph-calendar-plus"></i> {(isSubmitting || isSubmittingLocal) ? "Saving..." : booking ? "Save Changes" : "Confirm"}
           </button>
         </div>
         </motion.div>
