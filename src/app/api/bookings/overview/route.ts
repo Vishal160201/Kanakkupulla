@@ -28,10 +28,12 @@ export async function GET() {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
     const dayAfterTomorrow = new Date(today);
     dayAfterTomorrow.setDate(today.getDate() + 2);
-    const next7Days = new Date(today);
-    next7Days.setDate(today.getDate() + 7);
+    const next8Days = new Date(today);
+    next8Days.setDate(today.getDate() + 8);
     const next14Days = new Date(today);
     next14Days.setDate(today.getDate() + 14);
 
@@ -46,6 +48,7 @@ export async function GET() {
         bookingNumber: true,
         category: true,
         date: true,
+        time: true,
         status: true,
         customData: true,
         client: { select: { name: true, phone: true, email: true } },
@@ -60,6 +63,7 @@ export async function GET() {
       title: b.client.name,
       category: b.category,
       date: b.date.toISOString().split('T')[0],
+      time: (b as any).time,
       status: b.status as any,
       customData: (b as any).customData || {}
     }));
@@ -70,9 +74,9 @@ export async function GET() {
       prisma.booking.count({
         where: { deletedAt: null, date: { gte: today, lt: dayAfterTomorrow } }
       }),
-      // Bookings in next 7 days
+      // Bookings in next 7 days (excluding today)
       prisma.booking.count({
-        where: { deletedAt: null, date: { gte: today, lt: next7Days } }
+        where: { deletedAt: null, date: { gte: tomorrow, lt: next8Days } }
       }),
       // Pending bookings in next 14 days
       prisma.booking.count({

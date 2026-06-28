@@ -1,4 +1,5 @@
 "use client";
+import FileAttachment from "@/components/ui/FileAttachment";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
@@ -31,8 +32,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
-  const [expandedFileFields, setExpandedFileFields] = useState<Record<string, boolean>>({});
-  const [advanceDate, setAdvanceDate] = useState<string | null>(null);
+    const [advanceDate, setAdvanceDate] = useState<string | null>(null);
 
   const { data: driveStatus } = useSWR("/api/integrations/google", fetcher);
   const { data: layoutData } = useSWR("/api/settings/layouts/GIFT_ORDER_FORM", fetcher);
@@ -43,20 +43,10 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
       setFormData(defaultProductId ? { productId: defaultProductId } : {});
       setErrors({});
       setUploadProgress({});
-      setExpandedFileFields({});
       setAdvanceDate(null);
     }
   }, [isOpen, defaultProductId]);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (!(e.target as Element).closest('.file-upload-container')) {
-        setExpandedFileFields({});
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const standardFieldMap: Record<string, string> = {
     fld_g_product: 'productId',
@@ -351,198 +341,17 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     }
 
     if (field.type === 'IMAGE' || field.type === 'FILE') {
-      const isDriveFile = value?.driveFile;
-
-      if (value) {
-        return (
-          <div className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center gap-3 overflow-hidden">
-              {isDriveFile ? (
-                <img src={value.driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
-              ) : (
-                <i className="ph-fill ph-image text-2xl text-blue-500"></i>
-              )}
-              <div className="flex flex-col overflow-hidden">
-                <span className="text-[0.85rem] font-bold text-slate-700 truncate max-w-[200px]">
-                  {isDriveFile ? value.driveFile.name : "Local File Selected"}
-                </span>
-                {isDriveFile && value.driveFile.sizeBytes && (
-                  <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider">
-                    {(Number(value.driveFile.sizeBytes) / 1024 / 1024).toFixed(2)} MB
-                  </span>
-                )}
-              </div>
-            </div>
-            <button type="button" onClick={() => handleFieldChange(field.id, null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white hover:bg-red-50 text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-colors shadow-sm shrink-0">
-              <i className="ph-bold ph-x"></i>
-            </button>
-          </div>
-        );
-      }
-
-      if (!value && !expandedFileFields[field.id]) {
-        return (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpandedFileFields(prev => ({ ...prev, [field.id]: true }));
-            }}
-            className="w-full flex items-center justify-center gap-2 h-[44px] px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[0.95rem] font-medium transition-colors shadow-sm whitespace-nowrap"
-          >
-            <Paperclip className="w-5 h-5 text-slate-400 shrink-0" />
-            Attach Image
-          </button>
-        );
-      }
-
+      const categoryName = products.find((p: any) => p.id === (formData.fld_g_product || formData.productId))?.name || "Uncategorized";
       return (
-        <div className="flex flex-col 2xl:flex-row gap-2 file-upload-container w-full">
-          <input
-            id={`file_input_${field.id}`}
-            type="file"
-            accept={field.type === 'IMAGE' ? "image/*" : undefined}
-            disabled={uploadProgress[field.id] !== undefined}
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-
-              // Client-side size validation: 10MB limit
-              if (file.size > 10 * 1024 * 1024) {
-                toast.error("File exceeds 10MB limit. Please choose a smaller file.");
-                e.target.value = ''; // Reset input
-                return;
-              }
-
-              let fileToUpload: File | Blob = file;
-              if (file.type.startsWith('image/')) {
-                try {
-                  fileToUpload = await new Promise<File | Blob>((resolve) => {
-                    const img = new globalThis.Image();
-                    img.onload = () => {
-                      const canvas = document.createElement('canvas');
-                      let width = img.width;
-                      let height = img.height;
-                      if (width > 1200) {
-                        height = Math.round((height * 1200) / width);
-                        width = 1200;
-                      }
-                      canvas.width = width;
-                      canvas.height = height;
-                      const ctx = canvas.getContext('2d');
-                      ctx?.drawImage(img, 0, 0, width, height);
-                      canvas.toBlob((blob) => {
-                        if (blob) {
-                          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-                        } else {
-                          resolve(file);
-                        }
-                      }, 'image/jpeg', 0.6);
-                    };
-                    img.onerror = () => resolve(file);
-                    img.src = URL.createObjectURL(file);
-                  });
-                } catch (err) {
-                  console.error("Compression failed", err);
-                }
-              }
-
-              if (driveStatus?.connected) {
-                setUploadProgress(prev => ({ ...prev, [field.id]: 0 }));
-
-                const xhr = new XMLHttpRequest();
-                xhr.open("POST", "/api/integrations/google/upload", true);
-
-                xhr.upload.onprogress = (event) => {
-                  if (event.lengthComputable) {
-                    const percent = Math.round((event.loaded / event.total) * 100);
-                    setUploadProgress(prev => ({ ...prev, [field.id]: percent }));
-                  }
-                };
-
-                xhr.onload = () => {
-                  setUploadProgress(prev => {
-                    const next = { ...prev };
-                    delete next[field.id];
-                    return next;
-                  });
-
-                  if (xhr.status >= 200 && xhr.status < 300) {
-                    try {
-                      const responseData = JSON.parse(xhr.responseText);
-                      handleFieldChange(field.id, { driveFile: responseData });
-                      toast.success("File uploaded to Google Drive");
-                    } catch (err) {
-                      toast.error("Failed to parse upload response");
-                    }
-                  } else {
-                    try {
-                      const errData = JSON.parse(xhr.responseText);
-                      toast.error(errData.error || "Upload failed");
-                    } catch {
-                      toast.error("Upload failed");
-                    }
-                  }
-                };
-
-                xhr.onerror = () => {
-                  setUploadProgress(prev => {
-                    const next = { ...prev };
-                    delete next[field.id];
-                    return next;
-                  });
-                  toast.error("Network error during upload");
-                };
-
-                const uploadData = new FormData();
-                uploadData.append("file", fileToUpload);
-                uploadData.append("module", "Gifts & Frames");
-
-                // Calculate category from selected product
-                const categoryName = products.find((p: any) => p.id === formData.productId)?.name || "Uncategorized";
-                uploadData.append("category", categoryName);
-
-                xhr.send(uploadData);
-              } else {
-                // Fallback to base64 if Drive is not connected
-                const reader = new FileReader();
-                reader.onloadend = () => handleFieldChange(field.id, reader.result);
-                reader.readAsDataURL(fileToUpload);
-              }
-            }}
-            style={{ display: 'none' }}
-          />
-          <button
-            type="button"
-            disabled={uploadProgress[field.id] !== undefined}
-            onClick={() => document.getElementById(`file_input_${field.id}`)?.click()}
-            className="flex-1 flex items-center justify-center gap-2 h-[44px] px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors shadow-sm relative overflow-hidden whitespace-nowrap"
-          >
-            {uploadProgress[field.id] !== undefined ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <Upload className="w-4 h-4 text-slate-400 shrink-0" />
-                Upload from Device
-              </>
-            )}
-            {uploadProgress[field.id] !== undefined && (
-              <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100">
-                <div
-                  className="h-full bg-blue-600 transition-all duration-300"
-                  style={{ width: `${uploadProgress[field.id]}%` }}
-                />
-              </div>
-            )}
-          </button>
-
-          {driveStatus?.connected && (
-            <GooglePicker
-              onPick={(file) => handleFieldChange(field.id, { driveFile: file })}
-              className="flex-1 flex items-center justify-center gap-2 h-[44px] px-3 py-0 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors shadow-sm whitespace-nowrap"
-            />
-          )}
-        </div>
+        <FileAttachment
+          id={field.id}
+          type={field.type}
+          value={value}
+          onChange={(val) => handleFieldChange(field.id, val)}
+          driveStatus={driveStatus}
+          moduleName="Gifts & Frames"
+          categoryName={categoryName}
+        />
       );
     }
 

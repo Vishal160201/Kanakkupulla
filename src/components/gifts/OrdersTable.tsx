@@ -206,7 +206,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
               return (
                 <div 
                   key={order.id}
-                  onClick={() => router.push(`/gifts/orders/${order.id}`)}
+                  onClick={() => openGiftOrderDetails(order.id)}
                   className="p-4 hover:bg-slate-50/80 transition-all duration-300 cursor-pointer flex flex-col gap-3"
                 >
                   <div className="flex items-start justify-between">
@@ -259,7 +259,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                   ) : (
                     <div className="flex items-center justify-end gap-4 mt-1 border-t border-slate-50 pt-2">
                       <button 
-                        onClick={(e) => { e.stopPropagation(); router.push(`/gifts/orders/${order.id}`); }}
+                        onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }}
                         className="flex items-center justify-center min-h-[44px] min-w-[44px] px-3 gap-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50/50 rounded-lg transition-colors text-[0.7rem] font-semibold uppercase tracking-wider"
                       >
                         <Edit2 size={14} /> Edit

@@ -1,5 +1,6 @@
 "use client";
 
+import { mutate as globalMutate } from "swr";
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -178,7 +179,8 @@ export default function LayoutsFieldsBuilder() {
       });
       if (!res.ok) throw new Error("Failed to save layout");
       toast.success(`${activeLayout.name} saved successfully!`);
-      fetchLayouts();
+      globalMutate(`/api/settings/layouts/${activeLayout.formKey}`);
+      globalMutate(`/api/settings/layouts`);
     } catch (error) {
       toast.error("Failed to save layout");
     } finally {

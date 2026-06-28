@@ -36,6 +36,7 @@ export async function GET() {
           time: true,
           location: true,
           status: true,
+          customData: true,
           client: { select: { name: true, phone: true } },
           order: { select: { package: true } },
         },
