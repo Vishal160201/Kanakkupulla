@@ -17,24 +17,26 @@ export default function OverdueBookingBanners() {
   useEffect(() => {
     // Load dismissed state from localStorage on mount
     const loadDismissed = () => {
-      const stored = localStorage.getItem("dismissed_bookings");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          const now = Date.now();
-          const valid: Record<string, number> = {};
-          
-          // Only keep items dismissed within the last 24h
-          Object.entries(parsed).forEach(([id, timestamp]) => {
-            if (now - (timestamp as number) < 24 * 60 * 60 * 1000) {
-              valid[id] = timestamp as number;
-            }
-          });
-          
-          setDismissed(valid);
-          localStorage.setItem("dismissed_bookings", JSON.stringify(valid));
-        } catch (e) {
-          console.error("Failed to parse dismissed bookings", e);
+      if (typeof window !== 'undefined') {
+        const stored = window.localStorage.getItem("dismissed_bookings");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            const now = Date.now();
+            const valid: Record<string, number> = {};
+            
+            // Only keep items dismissed within the last 24h
+            Object.entries(parsed).forEach(([id, timestamp]) => {
+              if (now - (timestamp as number) < 24 * 60 * 60 * 1000) {
+                valid[id] = timestamp as number;
+              }
+            });
+            
+            setDismissed(valid);
+            window.localStorage.setItem("dismissed_bookings", JSON.stringify(valid));
+          } catch (e) {
+            console.error("Failed to parse dismissed bookings", e);
+          }
         }
       }
     };
@@ -44,7 +46,9 @@ export default function OverdueBookingBanners() {
   const handleDismiss = (id: string) => {
     const newDismissed = { ...dismissed, [id]: Date.now() };
     setDismissed(newDismissed);
-    localStorage.setItem("dismissed_bookings", JSON.stringify(newDismissed));
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem("dismissed_bookings", JSON.stringify(newDismissed));
+    }
   };
 
   const handleComplete = async (id: string) => {

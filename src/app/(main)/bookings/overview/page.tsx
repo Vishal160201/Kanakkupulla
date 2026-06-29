@@ -69,7 +69,13 @@ function BookingsDataView() {
           </div>
           <div>
             <div className="text-orange-600/80 font-bold text-[0.75rem] mb-0.5">Hot Dates</div>
-            <div className="text-[1.5rem] font-extrabold text-orange-600 leading-none tracking-tight">{hotDates?.length || 0} <span className="text-[0.8rem] text-orange-400/80 font-semibold">dates</span></div>
+            <div className="text-[1.5rem] font-extrabold text-orange-600 leading-none tracking-tight">
+              {(hotDates?.length || 0) === 0 ? (
+                <span className="text-[1rem]">No hot date</span>
+              ) : (
+                <>{hotDates?.length} <span className="text-[0.8rem] text-orange-400/80 font-semibold">dates</span></>
+              )}
+            </div>
           </div>
         </div>
 
