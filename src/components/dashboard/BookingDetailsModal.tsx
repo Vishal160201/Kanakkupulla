@@ -472,7 +472,7 @@ export default function BookingDetailsModal() {
                               return (
                                 <div className="shrink-0 w-28 pt-2">
                                   <div className="relative border-l-2 border-slate-100 ml-2 space-y-6">
-                                    {steps.map((step, idx) => {
+                                    {steps.map((step: string, idx: number) => {
                                       const isActive = currentSectionStatus === step || (!currentSectionStatus && idx === 0);
                                       const isPast = steps.indexOf(currentSectionStatus) > idx;
                                       return (

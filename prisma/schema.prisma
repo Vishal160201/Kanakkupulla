@@ -291,6 +291,7 @@ enum NotificationType {
   ADVANCE_NOT_COLLECTED
   GALLERY_NOT_DELIVERED
   ALBUM_PENDING_REMINDER
+  BUDGET_EXCEEDED
 }
 
 enum NotificationPriority {
