@@ -28,14 +28,17 @@ export async function POST(request: Request) {
 
   try {
     const data = await request.json();
+    const userId = (session.user as any)?.id;
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     
-    // Upsert budget for the category, month, year
+    // Upsert budget for the category, month, year, userId
     const budget = await prisma.categoryBudget.upsert({
       where: {
-        category_month_year: {
+        category_month_year_userId: {
           category: data.category,
           month: parseInt(data.month),
-          year: parseInt(data.year)
+          year: parseInt(data.year),
+          userId
         }
       },
       update: {
@@ -45,7 +48,8 @@ export async function POST(request: Request) {
         category: data.category,
         monthlyLimit: parseFloat(data.monthlyLimit),
         month: parseInt(data.month),
-        year: parseInt(data.year)
+        year: parseInt(data.year),
+        userId
       }
     });
     
