@@ -3,15 +3,17 @@
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import useSWR from "swr";
-import { deleteBookingAction, updateBookingStatusAction } from "@/app/actions";
+import useSWR, { mutate as globalMutate } from "swr";
+import { deleteBookingAction, updateBookingStatusAction, updateAlbumTrackingAction } from "@/app/actions";
 import { toast } from "sonner";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { Trash2, Receipt, FileText, Upload, Wallet,
   Clock, MapPin, Tag, UserCircle, Calendar, Link as LinkIcon, Phone, Mail, Info,
   Camera, Image as ImageIcon, LayoutList, Users, FolderOpen, Package,
-  BookOpen, Maximize, Images, Activity
+  BookOpen, Maximize, Images, Activity, CheckCircle2, XCircle, ChevronDown, Edit3, Send, Play, User, Focus, Gem, Church, Heart, Target
 } from "lucide-react";
+import BookingStatusStepper from './BookingStatusStepper';
+import VerticalStatusStepper from './VerticalStatusStepper';
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -51,9 +53,12 @@ const getFieldIcon = (field: any) => {
   return <Info className="w-4 h-4 text-slate-400" />;
 };
 
-export default function BookingDetailsModal() {
+export default function BookingDetailsModal({ standaloneBookingId }: { standaloneBookingId?: string }) {
   const router = useRouter();
-  const { openBookingForm, isBookingDetailsOpen, bookingDetailsId, closeBookingDetails } = useGlobalForm();
+  const { openBookingForm, isBookingDetailsOpen, bookingDetailsId: contextBookingId, closeBookingDetails } = useGlobalForm();
+  
+  const bookingDetailsId = standaloneBookingId || contextBookingId;
+  const isVisible = standaloneBookingId ? true : isBookingDetailsOpen;
   
   const { data: fetchedBooking, isLoading: isBookingLoading, mutate: refreshBooking } = useSWR(
     bookingDetailsId ? `/api/bookings/${bookingDetailsId}` : null,
@@ -64,7 +69,10 @@ export default function BookingDetailsModal() {
     ...fetchedBooking,
     customData: typeof fetchedBooking.customData === 'string' ? 
       (() => { try { return JSON.parse(fetchedBooking.customData); } catch(e) { return {}; } })() : 
-      (fetchedBooking.customData || {})
+      (fetchedBooking.customData || {}),
+    inclusions: typeof fetchedBooking.inclusions === 'string' ?
+      (() => { try { return JSON.parse(fetchedBooking.inclusions); } catch(e) { return []; } })() :
+      (fetchedBooking.inclusions || []),
   } : null;
 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -73,6 +81,7 @@ export default function BookingDetailsModal() {
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [isAlbumStatusDropdownOpen, setIsAlbumStatusDropdownOpen] = useState(false);
   const [layoutSchema, setLayoutSchema] = useState<any>(null);
   const [teamUsers, setTeamUsers] = useState<any[]>([]);
 
@@ -81,19 +90,23 @@ export default function BookingDetailsModal() {
 
   useEffect(() => {
     if (layoutRes?.schema) setLayoutSchema(layoutRes.schema);
-    if (usersRes) setTeamUsers(usersRes);
+    if (usersRes) setTeamUsers(Array.isArray(usersRes) ? usersRes : (usersRes.data || []));
   }, [layoutRes, usersRes]);
 
   const standardFieldMap: Record<string, string> = {
     fld_b_client: 'title', fld_b_phone: 'phone', fld_b_email: 'email',
     fld_b_date: 'date', fld_b_time: 'time', fld_b_category: 'category',
     fld_b_location: 'location', fld_b_status: 'status', fld_b_package: 'package', fld_b_advance: 'advance',
-    fld_b_album_status: 'albumStatus', fld_gallery_delivered: 'galleryDelivered'
+    fld_gallery_delivered: 'galleryDelivered'
   };
 
   const statusField = layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.id === 'fld_b_status') || layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.type === 'STATUS_PICKER');
   const isStatusPicker = statusField?.type === 'STATUS_PICKER';
   const statusOptions = isStatusPicker ? (statusField.statusOptions || []) : [];
+  
+  const albumStatusField = layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.id === 'fld_b_album_status');
+  const isAlbumStatusPicker = albumStatusField?.type === 'STATUS_PICKER';
+  const albumStatusOptions = isAlbumStatusPicker ? (albumStatusField.statusOptions || []) : [];
   
   const currentOpt = isStatusPicker ? statusOptions.find((o: any) => o.label === booking?.status) : null;
 
@@ -106,6 +119,38 @@ export default function BookingDetailsModal() {
       toast.success(`Status updated to ${newStatus}`);
       setIsStatusDropdownOpen(false);
       refreshBooking();
+      
+      // Globally invalidate SWR keys so Bookings list, Calendar, Dashboard, and Album Status sync instantly
+      globalMutate(
+        (key) => typeof key === 'string' && (key.startsWith('/api/bookings') || key.startsWith('/api/dashboard')),
+        undefined,
+        { revalidate: true }
+      );
+      router.refresh();
+    } else {
+      toast.error("Failed to update status");
+    }
+  };
+
+  const changeSectionStatus = async (fieldId: string, newStatus: string) => {
+    if (!booking) return;
+    if (fieldId === 'fld_b_status') {
+      return changeStatus(newStatus);
+    }
+    
+    setIsUpdatingStatus(true);
+    const res = await updateAlbumTrackingAction(booking.id, { customData: { [fieldId]: newStatus } });
+    setIsUpdatingStatus(false);
+    
+    if (res.success) {
+      toast.success(`Status updated to ${newStatus}`);
+      refreshBooking();
+      globalMutate(
+        (key) => typeof key === 'string' && (key.startsWith('/api/bookings') || key.startsWith('/api/dashboard')),
+        undefined,
+        { revalidate: true }
+      );
+      router.refresh();
     } else {
       toast.error("Failed to update status");
     }
@@ -120,6 +165,13 @@ export default function BookingDetailsModal() {
           toast.success("Booking deleted successfully!");
           setIsDeleteConfirmOpen(false);
           closeBookingDetails();
+          
+          globalMutate(
+            (key) => typeof key === 'string' && (key.startsWith('/api/bookings') || key.startsWith('/api/dashboard')),
+            undefined,
+            { revalidate: true }
+          );
+          router.refresh();
         } else {
           toast.error("Failed to delete booking.");
         }
@@ -143,10 +195,12 @@ export default function BookingDetailsModal() {
       const { jsPDF } = await import("jspdf");
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pdf = new jsPDF({
+        orientation: canvas.height > canvas.width ? 'p' : 'l',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save(`Invoice_${booking.bookingNumber || booking.id.slice(-6).toUpperCase()}.pdf`);
       toast.success("Invoice generated successfully!");
     } catch (error) {
@@ -165,10 +219,12 @@ export default function BookingDetailsModal() {
       const { jsPDF } = await import("jspdf");
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pdf = new jsPDF({
+        orientation: canvas.height > canvas.width ? 'p' : 'l',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save(`Booking_Export_${booking.bookingNumber || booking.id.slice(-6).toUpperCase()}.pdf`);
       toast.success("Booking exported successfully!");
     } catch (error) {
@@ -212,14 +268,26 @@ export default function BookingDetailsModal() {
   const albumDesignerId = getDynamicFieldId(['album designer', 'album worker']);
   const albumDesignerVal = albumDesignerId ? booking?.customData?.[albumDesignerId] : null;
 
-  return (
-    <Dialog open={isBookingDetailsOpen} onOpenChange={(open) => {
-      if (!open) closeBookingDetails();
-    }}>
-      <DialogContent className="!max-w-[1300px] w-full sm:w-[95vw] h-[100dvh] sm:h-[90dvh] max-h-[100dvh] sm:max-h-[90dvh] p-0 bg-[#F5F6F8] border-0 overflow-hidden flex flex-col rounded-none sm:rounded-[2rem] shadow-2xl">
-        <DialogTitle className="sr-only">Booking Details</DialogTitle>
-        
-        {(!booking) ? (
+  const focusAmountFieldId = (() => {
+    if (!layoutSchema || !layoutSchema.sections) return null;
+    const focusSection = layoutSchema.sections.find((s: any) => s.title?.toLowerCase() === 'focus');
+    if (!focusSection || !focusSection.fields) return null;
+    const amountField = focusSection.fields.find((f: any) => (f.name || '').toLowerCase() === 'amount');
+    return amountField ? amountField.id : null;
+  })();
+  const focusAmountVal = focusAmountFieldId && booking?.customData ? booking.customData[focusAmountFieldId] : null;
+
+  const handleClose = () => {
+    if (standaloneBookingId) {
+      router.back();
+    } else {
+      closeBookingDetails();
+    }
+  };
+
+  const content = (
+    <div className={`w-full bg-[#F5F6F8] flex flex-col overflow-hidden relative ${standaloneBookingId ? 'h-full min-h-screen' : 'h-[100dvh] sm:h-[90dvh] max-h-[100dvh] sm:max-h-[90dvh] rounded-none sm:rounded-[2rem] shadow-2xl'}`}>
+      {(!booking) ? (
           <div className="flex-1 flex flex-col items-center justify-center p-20 min-h-[400px]">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mb-4" />
             <p className="text-slate-500 font-medium">Loading booking details...</p>
@@ -227,81 +295,214 @@ export default function BookingDetailsModal() {
         ) : (
           <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
             
-            {/* Header Sticky */}
-            <header className="shrink-0 sticky top-0 z-40 bg-white/50 backdrop-blur-xl border-b border-slate-200/50 px-4 md:px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex flex-col gap-2 w-full md:w-auto">
-                <div className="flex items-center gap-3">
-                  <span className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-lg tracking-wider">
-                    {booking.bookingNumber || `#${booking.id.slice(-6).toUpperCase()}`}
-                  </span>
-                </div>
-                <h1 className="text-2xl font-black text-[#0B1E40] tracking-tight">{booking.client?.name || booking.title || booking.customData?.fld_b_client || "Untitled Booking"}</h1>
-                
-                <div className="flex items-center gap-4 mt-2">
+            {/* Header Sticky / Card */}
+            <header className="shrink-0 sticky top-0 z-40 bg-[#F5F6F8] px-4 md:px-6 py-3 pb-2">
+              <div className="bg-white rounded-2xl p-3 md:p-4 border border-slate-100 shadow-sm flex flex-col gap-2 relative">
+                {/* Top row: ID and actions */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-50 text-orange-700 text-[10px] font-bold rounded-lg tracking-wider">
+                    <FolderOpen className="w-3 h-3" /> {booking.bookingNumber || `#${booking.id.slice(-6).toUpperCase()}`}
+                  </div>
+                  {/* Action buttons */}
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center shrink-0">
-                      <Tag className="w-3 h-3 text-indigo-600" />
+                    <button 
+                      onClick={() => setIsDeleteConfirmOpen(true)}
+                      className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-red-50 hover:px-3"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-5 h-5 text-red-500 group-hover:text-red-600 shrink-0 transition-colors" />
+                      <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-red-600 whitespace-nowrap">
+                        Delete
+                      </span>
+                    </button>
+                    <button 
+                      onClick={exportBooking}
+                      disabled={isExporting}
+                      className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-white hover:border hover:border-slate-200 hover:shadow-sm hover:px-3 border border-transparent"
+                      title="Export"
+                    >
+                      {isExporting ? <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin shrink-0" /> : <Upload className="w-5 h-5 text-slate-500 group-hover:text-slate-700 shrink-0 transition-colors" />}
+                      <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-slate-700 whitespace-nowrap">
+                        Export
+                      </span>
+                    </button>
+                    <button 
+                      onClick={generateInvoice}
+                      disabled={isGeneratingInvoice}
+                      className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-[#0B1E40] hover:px-3"
+                      title="Invoice"
+                    >
+                      {isGeneratingInvoice ? <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin shrink-0" /> : <Receipt className="w-5 h-5 text-slate-700 group-hover:text-white shrink-0 transition-colors" />}
+                      <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-white whitespace-nowrap">
+                        Invoice
+                      </span>
+                    </button>
+                  </div>
+                </div>
+                
+                <h1 className="text-xl md:text-2xl font-black text-[#0B1E40] tracking-tight">
+                  {booking.client?.name || booking.title || booking.customData?.fld_b_client || "Untitled Booking"}
+                </h1>
+                
+                <div className="flex flex-wrap items-center gap-4 md:gap-5 pt-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <Tag className="w-4 h-4 text-purple-600" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Category</p>
-                      <p className="text-sm font-semibold text-slate-700">{booking.category || "N/A"}</p>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Category</p>
+                      <p className="text-xs font-bold text-[#0B1E40]">{booking.category || "N/A"}</p>
                     </div>
                   </div>
-                  
-                  {isStatusPicker && (
-                    <div className="flex items-center gap-2 relative">
-                      <button 
-                        onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${currentOpt?.color || 'bg-white border-slate-200'} transition-all`}
-                      >
-                        <div className={`w-2 h-2 rounded-full ${currentOpt?.color ? 'bg-white' : 'bg-slate-400'}`} />
-                        <span className={`text-sm font-bold ${currentOpt?.color ? 'text-white' : 'text-slate-700'}`}>{booking.status}</span>
-                      </button>
-                      {isStatusDropdownOpen && (
-                        <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50">
-                          {statusOptions.map((opt: any) => (
-                            <button
-                              key={opt.label}
-                              onClick={() => changeStatus(opt.label)}
-                              className={`w-full text-left px-3 py-2 rounded-xl text-sm font-semibold transition-colors hover:bg-slate-50 ${booking.status === opt.label ? 'text-indigo-600 bg-indigo-50' : 'text-slate-700'}`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setIsDeleteConfirmOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-sm transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" /> Delete
-                </button>
-                <button 
-                  onClick={exportBooking}
-                  disabled={isExporting}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-sm transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {isExporting ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" /> : <Upload className="w-4 h-4" />} Export
-                </button>
-                <button 
-                  onClick={generateInvoice}
-                  disabled={isGeneratingInvoice}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#0B1E40] text-white hover:bg-[#152a55] rounded-xl font-bold text-sm transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {isGeneratingInvoice ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Receipt className="w-4 h-4" />} Invoice
-                </button>
+                  <div className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Shoot Date</p>
+                      <p className="text-xs font-bold text-[#0B1E40]">
+                        {booking.date ? new Date(booking.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : "N/A"}
+                      </p>
+                    </div>
+                    <ChevronDown className="w-3 h-3 text-slate-400 ml-1" />
+                  </div>
+
+                  <div className="hidden md:block w-px h-6 bg-slate-100" />
+
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-purple-50/50 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Start Time</p>
+                      <p className="text-xs font-bold text-[#0B1E40]">
+                        {booking.time || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="hidden md:block w-px h-6 bg-slate-100" />
+
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-red-50/50 flex items-center justify-center">
+                      <MapPin className="w-4 h-4 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Location</p>
+                      <p className="text-xs font-bold text-[#0B1E40]">
+                        {booking.location || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="hidden md:block w-px h-6 bg-slate-100" />
+
+                  {/* Dynamic Status Display */}
+                  {(() => {
+                    const eventStatus = (booking.status || 'Pending').toLowerCase();
+                    const isShootCompleted = eventStatus === 'shoot completed' || eventStatus === 'completed';
+
+                    let statusVal = booking.status || 'Pending';
+                    let s = statusVal.toLowerCase();
+                    let optionsToRender = isStatusPicker ? statusOptions : [];
+                    let onStatusSelect = (val: string) => changeStatus(val);
+                    let labelText = "Status";
+                    let isPicker = isStatusPicker;
+                    let currentActive = booking.status;
+
+                    if (isShootCompleted) {
+                      statusVal = booking.customData?.fld_b_album_status || 'Pending';
+                      s = statusVal.toLowerCase();
+                      labelText = "Album Status";
+                      
+                      if (isAlbumStatusPicker) {
+                        optionsToRender = albumStatusOptions;
+                      } else {
+                        optionsToRender = [
+                          { label: 'Pending' }, { label: 'Designing' },
+                          { label: 'Sent for printing' }, { label: 'Ready for delivery' }, { label: 'Delivered' }
+                        ];
+                      }
+                      isPicker = true;
+                      onStatusSelect = (val: string) => changeSectionStatus('fld_b_album_status', val);
+                      currentActive = statusVal;
+                    }
+
+                    let icon = <Clock className="w-3.5 h-3.5 text-indigo-600" />;
+                    let bg = 'bg-indigo-100';
+                    let ring = 'ring-indigo-500';
+                    let text = 'text-indigo-600';
+                    let doubleBorder = 'border-indigo-50';
+
+                    if (s === 'confirmed') { icon = <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />; bg = 'bg-emerald-100'; ring = 'ring-emerald-500'; text = 'text-emerald-600'; doubleBorder = 'border-emerald-50'; }
+                    else if (s === 'shoot completed') { icon = <Camera className="w-3.5 h-3.5 text-blue-600" />; bg = 'bg-blue-100'; ring = 'ring-blue-500'; text = 'text-blue-600'; doubleBorder = 'border-blue-50'; }
+                    else if (s === 'designing') { icon = <Edit3 className="w-3.5 h-3.5 text-blue-600" />; bg = 'bg-blue-100'; ring = 'ring-blue-500'; text = 'text-blue-600'; doubleBorder = 'border-blue-50'; }
+                    else if (s === 'sent for printing') { icon = <Send className="w-3.5 h-3.5 text-purple-600" />; bg = 'bg-purple-100'; ring = 'ring-purple-500'; text = 'text-purple-600'; doubleBorder = 'border-purple-50'; }
+                    else if (s === 'ready for delivery') { icon = <Package className="w-3.5 h-3.5 text-orange-600" />; bg = 'bg-orange-100'; ring = 'ring-orange-500'; text = 'text-orange-600'; doubleBorder = 'border-orange-50'; }
+                    else if (s === 'delivered') { icon = <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />; bg = 'bg-emerald-100'; ring = 'ring-emerald-500'; text = 'text-emerald-600'; doubleBorder = 'border-emerald-50'; }
+                    else if (s === 'cancelled') { icon = <XCircle className="w-3.5 h-3.5 text-red-600" />; bg = 'bg-red-100'; ring = 'ring-red-500'; text = 'text-red-600'; doubleBorder = 'border-red-50'; }
+
+                    return (
+                      <div className="relative">
+                        <div 
+                          onClick={() => isPicker && setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                          className={`flex items-center gap-2.5 ${isPicker ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ring-1 ring-offset-1 ${bg} ${doubleBorder} ${ring}`}>
+                            {icon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1">
+                              <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">{labelText}</p>
+                              {isPicker && <ChevronDown className="w-2.5 h-2.5 text-slate-400" />}
+                            </div>
+                            <p className={`text-xs font-bold ${text}`}>{statusVal}</p>
+                          </div>
+                        </div>
+
+                        {/* Status Dropdown Menu */}
+                        {isStatusDropdownOpen && isPicker && (
+                          <div className="absolute top-full mt-2 left-0 min-w-[140px] w-full bg-white border border-slate-100 rounded-xl shadow-lg z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-1">
+                              {optionsToRender.map((opt: any) => (
+                                <button
+                                  key={opt.label}
+                                  onClick={() => onStatusSelect(opt.label)}
+                                  disabled={isUpdatingStatus}
+                                  className={`w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-between ${opt.label === currentActive ? 'font-bold text-[#0B1E40] bg-slate-50' : 'text-slate-600'}`}
+                                >
+                                  {opt.label}
+                                  {opt.label === currentActive && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 ml-2 shrink-0" />}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+
+                </div>
+
+                {booking.status === 'Cancelled' && (
+                  <div className="mt-2 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 w-full animate-fade-in-up">
+                    <Info className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-red-800">Booking Cancelled</p>
+                      <p className="text-sm text-red-600 mt-1 leading-relaxed">
+                        This booking has linked transactions — cancelling will not auto-delete them. Manage manually in Daily Kanakku.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </header>
 
             {/* Scrollable Content Area */}
-            <main id="booking-details-content" className="flex-1 overflow-y-auto px-6 py-6">
-              
+            <main id="booking-details-content" className="flex-1 overflow-y-auto px-6 pb-6">
+
               {/* Top Info Strip */}
               <div className="w-full bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x divide-slate-100">
                 <div className="flex items-center gap-4 w-full lg:px-4">
@@ -339,7 +540,7 @@ export default function BookingDetailsModal() {
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Album Designer</p>
-                    <p className="font-bold text-slate-800">{albumDesignerVal ? teamUsers.find(u => u.id === albumDesignerVal)?.name || albumDesignerVal : "Unassigned"}</p>
+                    <p className="font-bold text-slate-800">{albumDesignerVal ? (teamUsers || []).find(u => u.id === albumDesignerVal)?.name || albumDesignerVal : "Unassigned"}</p>
                   </div>
                 </div>
               </div>
@@ -387,7 +588,7 @@ export default function BookingDetailsModal() {
                     </div>
                   </div>
 
-                  {layoutSchema?.sections?.filter((s: any) => isFieldVisibleForRender(s.visibilityRule) && s.title?.toLowerCase() !== 'financials' && s.title?.toLowerCase() !== 'financial')
+                  {layoutSchema?.sections?.filter((s: any) => isFieldVisibleForRender(s.visibilityRule) && s.title?.toLowerCase() !== 'financials' && s.title?.toLowerCase() !== 'financial' && s.title?.toLowerCase() !== 'focus')
                     .sort((a: any, b: any) => {
                       const titleA = (a.title || '').toLowerCase();
                       const titleB = (b.title || '').toLowerCase();
@@ -402,14 +603,18 @@ export default function BookingDetailsModal() {
                         const fname = (f.name || '').toLowerCase();
                         if (f.id === 'fld_b_client' || f.id === 'fld_b_phone' || f.id === 'fld_b_email') return false; // Handled in client info
                         if (fname.includes('attachment') || f.type === 'FILE' || f.type === 'ATTACHMENT') return false;
-                        if (fname === 'status' || fname === 'date') return false;
+                        if (['status', 'date', 'shoot date', 'start time', 'time', 'category', 'shoot category', 'location', 'focus'].includes(fname)) return false;
                         return isFieldVisibleForRender(f.visibilityRule);
                       }) || [];
                       
                       if (visibleFields.length === 0) return null;
 
                       // Identify status field inside section to drive timeline
-                      const sectionStatusField = section.fields?.find((f: any) => (f.name||'').toLowerCase().includes('status'));
+                      const sectionStatusField = section.fields?.find((f: any) => {
+                        const fname = (f.name||'').toLowerCase();
+                        return fname.includes('status') || f.type === 'STATUS_PICKER' || f.id === 'fld_b_album_status' || f.id === 'fld_b_status';
+                      });
+                      
                       let currentSectionStatus = null;
                       if (sectionStatusField) {
                         currentSectionStatus = standardFieldMap[sectionStatusField.id] ? (booking as any)[standardFieldMap[sectionStatusField.id]] : booking.customData?.[sectionStatusField.id];
@@ -441,12 +646,65 @@ export default function BookingDetailsModal() {
                                   } else {
                                     ids = [String(val)];
                                   }
-                                  val = ids.map((id: string) => teamUsers.find((u: any) => u.id === id)?.name || id).join(', ');
+                                  val = ids.map((id: string) => (teamUsers || []).find((u: any) => u.id === id)?.name || id).join(', ');
                                 } else if (val && field.type === 'DATE') {
                                   val = new Date(val).toLocaleDateString();
                                 }
 
                                 if (val === undefined || val === null || val === '') val = "N/A";
+                                
+                                const isMultiSelectStringList = typeof val === 'string' && val.includes(',') && val !== "N/A" && (field.type === 'MULTI_PICKLIST' || field.type === 'MULTI_SELECT' || (field.name || '').toLowerCase().includes('inclusion'));
+                                
+                                if (isMultiSelectStringList) {
+                                  const items = val.split(',').map((s: string) => s.trim()).filter(Boolean);
+                                  const fnameLower = (field.name || '').toLowerCase();
+                                  
+                                  const isWedding = fnameLower.includes('wedding');
+                                  const titleColorClass = isWedding ? 'text-indigo-600' : 'text-orange-500';
+                                  const iconBgClass = isWedding ? 'bg-indigo-50' : 'bg-orange-50';
+                                  const MainIcon = isWedding ? Gem : Package;
+                                  
+                                  return (
+                                    <details key={field.id} className="w-full mt-1 mb-3 group" open>
+                                      <summary className="flex items-center justify-between mb-3 px-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden select-none outline-none hover:opacity-80 transition-opacity">
+                                        <div className="flex items-center gap-3">
+                                          <div className={`w-8 h-8 rounded-xl ${iconBgClass} flex items-center justify-center`}>
+                                            <MainIcon className={`w-4 h-4 ${titleColorClass}`} />
+                                          </div>
+                                          <p className={`text-[11px] font-black uppercase tracking-wider ${titleColorClass}`}>{field.name}</p>
+                                        </div>
+                                        <ChevronDown className={`w-4 h-4 ${titleColorClass} opacity-60 transition-transform duration-200 group-open:-rotate-180`} />
+                                      </summary>
+                                      
+                                      <div className="mt-1 ml-[15px] pl-5 border-l-2 border-slate-100/60 flex flex-col gap-1.5">
+                                        {items.map((item: string, idx: number) => {
+                                          const itemLower = item.toLowerCase();
+                                          let ItemIcon = Camera;
+                                          let itemColor = "text-indigo-500";
+                                          let itemBg = "bg-indigo-50/70";
+                                          
+                                          if (itemLower.includes('video')) { ItemIcon = Play; itemColor = "text-orange-500"; itemBg = "bg-orange-50/70"; }
+                                          else if (itemLower.includes('photo')) { ItemIcon = ImageIcon; itemColor = "text-orange-500"; itemBg = "bg-orange-50/70"; }
+                                          else if (itemLower.includes('candid')) { ItemIcon = User; itemColor = "text-orange-500"; itemBg = "bg-orange-50/70"; }
+                                          else if (itemLower.includes('drone')) { ItemIcon = Focus; itemColor = "text-orange-500"; itemBg = "bg-orange-50/70"; }
+                                          else if (itemLower.includes('engagement')) { ItemIcon = Gem; itemColor = "text-indigo-500"; itemBg = "bg-indigo-50/70"; }
+                                          else if (itemLower.includes('pre wedding') || itemLower.includes('post wedding')) { ItemIcon = Heart; itemColor = "text-indigo-500"; itemBg = "bg-indigo-50/70"; }
+                                          else if (itemLower.includes('reception')) { ItemIcon = Church; itemColor = "text-indigo-500"; itemBg = "bg-indigo-50/70"; }
+                                          
+                                          return (
+                                            <div key={item} className="flex items-center gap-3 py-1">
+                                              <div className={`w-6 h-6 rounded-md flex items-center justify-center ${itemBg}`}>
+                                                <ItemIcon className={`w-3 h-3 ${itemColor}`} />
+                                              </div>
+                                              <p className="text-xs font-semibold text-slate-700">{item}</p>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </details>
+                                  );
+                                }
+
                                 if (Array.isArray(val)) val = val.join(', ');
 
                                 return (
@@ -463,26 +721,51 @@ export default function BookingDetailsModal() {
                               })}
                             </div>
                             
-                            {(sectionStatusField && sectionStatusField.statusOptions?.length > 0) && (() => {
+                            {(() => {
+                              const isAlbum = section.title.toLowerCase().includes('album');
+                              
+                              if (isAlbum) {
+                                const s = (booking.status || 'Pending').toLowerCase();
+                                const isShootCompleted = s === 'shoot completed' || s === 'completed';
+                                if (!isShootCompleted) return null;
+                              }
+
+                              let options = sectionStatusField?.statusOptions || sectionStatusField?.options || [];
+                              
+                              if (isAlbum && (!sectionStatusField || options.length === 0)) {
+                                options = [
+                                  { label: 'Pending' },
+                                  { label: 'Designing' },
+                                  { label: 'Sent for printing' },
+                                  { label: 'Ready for delivery' },
+                                  { label: 'Delivered' }
+                                ];
+                              }
+
+                              if (options.length === 0) return null;
+
                               // Build dynamic steps from layout settings, excluding 'Cancelled' as it's not a progressive step
-                              const steps = sectionStatusField.statusOptions
-                                .map((o: any) => o.label)
-                                .filter((label: string) => label.toLowerCase() !== 'cancelled');
+                              let steps = options
+                                .map((o: any) => typeof o === 'string' ? o : (o.label || o.value))
+                                .filter((label: string) => typeof label === 'string' && label.toLowerCase() !== 'cancelled');
+
+                              if (!isAlbum) {
+                                const allowedEventSteps = ['pending', 'confirmed', 'shoot completed'];
+                                steps = steps.filter((step: string) => allowedEventSteps.includes(step.toLowerCase()));
+                              }
                                 
+                              const effectiveFieldId = sectionStatusField?.id || (isAlbum ? 'fld_b_album_status' : '');
+                              const effectiveStatus = currentSectionStatus || (isAlbum ? booking.customData?.fld_b_album_status : null);
+
                               return (
-                                <div className="shrink-0 w-28 pt-2">
-                                  <div className="relative border-l-2 border-slate-100 ml-2 space-y-6">
-                                    {steps.map((step: string, idx: number) => {
-                                      const isActive = currentSectionStatus === step || (!currentSectionStatus && idx === 0);
-                                      const isPast = steps.indexOf(currentSectionStatus) > idx;
-                                      return (
-                                        <div key={step} className="relative pl-5">
-                                          <div className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 border-white ${(isActive || isPast) ? 'bg-indigo-500' : 'bg-slate-200'}`} />
-                                          <p className={`font-bold text-xs ${(isActive || isPast) ? 'text-slate-800' : 'text-slate-400'}`}>{step}</p>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
+                                <div className="shrink-0 pt-2 pl-4">
+                                  <VerticalStatusStepper 
+                                    steps={steps}
+                                    currentStatus={effectiveStatus}
+                                    sectionTitle={section.title}
+                                    onStatusChange={(newStatus) => changeSectionStatus(effectiveFieldId, newStatus)}
+                                    isUpdating={isUpdatingStatus}
+                                  />
                                 </div>
                               );
                             })()}
@@ -544,30 +827,55 @@ export default function BookingDetailsModal() {
                   </div>
 
                   {/* Bottom Extra Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full">
-                      <div className="flex items-center gap-2 mb-6">
-                        <FileText className="w-5 h-5 text-yellow-600" />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                    {/* Focus Card */}
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
+                      <div className="flex items-center gap-2">
+                        <Target className="w-5 h-5 text-blue-600" />
+                        <h3 className="font-bold text-[#0B1E40]">Focus</h3>
+                      </div>
+                      <div className="flex-1 flex items-end">
+                        <div className="flex items-center gap-4 mt-4">
+                          <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                            <Wallet className="w-5 h-5 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500 font-bold mb-0.5">Amount</p>
+                            <p className="text-base font-black text-slate-800">{focusAmountVal || booking.customData?.fld_b_focus || booking.customData?.focus || '20'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes Card */}
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-amber-600" />
                         <h3 className="font-bold text-[#0B1E40]">Notes</h3>
                       </div>
-                      <div className="flex-1 flex items-center justify-between mt-auto">
-                        <p className="text-sm text-slate-400 font-medium">No notes added</p>
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-sm font-bold border border-slate-200 transition-colors">
-                          + Add Note
-                        </button>
+                      <div className="flex-1 flex flex-col justify-between">
+                        <p className="text-sm text-slate-400 font-medium mt-2">No notes added</p>
+                        <div className="flex justify-end mt-4">
+                          <button className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-sm font-bold border border-slate-200 transition-colors">
+                            + Add Note
+                          </button>
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full">
-                      <div className="flex items-center gap-2 mb-6">
-                        <LinkIcon className="w-5 h-5 text-blue-500" />
+                    {/* Attachments Card */}
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
+                      <div className="flex items-center gap-2">
+                        <LinkIcon className="w-5 h-5 text-blue-600" />
                         <h3 className="font-bold text-[#0B1E40]">Attachments (0)</h3>
                       </div>
-                      <div className="flex-1 flex items-center justify-between mt-auto">
-                        <p className="text-sm text-slate-400 font-medium">No files uploaded yet</p>
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-bold border border-blue-200 transition-colors">
-                          <Upload className="w-3.5 h-3.5" /> Upload Files
-                        </button>
+                      <div className="flex-1 flex flex-col justify-between">
+                        <p className="text-sm text-slate-400 font-medium mt-2">No files uploaded yet</p>
+                        <div className="flex justify-end mt-4">
+                          <button className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-sm font-bold border border-blue-200 transition-colors">
+                            <Upload className="w-4 h-4" /> Upload Files
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -592,7 +900,7 @@ export default function BookingDetailsModal() {
                   Edit Booking
                 </button>
                 <button 
-                  onClick={() => closeBookingDetails()}
+                  onClick={handleClose}
                   className="px-8 py-2.5 bg-[#0B1E40] text-white hover:bg-[#152a55] rounded-xl font-bold text-sm transition-colors shadow-lg shadow-blue-900/20"
                 >
                   Close
@@ -602,8 +910,6 @@ export default function BookingDetailsModal() {
 
           </div>
         )}
-      </DialogContent>
-      
       {/* Delete Confirmation Modal */}
       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <DialogContent className="max-w-md w-[95vw] rounded-3xl p-6 bg-white border-0 shadow-2xl">
@@ -725,10 +1031,6 @@ export default function BookingDetailsModal() {
                   <span>Subtotal</span>
                   <span>₹{Number(booking?.order?.package || 0).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.85rem] text-gray-500">
-                  <span>Tax / GST (0%)</span>
-                  <span>₹0.00</span>
-                </div>
                 <div className="flex justify-between py-2.5 border-b border-gray-200 text-[0.95rem] font-bold">
                   <span className="text-[#1F2937]">Total Amount</span>
                   <span className="text-[#B66D42]">₹{Number(booking?.order?.package || 0).toFixed(2)}</span>
@@ -759,6 +1061,21 @@ export default function BookingDetailsModal() {
             </div>
          </div>
       </div>
+    </div>
+  );
+
+  if (standaloneBookingId) {
+    return content;
+  }
+
+  return (
+    <Dialog open={isVisible} onOpenChange={(open) => {
+      if (!open) closeBookingDetails();
+    }}>
+      <DialogContent className="!max-w-[1300px] w-full sm:w-[95vw] p-0 bg-transparent border-0 shadow-none">
+        <DialogTitle className="sr-only">Booking Details</DialogTitle>
+        {content}
+      </DialogContent>
     </Dialog>
   );
 }

@@ -171,13 +171,18 @@ export async function GET(request: Request) {
     const galleryDate = new Date();
     galleryDate.setDate(galleryDate.getDate() - thresholds.gallery);
 
-    const galleryPendingBookings = await prisma.booking.findMany({
+    const galleryPendingBookingsRaw = await prisma.booking.findMany({
       where: {
         date: { lt: galleryDate },
         deletedAt: null,
-        galleryDelivered: false
       },
       include: { client: true }
+    });
+
+    const galleryPendingBookings = galleryPendingBookingsRaw.filter(b => {
+      let cd: any = {};
+      try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
+      return cd.fld_b_album_status !== 'Delivered';
     });
 
     for (const booking of galleryPendingBookings) {
@@ -194,13 +199,18 @@ export async function GET(request: Request) {
     const albumDate = new Date();
     albumDate.setDate(albumDate.getDate() - thresholds.album);
 
-    const albumPendingBookings = await prisma.booking.findMany({
+    const albumPendingBookingsRaw = await prisma.booking.findMany({
       where: {
         date: { lt: albumDate },
         deletedAt: null,
-        albumStatus: 'PENDING'
       },
       include: { client: true }
+    });
+
+    const albumPendingBookings = albumPendingBookingsRaw.filter(b => {
+      let cd: any = {};
+      try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
+      return cd.fld_b_album_status === 'Pending';
     });
 
     for (const booking of albumPendingBookings) {

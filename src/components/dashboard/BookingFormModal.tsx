@@ -71,7 +71,7 @@ function BookingFormModalInner() {
     fld_b_client: 'title', fld_b_phone: 'phone', fld_b_email: 'email',
     fld_b_date: 'date', fld_b_time: 'time', fld_b_category: 'category',
     fld_b_location: 'location', fld_b_status: 'status', fld_b_package: 'package', fld_b_advance: 'advance',
-    fld_b_album_status: 'albumStatus', fld_gallery_delivered: 'galleryDelivered'
+    fld_gallery_delivered: 'galleryDelivered'
   };
 
   const { data: layoutData } = useSWR("/api/settings/layouts/BOOKING_FORM", fetcher);
@@ -136,6 +136,7 @@ function BookingFormModalInner() {
       }
       
       const formValues: any = {
+        id: b.id,
         title: b.client?.name || b.title || parsedCustomData.fld_b_client || '',
         phone: b.client?.phone || b.phone || parsedCustomData.fld_b_phone || '',
         email: b.client?.email || b.email || parsedCustomData.fld_b_email || '',
@@ -418,11 +419,11 @@ function BookingFormModalInner() {
         
         // Use SWR mutate to update cache immediately without full page reload
         mutate(
-          (key: any) => typeof key === 'string' && key.startsWith('/api/bookings'),
+          (key: any) => typeof key === 'string' && (key.startsWith('/api/bookings') || key.startsWith('/api/dashboard')),
           undefined,
           { revalidate: true }
         );
-        mutate('/api/dashboard/overview');
+        router.refresh();
         
         closeBookingForm();
     } else {

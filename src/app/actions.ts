@@ -24,6 +24,12 @@ export async function saveBookingAction(formData: FormData) {
       }
     }
 
+    // Logic to reset Album Status to Pending if Event Status changes to Shoot Completed
+    // is now handled inside the existingBooking check below for updates, and here for creations.
+    if (!validatedData.id && (validatedData.status === 'Shoot Completed' || validatedData.status === 'Completed')) {
+      customData.fld_b_album_status = 'Pending';
+    }
+
     const recordDate = rawData.recordDate ? new Date(rawData.recordDate as string) : undefined;
 
     if (validatedData.id) {
@@ -33,6 +39,15 @@ export async function saveBookingAction(formData: FormData) {
            where: { id: existingBooking.clientId },
            data: { name: validatedData.title, phone: validatedData.phone || "", email: validatedData.email }
          });
+         const isNewlyShootCompleted = (validatedData.status === 'Shoot Completed' || validatedData.status === 'Completed') && 
+                                       (existingBooking.status !== 'Shoot Completed' && existingBooking.status !== 'Completed');
+                                       
+         if (isNewlyShootCompleted || ((validatedData.status === 'Shoot Completed' || validatedData.status === 'Completed') && !customData.fld_b_album_status)) {
+           customData.fld_b_album_status = 'Pending';
+         } else if (validatedData.status !== 'Shoot Completed' && validatedData.status !== 'Completed') {
+           delete customData.fld_b_album_status;
+         }
+
          await prisma.booking.update({
            where: { id: validatedData.id },
            data: {
@@ -217,9 +232,33 @@ export async function deleteBookingAction(id: string) {
 export async function updateBookingStatusAction(bookingId: string, newStatus: string) {
   try {
     const session = await getServerSession(authOptions);
+    const existing = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!existing) return { success: false, error: 'Not found' };
+
     const dataToUpdate: any = { status: newStatus };
     if (newStatus === 'Shoot Completed' || newStatus === 'Completed') {
-      dataToUpdate.albumStatus = 'PENDING';
+      let customData = existing.customData as Record<string, any>;
+      if (typeof customData === 'string') {
+        try { customData = JSON.parse(customData); } catch(e) { customData = {}; }
+      } else {
+        customData = customData || {};
+      }
+      
+      if (existing.status !== newStatus || !customData.fld_b_album_status) {
+         dataToUpdate.customData = { ...customData, fld_b_album_status: 'Pending' };
+      }
+    } else {
+      let customData = existing.customData as Record<string, any>;
+      if (typeof customData === 'string') {
+        try { customData = JSON.parse(customData); } catch(e) { customData = {}; }
+      } else {
+        customData = customData || {};
+      }
+      
+      if (customData.fld_b_album_status) {
+        delete customData.fld_b_album_status;
+        dataToUpdate.customData = customData;
+      }
     }
     const booking = await prisma.booking.update({
       where: { id: bookingId },
@@ -266,6 +305,9 @@ export async function updateAlbumTrackingAction(bookingId: string, updates: { st
     }
 
     const dataToUpdate: any = { customData: newCustomData };
+    if (newCustomData.fld_b_album_status === 'Delivered') {
+      dataToUpdate.galleryDelivered = true;
+    }
     if (updates.status !== undefined) dataToUpdate.status = updates.status;
     if ((session?.user as any)?.id) dataToUpdate.updatedById = (session?.user as any)?.id;
 

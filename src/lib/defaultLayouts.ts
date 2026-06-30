@@ -30,7 +30,7 @@ export const DEFAULT_LAYOUTS = [
             { id: "fld_b_status", name: "Status", type: "STATUS_PICKER", mandatory: false, statusOptions: [
               { label: "Pending", color: "bg-red-500" },
               { label: "Confirmed", color: "bg-emerald-500" },
-              { label: "Completed", color: "bg-blue-500" },
+              { label: "Shoot Completed", color: "bg-blue-500" },
               { label: "Cancelled", color: "bg-slate-500" }
             ] },
           ]
@@ -44,7 +44,9 @@ export const DEFAULT_LAYOUTS = [
             { id: "fld_b_album_type", name: "Album Type", type: "PICK_LIST", mandatory: false, options: ["Standard", "Premium", "Mini", "None"] },
             { id: "fld_b_album_status", name: "Album Status", type: "STATUS_PICKER", mandatory: false, statusOptions: [
               { label: "Pending", color: "#f43f5e" },
-              { label: "In_Progress", color: "#f59e0b" },
+              { label: "Designing", color: "#f59e0b" },
+              { label: "Sent for printing", color: "#3b82f6" },
+              { label: "Ready for delivery", color: "#8b5cf6" },
               { label: "Delivered", color: "#10b981" }
             ] },
             { id: "fld_gallery_delivered", name: "Gallery Delivered", type: "CHECKBOX", mandatory: false }

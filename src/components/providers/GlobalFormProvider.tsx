@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface GlobalFormContextType {
   isBookingFormOpen: boolean;
@@ -34,6 +35,7 @@ interface GlobalFormContextType {
 const GlobalFormContext = createContext<GlobalFormContextType | undefined>(undefined);
 
 export function GlobalFormProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
   const [bookingToEditId, setBookingToEditId] = useState<string | null>(null);
   const [bookingInitialDate, setBookingInitialDate] = useState<string | null>(null);
@@ -66,13 +68,11 @@ export function GlobalFormProvider({ children }: { children: ReactNode }) {
   };
 
   const openBookingDetails = (bookingId: string) => {
-    setBookingDetailsId(bookingId);
-    setIsBookingDetailsOpen(true);
+    router.push(`/bookings/details/${bookingId}`);
   };
 
   const closeBookingDetails = () => {
-    setIsBookingDetailsOpen(false);
-    setTimeout(() => setBookingDetailsId(null), 300);
+    router.back();
   };
 
   const openTransactionForm = (transactionId?: string, initialData?: Record<string, any>) => {

@@ -226,12 +226,7 @@ export default function BookingsLayout({
       {/* Shared Modals */}
       <Modals />
 
-      {/* FAB (Camera Booking Icon) */}
-      {!isOverview && (
-        <div className="fab interactive" onClick={() => openBookingForm()}>
-          <i className="ph-fill ph-camera text-2xl"></i>
-        </div>
-      )}
+
     </div>
   );
 }

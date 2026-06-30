@@ -39,8 +39,8 @@ export default async function BookingDetailsPage({ params }: { params: Promise<{
   };
 
   return (
-    <div className="flex justify-center items-center h-full w-full">
-      <BookingDetailsModal />
+    <div className="fixed inset-0 z-[100] bg-slate-50">
+      <BookingDetailsModal standaloneBookingId={id} />
     </div>
   );
 }
