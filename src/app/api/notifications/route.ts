@@ -27,7 +27,9 @@ export async function GET(request: Request) {
     const isReadParam = searchParams.get("isRead");
 
     const whereClause: any = { userId: user.id };
-    // Removed priority temporarily as requested
+    if (priority) {
+      whereClause.priority = priority;
+    }
     if (isReadParam !== null) {
       whereClause.isRead = isReadParam === 'true';
     }
