@@ -16,11 +16,9 @@ interface AlbumStatusClientProps {
 
 
 const ALBUM_STATUS_OPTIONS = [
-  'Shoot completed',
+  'Pending',
   'Designing',
-  'Album Work in Progress',
-  'Printing',
-  'Album Completed',
+  'Sent for printing',
   'Ready for delivery',
   'Delivered'
 ];
@@ -62,21 +60,24 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
   const selectedAlbum = albums.find(a => a.id === selectedAlbumId) || null;
 
   const workInProgressCount = albums.filter(a => {
-    const status = (a.status || '').trim().toLowerCase();
-    const aStatus = (a.albumStatus || '').trim().toLowerCase();
-    return ['shoot completed', 'designing', 'printing', 'album work in progress'].includes(status) || aStatus === 'in_progress';
+    let customData: any = {};
+    try { customData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {}); } catch(e) {}
+    const aStatus = (customData.fld_b_album_status || '').trim().toLowerCase();
+    return ['designing', 'sent for printing'].includes(aStatus);
   }).length;
   
   const completedCount = albums.filter(a => {
-    const status = (a.status || '').trim().toLowerCase();
-    const aStatus = (a.albumStatus || '').trim().toLowerCase();
-    return ['album completed', 'ready for delivery'].includes(status) || aStatus === 'delivered';
+    let customData: any = {};
+    try { customData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {}); } catch(e) {}
+    const aStatus = (customData.fld_b_album_status || '').trim().toLowerCase();
+    return aStatus === 'ready for delivery';
   }).length;
 
   const deliveredCount = albums.filter(a => {
-    const status = (a.status || '').trim().toLowerCase();
-    const aStatus = (a.albumStatus || '').trim().toLowerCase();
-    return status === 'delivered' || aStatus === 'delivered';
+    let customData: any = {};
+    try { customData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {}); } catch(e) {}
+    const aStatus = (customData.fld_b_album_status || '').trim().toLowerCase();
+    return aStatus === 'delivered';
   }).length;
 
   // Simple overdue check logic
@@ -89,8 +90,8 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
     const deliveryDateStr = customData.album_delivery_date || customData.delivery_date;
     if (deliveryDateStr) {
       const deliveryDate = new Date(deliveryDateStr);
-      const aStatus = (a.albumStatus || '').trim().toLowerCase();
-      if (deliveryDate < new Date() && a.status?.toLowerCase() !== 'delivered' && aStatus !== 'delivered') {
+      const aStatus = (customData.fld_b_album_status || '').trim().toLowerCase();
+      if (deliveryDate < new Date() && aStatus !== 'delivered') {
         return true;
       }
     }
@@ -98,32 +99,27 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
   }).length;
 
   const filteredAlbums = albums.filter(a => {
-    // Tab filter
-    const status = (a.status || '').trim().toLowerCase();
-    const aStatus = (a.albumStatus || '').trim().toLowerCase();
+    let customData: any = {};
+    try { customData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {}); } catch(e) {}
+    const aStatus = (customData.fld_b_album_status || 'pending').trim().toLowerCase();
     
     if (activeTab === 'Pending') {
-      const isPending = aStatus === 'pending' || ['shoot completed', 'designing', 'printing', 'album work in progress', 'album completed', 'ready for delivery'].includes(status);
-      if (!isPending) return false;
+      if (aStatus !== 'pending') return false;
     }
     if (activeTab === 'Work in Progress') {
-      const isWip = aStatus === 'in_progress' || ['shoot completed', 'designing', 'printing', 'album work in progress'].includes(status);
-      if (!isWip) return false;
+      if (!['designing', 'sent for printing'].includes(aStatus)) return false;
     }
     if (activeTab === 'Completed') {
-      const isCompleted = ['album completed', 'ready for delivery'].includes(status);
-      if (!isCompleted && aStatus !== 'delivered') return false; // Or 'completed' if added to enum later
+      if (aStatus !== 'ready for delivery') return false;
     }
     if (activeTab === 'Delivered') {
-      if (status !== 'delivered' && aStatus !== 'delivered') return false;
+      if (aStatus !== 'delivered') return false;
     }
     if (activeTab === 'Overdue') {
-      let customData: any = {};
-      try { customData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {}); } catch(e) {}
       const deliveryDateStr = customData.album_delivery_date || customData.delivery_date;
       if (!deliveryDateStr) return false;
       const deliveryDate = new Date(deliveryDateStr);
-      if (deliveryDate >= new Date() || status === 'delivered' || aStatus === 'delivered') return false;
+      if (deliveryDate >= new Date() || aStatus === 'delivered') return false;
     }
     
     // Search filter
@@ -253,18 +249,19 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                     const deliveryDateStr = cData.album_delivery_date || cData.delivery_date;
                     const formattedDeliveryDate = deliveryDateStr ? new Date(deliveryDateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Not set';
                     
-                    let statusLabel = a.status || 'Pending';
+                    let statusLabel = cData.fld_b_album_status || 'Pending';
                     let statusColor = 'bg-slate-100 text-slate-700';
                     let progress = parseInt(cData.album_progress || '0');
                     
-                    if (statusLabel.toLowerCase() === 'album work in progress' || statusLabel.toLowerCase() === 'designing') {
-                      statusLabel = 'Album Work in Progress';
+                    if (statusLabel.toLowerCase() === 'designing') {
                       statusColor = 'bg-orange-100 text-orange-700';
-                      if (progress === 0) progress = 45;
-                    } else if (statusLabel.toLowerCase() === 'album completed' || statusLabel.toLowerCase() === 'ready for delivery') {
-                      statusLabel = 'Album Completed';
+                      if (progress === 0) progress = 25;
+                    } else if (statusLabel.toLowerCase() === 'sent for printing') {
+                      statusColor = 'bg-purple-100 text-purple-700';
+                      if (progress === 0) progress = 50;
+                    } else if (statusLabel.toLowerCase() === 'ready for delivery') {
                       statusColor = 'bg-emerald-100 text-emerald-700';
-                      if (progress === 0) progress = 100;
+                      if (progress === 0) progress = 75;
                     } else if (statusLabel.toLowerCase() === 'delivered') {
                       statusColor = 'bg-blue-100 text-blue-700';
                       if (progress === 0) progress = 100;
@@ -309,11 +306,11 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                         <td className="p-5 whitespace-nowrap">
       <CustomDropdown 
         options={ALBUM_STATUS_OPTIONS}
-        value={a.status || ""} 
+        value={cData.fld_b_album_status || "Pending"} 
         onChange={(val) => {
           let newProgress = progress;
-          if (val === 'Delivered' || val.includes('Completed')) newProgress = 100;
-          handleUpdateAlbum(a.id, { status: val, customData: { album_progress: newProgress.toString() } });
+          if (val === 'Delivered') newProgress = 100;
+          handleUpdateAlbum(a.id, { customData: { fld_b_album_status: val, album_progress: newProgress.toString() } });
         }}
         className={cn("w-36 rounded-lg text-[0.75rem] font-black border-none", statusColor)}
         placeholder="Select Status"
@@ -382,18 +379,19 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                   cData = typeof selectedAlbum.customData === 'string' ? JSON.parse(selectedAlbum.customData) : (selectedAlbum.customData || {});
                 } catch(e) {}
 
-                let statusLabel = selectedAlbum.status || 'Pending';
+                let statusLabel = cData.fld_b_album_status || 'Pending';
                 let statusColor = 'bg-slate-100 text-slate-700';
                 let progress = parseInt(cData.album_progress || '0');
                 
-                if (statusLabel.toLowerCase() === 'album work in progress' || statusLabel.toLowerCase() === 'designing') {
-                  statusLabel = 'Album Work in Progress';
+                if (statusLabel.toLowerCase() === 'designing') {
                   statusColor = 'bg-orange-100 text-orange-700';
-                  if (progress === 0) progress = 45;
-                } else if (statusLabel.toLowerCase() === 'album completed' || statusLabel.toLowerCase() === 'ready for delivery') {
-                  statusLabel = 'Album Completed';
+                  if (progress === 0) progress = 25;
+                } else if (statusLabel.toLowerCase() === 'sent for printing') {
+                  statusColor = 'bg-purple-100 text-purple-700';
+                  if (progress === 0) progress = 50;
+                } else if (statusLabel.toLowerCase() === 'ready for delivery') {
                   statusColor = 'bg-emerald-100 text-emerald-700';
-                  if (progress === 0) progress = 100;
+                  if (progress === 0) progress = 75;
                 } else if (statusLabel.toLowerCase() === 'delivered') {
                   statusColor = 'bg-blue-100 text-blue-700';
                   if (progress === 0) progress = 100;
@@ -482,28 +480,38 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                             <i className="ph-bold ph-check text-white text-[0.45rem]"></i>
                           </div>
                           <div className="flex justify-between items-start -mt-0.5">
-                            <div className="font-black text-slate-800 text-[0.8rem]">Shoot Completed</div>
+                            <div className="font-black text-slate-800 text-[0.8rem]">Pending</div>
                             <div className="text-[0.7rem] text-slate-400 font-medium">{formattedShootDate}</div>
                           </div>
                         </div>
 
                         <div className="relative">
-                          <div className={`absolute -left-[1.65rem] w-4 h-4 rounded-full border-[3px] border-white flex items-center justify-center shadow-sm ${progress >= 10 ? 'bg-white border-orange-400' : 'bg-slate-200'}`}>
-                            {progress >= 10 && <div className="w-1.5 h-1.5 bg-orange-400 rounded-full"></div>}
+                          <div className={`absolute -left-[1.65rem] w-4 h-4 rounded-full border-[3px] border-white flex items-center justify-center shadow-sm ${progress >= 25 ? 'bg-white border-orange-400' : 'bg-slate-200'}`}>
+                            {progress >= 25 && <div className="w-1.5 h-1.5 bg-orange-400 rounded-full"></div>}
                           </div>
                           <div className="flex justify-between items-start -mt-0.5">
-                            <div className={`font-black text-[0.8rem] ${progress >= 10 ? 'text-slate-800' : 'text-slate-400'}`}>Album Work Started</div>
-                            <div className="text-[0.7rem] text-slate-400 font-medium">{progress >= 10 ? 'Started' : 'Pending'}</div>
+                            <div className={`font-black text-[0.8rem] ${progress >= 25 ? 'text-slate-800' : 'text-slate-400'}`}>Designing</div>
+                            <div className="text-[0.7rem] text-slate-400 font-medium">{progress >= 25 ? 'Started' : 'Pending'}</div>
                           </div>
                         </div>
 
                         <div className="relative">
-                          <div className={`absolute -left-[1.65rem] w-4 h-4 rounded-full border-[3px] border-white flex items-center justify-center shadow-sm ${progress >= 100 ? 'bg-emerald-500' : 'bg-white border-slate-200'}`}>
-                             {progress >= 100 && <i className="ph-bold ph-check text-white text-[0.45rem]"></i>}
+                          <div className={`absolute -left-[1.65rem] w-4 h-4 rounded-full border-[3px] border-white flex items-center justify-center shadow-sm ${progress >= 50 ? 'bg-white border-purple-400' : 'bg-slate-200'}`}>
+                            {progress >= 50 && <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>}
                           </div>
                           <div className="flex justify-between items-start -mt-0.5">
-                            <div className={`font-black text-[0.8rem] ${progress >= 100 ? 'text-slate-800' : 'text-slate-400'}`}>Album Completed</div>
-                            <div className="text-[0.7rem] text-slate-400 font-medium">{progress >= 100 ? 'Completed' : 'Pending'}</div>
+                            <div className={`font-black text-[0.8rem] ${progress >= 50 ? 'text-slate-800' : 'text-slate-400'}`}>Sent for printing</div>
+                            <div className="text-[0.7rem] text-slate-400 font-medium">{progress >= 50 ? 'Sent' : 'Pending'}</div>
+                          </div>
+                        </div>
+
+                        <div className="relative">
+                          <div className={`absolute -left-[1.65rem] w-4 h-4 rounded-full border-[3px] border-white flex items-center justify-center shadow-sm ${progress >= 75 ? 'bg-emerald-500' : 'bg-white border-slate-200'}`}>
+                             {progress >= 75 && <i className="ph-bold ph-check text-white text-[0.45rem]"></i>}
+                          </div>
+                          <div className="flex justify-between items-start -mt-0.5">
+                            <div className={`font-black text-[0.8rem] ${progress >= 75 ? 'text-slate-800' : 'text-slate-400'}`}>Ready for delivery</div>
+                            <div className="text-[0.7rem] text-slate-400 font-medium">{progress >= 75 ? 'Ready' : 'Pending'}</div>
                           </div>
                         </div>
 
@@ -534,7 +542,10 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                           <i className="ph-bold ph-eye"></i> View Details
                         </button>
                       </div>
-                      <button className="w-full mt-3 py-3 rounded-xl bg-purple-700 text-white font-bold text-sm hover:bg-purple-800 flex items-center justify-center gap-2 shadow-md transition-colors">
+                      <button 
+                        onClick={() => handleUpdateAlbum(selectedAlbum.id, { customData: { fld_b_album_status: 'Delivered', album_progress: '100' } })}
+                        className="w-full mt-3 py-3 rounded-xl bg-purple-700 text-white font-bold text-sm hover:bg-purple-800 flex items-center justify-center gap-2 shadow-md transition-colors"
+                      >
                         <i className="ph-bold ph-check-circle"></i> Mark as Completed
                       </button>
                     </div>

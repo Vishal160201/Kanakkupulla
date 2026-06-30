@@ -56,7 +56,7 @@ export default function OverdueBookingBanners() {
       const res = await fetch(`/api/bookings/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Shoot Completed", albumStatus: "PENDING" })
+        body: JSON.stringify({ status: "Shoot Completed" })
       });
       if (res.ok) {
         mutate();

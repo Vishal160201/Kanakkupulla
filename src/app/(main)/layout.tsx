@@ -7,7 +7,6 @@ import { MobileNavProvider } from "@/components/providers/MobileNavProvider";
 import { GlobalFormProvider } from "@/components/providers/GlobalFormProvider";
 import BookingFormModal from "@/components/dashboard/BookingFormModal";
 import TransactionModal from "@/components/dashboard/TransactionModal";
-import BookingDetailsModal from "@/components/dashboard/BookingDetailsModal";
 import TransactionDetailsModal from "@/components/dashboard/TransactionDetailsModal";
 import OrderDetailsPanel from "@/components/gifts/OrderDetailsPanel";
 import React from "react";
@@ -35,7 +34,6 @@ export default function MainLayout({
             {/* Global Forms */}
             <BookingFormModal />
             <TransactionModal />
-            <BookingDetailsModal />
             <TransactionDetailsModal />
             <OrderDetailsPanel />
           </GlobalFormProvider>
