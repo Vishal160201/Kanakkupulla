@@ -49,6 +49,17 @@ export async function POST(request: Request) {
           });
         } catch (e) {
         }
+      } else if (entry.itemType === "TRANSACTION_GROUP") {
+        const data: any = entry.originalData;
+        const transactions = data.children || [];
+        for (const tx of transactions) {
+          try {
+            await prisma.transaction.update({
+              where: { id: tx.id },
+              data: { deletedAt: null }
+            });
+          } catch (e) {}
+        }
       } else if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
         const data: any = entry.originalData;
         try {

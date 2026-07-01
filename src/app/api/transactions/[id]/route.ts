@@ -243,7 +243,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       }
     });
 
-    await prisma.transaction.delete({ where: { id } });
+    await prisma.transaction.update({
+      where: { id },
+      data: { deletedAt: new Date() }
+    });
     return NextResponse.json({ success: true }, {
       headers: { "Cache-Control": "private, no-store" },
     });

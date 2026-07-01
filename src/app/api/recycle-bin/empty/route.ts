@@ -30,6 +30,11 @@ export async function POST(request: Request) {
           await prisma.productOrder.delete({ where: { id: entry.itemId } });
         } catch (e) {}
       }
+      if (entry.itemType === "TRANSACTION_GROUP") {
+        try {
+          await prisma.transaction.deleteMany({ where: { groupId: entry.itemId } });
+        } catch (e) {}
+      }
     }
 
     await prisma.recycleBin.deleteMany({});

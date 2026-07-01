@@ -141,12 +141,24 @@ export default function OverviewPage() {
     setIsDeletingId(id);
     setDeleteError(null);
     try {
-      const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+      const isGroup = id.startsWith('grp_');
+      const url = isGroup ? `/api/transactions/bulk/${id}` : `/api/transactions/${id}`;
+      const res = await fetch(url, { method: 'DELETE' });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || "Failed to delete");
       }
-      mutate(`/api/transactions/overview${queryStr}`);
+      
+      // Optimistic update
+      mutate(`/api/transactions/overview${queryStr}`, (currentData: any) => {
+        if (!currentData) return currentData;
+        return {
+          ...currentData,
+          recentTransactions: currentData.recentTransactions.filter((tx: any) => isGroup ? tx.groupId !== id : tx.id !== id),
+          todayTransactions: currentData.todayTransactions.filter((tx: any) => isGroup ? tx.groupId !== id : tx.id !== id),
+        };
+      }, { revalidate: true });
+      
       setConfirmDeleteId(null);
       setIsDeletingId(null);
     } catch (err: any) {
@@ -736,7 +748,6 @@ export default function OverviewPage() {
           </Link>
         </div>
 
-        {/* Transaction List */}
         <div className="relative z-10 px-5 sm:px-8 pb-5 sm:pb-7">
           {todayTransactions.length === 0 ? (
             <div className="bg-white/5 backdrop-blur-sm border border-dashed border-white/10 rounded-2xl p-10 text-center">
@@ -748,7 +759,41 @@ export default function OverviewPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1 sm:pr-2">
-              {todayTransactions.map((txn: any, idx: number) => (
+              {(() => {
+                const processedTransactions: any[] = [];
+                const grouped = new Map();
+                todayTransactions.forEach((tx: any) => {
+                  if (tx.groupId) {
+                    if (!grouped.has(tx.groupId)) {
+                      grouped.set(tx.groupId, {
+                        isGroup: true,
+                        id: tx.groupId,
+                        groupId: tx.groupId,
+                        category: tx.category,
+                        type: tx.type,
+                        amount: tx.amount,
+                        date: tx.date,
+                        paymentMode: tx.paymentMode,
+                        children: [tx]
+                      });
+                      processedTransactions.push(grouped.get(tx.groupId));
+                    } else {
+                      const group = grouped.get(tx.groupId);
+                      group.children.push(tx);
+                      group.amount += tx.amount;
+                      group.category += ' + ' + tx.category;
+                    }
+                  } else {
+                    processedTransactions.push(tx);
+                  }
+                });
+                for (let i = 0; i < processedTransactions.length; i++) {
+                  const item = processedTransactions[i];
+                  if (item.isGroup && item.children.length === 1) {
+                    processedTransactions[i] = item.children[0];
+                  }
+                }
+                return processedTransactions.map((txn: any, idx: number) => (
                 <div
                   key={txn.id}
                   onClick={() => openTransactionDetails(txn.id)}
@@ -811,12 +856,9 @@ export default function OverviewPage() {
                           <i className={`ph-fill ${MODE_ICONS[txn.paymentMode] || 'ph-wallet'} text-[0.6rem]`} />
                           {txn.paymentMode}
                         </span>
-                        <span className="text-slate-700 text-[0.6rem] font-mono font-semibold">
-                          {txn.transactionId}
-                        </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
                   <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 border-t border-white/10 sm:border-0 pt-2 sm:pt-0">
                     <span className="text-slate-500 text-[0.7rem] font-semibold">
                       {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
@@ -824,8 +866,12 @@ export default function OverviewPage() {
                     <span className={`min-w-[100px] text-right text-sm sm:text-base font-black ${
                         txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
                       }`}>
-                      {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN')}
+                      {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
+                    <div className="flex flex-col items-end gap-1 ml-2">
+                       {!txn.isGroup && <span className="text-[0.6rem] font-mono text-slate-500 bg-white/[0.05] px-1.5 py-0.5 rounded tracking-wider">{txn.transactionId}</span>}
+                       {txn.isGroup && <span className="text-[0.6rem] font-bold text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded tracking-wider">{txn.children.length} ITEMS</span>}
+                    </div>
                     <div className={`flex items-center gap-1 ${confirmDeleteId === txn.id || deleteError?.id === txn.id ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'} transition-opacity ml-2`}>
                       {isDeletingId === txn.id ? (
                         <div className="flex items-center gap-2 text-slate-400 px-2">
@@ -884,7 +930,8 @@ export default function OverviewPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+              ))
+            })()}
             </div>
           )}
         </div>

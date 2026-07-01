@@ -26,31 +26,26 @@ export async function POST(
         data: { deletedAt: null }
       });
     } else if (entry.itemType === "transaction") {
-      const data: any = entry.originalData;
       try {
-        await prisma.transaction.create({
-          data: {
-            id: data.id,
-            transactionId: data.transactionId,
-            amount: data.amount,
-            type: data.type,
-            date: new Date(data.date),
-            category: data.category,
-            paymentMode: data.paymentMode,
-            description: data.description,
-            status: data.status,
-            attachmentUrl: data.attachmentUrl,
-            customData: data.customData,
-            bookingId: data.bookingId,
-            userId: data.userId,
-            createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
-            updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
-          }
+        await prisma.transaction.update({
+          where: { id: entry.itemId },
+          data: { deletedAt: null }
         });
       } catch (e) {
         return NextResponse.json({ error: "Failed to restore transaction" }, { status: 500 });
       }
-    } else if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
+      } else if (entry.itemType === "TRANSACTION_GROUP") {
+        const data: any = entry.originalData;
+        const transactions = data.children || [];
+        for (const tx of transactions) {
+          try {
+            await prisma.transaction.update({
+              where: { id: tx.id },
+              data: { deletedAt: null }
+            });
+          } catch (e) {}
+        }
+      } else if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
       const data: any = entry.originalData;
       try {
         const debugTxs = await prisma.transaction.findMany({ where: { productOrderId: entry.itemId } });

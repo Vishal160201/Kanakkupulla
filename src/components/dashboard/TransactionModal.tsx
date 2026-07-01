@@ -30,11 +30,17 @@ import { Suspense } from "react";
 function TransactionModalInner() {
   const { isTransactionFormOpen, transactionToEditId, transactionInitialData, closeTransactionForm } = useGlobalForm();
   
-  const { data: fetchedTransaction, isLoading: isTxLoading } = useSWR(
-    transactionToEditId ? `/api/transactions/${transactionToEditId}` : null,
+  const isBulkEdit = typeof transactionToEditId === 'string' && transactionToEditId.startsWith('grp_');
+  const fetchUrl = transactionToEditId 
+    ? (isBulkEdit ? `/api/transactions/bulk/${transactionToEditId}` : `/api/transactions/${transactionToEditId}`) 
+    : null;
+
+  const { data: fetchRes, isLoading: isTxLoading } = useSWR(
+    fetchUrl,
     fetcher
   );
   
+  const fetchedTransaction = fetchRes?.transaction || transactionInitialData;
   const editTransaction = transactionToEditId ? fetchedTransaction : null;
 
   const router = useRouter();
@@ -84,7 +90,7 @@ function TransactionModalInner() {
     if (isOpen && !isTxLoading) {
       if (editTransaction) {
         const { customData, ...rest } = editTransaction;
-        setForm({
+        const formState: any = {
           amount: String(editTransaction.amount),
           type: editTransaction.type,
           date: new Date(editTransaction.date).toISOString(),
@@ -93,14 +99,26 @@ function TransactionModalInner() {
           description: editTransaction.description || "",
           status: editTransaction.status,
           ...(editTransaction.customData || {})
-        });
+        };
+        
+        if (editTransaction.items && Array.isArray(editTransaction.items)) {
+          editTransaction.items.forEach((item: any) => {
+            formState[`amount_${item.category}`] = String(item.amount);
+          });
+        }
+        
+        setForm(formState);
       } else if (layoutSchema?.sections) {
         const defaultForm: Record<string, any> = { type: "INCOME", status: "SETTLED", date: new Date().toISOString() };
         layoutSchema.sections.forEach((sec: any) => {
           sec.fields.forEach((f: any) => {
             const fname = standardFieldMap[f.id] || f.id;
-            if (f.type === "PICK_LIST" && f.options?.length > 0) {
-              defaultForm[fname] = f.options[0];
+            if ((f.type === "PICK_LIST" || f.type === "MULTI_PICKLIST") && f.options?.length > 0) {
+              if (fname !== "category") {
+                defaultForm[fname] = f.options[0];
+              } else {
+                defaultForm[fname] = "";
+              }
             } else if (f.type === "STATUS_PICKER" && f.statusOptions?.length > 0) {
               defaultForm[fname] = f.statusOptions[0].label;
             } else if (!defaultForm[fname]) {
@@ -137,10 +155,26 @@ function TransactionModalInner() {
       });
     }
     
-    // Explicit standard validation if mapped
-    const parsedAmount = parseFloat(form.amount || "0");
-    if (form.amount !== undefined && (isNaN(parsedAmount) || parsedAmount <= 0)) {
-      errs.amount = "Enter a valid positive amount.";
+    const selectedCategoryArray = typeof form.category === 'string' && form.category.trim() ? form.category.split(',').map((s:string) => s.trim()) : (Array.isArray(form.category) ? form.category : []);
+
+    if (selectedCategoryArray.length > 1) {
+      let allValid = true;
+      selectedCategoryArray.forEach((cat: string) => {
+        const catAmount = parseFloat(form[`amount_${cat}`] || "0");
+        if (isNaN(catAmount) || catAmount <= 0) {
+          errs[`amount_${cat}`] = "Required";
+          allValid = false;
+        }
+      });
+      if (!allValid) {
+        errs.category = "Enter valid amounts for all selected categories.";
+      }
+      delete errs.amount;
+    } else {
+      const parsedAmount = parseFloat(form.amount || "0");
+      if (form.amount !== undefined && (isNaN(parsedAmount) || parsedAmount <= 0)) {
+        errs.amount = "Enter a valid positive amount.";
+      }
     }
 
     setErrors(errs);
@@ -194,23 +228,60 @@ function TransactionModalInner() {
 
     try {
       let res: Response;
-      if (isEditMode && editTransaction) {
-        res = await fetch(`/api/transactions/${editTransaction.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+      const selectedCategoryArray = typeof payload.category === 'string' && payload.category.trim() ? payload.category.split(',').map((s:string) => s.trim()) : (Array.isArray(payload.category) ? payload.category : []);
+
+      if (selectedCategoryArray.length > 1 && !isEditMode) {
+        // Bulk creation
+        const bulkPayload = selectedCategoryArray.map((cat: string) => {
+          const catPayload = { ...payload };
+          catPayload.category = cat;
+          catPayload.amount = parseFloat(catPayload[`amount_${cat}`] || "0");
+          selectedCategoryArray.forEach((c: string) => delete catPayload[`amount_${c}`]);
+          return catPayload;
         });
-      } else {
-        res = await fetch("/api/transactions", {
+
+        res = await fetch("/api/transactions/bulk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(bulkPayload),
         });
+      } else {
+        if (isEditMode && editTransaction) {
+          const isGroupEdit = typeof editTransaction.id === 'string' && editTransaction.id.startsWith('grp_');
+          if (isGroupEdit) {
+            const bulkPayload = selectedCategoryArray.map((cat: string) => {
+              const catPayload = { ...payload };
+              catPayload.category = cat;
+              catPayload.amount = parseFloat(catPayload[`amount_${cat}`] || "0");
+              selectedCategoryArray.forEach((c: string) => delete catPayload[`amount_${c}`]);
+              return catPayload;
+            });
+            res = await fetch(`/api/transactions/bulk/${editTransaction.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(bulkPayload),
+            });
+          } else {
+            res = await fetch(`/api/transactions/${editTransaction.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+          }
+        } else {
+          res = await fetch("/api/transactions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
       }
 
       if (res.ok) {
-        toast.success(isEditMode ? "Transaction updated!" : "Transaction recorded!", {
-          description: `₹${parseFloat(form.amount || "0").toLocaleString("en-IN", { minimumFractionDigits: 2 })} ${form.type?.toLowerCase()} on ${new Date(form.date || Date.now()).toLocaleDateString("en-IN")}`,
+        toast.success(isEditMode ? "Transaction updated!" : (selectedCategoryArray.length > 1 ? "Transactions recorded!" : "Transaction recorded!"), {
+          description: selectedCategoryArray.length > 1 
+            ? `Recorded ${selectedCategoryArray.length} items on ${new Date(form.date || Date.now()).toLocaleDateString("en-IN")}`
+            : `₹${parseFloat(form.amount || "0").toLocaleString("en-IN", { minimumFractionDigits: 2 })} ${form.type?.toLowerCase()} on ${new Date(form.date || Date.now()).toLocaleDateString("en-IN")}`,
         });
         
         // Revalidate SWR caches for transactions
@@ -277,6 +348,9 @@ function TransactionModalInner() {
     const isError = !!errors[fieldName];
 
     if (fieldName === "amount") {
+      const selectedCategoryArray = typeof form.category === 'string' && form.category.trim() ? form.category.split(',').map((s:string) => s.trim()) : (Array.isArray(form.category) ? form.category : []);
+      if (selectedCategoryArray.length > 1) return null;
+
       return (
         <div>
           <label className="block text-[10px] font-extrabold text-slate-500 tracking-[1.5px] uppercase mb-2">
@@ -357,6 +431,61 @@ function TransactionModalInner() {
             />
           </div>
           {errors[fieldName] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[fieldName]}</p>}
+        </div>
+      );
+    }
+
+    if (fieldName === 'category') {
+      const opts = field.options || [];
+      const currentSelected = form[fieldName] || '';
+      const selectedArray = typeof currentSelected === 'string' && currentSelected.trim() ? currentSelected.split(',').map((s:string) => s.trim()) : (Array.isArray(currentSelected) ? currentSelected : []);
+      const legacyOpts = selectedArray.filter((s: string) => !opts.some((o: any) => (o.value || o.label || o) === s));
+      const allOpts = [...opts, ...legacyOpts];
+
+      return (
+        <div>
+          <label className="block text-[10px] font-extrabold text-slate-500 tracking-[1.5px] uppercase mb-2">
+            {field.name} {field.mandatory && <span className="text-red-500">*</span>}
+          </label>
+          <CustomMultiDropdown
+            options={allOpts.map((opt: any) => opt.label || opt.value || opt)}
+            value={selectedArray}
+            onChange={(val: any) => set(fieldName)(Array.isArray(val) ? val.join(', ') : val)}
+            error={!!errors[fieldName]}
+            placeholder={`Select ${field.name}...`}
+          />
+          {errors[fieldName] && <p className="text-xs text-red-500 mt-1 font-medium">{errors[fieldName]}</p>}
+          
+          {selectedArray.length > 1 && (
+             <div className="mt-4 space-y-2 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+               <div className="flex items-center justify-between mb-3">
+                 <label className="block text-[10px] font-extrabold text-slate-500 tracking-[1.5px] uppercase">Amounts per category</label>
+                 <div className="text-xs font-bold text-slate-700 bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">
+                   Total: <span className="text-emerald-600">₹{selectedArray.reduce((acc: number, cat: string) => acc + (parseFloat(form[`amount_${cat}`] || "0") || 0), 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                 </div>
+               </div>
+               {selectedArray.map((cat: string) => {
+                 const err = errors[`amount_${cat}`];
+                 return (
+                 <div key={cat} className="flex items-center gap-3">
+                   <div className="text-sm font-bold text-slate-700 w-1/3 truncate bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-100" title={cat}>{cat}</div>
+                   <div className={`flex-1 bg-white rounded-xl border px-3 py-2 flex items-center gap-2 focus-within:ring-2 focus-within:ring-orange-500/20 shadow-sm ${err ? 'border-red-400 focus-within:border-red-400' : 'border-slate-200 focus-within:border-orange-400'}`}>
+                     <span className="text-slate-400 font-medium">₹</span>
+                     <input
+                       type="number"
+                       min="0"
+                       step="0.01"
+                       value={form[`amount_${cat}`] || ""}
+                       onChange={(e) => set(`amount_${cat}`)(e.target.value)}
+                       placeholder="0.00"
+                       className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-900 placeholder:text-slate-300"
+                     />
+                   </div>
+                 </div>
+                 );
+               })}
+             </div>
+          )}
         </div>
       );
     }
