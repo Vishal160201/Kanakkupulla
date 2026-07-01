@@ -64,7 +64,7 @@ function BookingFormModalInner() {
   const [layoutSchema, setLayoutSchema] = useState<any>(null);
   const [teamUsers, setTeamUsers] = useState<UserItem[]>([]);
   const [allBookings, setAllBookings] = useState<any[]>([]);
-  const [installments, setInstallments] = useState<{amount: string, date: string}[]>([]);
+  const [installments, setInstallments] = useState<{amount: string, date: string, transactionId?: string}[]>([]);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<string | null>(null);
   
   const standardFieldMap: Record<string, string> = {
@@ -415,11 +415,47 @@ function BookingFormModalInner() {
     const result = await saveBookingAction(formDataObj);
 
     if (result.success && result.data) {
+        let needsReSave = false;
+        const newInstallments = [...installments];
+        const txPromises = newInstallments.map(async (inst) => {
+          if (inst.amount && parseFloat(inst.amount) > 0 && !inst.transactionId) {
+            try {
+              const res = await fetch('/api/transactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  amount: parseFloat(inst.amount),
+                  type: 'INCOME',
+                  category: 'BOOKING',
+                  description: `Advance Payment for Booking ${result.data.bookingNumber || '#' + result.data.id} - ${data.title || 'Client'}`,
+                  date: new Date(inst.date).toISOString(),
+                  bookingId: result.data.id,
+                  paymentMode: 'Cash'
+                })
+              });
+              if (res.ok) {
+                const txData = await res.json();
+                inst.transactionId = txData.id;
+                needsReSave = true;
+              }
+            } catch(e) {
+               console.error("Failed to create transaction for installment", e);
+            }
+          }
+        });
+        await Promise.all(txPromises);
+
+        if (needsReSave) {
+          formDataObj.set('id', result.data.id);
+          formDataObj.set('installments', JSON.stringify(newInstallments));
+          await saveBookingAction(formDataObj);
+        }
+
         toast.success(booking ? "Booking updated successfully!" : "Booking created successfully!");
         
         // Use SWR mutate to update cache immediately without full page reload
         mutate(
-          (key: any) => typeof key === 'string' && (key.startsWith('/api/bookings') || key.startsWith('/api/dashboard')),
+          (key: any) => typeof key === 'string' && (key.startsWith('/api/bookings') || key.startsWith('/api/dashboard') || key.startsWith('/api/transactions')),
           undefined,
           { revalidate: true }
         );
@@ -633,7 +669,26 @@ function BookingFormModalInner() {
                       className="flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-2 py-2 text-[0.85rem] transition-all duration-300 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 border-gray-200"
                     />
                   </div>
-                  <button type="button" onClick={() => setInstallments(installments.filter((_, i) => i !== idx))} className="w-[45px] h-[45px] rounded-xl bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors shrink-0">
+                  <button type="button" onClick={async () => {
+                    const instToDelete = installments[idx];
+                    if (instToDelete.transactionId) {
+                      try {
+                        await fetch(`/api/transactions/${instToDelete.transactionId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ deletedAt: new Date().toISOString() })
+                        });
+                        mutate(
+                          (key: any) => typeof key === 'string' && (key.startsWith('/api/transactions') || key.startsWith('/api/bookings') || key.startsWith('/api/dashboard')),
+                          undefined,
+                          { revalidate: true }
+                        );
+                      } catch(e) {
+                        toast.error('Failed to delete linked transaction');
+                      }
+                    }
+                    setInstallments(installments.filter((_, i) => i !== idx));
+                  }} className="w-[45px] h-[45px] rounded-xl bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors shrink-0">
                     <i className="ph-bold ph-trash text-[1.1rem]"></i>
                   </button>
                 </div>

@@ -28,6 +28,8 @@ model Order {
   installments Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([createdAt])
 }
 
 model Booking {
@@ -74,6 +76,9 @@ model SystemLog {
   action    String
   details   String?  @db.Text
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Transaction {
@@ -128,6 +133,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -136,6 +142,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum Role {
@@ -251,6 +259,11 @@ model ProductOrder {
   date        DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([productId])
+  @@index([status])
+  @@index([date])
+  @@index([createdAt])
 }
 
 model FormLayout {
@@ -358,5 +371,8 @@ model CategoryBudget {
   user         User     @relation(fields: [userId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
   @@unique([category, month, year, userId])
+  @@index([userId])
+  @@index([category, month, year])
 }
