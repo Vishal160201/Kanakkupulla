@@ -1,8 +1,10 @@
 "use client";
 
+import { format } from "date-fns";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import useSWR, { mutate as globalMutate } from "swr";
 import { deleteBookingAction, updateBookingStatusAction, updateAlbumTrackingAction } from "@/app/actions";
 import { toast } from "sonner";
@@ -10,7 +12,10 @@ import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { Trash2, Receipt, FileText, Upload, Wallet,
   Clock, MapPin, Tag, UserCircle, Calendar, Link as LinkIcon, Phone, Mail, Info,
   Camera, Image as ImageIcon, LayoutList, Users, FolderOpen, Package,
-  BookOpen, Maximize, Images, Activity, CheckCircle2, XCircle, ChevronDown, Edit3, Send, Play, User, Focus, Gem, Church, Heart, Target
+  BookOpen, Maximize, Images, Activity, CheckCircle2, XCircle, ChevronDown, Edit3, Send, Play, User, Focus, Gem, Church, Heart, Target,
+  TrendingUp,
+  Check,
+  CreditCard
 } from "lucide-react";
 import BookingStatusStepper from './BookingStatusStepper';
 import VerticalStatusStepper from './VerticalStatusStepper';
@@ -30,27 +35,28 @@ const getSectionIcon = (title: string) => {
 const getFieldIcon = (field: any) => {
   const name = (field.name || '').toLowerCase();
   
-  // Specific complex matches
-  if (name.includes('album type') || name.includes('book')) return <BookOpen className="w-4 h-4 text-emerald-500" />;
-  if (name.includes('photo') || name.includes('image') || name.includes('picture') || name.includes('pic')) return <Images className="w-4 h-4 text-violet-500" />;
-  if (name.includes('status') || name.includes('state')) return <Activity className="w-4 h-4 text-orange-500" />;
-  if (name.includes('size') || name.includes('dimension')) return <Maximize className="w-4 h-4 text-blue-500" />;
+  let icon = <Info className="w-4 h-4" />;
+  let color = "slate";
   
-  if (name.includes('email') || name.includes('mail')) return <Mail className="w-4 h-4 text-blue-500" />;
-  if (name.includes('name') || name.includes('client')) return <UserCircle className="w-4 h-4 text-indigo-500" />;
-  if (name.includes('location') || name.includes('address') || name.includes('city') || name.includes('venue')) return <MapPin className="w-4 h-4 text-rose-500" />;
-  if (name.includes('note') || name.includes('remark') || name.includes('description')) return <FileText className="w-4 h-4 text-yellow-600" />;
-  if (name.includes('date')) return <Calendar className="w-4 h-4 text-blue-500" />;
-  if (name.includes('time')) return <Clock className="w-4 h-4 text-purple-500" />;
-  if (name.includes('user') || name.includes('person') || name.includes('designer') || name.includes('photographer')) return <Users className="w-4 h-4 text-indigo-500" />;
-  if (name.includes('amount') || name.includes('price') || name.includes('cost')) return <Wallet className="w-4 h-4 text-emerald-500" />;
-  if (name.includes('category') || name.includes('shoot type')) return <FolderOpen className="w-4 h-4 text-violet-500" />;
-  if (name.includes('inclusion') || name.includes('package') || name.includes('item')) return <Package className="w-4 h-4 text-amber-500" />;
-  if (name.includes('type')) return <Tag className="w-4 h-4 text-rose-500" />;
-  if (name.includes('link') || name.includes('url')) return <LinkIcon className="w-4 h-4 text-blue-500" />;
-  if (name.includes('phone') || name.includes('contact') || name.includes('mobile')) return <Phone className="w-4 h-4 text-emerald-500" />;
+  if (name.includes('album type') || name.includes('book')) { icon = <BookOpen className="w-5 h-5" />; color = "emerald"; }
+  else if (name.includes('photo') || name.includes('image') || name.includes('picture') || name.includes('pic')) { icon = <Images className="w-5 h-5" />; color = "indigo"; }
+  else if (name.includes('status') || name.includes('state')) { icon = <Activity className="w-5 h-5" />; color = "orange"; }
+  else if (name.includes('size') || name.includes('dimension')) { icon = <Maximize className="w-5 h-5" />; color = "blue"; }
+  else if (name.includes('email') || name.includes('mail')) { icon = <Mail className="w-5 h-5" />; color = "blue"; }
+  else if (name.includes('name') || name.includes('client')) { icon = <UserCircle className="w-5 h-5" />; color = "indigo"; }
+  else if (name.includes('location') || name.includes('address') || name.includes('city') || name.includes('venue')) { icon = <MapPin className="w-5 h-5" />; color = "rose"; }
+  else if (name.includes('note') || name.includes('remark') || name.includes('description')) { icon = <FileText className="w-5 h-5" />; color = "yellow"; }
+  else if (name.includes('date')) { icon = <Calendar className="w-5 h-5" />; color = "blue"; }
+  else if (name.includes('time')) { icon = <Clock className="w-5 h-5" />; color = "purple"; }
+  else if (name.includes('user') || name.includes('person') || name.includes('designer') || name.includes('photographer')) { icon = <Images className="w-5 h-5" />; color = "indigo"; } // changed to Images and indigo to match screenshot
+  else if (name.includes('amount') || name.includes('price') || name.includes('cost')) { icon = <Wallet className="w-5 h-5" />; color = "emerald"; }
+  else if (name.includes('category') || name.includes('shoot type')) { icon = <FolderOpen className="w-5 h-5" />; color = "violet"; }
+  else if (name.includes('inclusion') || name.includes('package') || name.includes('item')) { icon = <Package className="w-5 h-5" />; color = "amber"; }
+  else if (name.includes('type')) { icon = <Tag className="w-5 h-5" />; color = "rose"; }
+  else if (name.includes('link') || name.includes('url')) { icon = <LinkIcon className="w-5 h-5" />; color = "blue"; }
+  else if (name.includes('phone') || name.includes('contact') || name.includes('mobile')) { icon = <Phone className="w-5 h-5" />; color = "emerald"; }
   
-  return <Info className="w-4 h-4 text-slate-400" />;
+  return { icon, color };
 };
 
 export default function BookingDetailsModal({ standaloneBookingId }: { standaloneBookingId?: string }) {
@@ -548,11 +554,11 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
               {/* Grid Area */}
               <div className="w-full">
                 
-                {/* Masonry Columns for Dynamic Sections & Client Info */}
-                <div className="columns-1 md:columns-2 xl:columns-3 gap-6 space-y-6">
+                {/* Grid Layout for Dynamic Sections & Client Info */}
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
                   
                   {/* Client Info Card */}
-                  <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm break-inside-avoid">
+                  <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-6 border-b border-slate-50 pb-4">
                       <UserCircle className="w-5 h-5 text-indigo-500" />
                       <h3 className="font-bold text-[#0B1E40]">Client Info</h3>
@@ -621,14 +627,14 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                       }
 
                       return (
-                        <div key={section.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm break-inside-avoid">
+                        <div key={section.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
                           <div className="flex items-center gap-2 mb-6 border-b border-slate-50 pb-4">
                             {getSectionIcon(section.title)}
                             <h3 className="font-bold text-[#0B1E40]">{section.title}</h3>
                           </div>
-                          <div className="flex justify-between items-start gap-4">
-                            <div className="space-y-5 flex-1 min-w-0">
-                              {visibleFields.map((field: any) => {
+                          <div className={cn("grid grid-cols-1 gap-6", (sectionStatusField || section.title.toLowerCase().includes('album')) ? "xl:grid-cols-[1fr_auto]" : "")}>
+                            <div className="space-y-5 flex-1 min-w-0 xl:pr-6">
+                              {visibleFields.map((field: any, idx: number) => {
                                 const standardKey = standardFieldMap[field.id];
                                 let val = standardKey ? (booking as any)[standardKey] : booking.customData?.[field.id];
                                 
@@ -707,10 +713,12 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
 
                                 if (Array.isArray(val)) val = val.join(', ');
 
+                                const { icon, color } = getFieldIcon(field);
                                 return (
                                   <div key={field.id} className="flex items-start gap-3 w-full">
-                                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0 mt-0.5">
-                                      {getFieldIcon(field)}
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-${color}-50 text-${color}-500 mt-0.5`}>
+                                      {/* Scaled down icon slightly inside to fit w-8 */}
+                                      <div className="scale-75 origin-center flex items-center justify-center">{icon}</div>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">{field.name}</p>
@@ -744,7 +752,6 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
 
                               if (options.length === 0) return null;
 
-                              // Build dynamic steps from layout settings, excluding 'Cancelled' as it's not a progressive step
                               let steps = options
                                 .map((o: any) => typeof o === 'string' ? o : (o.label || o.value))
                                 .filter((label: string) => typeof label === 'string' && label.toLowerCase() !== 'cancelled');
@@ -758,13 +765,14 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                               const effectiveStatus = currentSectionStatus || (isAlbum ? booking.customData?.fld_b_album_status : null);
 
                               return (
-                                <div className="shrink-0 pt-2 pl-4">
+                                <div className="xl:border-l border-slate-100 xl:pl-6 pt-6 xl:pt-0 flex w-full xl:w-auto xl:min-w-[150px] h-full">
                                   <VerticalStatusStepper 
                                     steps={steps}
                                     currentStatus={effectiveStatus}
                                     sectionTitle={section.title}
                                     onStatusChange={(newStatus) => changeSectionStatus(effectiveFieldId, newStatus)}
                                     isUpdating={isUpdatingStatus}
+                                    updatedAt={booking.updatedAt ? format(new Date(booking.updatedAt), "dd MMM yyyy, h:mm a") : undefined}
                                   />
                                 </div>
                               );
@@ -775,59 +783,13 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                     })}
                   </div>
 
-                  {/* Package & Payment */}
-                  <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm mt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                        <Wallet className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-[#0B1E40]">Package & Payment</h3>
-                        <p className="text-xs text-slate-500">Summary of package details and payment status.</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                      <div className="bg-orange-50/50 rounded-2xl p-4 flex items-center justify-between border border-orange-100">
-                        <div>
-                          <p className="text-xs font-bold text-orange-600/70 mb-1">Total Amount</p>
-                          <p className="text-2xl font-black text-orange-700">₹{booking.order?.package || booking.customData?.fld_b_package || '0'}</p>
-                        </div>
-                        <Wallet className="w-8 h-8 text-orange-200" />
-                      </div>
-                      <div className="bg-emerald-50/50 rounded-2xl p-4 flex items-center justify-between border border-emerald-100">
-                        <div>
-                          <p className="text-xs font-bold text-emerald-600/70 mb-1">Paid</p>
-                          <p className="text-2xl font-black text-emerald-700">₹{booking.advance || booking.customData?.fld_b_advance || '0'}</p>
-                        </div>
-                        <Wallet className="w-8 h-8 text-emerald-200" />
-                      </div>
-                      <div className="bg-rose-50/50 rounded-2xl p-4 flex items-center justify-between border border-rose-100">
-                        <div>
-                          <p className="text-xs font-bold text-rose-600/70 mb-1">Pending Due</p>
-                          <p className="text-2xl font-black text-rose-700">
-                            ₹{(Number(booking.order?.package || booking.customData?.fld_b_package || 0) - Number(booking.order?.advance || booking.customData?.fld_b_advance || 0))}
-                          </p>
-                        </div>
-                        <Receipt className="w-8 h-8 text-rose-200" />
-                      </div>
-                    </div>
-                    
-                    <div className="mt-6 flex items-center gap-4">
-                      <div className="h-2 flex-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-emerald-500 rounded-full"
-                          style={{ width: `${Math.min(100, (Number(booking.order?.advance || booking.customData?.fld_b_advance || 0) / Math.max(1, Number(booking.order?.package || booking.customData?.fld_b_package || 1))) * 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-xs font-bold text-slate-600 w-16 text-right">
-                        {Math.round((Number(booking.order?.advance || booking.customData?.fld_b_advance || 0) / Math.max(1, Number(booking.order?.package || booking.customData?.fld_b_package || 1))) * 100)}% Paid
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Bottom Extra Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                {/* Row 2: Combined Layout */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+                  
+                  {/* Left Column: Focus, Notes, Attachments */}
+                  <div className="flex flex-col gap-6">
+                    {/* Top half: Focus and Notes */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Focus Card */}
                     <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
                       <div className="flex items-center gap-2">
@@ -847,6 +809,8 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                       </div>
                     </div>
 
+
+
                     {/* Notes Card */}
                     <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
                       <div className="flex items-center gap-2">
@@ -863,6 +827,10 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                       </div>
                     </div>
                     
+
+
+                    </div>
+                    {/* Bottom half: Attachments */}
                     {/* Attachments Card */}
                     <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
                       <div className="flex items-center gap-2">
@@ -878,9 +846,144 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                         </div>
                       </div>
                     </div>
+
+
                   </div>
-                  
+
+                  {/* Right Column: Financials */}
+                  <div className="flex flex-col gap-6">
+                  {/* Right Column (Row 3): Package & Payment (Revamped) */}
+                  <div className="flex flex-col gap-6">
+                  {(() => {
+                    const totalAmount = Number(booking.order?.package || booking.customData?.fld_b_package || 0);
+                    const advanceAmount = Number(booking.order?.advance || booking.customData?.fld_b_advance || 0);
+                    const dueAmount = totalAmount - advanceAmount;
+                    const progressPercent = totalAmount > 0 ? Math.round((advanceAmount / totalAmount) * 100) : 0;
+                    const validTransactions = booking.transactions?.filter((tx: any) => !tx.deletedAt) || [];
+                    const paymentMethod = booking.customData?.paymentMode || booking.customData?.fld_b_payment_mode || "Cash";
+
+                    return (
+                      <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col h-fit">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
+                              <Wallet className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-black text-[#0B1E40]">Financials</h3>
+                              <p className="text-sm font-medium text-slate-500">Overview of booking payments</p>
+                            </div>
+                          </div>
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-100 rounded-full">
+                            <CheckCircle2 size={14} className="text-green-600" />
+                            <span className="text-[0.75rem] font-bold text-green-700">{progressPercent}% Collected</span>
+                          </div>
+                        </div>
+                        
+                        <div className="border-t border-slate-100 pt-6">
+                          <div className="flex flex-col mt-auto">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                              {/* Left: Total Amount */}
+                              <div>
+                                <div className="text-[0.6rem] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Total Amount</div>
+                                <div className="text-3xl font-black text-slate-800 mb-2">₹{totalAmount.toLocaleString()}</div>
+                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-green-50 text-green-600 text-[0.65rem] font-bold rounded-md border border-green-100">
+                                  <TrendingUp size={12} /> 0% vs last month
+                                </div>
+                              </div>
+                              
+                              {/* Right: Progress */}
+                              <div className="md:border-l border-slate-100 md:pl-6 flex flex-col justify-center">
+                                <div className="text-[0.6rem] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Collection Progress</div>
+                                <div className="flex items-end gap-2 mb-2">
+                                  <div className="text-2xl font-black text-slate-800 leading-none">{progressPercent}%</div>
+                                  <div className="text-green-600 font-bold text-xs mb-0.5">Collected</div>
+                                </div>
+                                <div className="w-full bg-slate-100 h-2 rounded-full mb-2 overflow-hidden">
+                                  <div className="bg-green-500 h-full rounded-full transition-all" style={{ width: `${progressPercent}%` }}></div>
+                                </div>
+                                <div className="flex items-center gap-3 text-[0.65rem] font-bold text-slate-500">
+                                  <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Collected ₹{advanceAmount.toLocaleString()}</div>
+                                  <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Pending ₹{dueAmount.toLocaleString()}</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {/* Card 1: Advance */}
+                              <div className="bg-green-50/50 p-3 rounded-2xl border border-green-100 relative overflow-hidden group">
+                                <div className="flex items-center justify-between mb-2 relative z-10">
+                                  <div className="w-8 h-8 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-sm">
+                                    <Wallet size={14} />
+                                  </div>
+                                  <div className="w-5 h-5 rounded-full border-2 border-green-200 flex items-center justify-center text-green-400">
+                                    <Check size={12} strokeWidth={3} />
+                                  </div>
+                                </div>
+                                <div className="text-[0.6rem] font-bold text-green-700/70 uppercase tracking-widest mb-0.5 relative z-10">Advance Paid</div>
+                                <div className="text-xl font-black text-slate-800 relative z-10">₹{advanceAmount.toLocaleString()}</div>
+                              </div>
+
+                              {/* Card 2: Due Amount */}
+                              <div className="bg-red-50/50 p-3 rounded-2xl border border-red-100 relative overflow-hidden group">
+                                <div className="flex items-center justify-between mb-2 relative z-10">
+                                  <div className="w-8 h-8 rounded-xl bg-red-400 text-white flex items-center justify-center shadow-sm">
+                                    <Receipt size={14} />
+                                  </div>
+                                  <div className="w-5 h-5 rounded-full border-2 border-red-200 flex items-center justify-center text-red-400">
+                                    <Clock size={12} strokeWidth={3} />
+                                  </div>
+                                </div>
+                                <div className="text-[0.6rem] font-bold text-red-700/70 uppercase tracking-widest mb-0.5 relative z-10">Due Amount</div>
+                                <div className="text-xl font-black text-slate-800 relative z-10">₹{dueAmount.toLocaleString()}</div>
+                              </div>
+
+                              {/* Card 3: Mode of Payment */}
+                              <div className="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 relative overflow-hidden group">
+                                <div className="flex items-center justify-between mb-2 relative z-10">
+                                  <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-sm">
+                                    <CreditCard size={14} />
+                                  </div>
+                                  <div className="w-5 h-5 rounded-full border-2 border-indigo-200 flex items-center justify-center text-indigo-300">
+                                    <span className="text-base leading-none">-</span>
+                                  </div>
+                                </div>
+                                <div className="text-[0.6rem] font-bold text-indigo-700/70 uppercase tracking-widest mb-0.5 relative z-10">Payment Method</div>
+                                <div className="text-xl font-black text-slate-800 relative z-10">{paymentMethod}</div>
+                              </div>
+                            </div>
+
+                            {validTransactions.length > 0 && (
+                              <div className="mt-6 pt-6 border-t border-slate-100">
+                                <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-3">Linked Transactions</div>
+                                <div className="space-y-2">
+                                  {validTransactions.map((tx: any) => (
+                                    <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors block">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                          <Receipt size={14} />
+                                        </div>
+                                        <div>
+                                          <div className="text-xs font-bold text-slate-800">{tx.description || tx.category || "Advance Payment"}</div>
+                                          <div className="text-[0.65rem] text-slate-500">{format(new Date(tx.date), "MMM dd, yyyy h:mm a")} • {tx.paymentMode || "Cash"}</div>
+                                        </div>
+                                      </div>
+                                      <div className="text-sm font-bold text-green-600">+₹{tx.amount?.toLocaleString()}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
+                  </div>
+                </div>
+              </div>
             </main>
 
             {/* Bottom Sticky Action Bar */}

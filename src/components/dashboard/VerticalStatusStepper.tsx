@@ -7,6 +7,7 @@ export interface VerticalStatusStepperProps {
   sectionTitle?: string;
   onStatusChange?: (status: string) => void;
   isUpdating?: boolean;
+  updatedAt?: string;
 }
 
 const eventStepMap: Record<string, any> = {
@@ -23,7 +24,7 @@ const albumStepMap: Record<string, any> = {
   'delivered': { icon: 'ph-check-circle', colorClass: 'text-teal-500', ringClass: 'ring-teal-100', bgClass: 'bg-teal-50', lineClass: 'bg-teal-500' }
 };
 
-export default function VerticalStatusStepper({ steps, currentStatus, sectionTitle, onStatusChange, isUpdating }: VerticalStatusStepperProps) {
+export default function VerticalStatusStepper({ steps, currentStatus, sectionTitle, onStatusChange, isUpdating, updatedAt }: VerticalStatusStepperProps) {
   const isAlbum = sectionTitle?.toLowerCase().includes('album');
   const stepMap = isAlbum ? albumStepMap : eventStepMap;
   
@@ -31,7 +32,7 @@ export default function VerticalStatusStepper({ steps, currentStatus, sectionTit
   const activeIndex = currentIndex === -1 ? 0 : currentIndex;
 
   return (
-    <div className="flex flex-col items-start font-sans mt-2">
+    <div className="flex flex-col items-start font-sans mt-0.5 h-full w-full">
       {steps.map((step, idx) => {
         const stepKey = step.toLowerCase();
         const config = stepMap[stepKey] || { icon: 'ph-circle', colorClass: 'text-slate-500', ringClass: 'ring-slate-100', bgClass: 'bg-slate-50', lineClass: 'bg-slate-500' };
@@ -42,25 +43,25 @@ export default function VerticalStatusStepper({ steps, currentStatus, sectionTit
         const nextLineColored = idx < activeIndex;
         
         return (
-          <div key={step} className="flex flex-col group">
+          <div key={step} className={cn("flex flex-col group w-full", idx < steps.length - 1 ? "flex-1" : "")}>
             {/* The Step Item */}
             <div 
-              className={cn("flex items-center", onStatusChange ? "cursor-pointer" : "", isUpdating ? "opacity-50 pointer-events-none" : "")}
+              className={cn("flex items-start", onStatusChange ? "cursor-pointer" : "", isUpdating ? "opacity-50 pointer-events-none" : "")}
               onClick={() => onStatusChange && !isUpdating && onStatusChange(step)}
             >
-              {/* Icon Container with double ring */}
+              {/* Icon Container */}
               <div className="relative flex items-center justify-center w-8 h-8 shrink-0">
                 {isActive && (
                   <div className={cn("absolute inset-0 rounded-full animate-ping opacity-30", config.bgClass)} />
                 )}
                 
                 <div className={cn(
-                  "w-[26px] h-[26px] rounded-full flex items-center justify-center border-2 z-10 transition-all duration-500 ring-2 ring-white outline outline-[1px] outline-slate-50",
-                  (isActive || isPast) ? cn(config.bgClass, "border-white shadow-sm") : "bg-white border-slate-100 shadow-none",
+                  "w-[26px] h-[26px] rounded-full flex items-center justify-center z-10 transition-all duration-500 ring-2 ring-white",
+                  (isActive || isPast) ? cn(config.bgClass) : "bg-slate-50",
                   isActive ? "scale-110" : ""
                 )}>
                   <i className={cn(
-                    "text-xs",
+                    "text-[10px]",
                     config.icon,
                     (isActive || isPast) ? config.colorClass : "text-slate-300",
                     (isActive || isPast) ? "ph-bold" : "ph"
@@ -69,18 +70,21 @@ export default function VerticalStatusStepper({ steps, currentStatus, sectionTit
               </div>
               
               {/* Step Label */}
-              <div className={cn(
-                "font-bold text-[10px] uppercase tracking-wider transition-all duration-300 flex items-center leading-tight overflow-hidden",
-                isActive ? "opacity-100 max-w-[80px] ml-3" : "opacity-0 max-w-0 ml-0 group-hover:max-w-[80px] group-hover:ml-3 group-hover:opacity-100",
-                isActive ? config.colorClass : (isPast ? config.colorClass : "text-slate-400")
-              )}>
-                {step}
+              <div className="ml-4 flex flex-col justify-center min-h-[26px]">
+                <div className="font-bold text-[10px] text-slate-800 uppercase tracking-wider leading-none mb-1">
+                  {step}
+                </div>
+                {updatedAt && (
+                  <div className="text-[9px] text-slate-400 font-medium leading-none">
+                    {updatedAt}
+                  </div>
+                )}
               </div>
             </div>
             
             {/* Connecting Line (except for last item) */}
             {idx < steps.length - 1 && (
-              <div className="h-6 w-0.5 flex shrink-0 ml-[15px] relative overflow-hidden my-0.5">
+              <div className="flex-1 min-h-[24px] w-0.5 flex shrink-0 ml-[15px] relative overflow-hidden my-0.5">
                 {/* Background gray line */}
                 <div className="absolute inset-0 bg-slate-100" />
                 {/* Foreground colored line */}
@@ -90,12 +94,6 @@ export default function VerticalStatusStepper({ steps, currentStatus, sectionTit
                 )} 
                 style={{ height: nextLineColored ? '100%' : '0%' }}
                 />
-                
-                {/* Little dot in the middle of the line */}
-                <div className={cn(
-                  "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full transition-colors duration-500 z-10",
-                  nextLineColored ? config.lineClass : "bg-slate-300"
-                )} />
               </div>
             )}
           </div>

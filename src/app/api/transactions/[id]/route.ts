@@ -217,6 +217,33 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    
+    // Only support patching deletedAt for soft-deletion right now
+    if (body.deletedAt !== undefined) {
+      const updated = await prisma.transaction.update({
+        where: { id },
+        data: {
+          deletedAt: body.deletedAt ? new Date(body.deletedAt) : null
+        }
+      });
+      return NextResponse.json({ message: "Transaction updated successfully", transaction: updated });
+    }
+    
+    return NextResponse.json({ error: "Invalid patch request" }, { status: 400 });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
