@@ -96,7 +96,7 @@ export const DEFAULT_LAYOUTS = [
             { id: "fld_tx_amount", name: "Amount", type: "CURRENCY", mandatory: true },
             { id: "fld_tx_type", name: "Transaction Type", type: "PICK_LIST", mandatory: true, options: ["INCOME", "EXPENSE"] },
             { id: "fld_tx_date", name: "Date", type: "DATE", mandatory: true, isRecordDate: true },
-            { id: "fld_tx_category", name: "Category", type: "PICK_LIST", mandatory: true, options: [
+            { id: "fld_tx_category", name: "Category", type: "MULTI_SELECT", mandatory: true, options: [
               "Photography Session",
               "Equipment Rent",
               "Salary",
