@@ -134,9 +134,8 @@ export async function DELETE(
         });
 
         // Delete associated transactions first to prevent foreign key constraint failures
-        const txDeleteResult = await prisma.transaction.updateMany({
-          where: { bookingId: id },
-          data: { deletedAt: new Date() }
+        const txDeleteResult = await prisma.transaction.deleteMany({
+          where: { bookingId: id }
         });
         await prisma.recycleBin.create({
           data: {

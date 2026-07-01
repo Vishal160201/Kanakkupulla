@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
 import { FileDashed, Trash, ArrowCounterClockwise, CaretLeft, CaretRight } from "@phosphor-icons/react";
 
@@ -48,6 +48,7 @@ export default function RecycleBin() {
       if (!res.ok) throw new Error("Failed to restore");
       toast.success("Item restored");
       mutate();
+      globalMutate((key: any) => typeof key === 'string' && key.startsWith('/api/transactions'), undefined, { revalidate: true });
       const newSet = new Set(selectedIds);
       newSet.delete(id);
       setSelectedIds(newSet);
@@ -96,6 +97,7 @@ export default function RecycleBin() {
       toast.success(`Restored ${selectedIds.size} items`);
       setSelectedIds(newSet => { newSet.clear(); return new Set(); });
       mutate();
+      globalMutate((key: any) => typeof key === 'string' && key.startsWith('/api/transactions'), undefined, { revalidate: true });
     } catch (e) {
       toast.error("Error restoring items");
     }
@@ -265,11 +267,11 @@ export default function RecycleBin() {
                       className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
                     />
                   </td>
-                  <td className="p-4">
-                    <span className="text-sm font-bold text-slate-500 font-mono">{item.transactionId}</span>
+                  <td className="p-4 max-w-[150px]">
+                    <span className="text-sm font-bold text-slate-500 font-mono block truncate" title={item.transactionId}>{item.transactionId}</span>
                   </td>
-                  <td className="p-4">
-                    <span className="text-sm font-bold text-slate-900">{item.entryName}</span>
+                  <td className="p-4 max-w-[200px]">
+                    <span className="text-sm font-bold text-slate-900 block truncate" title={item.entryName}>{item.entryName}</span>
                   </td>
                   <td className="p-4">
                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold tracking-wide capitalize ${

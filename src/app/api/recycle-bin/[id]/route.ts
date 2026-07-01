@@ -62,6 +62,54 @@ export async function DELETE(
         await prisma.productOrder.delete({ where: { id: entry.itemId } });
       } catch (e) {
       }
+    } else if (entry.itemType === "TRANSACTION_GROUP" || entry.itemType === "transaction") {
+      // 1. Delete associated Drive files
+      let transactionsToCheck: any[] = [];
+      if (entry.itemType === "TRANSACTION_GROUP") {
+        if (entry.originalData && typeof entry.originalData === "object" && (entry.originalData as any).children) {
+          transactionsToCheck = (entry.originalData as any).children;
+        }
+      } else {
+        if (entry.originalData && typeof entry.originalData === "object") {
+          transactionsToCheck = [entry.originalData];
+        }
+      }
+
+      for (const tx of transactionsToCheck) {
+        if (tx.customData && typeof tx.customData === "object") {
+          for (const key of Object.keys(tx.customData)) {
+            const val = tx.customData[key];
+            if (val && typeof val === "object" && val.id) {
+              const driveFileId = val.id;
+              try {
+                const accessToken = await getGoogleDriveToken(session);
+                if (accessToken) {
+                  const deleteRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${accessToken}` }
+                  });
+                  if (!deleteRes.ok) {
+                    console.error(`Failed to delete drive file ${driveFileId}:`, await deleteRes.text());
+                  }
+                }
+              } catch (err) {
+                console.error(`Error deleting drive file ${driveFileId}:`, err);
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Delete database records
+      if (entry.itemType === "TRANSACTION_GROUP") {
+        try {
+          await prisma.transaction.deleteMany({ where: { groupId: entry.itemId } });
+        } catch (e) {}
+      } else {
+        try {
+          await prisma.transaction.delete({ where: { id: entry.itemId } });
+        } catch (e) {}
+      }
     }
 
     await prisma.recycleBin.delete({ where: { id } });

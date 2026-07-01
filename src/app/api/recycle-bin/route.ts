@@ -70,6 +70,11 @@ export async function GET(request: Request) {
         entryName = data.category || "Transaction";
         transactionId = data.transactionId || "-";
         originalType = data.type || "transaction";
+      } else if (item.itemType === "TRANSACTION_GROUP") {
+        const children = data.children || [];
+        entryName = children.map((c: any) => c.category).join(', ') || "Transaction Group";
+        transactionId = children.map((c: any) => c.transactionId).join(', ') || "-";
+        originalType = children[0]?.type || "TRANSACTION_GROUP";
       } else if (item.itemType === "gift" || item.itemType === "frame" || item.itemType === "product-order") {
         entryName = data.customData?.clientName || data.clientName || `Order`;
         transactionId = data.orderNumber || data.orderId || item.itemId.substring(0, 8);
@@ -126,6 +131,11 @@ export async function DELETE(request: Request) {
       if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
         try {
           await prisma.productOrder.delete({ where: { id: entry.itemId } });
+        } catch (e) {}
+      }
+      if (entry.itemType === "TRANSACTION_GROUP") {
+        try {
+          await prisma.transaction.deleteMany({ where: { groupId: entry.itemId } });
         } catch (e) {}
       }
     }

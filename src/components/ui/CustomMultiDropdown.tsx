@@ -247,7 +247,12 @@ export default function CustomMultiDropdown({
       >
         {value.length > 0 ? (
           <span className="truncate">
-            {value.length} selected
+            {value.length === 1 
+              ? (() => {
+                  const opt = options.find(o => (typeof o === 'string' ? o : o.value) === value[0]);
+                  return opt ? (typeof opt === 'string' ? opt : opt.label) : value[0];
+                })()
+              : `${value.length} selected`}
           </span>
         ) : (
           <span className="truncate">{placeholder}</span>

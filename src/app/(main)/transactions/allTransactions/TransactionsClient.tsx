@@ -76,6 +76,8 @@ function TransactionsList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [inlineDeleteId, setInlineDeleteId] = useState<string | null>(null);
   
   const totalPages = Math.ceil(totalCount / 25);
   
@@ -346,12 +348,17 @@ function TransactionsList() {
     if (!deleteId) return;
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/transactions/${deleteId}`, { method: 'DELETE' });
+      const isGroup = deleteId.startsWith('grp_');
+      const url = isGroup ? `/api/transactions/bulk/${deleteId}` : `/api/transactions/${deleteId}`;
+      const res = await fetch(url, { method: 'DELETE' });
       if (res.ok) {
-        // A5 FIX: Update local state immediately instead of relying on router.refresh()
-        setTransactions(prev => prev.filter(tx => tx.id !== deleteId));
-        toast.success("Transaction deleted.");
-        router.refresh(); // also refresh server components (overview stats etc.)
+        if (isGroup) {
+          setTransactions(prev => prev.filter(tx => tx.groupId !== deleteId));
+        } else {
+          setTransactions(prev => prev.filter(tx => tx.id !== deleteId));
+        }
+        toast.success(isGroup ? "Group deleted." : "Transaction deleted.");
+        router.refresh(); 
       } else {
         toast.error("Failed to delete. Please try again.");
       }
@@ -360,6 +367,35 @@ function TransactionsList() {
     }
     setIsDeleting(false);
     setDeleteId(null);
+  };
+
+  const confirmInlineDelete = async (type: 'SINGLE' | 'GROUP', txId: string, groupId?: string) => {
+    setIsDeleting(true);
+    try {
+      if (type === 'GROUP' && groupId) {
+        const res = await fetch(`/api/transactions/bulk/${groupId}`, { method: 'DELETE' });
+        if (res.ok) {
+          setTransactions(prev => prev.filter(tx => tx.groupId !== groupId));
+          toast.success("Group deleted.");
+          router.refresh();
+        } else {
+          toast.error("Failed to delete group.");
+        }
+      } else {
+        const res = await fetch(`/api/transactions/${txId}`, { method: 'DELETE' });
+        if (res.ok) {
+          setTransactions(prev => prev.filter(tx => tx.id !== txId));
+          toast.success("Transaction deleted.");
+          router.refresh();
+        } else {
+          toast.error("Failed to delete transaction.");
+        }
+      }
+    } catch (e) {
+      toast.error("Network error.");
+    }
+    setIsDeleting(false);
+    setInlineDeleteId(null);
   };
 
   useEffect(() => {
@@ -513,151 +549,242 @@ function TransactionsList() {
               )}
             </div>
           ) : (
-            transactions.map((tx) => {
-              const getRelatableIcon = (cat: string) => {
-                const lowerCat = cat.toLowerCase();
-                if (lowerCat.includes('photo') || lowerCat === 'pp') return 'ph-camera';
-                if (lowerCat.includes('xerox') || lowerCat.includes('print')) return 'ph-printer';
-                if (lowerCat.includes('bus') || lowerCat.includes('travel') || lowerCat.includes('fare') || lowerCat.includes('transport')) return 'ph-bus';
-                if (lowerCat.includes('salary') || lowerCat.includes('pay') || lowerCat.includes('wage')) return 'ph-money';
-                if (lowerCat.includes('tea') || lowerCat.includes('snack') || lowerCat.includes('food') || lowerCat.includes('coffee')) return 'ph-coffee';
-                if (lowerCat.includes('chit') || lowerCat.includes('fund') || lowerCat.includes('invest') || lowerCat.includes('save') || lowerCat.includes('bank')) return 'ph-piggy-bank';
-                if (lowerCat.includes('sevai') || lowerCat.includes('service') || lowerCat.includes('online') || lowerCat.includes('bill') || lowerCat.includes('tax')) return 'ph-desktop';
-                if (lowerCat.includes('equip') || lowerCat.includes('tool') || lowerCat.includes('repair') || lowerCat.includes('maint')) return 'ph-wrench';
-                if (lowerCat.includes('rent') || lowerCat.includes('office') || lowerCat.includes('shop') || lowerCat.includes('room')) return 'ph-house';
-                if (lowerCat.includes('fuel') || lowerCat.includes('gas') || lowerCat.includes('petrol') || lowerCat.includes('diesel')) return 'ph-gas-pump';
-                if (lowerCat.includes('courier') || lowerCat.includes('post') || lowerCat.includes('delivery')) return 'ph-package';
-                if (lowerCat.includes('market') || lowerCat.includes('ad')) return 'ph-megaphone';
-                if (lowerCat.includes('book') || lowerCat.includes('advance')) return 'ph-calendar-check';
-                if (lowerCat.includes('album') || lowerCat.includes('frame')) return 'ph-book-open';
-                if (lowerCat.includes('other') || lowerCat.includes('misc')) return 'ph-dots-three-circle';
-                return 'ph-tag';
-              };
-
-              const getConsistentColorClasses = (cat: string) => {
-                const colorMap: Record<string, { bg: string, text: string }> = {
-                  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
-                  amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
-                  slate: { bg: 'bg-slate-50', text: 'text-slate-600' },
-                  violet: { bg: 'bg-violet-50', text: 'text-violet-600' },
-                  sky: { bg: 'bg-sky-50', text: 'text-sky-600' },
-                  rose: { bg: 'bg-rose-50', text: 'text-rose-600' },
-                  blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
-                  pink: { bg: 'bg-pink-50', text: 'text-pink-600' },
-                  orange: { bg: 'bg-orange-50', text: 'text-orange-600' },
-                  red: { bg: 'bg-red-50', text: 'text-red-600' },
-                  indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600' },
-                  purple: { bg: 'bg-purple-50', text: 'text-purple-600' },
-                  teal: { bg: 'bg-teal-50', text: 'text-teal-600' },
-                  cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600' },
-                  fuchsia: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-600' }
-                };
-                
-                const colorValues = Object.values(colorMap).filter(c => c.text !== 'text-slate-600');
-                let hash = 0;
-                for (let i = 0; i < cat.length; i++) {
-                  hash = cat.charCodeAt(i) + ((hash << 5) - hash);
+            (() => {
+              const processedTransactions: any[] = [];
+              const grouped = new Map();
+              transactions.forEach(tx => {
+                if (tx.groupId) {
+                  if (!grouped.has(tx.groupId)) {
+                    grouped.set(tx.groupId, { ...tx, isGroup: true, children: [], totalAmount: 0, categoryNames: [], id: tx.groupId });
+                    processedTransactions.push(grouped.get(tx.groupId));
+                  }
+                  const group = grouped.get(tx.groupId);
+                  group.children.push(tx);
+                  group.totalAmount += Number(tx.amount) || 0;
+                  if (!group.categoryNames.includes(tx.category)) {
+                    group.categoryNames.push(tx.category);
+                  }
+                } else {
+                  processedTransactions.push(tx);
                 }
-                return colorValues[Math.abs(hash) % colorValues.length];
+              });
+
+              for (let i = 0; i < processedTransactions.length; i++) {
+                const item = processedTransactions[i];
+                if (item.isGroup) {
+                  if (item.children.length === 1) {
+                    // Convert back to single row
+                    processedTransactions[i] = item.children[0];
+                  } else {
+                    item.amount = item.totalAmount;
+                    item.category = item.categoryNames.join('+');
+                    item.description = '';
+                  }
+                }
+              }
+
+              const toggleGroup = (groupId: string, e: React.MouseEvent) => {
+                e.stopPropagation();
+                const newSet = new Set(expandedGroups);
+                if (newSet.has(groupId)) newSet.delete(groupId);
+                else newSet.add(groupId);
+                setExpandedGroups(newSet);
               };
 
-              const colorClass = getConsistentColorClasses(tx.category);
-              const iconClass = getRelatableIcon(tx.category);
+              const renderTransaction = (tx: any, isChild = false) => {
+                const getRelatableIcon = (cat: string) => {
+                  const lowerCat = cat.toLowerCase();
+                  if (lowerCat.includes('photo') || lowerCat === 'pp') return 'ph-camera';
+                  if (lowerCat.includes('xerox') || lowerCat.includes('print')) return 'ph-printer';
+                  if (lowerCat.includes('bus') || lowerCat.includes('travel') || lowerCat.includes('fare') || lowerCat.includes('transport')) return 'ph-bus';
+                  if (lowerCat.includes('salary') || lowerCat.includes('pay') || lowerCat.includes('wage')) return 'ph-money';
+                  if (lowerCat.includes('tea') || lowerCat.includes('snack') || lowerCat.includes('food') || lowerCat.includes('coffee')) return 'ph-coffee';
+                  if (lowerCat.includes('chit') || lowerCat.includes('fund') || lowerCat.includes('invest') || lowerCat.includes('save') || lowerCat.includes('bank')) return 'ph-piggy-bank';
+                  if (lowerCat.includes('sevai') || lowerCat.includes('service') || lowerCat.includes('online') || lowerCat.includes('bill') || lowerCat.includes('tax')) return 'ph-desktop';
+                  if (lowerCat.includes('equip') || lowerCat.includes('tool') || lowerCat.includes('repair') || lowerCat.includes('maint')) return 'ph-wrench';
+                  if (lowerCat.includes('rent') || lowerCat.includes('office') || lowerCat.includes('shop') || lowerCat.includes('room')) return 'ph-house';
+                  if (lowerCat.includes('fuel') || lowerCat.includes('gas') || lowerCat.includes('petrol') || lowerCat.includes('diesel')) return 'ph-gas-pump';
+                  if (lowerCat.includes('courier') || lowerCat.includes('post') || lowerCat.includes('delivery')) return 'ph-package';
+                  if (lowerCat.includes('market') || lowerCat.includes('ad')) return 'ph-megaphone';
+                  if (lowerCat.includes('book') || lowerCat.includes('advance')) return 'ph-calendar-check';
+                  if (lowerCat.includes('album') || lowerCat.includes('frame')) return 'ph-book-open';
+                  if (lowerCat.includes('other') || lowerCat.includes('misc')) return 'ph-dots-three-circle';
+                  return 'ph-tag';
+                };
 
-              return (
-              <div
-                key={tx.id}
-                onClick={() => openTransactionDetails(tx.id)}
-                className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent p-3 transition-all hover:border-slate-200 hover:bg-slate-50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 sm:p-4 group"
-              >
-                <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${colorClass.bg} ${colorClass.text}`}>
-                    <i className={`ph-bold ${iconClass} text-xl`}></i>
-                  </div>
-                  <div className="min-w-0">
-                    {(() => {
-                      let title = tx.description ? tx.description.split(' - ')[0] : tx.category;
-                      const isGifts = tx.category === 'GIFTS_AND_FRAMES';
-                      let isAdvance = false;
-                      let isDue = false;
-                      if (isGifts && tx.description) {
-                        const match = tx.description.match(/\(([^)]+)\)$/);
-                        if (match) title = match[1];
-                        if (tx.description.startsWith('Advance')) isAdvance = true;
-                        if (tx.description.startsWith('Due')) isDue = true;
-                      }
-                      return (
-                        <>
-                          <div className="truncate font-bold text-slate-900 text-sm mb-1">
-                            {title}
+                const getConsistentColorClasses = (cat: string) => {
+                  const colorMap: Record<string, { bg: string, text: string }> = {
+                    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+                    amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
+                    slate: { bg: 'bg-slate-50', text: 'text-slate-600' },
+                    violet: { bg: 'bg-violet-50', text: 'text-violet-600' },
+                    sky: { bg: 'bg-sky-50', text: 'text-sky-600' },
+                    rose: { bg: 'bg-rose-50', text: 'text-rose-600' },
+                    blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
+                    pink: { bg: 'bg-pink-50', text: 'text-pink-600' },
+                    orange: { bg: 'bg-orange-50', text: 'text-orange-600' },
+                    red: { bg: 'bg-red-50', text: 'text-red-600' },
+                    indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+                    purple: { bg: 'bg-purple-50', text: 'text-purple-600' },
+                    teal: { bg: 'bg-teal-50', text: 'text-teal-600' },
+                    cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600' },
+                    fuchsia: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-600' }
+                  };
+                  
+                  const colorValues = Object.values(colorMap).filter(c => c.text !== 'text-slate-600');
+                  let hash = 0;
+                  for (let i = 0; i < cat.length; i++) {
+                    hash = cat.charCodeAt(i) + ((hash << 5) - hash);
+                  }
+                  return colorValues[Math.abs(hash) % colorValues.length];
+                };
+
+                const colorClass = getConsistentColorClasses(tx.isGroup ? tx.categoryNames[0] : tx.category);
+                const iconClass = getRelatableIcon(tx.isGroup ? tx.categoryNames[0] : tx.category);
+
+                return (
+                  <div key={tx.id} className={`${isChild ? 'pl-8 border-l-2 border-slate-100 ml-6 relative before:content-[""] before:absolute before:left-[-2px] before:top-0 before:w-0.5 before:h-full before:bg-slate-100' : ''}`}>
+                    <div
+                      onClick={() => !tx.isGroup ? openTransactionDetails(tx.id) : toggleGroup(tx.id, {stopPropagation:()=>{}} as any)}
+                      className={`flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent p-3 transition-all hover:border-slate-200 hover:bg-slate-50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 sm:p-4 group ${isChild ? 'bg-slate-50/50 my-1 py-2 sm:py-2.5 rounded-xl' : ''}`}
+                    >
+                      <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${colorClass.bg} ${colorClass.text} ${isChild ? 'w-10 h-10 rounded-lg' : ''}`}>
+                          <i className={`ph-bold ${iconClass} ${isChild ? 'text-lg' : 'text-xl'}`}></i>
+                        </div>
+                        <div className="min-w-0">
+                          {(() => {
+                            let title = tx.description ? tx.description.split(' - ')[0] : tx.category;
+                            const isGifts = tx.category === 'GIFTS_AND_FRAMES';
+                            let isAdvance = false;
+                            let isDue = false;
+                            if (isGifts && tx.description) {
+                              const match = tx.description.match(/\(([^)]+)\)$/);
+                              if (match) title = match[1];
+                              if (tx.description.startsWith('Advance')) isAdvance = true;
+                              if (tx.description.startsWith('Due')) isDue = true;
+                            }
+                            return (
+                              <>
+                                <div className="truncate font-bold text-slate-900 text-sm mb-1">
+                                  {title}
+                                </div>
+                                <div className="flex min-w-0 items-center gap-2 flex-wrap">
+                                  <span className={`max-w-[110px] truncate text-[9px] font-extrabold px-2 py-0.5 rounded tracking-wider uppercase ${colorClass.bg} ${colorClass.text}`}>
+                                    {isGifts ? 'GIFTS & FRAMES' : (tx.isGroup ? tx.categoryNames[0] : tx.category)}
+                                  </span>
+                                  {tx.isGroup && tx.categoryNames.length > 1 && (
+                                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded tracking-wider uppercase bg-slate-100 text-slate-500 shrink-0`}>
+                                      +{tx.categoryNames.length - 1} more
+                                    </span>
+                                  )}
+                                  {isGifts && isAdvance && (
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-blue-50 text-blue-600 shrink-0">
+                                      ADV
+                                    </span>
+                                  )}
+                                  {isGifts && isDue && (
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-red-50 text-red-600 shrink-0">
+                                      DUE
+                                    </span>
+                                  )}
+                                  <span className="truncate text-[11px] text-slate-400 font-medium shrink-0">{new Date(tx.date).toLocaleDateString('en-GB')} &middot; {tx.paymentMode}</span>
+                                  {!tx.isGroup && <span className="hidden sm:inline text-[10px] text-slate-300 font-mono shrink-0">{tx.transactionId}</span>}
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1 text-right sm:gap-2">
+                        <div className="min-w-[100px] text-right">
+                          <div className={`text-sm font-bold sm:text-base ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {tx.type === 'EXPENSE' ? '-' : ''}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span className={`max-w-[110px] truncate text-[9px] font-extrabold px-2 py-0.5 rounded tracking-wider uppercase ${colorClass.bg} ${colorClass.text}`}>
-                              {isGifts ? 'GIFTS & FRAMES' : tx.category}
-                            </span>
-                            {isGifts && isAdvance && (
-                              <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-blue-50 text-blue-600">
-                                ADV
-                              </span>
-                            )}
-                            {isGifts && isDue && (
-                              <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-red-50 text-red-600">
-                                DUE
-                              </span>
-                            )}
-                            <span className="truncate text-[11px] text-slate-400 font-medium">{new Date(tx.date).toLocaleDateString('en-GB')} &middot; {tx.paymentMode}</span>
-                            <span className="hidden sm:inline text-[10px] text-slate-300 font-mono">{tx.transactionId}</span>
+                        </div>
+                        
+                        {!tx.isGroup && (
+                          <div className="flex items-center gap-1 w-[64px] justify-end">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleteId(tx.id);
+                              }}
+                              className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
+                              title="Delete Transaction"
+                            >
+                              <i className="ph-bold ph-trash"></i>
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openTransactionForm(tx.id);
+                              }}
+                              className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
+                              title="Edit Transaction"
+                            >
+                              <i className="ph-bold ph-pencil-simple"></i>
+                            </button>
                           </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1 text-right sm:gap-2">
-                  <div className="min-w-[100px] text-right">
-                    <div className={`text-sm font-bold sm:text-base ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {tx.type === 'EXPENSE' ? '-' : ''}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        )}
+                        {tx.isGroup && (
+                          <div className="flex items-center gap-1 w-[64px] justify-end">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleteId(tx.id);
+                              }}
+                              className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100`}
+                              title="Delete Group"
+                            >
+                              <i className="ph-bold ph-trash"></i>
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openTransactionForm(tx.id);
+                              }}
+                              className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100`}
+                              title="Edit Group"
+                            >
+                              <i className="ph-bold ph-pencil-simple"></i>
+                            </button>
+                          </div>
+                        )}
+
+                        {tx.isGroup ? (
+                          <button
+                            type="button"
+                            onClick={(event) => toggleGroup(tx.id, event)}
+                            className="ml-1 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-transform"
+                          >
+                            <i className={`ph-bold ph-caret-down transition-transform ${expandedGroups.has(tx.id) ? 'rotate-180' : ''}`} />
+                          </button>
+                        ) : !isChild ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openTransactionDetails(tx.id);
+                            }}
+                            className="ml-1 flex h-8 w-8 items-center justify-center rounded-full text-slate-300 hover:bg-indigo-50 hover:text-indigo-600"
+                          >
+                            <i className="ph-bold ph-caret-right" />
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
+                    {tx.isGroup && expandedGroups.has(tx.id) && (
+                      <div className="animate-slide-down">
+                        {tx.children.map((childTx: any) => renderTransaction(childTx, true))}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1 w-[64px] justify-end">
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setDeleteId(tx.id);
-                      }}
-                      className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
-                      title="Delete Transaction"
-                    >
-                      <i className="ph-bold ph-trash"></i>
-                    </button>
-                    {/* U4: Edit button */}
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openTransactionForm(tx.id);
-                      }}
-                      className={`h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
-                      title="Edit Transaction"
-                    >
-                      <i className="ph-bold ph-pencil-simple"></i>
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openTransactionDetails(tx.id);
-                    }}
-                    className="ml-1 flex h-8 w-8 items-center justify-center rounded-full text-slate-300 hover:bg-indigo-50 hover:text-indigo-600"
-                    aria-label={`View ${tx.category} transaction details`}
-                    title="View Transaction"
-                  >
-                    <i className="ph-bold ph-caret-right" />
-                  </button>
-                </div>
-              </div>
-              );
-            })
+                );
+              };
+
+              return processedTransactions.map(tx => renderTransaction(tx));
+            })()
           )}
         </div>
 
