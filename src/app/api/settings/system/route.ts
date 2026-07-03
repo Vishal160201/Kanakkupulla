@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+// Force rebuild
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -23,6 +24,11 @@ const DEFAULT_SETTINGS = {
       "Completed": { bg: "#3b82f6", text: "#1d4ed8" }, // Blue
       "Cancelled": { bg: "#64748b", text: "#334155" }, // Slate
     }
+  },
+  BANNER_SETTINGS: {
+    bannerEnabled: true,
+    bannerTime1: "09:00",
+    bannerTime2: "17:00"
   }
 };
 

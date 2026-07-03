@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface TimePickerInputProps {
   value: string; // HH:mm format
@@ -11,6 +12,10 @@ interface TimePickerInputProps {
 export default function TimePickerInput({ value, onChange, className }: TimePickerInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const hoursRef = useRef<HTMLDivElement>(null);
+  const minutesRef = useRef<HTMLDivElement>(null);
+  const [popupStyle, setPopupStyle] = useState<{ top: number; left: number; width?: number }>({ top: 0, left: 0 });
 
   // Parse initial value (HH:mm)
   const parseTime = (time: string) => {
@@ -32,13 +37,62 @@ export default function TimePickerInput({ value, onChange, className }: TimePick
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current && !containerRef.current.contains(event.target as Node) &&
+        popupRef.current && !popupRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
+    
+    function updatePosition() {
+      if (isOpen && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        // Check if there is enough space below, otherwise drop up
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const popupHeight = 220; // approximate height
+        
+        if (spaceBelow < popupHeight && rect.top > popupHeight) {
+          // Drop up
+          setPopupStyle({
+            top: rect.top - popupHeight - 8,
+            left: rect.left,
+          });
+        } else {
+          // Drop down
+          setPopupStyle({
+            top: rect.bottom + 8,
+            left: rect.left,
+          });
+        }
+      }
+    }
+
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+
+      // Auto-scroll to selected time
+      setTimeout(() => {
+        if (hoursRef.current) {
+          const activeItem = hoursRef.current.querySelector('.bg-orange-500');
+          if (activeItem) activeItem.scrollIntoView({ block: 'center' });
+        }
+        if (minutesRef.current) {
+          const activeItem = minutesRef.current.querySelector('.bg-orange-500');
+          if (activeItem) activeItem.scrollIntoView({ block: 'center' });
+        }
+      }, 10);
+    }
+    
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen]);
 
   const handleApply = (newH: number, newM: number, newAp: string) => {
     setSelected({ h: newH, m: newM, ap: newAp });
@@ -64,10 +118,14 @@ export default function TimePickerInput({ value, onChange, className }: TimePick
         <i className={`ph-bold ph-clock text-[1.1rem] transition-colors duration-300 ${isOpen ? 'text-orange-500' : 'text-slate-400'}`}></i>
       </div>
       
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 flex gap-2 w-[220px]">
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          ref={popupRef}
+          className="fixed bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-[9999] flex gap-2 w-[220px] animate-in fade-in zoom-in-95 duration-100"
+          style={{ top: popupStyle.top, left: popupStyle.left }}
+        >
           {/* Hours Column */}
-          <div className="flex-1 h-[200px] overflow-y-auto custom-scrollbar border-r border-gray-100 pr-1">
+          <div ref={hoursRef} className="flex-1 h-[200px] overflow-y-auto custom-scrollbar border-r border-gray-100 pr-1">
             {hours.map(h => (
               <div 
                 key={`h-${h}`}
@@ -80,7 +138,7 @@ export default function TimePickerInput({ value, onChange, className }: TimePick
           </div>
 
           {/* Minutes Column */}
-          <div className="flex-1 h-[200px] overflow-y-auto custom-scrollbar border-r border-gray-100 pr-1">
+          <div ref={minutesRef} className="flex-1 h-[200px] overflow-y-auto custom-scrollbar border-r border-gray-100 pr-1">
             {minutes.map(m => (
               <div 
                 key={`m-${m}`}
@@ -98,13 +156,14 @@ export default function TimePickerInput({ value, onChange, className }: TimePick
               <div 
                 key={ap}
                 onClick={() => handleApply(selected.h, selected.m, ap)}
-                className={`py-3 px-2 text-center rounded-xl cursor-pointer text-sm font-extrabold transition-colors ${selected.ap === ap ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 text-slate-500'}`}
+                className={`py-3 px-2 text-center rounded-xl cursor-pointer text-sm font-bold transition-colors ${selected.ap === ap ? 'bg-orange-500 text-white' : 'hover:bg-orange-50 text-slate-700'}`}
               >
                 {ap}
               </div>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

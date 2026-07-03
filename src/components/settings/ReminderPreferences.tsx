@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import TimePickerInput from "@/components/ui/TimePickerInput";
 
 type ThresholdSettings = {
   orderStale: number;
@@ -9,7 +10,22 @@ type ThresholdSettings = {
   gallery: number;
   album: number;
   paymentDue: number;
+  bannerEnabled: boolean;
+  bannerTime1: string;
+  bannerTime2: string;
 };
+
+const timeOptions = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2);
+  const m = (i % 2) * 30;
+  const hh = h.toString().padStart(2, '0');
+  const mm = m.toString().padStart(2, '0');
+  const value = `${hh}:${mm}`;
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  const label = `${h12.toString().padStart(2, '0')}:${mm} ${suffix}`;
+  return { value, label };
+});
 
 export default function ReminderPreferences() {
   const [settings, setSettings] = useState<ThresholdSettings>({
@@ -19,6 +35,9 @@ export default function ReminderPreferences() {
     gallery: 14,
     album: 30,
     paymentDue: 3,
+    bannerEnabled: true,
+    bannerTime1: "09:00",
+    bannerTime2: "17:00",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,6 +63,11 @@ export default function ReminderPreferences() {
         if (s.key === "reminder_threshold_gallery" && s.value?.days) newSettings.gallery = Number(s.value.days);
         if (s.key === "reminder_threshold_album" && s.value?.days) newSettings.album = Number(s.value.days);
         if (s.key === "reminder_threshold_payment_due" && s.value?.days) newSettings.paymentDue = Number(s.value.days);
+        if (s.key === "BANNER_SETTINGS" && s.value) {
+          newSettings.bannerEnabled = Boolean(s.value.bannerEnabled ?? true);
+          newSettings.bannerTime1 = s.value.bannerTime1 || "09:00";
+          newSettings.bannerTime2 = s.value.bannerTime2 || "17:00";
+        }
       });
       setSettings(newSettings);
     } catch (error) {
@@ -63,11 +87,12 @@ export default function ReminderPreferences() {
         { key: "reminder_threshold_gallery", value: { days: settings.gallery } },
         { key: "reminder_threshold_album", value: { days: settings.album } },
         { key: "reminder_threshold_payment_due", value: { days: settings.paymentDue } },
+        { key: "BANNER_SETTINGS", value: { bannerEnabled: settings.bannerEnabled, bannerTime1: settings.bannerTime1, bannerTime2: settings.bannerTime2 } },
       ];
 
       for (const update of updates) {
         await fetch("/api/settings/system", {
-          method: "POST",
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(update),
         });
@@ -209,6 +234,47 @@ export default function ReminderPreferences() {
                 <span className="text-sm font-medium text-slate-600">days</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-slate-100">
+          <h3 className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-4">System Banners</h3>
+          
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Upcoming Shoot Banner</label>
+                <p className="text-xs text-slate-500">Show a popup banner for upcoming shoots (next 2 days).</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, bannerEnabled: !settings.bannerEnabled })}
+                className={`w-11 h-6 rounded-full transition-colors relative ${settings.bannerEnabled ? 'bg-orange-500' : 'bg-slate-300'}`}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${settings.bannerEnabled ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+            
+            {settings.bannerEnabled && (
+              <div className="pt-4 border-t border-slate-200 flex items-center gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Time 1</span>
+                  <TimePickerInput
+                    className="flex h-[36px] w-[130px] items-center justify-between rounded-lg border bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:border-slate-300"
+                    value={settings.bannerTime1}
+                    onChange={(val) => setSettings({ ...settings, bannerTime1: val })}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Time 2</span>
+                  <TimePickerInput
+                    className="flex h-[36px] w-[130px] items-center justify-between rounded-lg border bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:border-slate-300"
+                    value={settings.bannerTime2}
+                    onChange={(val) => setSettings({ ...settings, bannerTime2: val })}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
