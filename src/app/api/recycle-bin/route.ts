@@ -23,6 +23,17 @@ export async function GET(request: Request) {
     if (source) whereClause.itemType = source;
     if (trashedBy) whereClause.trashedById = trashedBy;
     
+    if (source === 'PERSONAL_EXPENSE') {
+      if (session.user.email !== 'nithyavishalr@gmail.com') {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      whereClause.trashedById = (session.user as any).id;
+    } else {
+      if (session.user.email !== 'nithyavishalr@gmail.com') {
+        whereClause.itemType = { ...whereClause.itemType, not: 'PERSONAL_EXPENSE' };
+      }
+    }
+    
     if (startDate || endDate) {
       whereClause.trashedAt = {};
       if (startDate) whereClause.trashedAt.gte = new Date(startDate);
@@ -78,6 +89,10 @@ export async function GET(request: Request) {
       } else if (item.itemType === "gift" || item.itemType === "frame" || item.itemType === "product-order") {
         entryName = data.customData?.clientName || data.clientName || `Order`;
         transactionId = data.orderNumber || data.orderId || item.itemId.substring(0, 8);
+      } else if (item.itemType === "PERSONAL_EXPENSE") {
+        entryName = data.title || "Personal Expense";
+        transactionId = "-";
+        originalType = data.type || "EXPENSE";
       }
 
       return {
@@ -136,6 +151,11 @@ export async function DELETE(request: Request) {
       if (entry.itemType === "TRANSACTION_GROUP") {
         try {
           await prisma.transaction.deleteMany({ where: { groupId: entry.itemId } });
+        } catch (e) {}
+      }
+      if (entry.itemType === "PERSONAL_EXPENSE") {
+        try {
+          await prisma.personalExpense.delete({ where: { id: entry.itemId } });
         } catch (e) {}
       }
     }

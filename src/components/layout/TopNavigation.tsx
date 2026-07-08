@@ -206,6 +206,98 @@ export default function TopNavigation() {
   else if (pathname.includes("settings")) title = "Settings";
   else if (pathname.includes("gifts")) title = "Gifts & Frames";
   
+  const isPersonal = pathname.startsWith("/personal");
+  
+  if (isPersonal) {
+    return (
+      <header className="relative flex justify-between items-center px-4 md:px-10 py-4 md:py-5 bg-slate-900 z-50 shadow-md">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={toggleSidebar}
+            className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-white shadow-sm hover:bg-slate-700 transition-colors"
+          >
+            <i className="ph-bold ph-list text-[1.4rem]"></i>
+          </button>
+          <h1 className="text-xl font-semibold text-white tracking-tight">Personal Finance</h1>
+        </div>
+        <div className="flex items-center gap-3 md:gap-5">
+          <div className="relative" ref={profileRef}>
+            <div 
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="w-[45px] h-[45px] rounded-full bg-white text-slate-900 hover:bg-slate-100 flex items-center justify-center font-extrabold text-base cursor-pointer shadow-sm transition-colors"
+            >
+              {userInitials}
+            </div>
+
+            {isProfileOpen && (
+              <>
+                <div className="fixed inset-0 z-[45] md:hidden" onClick={() => setIsProfileOpen(false)}></div>
+                <div className="fixed md:absolute top-[80px] md:top-[calc(100%+10px)] left-4 right-4 md:left-auto md:right-0 md:w-[320px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 p-5 z-50 max-h-[calc(100dvh-100px)] md:max-h-[70dvh] overflow-y-auto no-scrollbar">
+                  <div className="flex justify-between items-center mb-5 shrink-0">
+                  <button 
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    <i className="ph ph-sign-out text-[1.1rem]"></i> Sign Out
+                  </button>
+                  <button 
+                    onClick={() => setIsProfileOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <i className="ph ph-x text-[1.1rem]"></i>
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-extrabold text-lg shrink-0 relative">
+                    {isStudioOwner && (
+                      <i className="ph-fill ph-crown absolute -top-1 -left-1 text-orange-400 text-sm bg-white rounded-full p-0.5 shadow-sm"></i>
+                    )}
+                    {userInitials}
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
+                  </div>
+                  <div className="flex flex-col overflow-hidden w-full">
+                    <span className="font-bold text-[0.95rem] text-slate-900 leading-tight truncate">{userName}</span>
+                    <span className="text-[0.75rem] text-slate-500 truncate">{userEmail}</span>
+                    <span className="text-[0.65rem] text-slate-500 mt-1 truncate">Role: <strong className="text-slate-700">{roleLabels[userRole] || userRole}</strong></span>
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                  <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Notification Preferences</div>
+                  
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); updatePreferences(!emailNotifs, pushNotifs); }}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${emailNotifs ? 'bg-orange-50 text-orange-500 hover:bg-orange-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                      title={emailNotifs ? "Disable Email Alerts" : "Enable Email Alerts"}
+                    >
+                      <i className={`text-[1.3rem] transition-transform duration-300 ${emailNotifs ? 'ph-fill ph-envelope-simple scale-110' : 'ph ph-envelope-simple'}`}></i>
+                    </button>
+
+                    <button 
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        e.stopPropagation();
+                        if (!pushNotifs) subscribeToPush();
+                        else updatePreferences(emailNotifs, false);
+                      }}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${pushNotifs ? 'bg-blue-50 text-blue-500 hover:bg-blue-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                      title={pushNotifs ? "Disable Push Alerts" : "Enable Push Alerts"}
+                    >
+                      <i className={`text-[1.3rem] transition-transform duration-300 ${pushNotifs ? 'ph-fill ph-device-mobile scale-110' : 'ph ph-device-mobile'}`}></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className={`relative flex ${title ? 'justify-between' : 'justify-end'} items-center px-4 md:px-10 py-4 md:py-5 bg-slate-50 z-50`}>
       <div className="flex items-center gap-3">
@@ -460,7 +552,7 @@ export default function TopNavigation() {
         <div className="relative" ref={profileRef}>
           <div 
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="w-[45px] h-[45px] rounded-full bg-slate-900 text-white flex items-center justify-center font-extrabold text-base cursor-pointer shadow-sm transition-colors hover:bg-slate-800"
+            className={`w-[45px] h-[45px] rounded-full ${pathname.startsWith('/personal') ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-slate-800'} flex items-center justify-center font-extrabold text-base cursor-pointer shadow-sm transition-colors`}
           >
             {userInitials}
           </div>

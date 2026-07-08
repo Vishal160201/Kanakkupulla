@@ -61,7 +61,13 @@ const getFieldIcon = (field: any) => {
 
 export default function BookingDetailsModal({ standaloneBookingId }: { standaloneBookingId?: string }) {
   const router = useRouter();
-  const { openBookingForm, isBookingDetailsOpen, bookingDetailsId: contextBookingId, closeBookingDetails } = useGlobalForm();
+  const { 
+    openBookingForm, 
+    isBookingDetailsOpen, 
+    bookingDetailsId: contextBookingId, 
+    closeBookingDetails,
+    openTransactionDetails
+  } = useGlobalForm();
   
   const bookingDetailsId = standaloneBookingId || contextBookingId;
   const isVisible = standaloneBookingId ? true : isBookingDetailsOpen;
@@ -417,23 +423,7 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                     let isPicker = isStatusPicker;
                     let currentActive = booking.status;
 
-                    if (isShootCompleted) {
-                      statusVal = booking.customData?.fld_b_album_status || 'Pending';
-                      s = statusVal.toLowerCase();
-                      labelText = "Album Status";
-                      
-                      if (isAlbumStatusPicker) {
-                        optionsToRender = albumStatusOptions;
-                      } else {
-                        optionsToRender = [
-                          { label: 'Pending' }, { label: 'Designing' },
-                          { label: 'Sent for printing' }, { label: 'Ready for delivery' }, { label: 'Delivered' }
-                        ];
-                      }
-                      isPicker = true;
-                      onStatusSelect = (val: string) => changeSectionStatus('fld_b_album_status', val);
-                      currentActive = statusVal;
-                    }
+
 
                     let icon = <Clock className="w-3.5 h-3.5 text-indigo-600" />;
                     let bg = 'bg-indigo-100';
@@ -783,36 +773,10 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                     })}
                   </div>
 
-                {/* Row 2: Combined Layout */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-                  
-                  {/* Left Column: Focus, Notes, Attachments */}
-                  <div className="flex flex-col gap-6">
-                    {/* Top half: Focus and Notes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Focus Card */}
-                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
-                      <div className="flex items-center gap-2">
-                        <Target className="w-5 h-5 text-blue-600" />
-                        <h3 className="font-bold text-[#0B1E40]">Focus</h3>
-                      </div>
-                      <div className="flex-1 flex items-end">
-                        <div className="flex items-center gap-4 mt-4">
-                          <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                            <Wallet className="w-5 h-5 text-emerald-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-500 font-bold mb-0.5">Amount</p>
-                            <p className="text-base font-black text-slate-800">{focusAmountVal || booking.customData?.fld_b_focus || booking.customData?.focus || '20'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-
-
+                {/* Row 2: Notes, Attachments, Focus */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start mt-6">
                     {/* Notes Card */}
-                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full min-h-[160px] gap-4">
                       <div className="flex items-center gap-2">
                         <FileText className="w-5 h-5 text-amber-600" />
                         <h3 className="font-bold text-[#0B1E40]">Notes</h3>
@@ -827,12 +791,8 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                       </div>
                     </div>
                     
-
-
-                    </div>
-                    {/* Bottom half: Attachments */}
                     {/* Attachments Card */}
-                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full gap-4">
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full min-h-[160px] gap-4">
                       <div className="flex items-center gap-2">
                         <LinkIcon className="w-5 h-5 text-blue-600" />
                         <h3 className="font-bold text-[#0B1E40]">Attachments (0)</h3>
@@ -847,20 +807,95 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                       </div>
                     </div>
 
+                    {/* Focus Card */}
+                    {(() => {
+                      const focusSection = layoutSchema?.sections?.find((s: any) => s.title?.toLowerCase() === 'focus');
+                      
+                      let focusVal = booking.customData?.fld_b_focus || booking.customData?.focus;
+                      let amountVal = booking.customData?.fld_b_amount || booking.customData?.amount || 'N/A';
+                      let dateVal = booking.customData?.fld_b_date || booking.customData?.date || 'N/A';
+                      let attachmentsCount = 0;
+                      
+                      if (focusSection) {
+                         const dateField = focusSection.fields?.find((f: any) => (f.name||'').toLowerCase() === 'date');
+                         const amountField = focusSection.fields?.find((f: any) => (f.name||'').toLowerCase() === 'amount');
+                         const attachmentFields = focusSection.fields?.filter((f: any) => (f.name||'').toLowerCase().includes('attachment') || f.type === 'FILE' || f.type === 'ATTACHMENT') || [];
+                         
+                         if (dateField) {
+                           const val = standardFieldMap[dateField.id] ? (booking as any)[standardFieldMap[dateField.id]] : booking.customData?.[dateField.id];
+                           if (val) dateVal = new Date(val).toLocaleDateString();
+                         }
+                         if (amountField) {
+                           const val = standardFieldMap[amountField.id] ? (booking as any)[amountField.id] : booking.customData?.[amountField.id];
+                           if (val) amountVal = val;
+                         }
+                         
+                         attachmentFields.forEach((f: any) => {
+                           const val = standardFieldMap[f.id] ? (booking as any)[standardFieldMap[f.id]] : booking.customData?.[f.id];
+                           if (val) {
+                             if (Array.isArray(val)) attachmentsCount += val.length;
+                             else if (typeof val === 'string' && val.trim() !== '') attachmentsCount += 1;
+                           }
+                         });
+                         
+                         return (
+                          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full min-h-[160px] gap-4">
+                            <div className="flex items-center gap-2">
+                              <Target className="w-5 h-5 text-blue-600" />
+                              <h3 className="font-bold text-[#0B1E40]">{focusSection.title || 'Focus'}</h3>
+                            </div>
+                            <div className="flex-1 flex flex-col justify-center gap-3 mt-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Date</span>
+                                <span className="text-sm font-bold text-slate-800">{dateVal}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Amount</span>
+                                <span className="text-sm font-bold text-slate-800">{amountVal}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Attachments</span>
+                                <span className="text-sm font-bold text-blue-600">{attachmentsCount} File{attachmentsCount !== 1 ? 's' : ''}</span>
+                              </div>
+                            </div>
+                          </div>
+                         );
+                      }
 
-                  </div>
+                      if (!focusVal || focusVal === 'N/A' || focusVal === '') return <div className="hidden md:block"></div>;
+                      return (
+                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col h-full min-h-[160px] gap-4">
+                          <div className="flex items-center gap-2">
+                            <Target className="w-5 h-5 text-blue-600" />
+                            <h3 className="font-bold text-[#0B1E40]">Primary Focus</h3>
+                          </div>
+                          <div className="flex-1 flex flex-col justify-center mt-2">
+                            <p className="text-sm font-bold text-slate-800">{focusVal}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                </div>
 
-                  {/* Right Column: Financials */}
-                  <div className="flex flex-col gap-6">
-                  {/* Right Column (Row 3): Package & Payment (Revamped) */}
-                  <div className="flex flex-col gap-6">
+                {/* Row 3: Financials (Full Width) */}
+                <div className="mt-6">
                   {(() => {
                     const totalAmount = Number(booking.order?.package || booking.customData?.fld_b_package || 0);
                     const advanceAmount = Number(booking.order?.advance || booking.customData?.fld_b_advance || 0);
                     const dueAmount = totalAmount - advanceAmount;
                     const progressPercent = totalAmount > 0 ? Math.round((advanceAmount / totalAmount) * 100) : 0;
-                    const validTransactions = booking.transactions?.filter((tx: any) => !tx.deletedAt) || [];
+                    let validTransactions = booking.transactions?.filter((tx: any) => !tx.deletedAt) || [];
                     const paymentMethod = booking.customData?.paymentMode || booking.customData?.fld_b_payment_mode || "Cash";
+                    if (validTransactions.length === 0 && advanceAmount > 0) {
+                      validTransactions = [{
+                        id: 'legacy-advance-' + booking.id,
+                        amount: advanceAmount,
+                        date: booking.date || new Date().toISOString(),
+                        paymentMode: paymentMethod,
+                        description: 'Advance Payment (Legacy)',
+                        category: 'BOOKING'
+                      }];
+                    }
 
                     return (
                       <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col h-fit">
@@ -910,78 +945,95 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                               {/* Card 1: Advance */}
-                              <div className="bg-green-50/50 p-3 rounded-2xl border border-green-100 relative overflow-hidden group">
-                                <div className="flex items-center justify-between mb-2 relative z-10">
-                                  <div className="w-8 h-8 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-sm">
-                                    <Wallet size={14} />
+                              <div className="bg-green-50/50 p-4 rounded-2xl border border-green-100 relative overflow-hidden group min-h-[100px] flex flex-col justify-between">
+                                <div className="flex items-center justify-between relative z-10">
+                                  <div className="w-10 h-10 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-sm">
+                                    <Wallet size={16} />
                                   </div>
-                                  <div className="w-5 h-5 rounded-full border-2 border-green-200 flex items-center justify-center text-green-400">
-                                    <Check size={12} strokeWidth={3} />
+                                  <div className="w-6 h-6 rounded-full border-2 border-green-200 flex items-center justify-center text-green-400">
+                                    <Check size={14} strokeWidth={3} />
                                   </div>
                                 </div>
-                                <div className="text-[0.6rem] font-bold text-green-700/70 uppercase tracking-widest mb-0.5 relative z-10">Advance Paid</div>
-                                <div className="text-xl font-black text-slate-800 relative z-10">₹{advanceAmount.toLocaleString()}</div>
+                                <div className="mt-4 relative z-10">
+                                  <div className="text-[11px] font-bold text-green-700/70 uppercase tracking-wide mb-1">Advance Paid</div>
+                                  <div className="text-2xl font-bold text-slate-800">₹{advanceAmount.toLocaleString()}</div>
+                                </div>
                               </div>
 
                               {/* Card 2: Due Amount */}
-                              <div className="bg-red-50/50 p-3 rounded-2xl border border-red-100 relative overflow-hidden group">
-                                <div className="flex items-center justify-between mb-2 relative z-10">
-                                  <div className="w-8 h-8 rounded-xl bg-red-400 text-white flex items-center justify-center shadow-sm">
-                                    <Receipt size={14} />
+                              <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 relative overflow-hidden group min-h-[100px] flex flex-col justify-between">
+                                <div className="flex items-center justify-between relative z-10">
+                                  <div className="w-10 h-10 rounded-xl bg-red-400 text-white flex items-center justify-center shadow-sm">
+                                    <Receipt size={16} />
                                   </div>
-                                  <div className="w-5 h-5 rounded-full border-2 border-red-200 flex items-center justify-center text-red-400">
-                                    <Clock size={12} strokeWidth={3} />
+                                  <div className="w-6 h-6 rounded-full border-2 border-red-200 flex items-center justify-center text-red-400">
+                                    <Clock size={14} strokeWidth={3} />
                                   </div>
                                 </div>
-                                <div className="text-[0.6rem] font-bold text-red-700/70 uppercase tracking-widest mb-0.5 relative z-10">Due Amount</div>
-                                <div className="text-xl font-black text-slate-800 relative z-10">₹{dueAmount.toLocaleString()}</div>
+                                <div className="mt-4 relative z-10">
+                                  <div className="text-[11px] font-bold text-red-700/70 uppercase tracking-wide mb-1">Due Amount</div>
+                                  <div className="text-2xl font-bold text-slate-800">₹{dueAmount.toLocaleString()}</div>
+                                </div>
                               </div>
 
                               {/* Card 3: Mode of Payment */}
-                              <div className="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 relative overflow-hidden group">
-                                <div className="flex items-center justify-between mb-2 relative z-10">
-                                  <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-sm">
-                                    <CreditCard size={14} />
+                              <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 relative overflow-hidden group min-h-[100px] flex flex-col justify-between">
+                                <div className="flex items-center justify-between relative z-10">
+                                  <div className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-sm">
+                                    <CreditCard size={16} />
                                   </div>
-                                  <div className="w-5 h-5 rounded-full border-2 border-indigo-200 flex items-center justify-center text-indigo-300">
-                                    <span className="text-base leading-none">-</span>
+                                  <div className="w-6 h-6 rounded-full border-2 border-indigo-200 flex items-center justify-center text-indigo-300">
+                                    <span className="text-lg leading-none">-</span>
                                   </div>
                                 </div>
-                                <div className="text-[0.6rem] font-bold text-indigo-700/70 uppercase tracking-widest mb-0.5 relative z-10">Payment Method</div>
-                                <div className="text-xl font-black text-slate-800 relative z-10">{paymentMethod}</div>
+                                <div className="mt-4 relative z-10">
+                                  <div className="text-[11px] font-bold text-indigo-700/70 uppercase tracking-wide mb-1">Payment Method</div>
+                                  <div className="text-2xl font-bold text-slate-800 truncate">{paymentMethod}</div>
+                                </div>
                               </div>
                             </div>
 
-                            {validTransactions.length > 0 && (
-                              <div className="mt-6 pt-6 border-t border-slate-100">
-                                <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-3">Linked Transactions</div>
-                                <div className="space-y-2">
-                                  {validTransactions.map((tx: any) => (
-                                    <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors block">
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                                          <Receipt size={14} />
+                            <div className="mt-8 pt-6 border-t border-slate-100">
+                              <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-3">Linked Transactions</div>
+                              {validTransactions.length > 0 ? (
+                                <div className="space-y-3">
+                                  {validTransactions.map((tx: any) => {
+                                      const isLegacy = tx.id.toString().startsWith('legacy');
+                                      return (
+                                        <div 
+                                          key={tx.id} 
+                                          onClick={() => openTransactionDetails(tx.id)}
+                                          className={`flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 transition-colors block hover:bg-slate-100 cursor-pointer`}
+                                        >
+                                          <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                              <Receipt size={16} />
+                                            </div>
+                                            <div>
+                                              <div className="text-sm font-bold text-slate-800 mb-0.5">{tx.description || tx.category || "Advance Payment"}</div>
+                                              <div className="text-[11px] text-slate-500 font-medium">{format(new Date(tx.date), "MMM dd, yyyy h:mm a")} • {tx.paymentMode || "Cash"}</div>
+                                            </div>
+                                          </div>
+                                          <div className="text-base font-bold text-green-600">+₹{tx.amount?.toLocaleString()}</div>
                                         </div>
-                                        <div>
-                                          <div className="text-xs font-bold text-slate-800">{tx.description || tx.category || "Advance Payment"}</div>
-                                          <div className="text-[0.65rem] text-slate-500">{format(new Date(tx.date), "MMM dd, yyyy h:mm a")} • {tx.paymentMode || "Cash"}</div>
-                                        </div>
-                                      </div>
-                                      <div className="text-sm font-bold text-green-600">+₹{tx.amount?.toLocaleString()}</div>
-                                    </div>
-                                  ))}
+                                      );
+                                  })}
                                 </div>
-                              </div>
-                            )}
+                              ) : (
+                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 border-dashed flex flex-col items-center justify-center text-center">
+                                  <p className="text-sm font-bold text-slate-400">No linked transactions</p>
+                                  <p className="text-[10px] text-slate-400 mt-1">Payments made towards this booking will appear here.</p>
+                                </div>
+                              )}
+                            </div>
+
                           </div>
                         </div>
                       </div>
                     );
                   })()}
-                </div>
-                  </div>
                 </div>
               </div>
             </main>

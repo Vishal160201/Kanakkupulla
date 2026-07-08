@@ -56,8 +56,8 @@ export default function VerticalStatusStepper({ steps, currentStatus, sectionTit
                 )}
                 
                 <div className={cn(
-                  "w-[26px] h-[26px] rounded-full flex items-center justify-center z-10 transition-all duration-500 ring-2 ring-white",
-                  (isActive || isPast) ? cn(config.bgClass) : "bg-slate-50",
+                  "w-[26px] h-[26px] rounded-full flex items-center justify-center z-10 transition-all duration-500",
+                  (isActive || isPast) ? cn(config.bgClass, "ring-2 ring-white") : "bg-white border-2 border-slate-200",
                   isActive ? "scale-110" : ""
                 )}>
                   <i className={cn(
@@ -71,11 +71,11 @@ export default function VerticalStatusStepper({ steps, currentStatus, sectionTit
               
               {/* Step Label */}
               <div className="ml-4 flex flex-col justify-center min-h-[26px]">
-                <div className="font-bold text-[10px] text-slate-800 uppercase tracking-wider leading-none mb-1">
+                <div className={cn("font-bold text-[10px] uppercase tracking-wider leading-none", (isActive || isPast) ? "text-slate-800" : "text-slate-400")}>
                   {step}
                 </div>
-                {updatedAt && (
-                  <div className="text-[9px] text-slate-400 font-medium leading-none">
+                {updatedAt && (isActive || isPast) && (
+                  <div className="text-[9px] text-slate-400 font-medium leading-none mt-1">
                     {updatedAt}
                   </div>
                 )}

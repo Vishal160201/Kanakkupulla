@@ -11,9 +11,9 @@ model Client {
   name      String
   phone     String
   email     String?
-  bookings  Booking[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  bookings  Booking[]
 
   @@index([createdAt])
 }
@@ -21,46 +21,46 @@ model Client {
 model Order {
   id           String   @id @default(cuid())
   bookingId    String   @unique
-  booking      Booking  @relation(fields: [bookingId], references: [id])
   package      Float    @default(0)
   advance      Float    @default(0)
   due          Float    @default(0)
-  installments Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  installments Json?
+  booking      Booking  @relation(fields: [bookingId], references: [id])
 
   @@index([createdAt])
 }
 
 model Booking {
-  id            String        @id @default(cuid())
-  bookingNumber String?       @unique
-  clientId      String
-  client        Client        @relation(fields: [clientId], references: [id])
-  category      String        @default("Wedding")
-  date          DateTime
-  time          String
-  location      String
-  status        String        @default("Confirmed") // "Confirmed" | "Pending" | "Partial"
-  galleryUrl    String?       @db.Text
-  contractUrl   String?       @db.Text
-  customData    Json? // Stores dynamic form fields
-  packageName   String?
-  inclusions    Json? // Array of inclusion strings
-  notes         String?       @db.Text
-  attachments   Json? // Array of attachment objects/urls
-  photographers    Json? // Array of user IDs assigned
-  deletedAt        DateTime? // Soft delete flag
+  id               String        @id @default(cuid())
+  clientId         String
+  category         String        @default("Wedding")
+  date             DateTime
+  time             String
+  location         String
+  status           String        @default("Confirmed")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  contractUrl      String?
+  galleryUrl       String?
+  attachments      Json?
+  bookingNumber    String?       @unique
+  createdById      String?
+  customData       Json?
+  deletedAt        DateTime?
+  inclusions       Json?
+  notes            String?
+  packageName      String?
+  photographers    Json?
+  updatedById      String?
   galleryDelivered Boolean       @default(false)
   albumStatus      AlbumStatus   @default(PENDING)
+  client           Client        @relation(fields: [clientId], references: [id])
+  createdBy        User?         @relation("BookingCreatedBy", fields: [createdById], references: [id])
+  updatedBy        User?         @relation("BookingUpdatedBy", fields: [updatedById], references: [id])
   order            Order?
   transactions     Transaction[]
-  createdAt        DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  createdById   String?
-  createdBy     User?         @relation("BookingCreatedBy", fields: [createdById], references: [id])
-  updatedById   String?
-  updatedBy     User?         @relation("BookingUpdatedBy", fields: [updatedById], references: [id])
 
   @@index([date])
   @@index([clientId])
@@ -74,7 +74,7 @@ model SystemLog {
   id        String   @id @default(cuid())
   userId    String?
   action    String
-  details   String?  @db.Text
+  details   String?
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -82,27 +82,27 @@ model SystemLog {
 }
 
 model Transaction {
-  id            String   @id @default(cuid())
-  transactionId String?  @unique
-  amount        Float
-  type          String // "INCOME" | "EXPENSE"
-  date          DateTime
-  category      String
-  paymentMode   String
-  description   String?  @db.Text
-  status        String   @default("SETTLED") // "SETTLED" | "PENDING"
-  attachmentUrl String?  @db.Text
-  customData    Json? // Stores dynamic form fields
-  bookingId     String?
-  booking       Booking? @relation(fields: [bookingId], references: [id])
+  id             String        @id @default(cuid())
+  amount         Float
+  type           String
+  date           DateTime
+  category       String
+  paymentMode    String
+  description    String?
+  status         String        @default("SETTLED")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  attachmentUrl  String?
+  bookingId      String?
+  customData     Json?
+  transactionId  String?       @unique
+  userId         String?
   productOrderId String?
-  productOrder  ProductOrder? @relation(fields: [productOrderId], references: [id])
-  userId        String?
-  user          User?    @relation(fields: [userId], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
-  groupId       String?
+  deletedAt      DateTime?
+  groupId        String?
+  booking        Booking?      @relation(fields: [bookingId], references: [id])
+  productOrder   ProductOrder? @relation(fields: [productOrderId], references: [id])
+  user           User?         @relation(fields: [userId], references: [id])
 
   @@index([date])
   @@index([category])
@@ -122,15 +122,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
@@ -146,43 +145,31 @@ model Session {
   @@index([userId])
 }
 
-enum Role {
-  ADMIN
-  STAFF
-  PHOTOGRAPHER
-}
-
-enum UserStatus {
-  ACTIVE
-  PENDING
-  INACTIVE
-}
-
 model User {
   id                 String             @id @default(cuid())
-  idNumber           Int                @default(autoincrement())
   name               String?
   email              String?            @unique
   emailVerified      DateTime?
   password           String?
   image              String?
+  emailNotifications Boolean            @default(true)
+  idNumber           Int                @default(autoincrement())
+  invitedAt          DateTime?
+  phone              String?
+  pushNotifications  Boolean            @default(true)
   role               Role               @default(STAFF)
   status             UserStatus         @default(ACTIVE)
-  invitedAt          DateTime?
+  whatsappNotifs     Boolean            @default(false)
+  notificationPrefs  Json?
   accounts           Account[]
-  sessions           Session[]
-  transactions       Transaction[]
+  createdBookings    Booking[]          @relation("BookingCreatedBy")
+  updatedBookings    Booking[]          @relation("BookingUpdatedBy")
   categoryBudgets    CategoryBudget[]
   notifications      Notification[]
   pushSubscriptions  PushSubscription[]
-  emailNotifications Boolean            @default(true)
-  pushNotifications  Boolean            @default(true)
-  phone              String?
-  whatsappNotifs     Boolean            @default(false)
-  createdBookings    Booking[]          @relation("BookingCreatedBy")
-  updatedBookings    Booking[]          @relation("BookingUpdatedBy")
+  sessions           Session[]
+  transactions       Transaction[]
   integrations       UserIntegration[]
-  notificationPrefs  Json?
 
   @@index([status])
 }
@@ -195,8 +182,7 @@ model UserIntegration {
   customData     Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
 }
@@ -231,34 +217,31 @@ model PasswordResetToken {
 model Product {
   id          String         @id @default(cuid())
   name        String
-  description String?        @db.Text
+  description String?
   price       Float
   stock       Int            @default(0)
-  orders      ProductOrder[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+  orders      ProductOrder[]
 
   @@index([createdAt])
 }
 
 model ProductOrder {
-  id          String   @id @default(cuid())
-  orderNumber String?  @unique
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  quantity    Int      @default(1)
-
-  status      String   @default("PENDING") // "PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "READY"
-  clientName  String
-  clientPhone String?
-  dueDate     DateTime?
-  customData  Json?
-  
+  id           String        @id @default(cuid())
+  productId    String
+  quantity     Int           @default(1)
+  status       String        @default("PENDING")
+  clientName   String
+  clientPhone  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  customData   Json?
+  orderNumber  String?       @unique
+  dueDate      DateTime?
+  date         DateTime      @default(now())
+  product      Product       @relation(fields: [productId], references: [id])
   transactions Transaction[]
-  
-  date        DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
   @@index([productId])
   @@index([status])
@@ -268,10 +251,10 @@ model ProductOrder {
 
 model FormLayout {
   id          String   @id @default(cuid())
-  formKey     String   @unique // e.g., "BOOKING_FORM", "TRANSACTION_FORM"
+  formKey     String   @unique
   name        String
   description String?
-  schema      Json // Stores sections, fields, types, and mandatory rules
+  schema      Json
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -282,6 +265,80 @@ model SystemSetting {
   value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  userId       String
+  title        String
+  message      String
+  isRead       Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  actionUrl    String?
+  entityId     String?
+  entityType   String?
+  type         NotificationType
+  link         String?
+  priority     String           @default("NORMAL")
+  snoozedUntil DateTime?
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model RecycleBin {
+  id           String   @id @default(cuid())
+  itemType     String
+  itemId       String
+  originalData Json
+  trashedById  String?
+  trashedAt    DateTime @default(now())
+
+  @@index([itemType])
+  @@index([trashedAt])
+}
+
+model CategoryBudget {
+  id           String   @id @default(cuid())
+  category     String
+  monthlyLimit Float
+  month        Int
+  year         Int
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@unique([category, month, year, userId])
+  @@index([userId])
+  @@index([category, month, year])
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  PHOTOGRAPHER
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  INACTIVE
 }
 
 enum AlbumStatus {
@@ -313,66 +370,4 @@ enum NotificationPriority {
   HIGH
   NORMAL
   LOW
-}
-
-model Notification {
-  id         String               @id @default(cuid())
-  userId     String
-  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type       NotificationType
-  title      String
-  message    String               @db.Text
-  link       String?              // Kept for backward compatibility
-  actionUrl  String?              // Optional URL to navigate to when clicked
-  isRead     Boolean              @default(false)
-  entityId   String?
-  entityType String?              // 'booking' | 'order' | 'transaction' | 'budget' | 'expense'
-  priority   String               @default("NORMAL")
-  snoozedUntil DateTime?
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-
-  @@index([userId])
-  @@index([isRead])
-  @@index([createdAt])
-}
-
-model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-}
-
-model RecycleBin {
-  id           String   @id @default(cuid())
-  itemType     String
-  itemId       String
-  originalData Json
-  trashedById  String?
-  trashedAt    DateTime @default(now())
-
-  @@index([itemType])
-  @@index([trashedAt])
-}
-
-model CategoryBudget {
-  id           String   @id @default(cuid())
-  category     String
-  monthlyLimit Float
-  month        Int
-  year         Int
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([category, month, year, userId])
-  @@index([userId])
-  @@index([category, month, year])
 }

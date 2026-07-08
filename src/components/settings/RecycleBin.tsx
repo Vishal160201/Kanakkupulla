@@ -3,11 +3,132 @@
 import { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 import { FileDashed, Trash, ArrowCounterClockwise, CaretLeft, CaretRight } from "@phosphor-icons/react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+function PersonalRecycleBin() {
+  const { data: response, mutate, isLoading } = useSWR('/api/recycle-bin?source=PERSONAL_EXPENSE', fetcher);
+  const items = response?.items || [];
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+
+  const handleRestore = async (id: string) => {
+    try {
+      const res = await fetch(`/api/recycle-bin/${id}/restore`, { method: 'POST' });
+      if (!res.ok) throw new Error("Failed");
+      toast.success("Expense Restored");
+      mutate();
+    } catch (e) {
+      toast.error("Failed to restore expense");
+    }
+  };
+
+  const handlePermanentDeleteConfirm = async (id: string) => {
+    setIsDeletingId(id);
+    try {
+      const res = await fetch(`/api/recycle-bin`, {
+        method: "DELETE",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id] })
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Expense permanently deleted");
+      mutate();
+    } catch (e) {
+      toast.error("Error deleting expense");
+    } finally {
+      setIsDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-gray-200 mt-4 animate-[fadeIn_0.2s_ease-out]">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-slate-50 border-b border-gray-200">
+            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
+            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Title</th>
+            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
+            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
+            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {isLoading ? (
+            <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr>
+          ) : items.length === 0 ? (
+            <tr><td colSpan={5} className="p-12 text-center text-slate-400">Personal recycle bin is empty</td></tr>
+          ) : (
+            items.map((item: any) => {
+              const e = item.originalData;
+              return (
+              <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
+                <td className="p-4 text-sm text-slate-600">{new Date(e.date).toLocaleDateString()}</td>
+                <td className="p-4 text-sm font-bold text-slate-900">{e.title}</td>
+                <td className="p-4 text-sm text-slate-600">
+                  <span className="bg-slate-100 px-2 py-1 rounded-md text-xs font-bold">{e.category}</span>
+                </td>
+                <td className={`p-4 text-sm font-bold ${e.type === 'CREDIT' ? 'text-emerald-600' : 'text-slate-900'}`}>
+                  {e.type === 'CREDIT' ? '+' : '-'}₹{e.amount?.toLocaleString()}
+                </td>
+                <td className="p-4 text-right">
+                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {confirmDeleteId === item.id ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[0.7rem] font-bold text-red-500 uppercase tracking-wider mr-2">Delete?</span>
+                        <button
+                          onClick={() => handlePermanentDeleteConfirm(item.id)}
+                          disabled={isDeletingId === item.id}
+                          className="p-1.5 text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                        >
+                          <span className="text-xs px-1 font-bold">{isDeletingId === item.id ? '...' : '✓'}</span>
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          disabled={isDeletingId === item.id}
+                          className="p-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <span className="text-xs px-1 font-bold">✕</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleRestore(item.id)}
+                          className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Restore"
+                        >
+                          <ArrowCounterClockwise size={18} weight="bold" />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(item.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Permanently"
+                        >
+                          <Trash size={18} weight="bold" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function RecycleBin() {
+  const { data: session } = useSession();
+  const isPersonalEnabled = session?.user?.email === 'nithyavishalr@gmail.com';
+  const [activeTab, setActiveTab] = useState<'studio' | 'personal'>('studio');
+
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [sourceFilter, setSourceFilter] = useState("");
@@ -144,8 +265,31 @@ export default function RecycleBin() {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 animate-[fadeIn_0.3s_ease-out]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
+      {isPersonalEnabled && (
+        <div className="flex gap-4 border-b border-gray-200 mb-6">
+          {(['studio', 'personal'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`pb-3 px-1 text-sm font-bold relative transition-all duration-200 ease-in-out ${
+                activeTab === tab ? "text-orange-600 scale-[1.02]" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600 rounded-t-sm animate-[fadeIn_0.2s_ease-out]" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'personal' ? (
+        <PersonalRecycleBin />
+      ) : (
+        <div className="animate-[fadeIn_0.2s_ease-out]">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
           <h2 className="text-[1.15rem] font-bold text-slate-900 mb-1">Recycle Bin</h2>
           <p className="text-sm text-slate-500">Deleted items are kept here for 30 days before being permanently removed.</p>
         </div>
@@ -358,6 +502,8 @@ export default function RecycleBin() {
               <CaretRight weight="bold" />
             </button>
           </div>
+        </div>
+      )}
         </div>
       )}
     </div>

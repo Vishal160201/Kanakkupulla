@@ -167,5 +167,28 @@ export const DEFAULT_LAYOUTS = [
         }
       ]
     }
+  },
+  {
+    formKey: "PERSONAL_EXPENSE_FORM",
+    name: "Personal Expense Form",
+    description: "Fields used when recording a personal expense.",
+    schema: {
+      sections: [
+        {
+          id: "sec_pe_details",
+          title: "Expense Details",
+          icon: "ph-wallet",
+          fields: [
+            { id: "fld_pe_title", label: "Title", type: "SINGLE_LINE", mandatory: true },
+            { id: "fld_pe_amount", label: "Amount (₹)", type: "CURRENCY", mandatory: true },
+            { id: "fld_pe_type", label: "Type", type: "PICK_LIST", mandatory: true, options: ["CREDIT", "DEBIT"] },
+            { id: "fld_pe_category", label: "Category", type: "PICK_LIST", mandatory: true, options: ["Food", "Transport", "Shopping", "Bills", "EMI", "Entertainment", "Health", "Other"] },
+            { id: "fld_pe_date", label: "Date", type: "DATE", mandatory: true, isRecordDate: true },
+            { id: "fld_pe_source", label: "Payment Source", type: "PICK_LIST", mandatory: true, options: ["Cash"] },
+            { id: "fld_pe_notes", label: "Notes", type: "MULTI_LINE", mandatory: false }
+          ]
+        }
+      ]
+    }
   }
 ];

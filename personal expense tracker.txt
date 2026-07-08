@@ -1,0 +1,209 @@
+Build Personal Expense Tracker. Visible ONLY to session.user.email === 'nithyavishalr@gmail.com'. Block at middleware, every API route, and nav. No native popups/selects/dropdowns/date inputs anywhere. Custom inline UI only. INR only. Lucide icons. CSS @keyframes + transitions, no framer-motion.
+
+---
+
+SCHEMA — prisma/schema.prisma
+
+model PersonalExpense {
+  id String @id @default(cuid())
+  title String
+  amount Float
+  type String // CREDIT/DEBIT
+  category String
+  date DateTime
+  paymentSource String
+  isEMI Boolean @default(false)
+  emiId String?
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  emi PersonalEMI? @relation(fields: [emiId], references: [id])
+  @@index([date]) @@index([type]) @@index([deletedAt])
+}
+
+model PersonalEMI {
+  id String @id @default(cuid())
+  title String
+  totalAmount Float
+  emiAmount Float
+  totalMonths Int
+  paidMonths Int @default(0)
+  startDate DateTime
+  nextDueDate DateTime
+  cardId String?
+  status String @default("ACTIVE") // ACTIVE/COMPLETED/PAUSED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expenses PersonalExpense[]
+  @@index([status]) @@index([nextDueDate])
+}
+
+model PersonalCard {
+  id String @id @default(cuid())
+  name String
+  type String // CREDIT/DEBIT
+  lastFour String
+  bank String
+  billingDate Int?
+  dueDate Int?
+  creditLimit Float?
+  color String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+Run: npx prisma db push && npx prisma generate
+
+---
+
+MIDDLEWARE — src/proxy.ts
+
+if path starts with /personal or /api/personal:
+  get session token
+  if email !== 'nithyavishalr@gmail.com' → redirect to /dashboard
+
+---
+
+API ROUTES — all under /api/personal/*
+
+Every handler: if session.user.email !== 'nithyavishalr@gmail.com' return 403.
+
+GET/POST   /api/personal/expenses         — list (deletedAt:null, filters: dateRange/category/card/type) + create
+PATCH/DELETE /api/personal/expenses/[id]  — edit + soft-delete (deletedAt: new Date())
+GET/POST   /api/personal/emis             — list + create
+PATCH      /api/personal/emis/[id]        — edit; on markPaid: paidMonths++, create linked PersonalExpense, if paidMonths===totalMonths set status:COMPLETED
+GET/POST   /api/personal/cards            — list + create
+PATCH/DELETE /api/personal/cards/[id]     — edit + hard-delete
+GET        /api/personal/summary          — totals: spend/income for day/week/month, by category, EMI dues, net balance
+GET        /api/personal/expenses/export  — params: format=pdf|csv, startDate, endDate. CSV: string builder. PDF: reuse existing invoice utility.
+
+---
+
+LAYOUT — src/lib/defaultLayouts.ts
+
+Add PERSONAL_EXPENSE_FORM:
+sections: [{ id:'sec_pe_details', label:'Expense Details', fields:[
+  { id:'fld_pe_title',    label:'Title',          type:'TEXT',     mandatory:true },
+  { id:'fld_pe_amount',   label:'Amount (₹)',     type:'NUMBER',   mandatory:true },
+  { id:'fld_pe_type',     label:'Type',           type:'PICKLIST', options:['CREDIT','DEBIT'], mandatory:true },
+  { id:'fld_pe_category', label:'Category',       type:'PICKLIST', options:['Food','Transport','Shopping','Bills','EMI','Entertainment','Health','Other'], mandatory:true },
+  { id:'fld_pe_date',     label:'Date',           type:'DATE',     mandatory:true },
+  { id:'fld_pe_source',   label:'Payment Source', type:'PICKLIST', options:['Cash'], mandatory:true }, // append cards dynamically from GET /api/personal/cards as "[bank] ••••[lastFour]"
+  { id:'fld_pe_notes',    label:'Notes',          type:'TEXTAREA', mandatory:false },
+]}]
+
+---
+
+NAVIGATION — sidebar/bottom nav
+
+Add "Personal" tab with Wallet lucide icon below Analytics tab.
+Render only if session.user.email === 'nithyavishalr@gmail.com'.
+Entry animation: opacity 0→1 fadeIn on mount.
+
+---
+
+RECYCLE BIN — existing recycle bin page
+
+Add two inline custom tabs at top: "Studio" (existing content) "Personal" (new).
+Personal tab: list PersonalExpense where deletedAt !== null.
+Show: title, amount, category, date. Restore button (deletedAt:null). Permanent delete button (hard-delete).
+Tab switch: opacity + translateX(8px→0) 200ms transition.
+Personal tab hidden entirely for any email !== 'nithyavishalr@gmail.com'.
+
+---
+
+PAGES — src/app/(main)/personal/
+
+ROUTE LAYOUT src/app/(main)/personal/layout.tsx:
+Server-side email check → redirect if not authorized.
+Inner nav: 4 custom inline tab pills — Overview / Expenses / Cards / EMIs.
+Tab active: orange underline + scale(1.02). Switch: opacity + translateX transition 200ms.
+
+---
+
+PAGE 1 — /personal (Overview)
+
+KPI strip (4 cards, staggered slideUp animation delay 0/100/200/300ms):
+  Total Spent This Month | Total Income | Net Balance | Active EMIs
+All values: animated count-up on mount.
+
+Inline date toggle pills (custom, not native): Daily / Weekly / Monthly
+→ switches chart data via SWR revalidation, no reload.
+
+Recharts donut chart: spend by category. isAnimationActive={true}.
+Recharts bar chart: Income vs Expense by day/week/month. isAnimationActive={true}.
+Responsive containers for both charts.
+
+Upcoming EMI dues this month: orange alert cards.
+Overdue EMIs: pulse scale animation on icon.
+
+---
+
+PAGE 2 — /personal/expenses (Expenses)
+
+"+ Add Expense" button → slide-down inline panel (max-height 0→500px, 300ms ease).
+Form fields from PERSONAL_EXPENSE_FORM layout.
+CustomDropdown for category/type/source. Custom date picker. Submit → POST /api/personal/expenses.
+
+Filter row: custom date range pickers, category CustomMultiDropdown, type toggle pill, card CustomDropdown.
+Active filters: dismissible × pills row.
+
+View toggle pills: Daily (grouped by date header) / Weekly (Mon–Sun columns) / Monthly (calendar heatmap — darker cell = more spend, click day shows entries inline).
+Animate between views: opacity + translateX 200ms.
+
+Export row: "Export PDF" button + "Export CSV" button → /api/personal/expenses/export with current filters.
+
+Per row: trash icon → inline expand confirm "Delete?" [Confirm] [Cancel] → DELETE → row fade-out + max-height→0 300ms.
+
+---
+
+PAGE 3 — /personal/cards (Cards)
+
+Grid: each card = styled div, gradient bg from card.color, shows bank name, ••••lastFour, type badge (CREDIT green / DEBIT blue).
+Hover: scale(1.03) + box-shadow 150ms ease.
+Shows: this month spend, available limit progress bar (credit only, red if >80% used), due date orange badge if billingDate within 5 days.
+
+"+ Add Card" → slide-down inline form:
+  name, bank, type toggle (CREDIT/DEBIT), last four (max 4 digits), billing day, due day, credit limit (show only if CREDIT), color: 6 preset hex swatches (no native color input).
+Submit → POST /api/personal/cards.
+
+---
+
+PAGE 4 — /personal/emis (EMI Tracker)
+
+EMI list rows: title, linked card, monthly EMI ₹, progress bar (paidMonths/totalMonths width transition 600ms ease on mount), next due date, status badge.
+Status colors: ACTIVE=green, PAUSED=orange, COMPLETED=gray with checkmark animation.
+
+"Mark Month Paid" button → inline expand confirm → PATCH /api/personal/emis/[id]:
+  paidMonths++, create PersonalExpense for this month's EMI amount, recalculate nextDueDate (+1 month).
+  if paidMonths===totalMonths → status:COMPLETED, progress bar fills 100% with green pulse animation.
+
+"+ Add EMI" → slide-down inline form:
+  title, total amount, EMI amount, total months (auto-calc monthly if total+months given), start date (custom date picker), linked card CustomDropdown (from GET /api/personal/cards + "No Card / Cash").
+Submit → POST /api/personal/emis.
+
+---
+
+ANIMATIONS SUMMARY
+
+@keyframes slideUp { from { transform:translateY(20px); opacity:0 } to { transform:translateY(0); opacity:1 } }
+@keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
+@keyframes pulse   { 0%,100% { transform:scale(1) } 50% { transform:scale(1.15) } }
+
+KPI cards: animation: slideUp 400ms ease forwards; stagger via animation-delay.
+Tab switch: opacity + translateX(8px→0) 200ms ease.
+Slide panels: max-height transition 300ms ease.
+Card hover: scale(1.03) box-shadow 150ms ease.
+Row delete: opacity→0 + max-height→0 300ms ease.
+EMI progress bar: width transition 600ms ease.
+Chart: Recharts isAnimationActive={true}.
+
+---
+
+CONSTRAINTS
+- No native <select>, <input type="date">, <input type="color">, alert(), confirm() anywhere.
+- All custom: CustomDropdown, CustomMultiDropdown, custom date picker, inline confirmations.
+- Email guard at: middleware (proxy.ts), every /api/personal/* handler, nav tab render, recycle bin personal tab render.
+- Soft-delete pattern (deletedAt) for PersonalExpense. Hard-delete for PersonalCard.
+- SWR for all data fetching. mutate() after every create/edit/delete — no router.refresh().

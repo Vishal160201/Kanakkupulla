@@ -23,6 +23,60 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params;
+    
+    // Handle Legacy Advance Transactions (dynamically generated for old bookings)
+    if (id.startsWith("legacy-advance-")) {
+      const bookingId = id.replace("legacy-advance-", "");
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: { 
+          client: { select: { name: true } }, 
+          createdBy: { select: { id: true, name: true, email: true } },
+          order: true
+        }
+      });
+      
+      if (!booking) {
+        return NextResponse.json({ error: "Booking not found for legacy transaction" }, { status: 404 });
+      }
+      
+      const customData = booking.customData as any;
+      const advanceAmount = Number(booking.order?.advance || customData?.fld_b_advance || 0);
+      const paymentMode = customData?.paymentMode || customData?.fld_b_payment_mode || "Cash";
+      const txDate = booking.date || new Date();
+      
+      const legacyTransaction = {
+        id,
+        transactionId: id,
+        amount: advanceAmount,
+        type: "INCOME",
+        date: txDate,
+        category: "BOOKING",
+        paymentMode: paymentMode,
+        description: "Advance Payment (Legacy)",
+        status: "SETTLED",
+        customData: {},
+        attachmentUrl: null,
+        booking: {
+          id: booking.id,
+          bookingNumber: booking.bookingNumber,
+          category: booking.category,
+          client: { name: booking.client?.name || "" }
+        },
+        user: booking.createdBy || null,
+        productOrder: null,
+        customFields: []
+      };
+
+      return NextResponse.json(
+        {
+          transaction: legacyTransaction,
+          impact: { dayIncome: advanceAmount, dayExpenses: 0, dayNet: advanceAmount, categoryTotal: advanceAmount, categoryShare: 100 },
+        },
+        { headers: { "Cache-Control": "private, no-store" } }
+      );
+    }
+
     const transaction = await prisma.transaction.findUnique({
       where: { id },
       include: {
