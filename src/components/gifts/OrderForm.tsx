@@ -207,7 +207,15 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
     try {
       const uploadPromises = [];
       for (const key of Object.keys(formData)) {
-        const value = formData[key];
+        let value = formData[key];
+        if (Array.isArray(value) && value.length > 0) {
+          const first = value[0];
+          if (first instanceof File || first instanceof Blob || (typeof first === 'object' && first.driveFile) || (typeof first === 'string' && (first.startsWith('data:') || first.includes('driveFile')))) {
+             value = first;
+             formData[key] = value;
+          }
+        }
+
         if (typeof window !== 'undefined' && (value instanceof File || value instanceof Blob)) {
            const categoryName = products.find((p: any) => p.id === formData.productId)?.name || "Uncategorized";
            uploadPromises.push(
@@ -376,7 +384,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
           id={field.id}
           type={field.type}
           value={value}
-          onChange={(val) => handleFieldChange(field.id, val)}
+          onChange={(vals: any[]) => handleFieldChange(field.id, vals)}
           driveStatus={driveStatus}
           moduleName="Gifts & Frames"
           categoryName={categoryName}

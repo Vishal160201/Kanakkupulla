@@ -194,10 +194,18 @@ function TransactionModalInner() {
     try {
       const uploadPromises = [];
       for (const key in payload) {
-        const value = payload[key];
-        if (typeof window !== 'undefined' && (value instanceof File || value instanceof Blob)) {
+        let valToProcess = payload[key];
+        if (Array.isArray(valToProcess) && valToProcess.length > 0) {
+          const first = valToProcess[0];
+          if (first instanceof File || first instanceof Blob || (typeof first === 'object' && first.driveFile) || (typeof first === 'string' && (first.startsWith('data:') || first.includes('driveFile')))) {
+             valToProcess = first;
+             payload[key] = valToProcess;
+          }
+        }
+
+        if (typeof window !== 'undefined' && (valToProcess instanceof File || valToProcess instanceof Blob)) {
           uploadPromises.push(
-            uploadFileToDrive(value as File, 'Transactions', payload.category || 'Uncategorized', payload.date)
+            uploadFileToDrive(valToProcess as File, 'Transactions', payload.category || 'Uncategorized', payload.date)
               .then(uploaded => ({ key, uploaded }))
           );
         }
@@ -602,7 +610,7 @@ function TransactionModalInner() {
             id={fieldName}
             type={field.type}
             value={value}
-            onChange={(val) => set(fieldName)(val as any)}
+            onChange={(vals: any[]) => set(fieldName)(vals as any)}
             driveStatus={driveStatus}
             moduleName="Transactions"
             categoryName={form.category || "Uncategorized"}

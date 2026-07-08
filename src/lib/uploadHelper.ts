@@ -15,6 +15,9 @@ export async function uploadFileToDrive(file: File | Blob, moduleName: string, c
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
+    if (res.status === 401 || errorData.error === 'reauth_required') {
+      throw new Error("Your Google Drive connection has expired. Please go to Settings > Integrations to reconnect.");
+    }
     throw new Error(errorData.error || "Failed to upload file to Google Drive");
   }
 

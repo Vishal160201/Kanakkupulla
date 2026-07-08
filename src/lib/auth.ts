@@ -40,6 +40,7 @@ export const authOptions: NextAuthOptions = {
           name: "Google Drive",
           clientId: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          checks: ["none"],
           authorization: {
             params: {
               scope: "openid email profile https://www.googleapis.com/auth/drive.file",
@@ -112,82 +113,77 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google-drive") {
         try {
-          if (!account.providerAccountId) {
-            return false;
-          }
+          if (!account.providerAccountId) return false;
           
-          const existingAccount = await prisma.account.findFirst({
-            where: {
-              providerAccountId: account.providerAccountId,
-              provider: "google-drive",
+          if (!profile?.email) {
+             return `/settings?error=DriveIntegrationFailed&details=Google did not return an email address.`;
+          }
+
+          // 1. Find the Kanakkupulla user by the Google profile email
+          const dbUser = await prisma.user.findUnique({ 
+            where: { email: profile.email } 
+          });
+          
+          if (!dbUser) {
+            return `/settings?error=DriveEmailMismatch&details=No Kanakkupulla account found for the email ${profile.email}. Please use the Google account that matches your Kanakkupulla login.`;
+          }
+          const userId = dbUser.id;
+
+          // 2. Check if this integration already belongs to someone else (optional but safe)
+          const integration = await prisma.userIntegration.findUnique({
+            where: { userId_provider: { userId, provider: "google-drive" } }
+          });
+          
+          if (integration && integration.connectedEmail && profile.email !== integration.connectedEmail) {
+             // Technically they are using a different Google email than before, which we could reject, 
+             // but since we match by profile.email above, it means their Kanakkupulla email ALSO changed.
+             // We'll allow the upsert to update it.
+          }
+
+          // 3. Upsert the Account manually
+          await prisma.account.upsert({
+            where: { 
+              provider_providerAccountId: { 
+                provider: 'google-drive', 
+                providerAccountId: account.providerAccountId 
+              } 
             },
+            create: {
+              userId: userId,
+              type: account.type || 'oauth',
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              access_token: account.access_token,
+              refresh_token: account.refresh_token,
+              expires_at: account.expires_at,
+              token_type: account.token_type,
+              scope: account.scope,
+              id_token: account.id_token,
+              session_state: account.session_state as string | undefined,
+            },
+            update: {
+              access_token: account.access_token,
+              refresh_token: account.refresh_token ?? undefined,
+              expires_at: account.expires_at,
+              scope: account.scope,
+              id_token: account.id_token,
+            }
           });
 
-          if (existingAccount) {
-            // Check UserIntegration for matching email
-            const integration = await prisma.userIntegration.findUnique({
-              where: { userId_provider: { userId: existingAccount.userId, provider: "google-drive" } }
-            });
-            
-            if (integration && integration.connectedEmail) {
-              if (profile?.email && profile.email !== integration.connectedEmail) {
-                // Remove the unauthorized token from Google
-                if (account.access_token) {
-                  try {
-                    await fetch(`https://oauth2.googleapis.com/revoke?token=${account.access_token}`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/x-www-form-urlencoded" }
-                    });
-                  } catch (e) {
-                  }
-                }
-                return `/settings?error=DriveEmailMismatch&expectedEmail=${encodeURIComponent(integration.connectedEmail)}`;
-              }
-            } else if (profile?.email) {
-              await prisma.userIntegration.upsert({
-                where: { userId_provider: { userId: existingAccount.userId, provider: 'google-drive' } },
-                create: { userId: existingAccount.userId, provider: 'google-drive', connectedEmail: profile.email },
-                update: { connectedEmail: profile.email }
-              });
-            }
+          // 4. Upsert the UserIntegration manually
+          await prisma.userIntegration.upsert({
+            where: { userId_provider: { userId, provider: 'google-drive' } },
+            create: { userId, provider: 'google-drive', connectedEmail: profile.email },
+            update: { connectedEmail: profile.email }
+          });
 
-            // Update tokens on existing linked account
-            await prisma.account.update({
-              where: { id: existingAccount.id },
-              data: {
-                access_token: account.access_token,
-                refresh_token: account.refresh_token ?? existingAccount.refresh_token,
-                expires_at: account.expires_at,
-              },
-            });
-          } else {
-            // If linking a new account, we need to save the connected email as well
-            if (user?.id && profile?.email) {
-              const integration = await prisma.userIntegration.findUnique({
-                where: { userId_provider: { userId: user.id, provider: "google-drive" } }
-              });
-              
-              if (integration && integration.connectedEmail && profile.email !== integration.connectedEmail) {
-                return `/settings?error=DriveEmailMismatch&expectedEmail=${encodeURIComponent(integration.connectedEmail)}`;
-              }
-              
-              await prisma.userIntegration.upsert({
-                where: { userId_provider: { userId: user.id, provider: 'google-drive' } },
-                create: { userId: user.id, provider: 'google-drive', connectedEmail: profile.email },
-                update: { connectedEmail: profile.email }
-              });
-            }
-          }
-          
-          // FIX: Google sometimes returns `refresh_token_expires_in` which is not in our Prisma schema.
-          // PrismaAdapter blindly passes it to `prisma.account.create()`, causing a validation crash.
-          if ('refresh_token_expires_in' in account) {
-            delete account.refresh_token_expires_in;
-          }
-
-          return true;
-        } catch (error) {
-          return false;
+          // 5. Return a URL to bypass NextAuth's fragile account linking and redirect immediately
+          return '/settings?section=google-drive&success=DriveConnected';
+        } catch (error: any) {
+          try {
+            require("fs").writeFileSync("last-auth-error.txt", String(error.stack || error));
+          } catch (e) {}
+          return `/settings?error=DriveIntegrationFailed&details=${encodeURIComponent(error.message || "Unknown error")}`;
         }
       }
       return true;

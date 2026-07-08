@@ -257,8 +257,15 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
     // Search filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const match = a.client?.name.toLowerCase().includes(q) || 
-                    a.bookingNumber?.toLowerCase().includes(q) || 
+      const designerId = customData.designer || customData.fld_b_photographers;
+      const designerUser = teamUsers?.find(u => u.id === designerId);
+      const designerName = designerUser ? designerUser.name : (designerId || '');
+
+      const match = (a.client?.name || '').toLowerCase().includes(q) || 
+                    (a.client?.phone || '').toLowerCase().includes(q) ||
+                    (a.bookingNumber || '').toLowerCase().includes(q) || 
+                    (a.category || '').toLowerCase().includes(q) ||
+                    designerName.toLowerCase().includes(q) ||
                     a.id.toLowerCase().includes(q);
       if (!match) return false;
     }
@@ -365,9 +372,7 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                   className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-purple-400 bg-white"
                 />
               </div>
-              <button className="btn btn-outline border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl px-4 py-2 font-bold text-sm shadow-sm flex items-center gap-2">
-                <i className="ph ph-funnel"></i> Filters
-              </button>
+
             </div>
           </div>
         )}
@@ -491,9 +496,7 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                             >
                               View
                             </button>
-                            <button className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors">
-                              <i className="ph-bold ph-dots-three-vertical"></i>
-                            </button>
+
                           </div>
                         </td>
                       </tr>

@@ -387,13 +387,22 @@ function BookingFormModalInner() {
     try {
       const uploadPromises = [];
       for (const [key, value] of Object.entries(data)) {
-        if (typeof window !== 'undefined' && (value instanceof File || value instanceof Blob)) {
+        let valToProcess = value;
+        if (Array.isArray(value) && value.length > 0) {
+          const first = value[0];
+          if (first instanceof File || first instanceof Blob || (typeof first === 'object' && first.driveFile) || (typeof first === 'string' && (first.startsWith('data:') || first.includes('driveFile')))) {
+             valToProcess = first;
+             (data as any)[key] = valToProcess;
+          }
+        }
+
+        if (typeof window !== 'undefined' && (valToProcess instanceof File || valToProcess instanceof Blob)) {
           uploadPromises.push(
-            uploadFileToDrive(value as File, 'Bookings', data.category || 'Uncategorized', data.date)
+            uploadFileToDrive(valToProcess as File, 'Bookings', data.category || 'Uncategorized', data.date)
               .then(uploaded => ({ key, uploaded }))
           );
-        } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-          (data as any)[key] = JSON.stringify(value);
+        } else if (valToProcess && typeof valToProcess === 'object' && !Array.isArray(valToProcess)) {
+          (data as any)[key] = JSON.stringify(valToProcess);
         }
       }
       
@@ -696,7 +705,7 @@ function BookingFormModalInner() {
           id={fieldName}
           type={field.type}
           value={value}
-          onChange={(val) => setValue(fieldName as any, val as any)}
+          onChange={(vals: any[]) => setValue(fieldName as any, vals as any)}
           driveStatus={driveStatus}
           moduleName="Bookings"
           categoryName={formValues.category || "Uncategorized"}
