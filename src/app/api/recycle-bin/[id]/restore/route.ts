@@ -20,7 +20,12 @@ export async function POST(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    if (entry.itemType === "booking") {
+    if (entry.itemType === "PERSONAL_EXPENSE") {
+      await prisma.personalExpense.update({
+        where: { id: entry.itemId },
+        data: { deletedAt: null }
+      });
+    } else if (entry.itemType === "booking") {
       await prisma.booking.update({
         where: { id: entry.itemId },
         data: { deletedAt: null }
@@ -120,7 +125,7 @@ export async function POST(
     }
 
     // Physically delete from recycle bin
-    await prisma.recycleBin.delete({ where: { id } });
+    await prisma.recycleBin.delete({ where: { id: entry.id } });
 
     await prisma.systemLog.create({
       data: {

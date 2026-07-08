@@ -69,9 +69,10 @@ export default function OverdueBookingBanners() {
     }
   };
 
-  if (!bookings || bookings.length === 0) return null;
+  const bookingsArray = Array.isArray(bookings) ? bookings : (bookings?.bookings ?? bookings?.data ?? []);
+  if (bookingsArray.length === 0) return null;
 
-  const visibleBookings = bookings.filter((b: any) => !dismissed[b.id]);
+  const visibleBookings = bookingsArray.filter((b: any) => !dismissed[b.id]);
 
   if (visibleBookings.length === 0) return null;
 

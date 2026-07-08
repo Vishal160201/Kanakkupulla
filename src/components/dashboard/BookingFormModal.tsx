@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import flatpickr from "flatpickr";
 
@@ -12,7 +12,7 @@ import MultiUserPicklist, { UserItem } from "../ui/MultiUserPicklist";
 import { bookingSchema, BookingFormData } from "@/lib/validations/booking";
 import { saveBookingAction } from "@/app/actions";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -64,7 +64,10 @@ function BookingFormModalInner() {
   const [layoutSchema, setLayoutSchema] = useState<any>(null);
   const [teamUsers, setTeamUsers] = useState<UserItem[]>([]);
   const [allBookings, setAllBookings] = useState<any[]>([]);
-  const [installments, setInstallments] = useState<{amount: string, date: string, transactionId?: string}[]>([]);
+  const [isMultiInstallment, setIsMultiInstallment] = useState(false);
+  const [installments, setInstallments] = useState<{amount: string, date: string, paymentMode: string, transactionId?: string}[]>([
+    { amount: '', date: new Date().toISOString().split('T')[0], paymentMode: 'Cash' }
+  ]);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<string | null>(null);
   
   const standardFieldMap: Record<string, string> = {
@@ -157,8 +160,26 @@ function BookingFormModalInner() {
         timeFpInstance.setDate(formValues.time);
       }
       
-      if (b.order?.installments && Array.isArray(b.order.installments)) {
+      
+      const validTransactions = (b.transactions || []).filter((tx: any) => !tx.deletedAt);
+      if (validTransactions.length > 0) {
+        setIsMultiInstallment(validTransactions.length > 1);
+        setInstallments(validTransactions.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((tx: any) => ({
+          amount: tx.amount.toString(),
+          date: new Date(tx.date).toISOString().split('T')[0],
+          paymentMode: tx.paymentMode || 'Cash',
+          transactionId: tx.id
+        })));
+      } else if (b.order?.installments && Array.isArray(b.order.installments) && b.order.installments.length > 0) {
+        setIsMultiInstallment(b.order.installments.length > 1);
         setInstallments(b.order.installments);
+      } else {
+        setIsMultiInstallment(false);
+        setInstallments([{
+          amount: b.order?.advance ? b.order.advance.toString() : (formValues.advance || ''),
+          date: new Date().toISOString().split('T')[0],
+          paymentMode: formValues.paymentMode || 'Cash'
+        }]);
       }
     }
   }, [isAddModalOpen, booking?.id, isBookingLoading, reset, timeFpInstance, layoutSchema]);
@@ -418,28 +439,46 @@ function BookingFormModalInner() {
         let needsReSave = false;
         const newInstallments = [...installments];
         const txPromises = newInstallments.map(async (inst) => {
-          if (inst.amount && parseFloat(inst.amount) > 0 && !inst.transactionId) {
-            try {
-              const res = await fetch('/api/transactions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  amount: parseFloat(inst.amount),
-                  type: 'INCOME',
-                  category: 'BOOKING',
-                  description: `Advance Payment for Booking ${result.data.bookingNumber || '#' + result.data.id} - ${data.title || 'Client'}`,
-                  date: new Date(inst.date).toISOString(),
-                  bookingId: result.data.id,
-                  paymentMode: 'Cash'
-                })
-              });
-              if (res.ok) {
-                const txData = await res.json();
-                inst.transactionId = txData.id;
-                needsReSave = true;
+          if (inst.amount && parseFloat(inst.amount) > 0) {
+            const isLegacy = inst.transactionId?.toString().startsWith('legacy');
+            if (!inst.transactionId || isLegacy) {
+              try {
+                const res = await fetch('/api/transactions', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    amount: parseFloat(inst.amount),
+                    type: 'INCOME',
+                    category: 'BOOKING',
+                    description: `Advance Payment for Booking ${result.data.bookingNumber || '#' + result.data.id} - ${data.title || 'Client'}`,
+                    date: new Date(inst.date).toISOString(),
+                    bookingId: result.data.id,
+                    paymentMode: inst.paymentMode || 'Cash'
+                  })
+                });
+                if (res.ok) {
+                  const txData = await res.json();
+                  inst.transactionId = txData.id;
+                  needsReSave = true;
+                }
+              } catch(e) {
+                 console.error("Failed to create transaction for installment", e);
               }
-            } catch(e) {
-               console.error("Failed to create transaction for installment", e);
+            } else {
+              // Update existing transaction
+              try {
+                await fetch(`/api/transactions/${inst.transactionId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    amount: parseFloat(inst.amount),
+                    date: new Date(inst.date).toISOString(),
+                    paymentMode: inst.paymentMode || 'Cash'
+                  })
+                });
+              } catch(e) {
+                 console.error("Failed to update transaction for installment", e);
+              }
             }
           }
         });
@@ -498,6 +537,21 @@ function BookingFormModalInner() {
     });
     return { ...user, isBusy };
   });
+
+  const handleDeleteInstallment = async (idx: number) => {
+    const inst = installments[idx];
+    if (inst.transactionId) {
+      if (!confirm('Are you sure you want to delete this payment transaction?')) return;
+      try {
+        await fetch(`/api/transactions/${inst.transactionId}`, { method: 'DELETE' });
+        toast.success('Transaction deleted');
+      } catch (err) {
+        toast.error('Failed to delete transaction');
+        return;
+      }
+    }
+    setInstallments(installments.filter((_, i) => i !== idx));
+  };
 
   const renderField = (field: any) => {
     const fieldName = standardFieldMap[field.id] || field.id;
@@ -632,73 +686,7 @@ function BookingFormModalInner() {
       );
     }
     
-    if (field.id === 'fld_b_advance') {
-      return (
-        <div className="flex flex-col gap-2 w-full">
-          {installments.length === 0 ? (
-            <input type="text" autoComplete="off" className={`flex h-[45px] w-full rounded-xl border bg-white px-4 py-2 text-[0.95rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${isError ? 'border-red-500' : 'border-gray-200'}`} {...register(fieldName as any, { required: field.mandatory })} placeholder={field.placeholder || "e.g. Enter Advance Paid..."} onChange={(e) => {
-              setValue(fieldName as any, e.target.value, { shouldValidate: true });
-            }} />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {installments.map((inst, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <div className="flex-1 relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                    <input 
-                      type="number" 
-                      value={inst.amount} 
-                      onChange={(e) => {
-                        const newInst = [...installments];
-                        newInst[idx].amount = e.target.value;
-                        setInstallments(newInst);
-                      }} 
-                      className="h-[45px] w-full rounded-xl border border-gray-200 bg-white pl-8 pr-3 text-[0.95rem] focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 transition-colors"
-                      placeholder="Amount"
-                    />
-                  </div>
-                  <div className="flex-1 relative">
-                    <DatePickerInput 
-                      value={inst.date} 
-                      onChange={(date) => {
-                        const newInst = [...installments];
-                        newInst[idx].date = date;
-                        setInstallments(newInst);
-                      }} 
-                      placeholder="Date"
-                      className="flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-2 py-2 text-[0.85rem] transition-all duration-300 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 border-gray-200"
-                    />
-                  </div>
-                  <button type="button" onClick={async () => {
-                    const instToDelete = installments[idx];
-                    if (instToDelete.transactionId) {
-                      try {
-                        await fetch(`/api/transactions/${instToDelete.transactionId}`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ deletedAt: new Date().toISOString() })
-                        });
-                        mutate(
-                          (key: any) => typeof key === 'string' && (key.startsWith('/api/transactions') || key.startsWith('/api/bookings') || key.startsWith('/api/dashboard')),
-                          undefined,
-                          { revalidate: true }
-                        );
-                      } catch(e) {
-                        toast.error('Failed to delete linked transaction');
-                      }
-                    }
-                    setInstallments(installments.filter((_, i) => i !== idx));
-                  }} className="w-[45px] h-[45px] rounded-xl bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors shrink-0">
-                    <i className="ph-bold ph-trash text-[1.1rem]"></i>
-                  </button>
-                </div>
-              ))}
-              <div className="text-[0.8rem] text-slate-500 font-bold bg-slate-100 rounded-lg px-3 py-2 mt-1 w-fit border border-slate-200">Total Advance: <span className="text-slate-800">₹{watch('advance') || '0'}</span></div>
-            </div>
-          )}
-        </div>
-      );
-    }
+    
     
     if (field.type === 'IMAGE' || field.type === 'FILE') {
       const value = watch(fieldName as any);
@@ -761,7 +749,7 @@ function BookingFormModalInner() {
                   {section.description && <div className="text-[0.85rem] text-slate-500 mt-1 font-medium leading-[1.4]">{section.description}</div>}
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+                <div className={`grid gap-5 items-start ${section.id === 'sec_booking_financial' ? 'grid-cols-1 md:grid-cols-12' : 'grid-cols-1 md:grid-cols-2'}`}>
                   {section.fields.map((field: any) => {
                     // Map STATUS_PICKER to 'status' if it's the main one
                     const statusF = layoutSchema?.sections?.flatMap((s: any) => s.fields).find((f: any) => f.type === 'STATUS_PICKER');
@@ -776,21 +764,133 @@ function BookingFormModalInner() {
                     
                     if (!booking && field.type === 'STATUS_PICKER') return null;
                     
+                    if (fieldName === 'advance') {
+                      const pmOptions = ['Cash', 'UPI'].map(m => ({ label: m, value: m }));
+                      return (
+                        <React.Fragment key="installments-section">
+                          <AnimatePresence mode="popLayout">
+                            {!isMultiInstallment ? (
+                              <React.Fragment key="single-installment">
+                                <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="md:col-span-4 flex flex-col gap-1.5 relative">
+                                  <div className="flex justify-between items-center h-[20px]">
+                                    <label className="text-[0.75rem] font-bold text-slate-600 uppercase tracking-[0.5px]">Advance Paid (₹)</label>
+                                    <button 
+                                      type="button" 
+                                      onClick={() => {
+                                        setIsMultiInstallment(true);
+                                        setInstallments([
+                                          ...installments, 
+                                          { amount: '', date: new Date().toISOString().split('T')[0], paymentMode: 'Cash' }
+                                        ]);
+                                      }}
+                                      className="text-[0.75rem] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors whitespace-nowrap"
+                                    >
+                                      <i className="ph-bold ph-plus"></i> Add Installment
+                                    </button>
+                                  </div>
+                                  <div className="relative mt-1">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
+                                    <input type="text" value={installments[0]?.amount || ''} onChange={(e) => {
+                                      const newInst = [...installments];
+                                      if(newInst.length === 0) newInst.push({ amount: '', date: new Date().toISOString().split('T')[0], paymentMode: 'Cash' });
+                                      newInst[0].amount = e.target.value.replace(/[^0-9.]/g, '');
+                                      setInstallments(newInst);
+                                    }} className="flex h-[45px] w-full rounded-xl border border-gray-200 bg-white pl-8 pr-4 py-2 text-[0.95rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" placeholder="Amount" />
+                                  </div>
+                                </motion.div>
+                                <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="md:col-span-4 w-full flex flex-col gap-1.5 relative">
+                                  <div className="h-[20px] flex items-center">
+                                    <label className="text-[0.75rem] font-bold text-slate-600 uppercase tracking-[0.5px]">Payment Mode</label>
+                                  </div>
+                                  <div className="relative custom-dropdown-container mt-1">
+                                    <CustomDropdown
+                                      options={pmOptions}
+                                      value={installments[0]?.paymentMode || 'Cash'}
+                                      onChange={(val: any) => {
+                                        const newInst = [...installments];
+                                        if(newInst.length === 0) newInst.push({ amount: '', date: new Date().toISOString().split('T')[0], paymentMode: 'Cash' });
+                                        newInst[0].paymentMode = val;
+                                        setInstallments(newInst);
+                                      }}
+                                      placeholder="Select Payment Mode"
+                                    />
+                                  </div>
+                                </motion.div>
+                              </React.Fragment>
+                            ) : (
+                              <motion.div key="multi-installment" layout initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.3 }} className="md:col-span-8 flex flex-col gap-1.5">
+                                <div className="flex justify-between items-center h-[20px]">
+                                  <label className="text-[0.75rem] font-bold text-slate-600 uppercase tracking-[0.5px]">Payments & Installments</label>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setInstallments([...installments, { amount: '', date: new Date().toISOString().split('T')[0], paymentMode: 'Cash' }])}
+                                    className="text-[0.7rem] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors bg-orange-50 px-3 py-1.5 rounded-lg -mr-1"
+                                  >
+                                    <i className="ph-bold ph-plus"></i> Add Installment
+                                  </button>
+                                </div>
+                                
+                                <div className="flex flex-col gap-3 mt-1">
+                                  {installments.map((inst, idx) => (
+                                    <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} key={idx} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                                      <div className="flex-[1.5] relative w-full">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[0.95rem] z-10 pointer-events-none">₹</div>
+                                        <input type="text" value={inst.amount || ''} onChange={(e) => {
+                                          const newInst = [...installments];
+                                          newInst[idx].amount = e.target.value.replace(/[^0-9.]/g, '');
+                                          setInstallments(newInst);
+                                        }} className="flex h-[42px] w-full rounded-xl border border-gray-200 bg-white pl-8 pr-3 py-2 text-[0.95rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" placeholder="Amount" />
+                                      </div>
+                                      <div className="w-full sm:w-[130px] shrink-0 h-[42px] relative">
+                                        <DatePickerInput
+                                          value={inst.date ? new Date(inst.date).toISOString().split('T')[0] : ''}
+                                          onChange={(val: any) => {
+                                            const newInst = [...installments];
+                                            newInst[idx].date = val;
+                                            setInstallments(newInst);
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="w-full sm:w-[130px] shrink-0 h-[42px] relative custom-dropdown-container">
+                                        <CustomDropdown
+                                          options={pmOptions}
+                                          value={inst.paymentMode || 'Cash'}
+                                          onChange={(val: any) => {
+                                            const newInst = [...installments];
+                                            newInst[idx].paymentMode = val;
+                                            setInstallments(newInst);
+                                          }}
+                                          placeholder="Mode"
+                                        />
+                                      </div>
+                                      <button type="button" onClick={() => {
+                                        if (installments.length === 2) {
+                                          setIsMultiInstallment(false);
+                                        }
+                                        handleDeleteInstallment(idx);
+                                      }} className="w-[42px] h-[42px] shrink-0 rounded-xl bg-white border border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 flex items-center justify-center transition-colors">
+                                        <i className="ph-bold ph-trash"></i>
+                                      </button>
+                                    </motion.div>
+                                  ))}
+                                </div>
+                                <div className="text-[0.8rem] text-slate-500 font-bold bg-slate-100 rounded-lg px-3 py-2 mt-1 w-fit border border-slate-200">
+                                  Total Advance: <span className="text-slate-800">₹{installments.reduce((sum, inst) => sum + (parseFloat(inst.amount) || 0), 0).toLocaleString('en-IN')}</span>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </React.Fragment>
+                      );
+                    }
+                    
                     return (
-                      <div key={field.id} id={`field-container-${fieldName}`} className={`flex flex-col gap-1.5 ${field.type === 'MULTI_LINE' ? 'md:col-span-2' : ''}`}>
+                      <div key={field.id} id={`field-container-${fieldName}`} className={`flex flex-col gap-1.5 ${section.id === 'sec_booking_financial' ? 'md:col-span-4' : (field.type === 'MULTI_LINE' ? 'md:col-span-2' : '')}`}>
                         <div className="flex justify-between items-center">
                           <label className="text-[0.75rem] font-bold text-slate-600 uppercase tracking-[0.5px]">
                             {field.name} {field.mandatory && <span className="text-red-500 ml-0.5">*</span>}
                           </label>
-                          {field.id === 'fld_b_advance' && (
-                            <button 
-                              type="button" 
-                              onClick={() => setInstallments([...installments, { amount: '', date: new Date().toISOString().split('T')[0] }])}
-                              className="text-[0.7rem] font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors"
-                            >
-                              <i className="ph-bold ph-plus"></i> Add Installment
-                            </button>
-                          )}
+                          
                         </div>
                         {renderField(field)}
                         {isError && <span className="text-[0.7rem] font-semibold text-red-500 mt-1">{isError.message as string || `${field.name} is required`}</span>}
@@ -798,11 +898,18 @@ function BookingFormModalInner() {
                     );
                   })}
                   
-                  {/* Append outstanding balance UI dynamically if this is the financials section */}
+                  
+
                   {section.id === 'sec_booking_financial' && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-5 py-[14px] flex flex-col items-end justify-center shadow-inner md:col-span-1 md:col-start-2 md:mt-2">
-                      <span className="text-[0.7rem] font-extrabold text-orange-600/80 uppercase tracking-[0.5px]">Outstanding Balance</span>
-                      <span className="text-[1.3rem] font-extrabold text-orange-600 mt-0.5">₹{watch('due') || '0.00'}</span>
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-5 py-[14px] flex flex-col items-end justify-center shadow-inner md:col-span-8 md:col-start-5 mt-4">
+                      <span className="text-[0.75rem] font-extrabold text-orange-600/80 uppercase tracking-[0.5px]">Outstanding Balance</span>
+                      <span className="text-[1.3rem] font-extrabold text-orange-600 mt-0.5">
+                        ₹{(() => {
+                          const pkg = parseFloat((watch('package') || '0').toString().replace(/,/g, '')) || 0;
+                          const adv = installments.reduce((sum, inst) => sum + (parseFloat(inst.amount) || 0), 0);
+                          return (pkg - adv).toLocaleString('en-IN');
+                        })()}
+                      </span>
                     </div>
                   )}
                 </div>

@@ -1,0 +1,217 @@
+Add "Buckets" tab to Personal Expense Tracker. Fund allocation/envelope system within bank accounts. No native popups/selects/dropdowns/date inputs. Custom inline UI only. Lucide icons, no emojis. CSS @keyframes + transitions only, no framer-motion. INR only.
+
+---
+
+SCHEMA — prisma/schema.prisma
+
+model PersonalBucket {
+  id                  String   @id @default(cuid())
+  title               String
+  type                String   // SAVINGS / DEBT / EMI
+  targetAmount        Float
+  savedAmount         Float    @default(0)
+  monthlyContribution Float    @default(0)
+  linkedCardId        String?
+  dueDate             DateTime?
+  notes               String?
+  color               String   @default("#6366f1")
+  icon                String   @default("Wallet")
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  payments            PersonalBucketPayment[]
+  @@index([linkedCardId])
+  @@index([type])
+}
+
+model PersonalBucketPayment {
+  id       String @id @default(cuid())
+  bucketId String
+  amount   Float
+  month    Int    // 1-12
+  year     Int
+  status   String @default("PENDING") // PAID / NIL / PENDING
+  notes    String?
+  createdAt DateTime @default(now())
+  bucket   PersonalBucket @relation(fields: [bucketId], references: [id])
+  @@index([bucketId])
+  @@unique([bucketId, month, year])
+}
+
+Run: npx prisma db push && npx prisma generate
+
+---
+
+SEED DATA — create these buckets on first load if none exist
+(POST /api/personal/buckets for each):
+
+{ title:'Trolley',   type:'DEBT',    targetAmount:2000,  monthlyContribution:2000,  color:'#ef4444', icon:'ShoppingCart' }
+{ title:'Suba',      type:'DEBT',    targetAmount:12000, monthlyContribution:12000, color:'#f97316', icon:'User' }
+{ title:'LIC',       type:'SAVINGS', targetAmount:21000, monthlyContribution:3500,  color:'#6366f1', icon:'Shield' }
+{ title:'Christmas', type:'SAVINGS', targetAmount:6000,  monthlyContribution:1000,  color:'#16a34a', icon:'Gift' }
+{ title:'AC EMI',    type:'EMI',     targetAmount:0,     monthlyContribution:0,     color:'#0ea5e9', icon:'Wind' }
+
+---
+
+API ROUTES — all under /api/personal/buckets/*
+Every handler: if session.user.email !== 'nithyavishalr@gmail.com' return 403.
+
+GET    /api/personal/buckets              — list all active buckets with payments[]
+POST   /api/personal/buckets              — create bucket
+PATCH  /api/personal/buckets/[id]         — edit bucket fields
+DELETE /api/personal/buckets/[id]         — soft-delete (isActive: false)
+
+GET    /api/personal/buckets/[id]/payments        — list payments for bucket (all months/years)
+POST   /api/personal/buckets/[id]/payments        — create/upsert payment for month+year
+PATCH  /api/personal/buckets/[id]/payments/[pid]  — update amount/status/notes
+DELETE /api/personal/buckets/[id]/payments/[pid]  — delete payment entry
+
+POST   /api/personal/buckets/[id]/contribute — add contribution:
+  body: { amount, month, year, notes? }
+  1. upsert PersonalBucketPayment { bucketId, month, year, amount, status:'PAID' }
+  2. update PersonalBucket.savedAmount += amount
+  3. if linkedCardId: create PersonalExpense { type:'DEBIT', category:'TRANSFER', amount, paymentSource: linkedCardId, title: 'Transfer to [bucket.title]', date: first day of that month }
+  return updated bucket
+
+GET /api/personal/buckets/summary — return:
+  { totalAllocated: sum(savedAmount), totalTarget: sum(targetAmount), byType: { SAVINGS, DEBT, EMI }, freeBalance: linkedCard.manualBalance - totalAllocated }
+
+---
+
+NAVIGATION — personal/layout.tsx
+
+Add "Buckets" 5th tab in PersonalNav pill tabs.
+Icon: Layers lucide icon.
+Same pill-style tab, orange active state, fadeIn+translateX transition on switch.
+
+---
+
+PAGE — src/app/(main)/personal/buckets/page.tsx
+
+SECTION 1 — Summary Strip (top, staggered slideUp animation):
+4 stat cards:
+  Total Allocated  (violet, Layers icon)
+  Total Target     (amber, Target icon)
+  Free Balance     (emerald, Wallet icon) = KVB manualBalance - totalAllocated
+  Monthly Outflow  (rose, TrendingDown icon) = sum(monthlyContribution) all buckets
+
+Cards style: border-radius:16px, border:1px solid rgba(0,0,0,0.06), shadow, hover lift translateY(-2px) 200ms.
+Left colored accent bar 4px full-height per card.
+Animation: @keyframes slideUp staggered 0/80/160/240ms delay.
+
+---
+
+SECTION 2 — Bucket Cards Grid (2-col desktop, 1-col mobile):
+
+Each bucket card:
+- Header row: colored icon circle (bucket.color bg, white icon) + title + type badge (SAVINGS=green, DEBT=red, EMI=blue) + ⋯ menu (edit/delete inline)
+- Progress bar: savedAmount/targetAmount, color=bucket.color, width transition 600ms ease on mount
+  - Show % complete right-aligned
+  - If type=DEBT: label "Repaid / Total Owed"
+  - If type=SAVINGS: label "Saved / Target"
+  - If type=EMI: show monthlyContribution/month only
+- Monthly contribution row: CalendarClock icon + "₹X/month"
+- Due date row (if set): Clock icon + formatted date, red if overdue
+- Action buttons row:
+  - "Add Contribution" button (primary, Plus icon) → opens inline contribution panel
+  - "View History" button (ghost, History icon) → expands month grid below card
+
+Inline contribution panel (max-height 0→280px, opacity 0→1, 300ms ease):
+  Amount input (₹ prefix), Month CustomDropdown (Jan-Dec), Year input, Notes input
+  [Contribute] button → POST /api/personal/buckets/[id]/contribute → close panel, animate savedAmount increase on progress bar
+
+Card entry animation: @keyframes scaleIn 300ms ease, staggered 60ms per card.
+Card hover: translateY(-3px) + shadow increase 200ms ease.
+
+---
+
+SECTION 3 — Month Grid (expands below card on "View History" click):
+
+12-column grid (Jan-Dec headers, abbreviated).
+Each cell shows:
+  PAID   → amount in green text + CheckCircle2 icon 10px
+  NIL    → "NIL" in slate-400
+  PENDING → "—" in slate-300
+  Empty  → blank
+
+Cell click → inline popover (absolute positioned, not native):
+  Shows: amount input, status CustomDropdown (PAID/NIL/PENDING), notes input
+  [Save] → PATCH payment → cell updates with fade transition
+  [Cancel] → close
+
+Grid expand animation: max-height 0→400px, opacity 0→1, 350ms ease.
+Year selector: custom left/right arrow buttons, updates grid data via SWR revalidation.
+
+Row below grid: "Total Paid: ₹X" + "NIL months: N" + "Pending: N" — auto-calculated from payments array.
+
+---
+
+SECTION 4 — KVB Account Breakdown (bottom of page, full width card):
+
+Title: "KVB Account Allocation" with PiggyBank lucide icon.
+Shows: Total Balance (manualBalance from PersonalCard where bank='KVB') as large ₹ value.
+Below: horizontal stacked bar — each bucket as colored segment, width proportional to savedAmount.
+  Each segment: hover tooltip (absolute positioned) showing bucket title + ₹savedAmount.
+  Unallocated segment: slate color, shows free balance.
+Below bar: legend row — colored dot + bucket title + ₹amount per bucket.
+Bar animation: segments animate width 0→final 800ms ease on mount, staggered 100ms per segment.
+
+Inline edit KVB balance: click ₹value → input appears (existing pattern from cards page) → blur → PATCH /api/personal/cards/[id] { manualBalance }.
+
+---
+
+ADD BUCKET — slide-down form (max-height 0→520px, opacity 0→1, 300ms ease):
+Triggered by "+ Add Bucket" button top-right of page (Plus icon, orange bg).
+
+Fields:
+  Title (text input)
+  Type: 3 custom pill toggle — SAVINGS / DEBT / EMI
+  Target Amount (₹ number input, hide if type=EMI)
+  Monthly Contribution (₹ number input)
+  Linked Card: CustomDropdown (from GET /api/personal/cards, show bank+lastFour)
+  Due Date: custom date picker (hide if type=EMI)
+  Color: 8 preset swatches ['#6366f1','#ef4444','#f97316','#16a34a','#0ea5e9','#8b5cf6','#f59e0b','#0f172a']
+  Icon: custom icon picker — grid of 12 lucide icons (Wallet, Shield, Gift, ShoppingCart, User, Wind, Home, Car, Plane, Book, Heart, Star) — click to select, selected shows orange ring
+
+Live preview card renders above form updating in realtime — scaleIn 300ms on first render.
+
+---
+
+EDIT BUCKET — same form, pre-populated, triggered from ⋯ menu on card.
+Slide-down inline below that specific card (not a modal).
+
+---
+
+DELETE BUCKET:
+⋯ menu → "Delete" → inline expand confirmation below menu:
+  "This will hide the bucket and all payment history. Contributions already logged will remain as expenses."
+  [Confirm Delete] (red) [Cancel] buttons
+  On confirm: PATCH { isActive: false } → card fades out + slides up (opacity→0, max-height→0, 300ms) → removed from grid
+
+---
+
+ANIMATIONS SUMMARY (scope in buckets.module.css, not globals.css):
+
+@keyframes slideUp  { from { transform:translateY(16px); opacity:0 } to { transform:translateY(0); opacity:1 } }
+@keyframes scaleIn  { from { transform:scale(0.95); opacity:0 } to { transform:scale(1); opacity:1 } }
+@keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
+@keyframes barFill  { from { width:0 } to { width:var(--target-width) } }
+
+Summary cards:    slideUp staggered 0/80/160/240ms
+Bucket cards:     scaleIn staggered 60ms per card
+Progress bars:    barFill 600ms ease on mount (use CSS var --target-width set inline)
+Stacked bar:      barFill 800ms staggered 100ms per segment
+Month grid:       fadeIn 200ms on expand
+Contribution form: max-height + opacity transition 300ms ease
+Card hover:       translateY(-3px) + box-shadow 200ms ease
+Cell update:      opacity 0→1 fadeIn 150ms after save
+Delete card exit: opacity→0 + max-height→0 300ms ease
+
+---
+
+CONSTRAINTS:
+- No native <select>, <input type="date">, alert(), confirm() anywhere
+- All CustomDropdown, custom date picker, inline confirms
+- SWR for all data, mutate() after every action
+- Scoped CSS modules, not globals.css
+- Email guard on every API handler and UI render

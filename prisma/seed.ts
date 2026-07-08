@@ -36,14 +36,31 @@ async function main() {
     });
 
     // 3. Create Order
+    const advanceAmount = parseFloat((booking.advance || '0').replace(/,/g, ''));
     await prisma.order.create({
       data: {
         bookingId: newBooking.id,
         package: parseFloat((booking.package || '0').replace(/,/g, '')),
-        advance: parseFloat((booking.advance || '0').replace(/,/g, '')),
+        advance: advanceAmount,
         due: parseFloat((booking.due || '0').replace(/,/g, '')),
       }
     });
+
+    // 4. Create Transaction for Advance (to fix missing advance amounts in transaction page)
+    if (advanceAmount > 0) {
+      await prisma.transaction.create({
+        data: {
+          amount: advanceAmount,
+          type: 'INCOME',
+          date: newBooking.date, // logged to respective date
+          category: 'BOOKING',
+          paymentMode: 'Cash',
+          description: `Advance Payment for Booking #${newBooking.id.substring(0, 8)}`,
+          status: 'SETTLED',
+          bookingId: newBooking.id
+        }
+      });
+    }
   }
 
   console.log('Seeding finished successfully!');
