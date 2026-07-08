@@ -40,6 +40,9 @@ export default function Sidebar() {
   ];
 
   const visibleNavItems = navItems.filter(item => item.roles.includes(userRole));
+  // if (session?.user?.email === 'nithyavishalr@gmail.com') {
+  //   visibleNavItems.push({ name: "Personal", path: "/personal", icon: "ph-wallet", roles: ["ADMIN", "STAFF", "PHOTOGRAPHER"] });
+  // }
 
   return (
     <>
@@ -79,8 +82,9 @@ export default function Sidebar() {
           const isActive = pathname.startsWith(item.path) || 
                            (item.name === "Bookings" && pathname.startsWith("/bookings")) ||
                            (item.name === "Daily kanakku" && pathname.startsWith("/transactions"));
+          const isPersonal = item.name === "Personal";
           return (
-            <li key={item.path}>
+            <li key={item.path} className={isPersonal ? "animate-[fadeIn_0.5s_ease-out]" : ""}>
               <Link 
                 href={item.path} 
                 prefetch={true}
