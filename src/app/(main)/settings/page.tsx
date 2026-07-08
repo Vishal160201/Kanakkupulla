@@ -61,7 +61,7 @@ const SidebarContent = ({ groups, activeSection, onSectionSwitch, isCollapsed = 
   return (
   <div className="flex flex-col h-full py-4 px-3 overflow-y-auto no-scrollbar overflow-x-hidden">
     <button 
-      onClick={() => router.back()} 
+      onClick={() => router.push('/')} 
       className={`flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-800 transition-colors mb-4 ${isCollapsed ? 'justify-center px-0' : ''}`}
       title={isCollapsed ? "Back" : undefined}
     >
@@ -161,9 +161,9 @@ function SettingsPage() {
         {/* Toggle Button */}
         <button 
           onClick={toggleCollapse}
-          className="absolute -right-3 top-10 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 shadow-sm z-10 transition-colors"
+          className="absolute -right-3 top-10 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-orange-500 hover:text-orange-600 shadow-sm z-10 transition-colors"
         >
-          <i className={`ph-bold ${isCollapsed ? 'ph-caret-right' : 'ph-caret-left'}`}></i>
+          <i className={`ph-bold animate-heartbeat ${isCollapsed ? 'ph-caret-right' : 'ph-caret-left'}`}></i>
         </button>
       </aside>
 
