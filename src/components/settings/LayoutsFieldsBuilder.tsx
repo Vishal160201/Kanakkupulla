@@ -71,6 +71,7 @@ const FIELD_TYPES = [
   { value: "STATUS_PICKER", label: "Status Picker", icon: "ph-palette" },
   { value: "MULTI_SELECT", label: "Multi Select", icon: "ph-list-checks" },
   { value: "DATE", label: "Date", icon: "ph-calendar-blank" },
+  { value: "TIME", label: "Time", icon: "ph-clock" },
   { value: "CHECKBOX", label: "Checkbox", icon: "ph-check-square" },
   { value: "CURRENCY", label: "Currency", icon: "ph-currency-dollar" },
   { value: "PERCENTAGE", label: "% Percentage", icon: "ph-percent" },

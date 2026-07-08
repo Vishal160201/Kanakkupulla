@@ -1,12 +1,74 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import DatePickerInput from "@/components/ui/DatePickerInput";
 import { cn } from "@/lib/utils";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 import { updateAlbumTrackingAction } from "@/app/actions";
 import { toast } from "sonner";
+import { useRouter } from 'next/navigation';
+import { mutate as globalMutate } from 'swr';
+import { FolderClock, PenTool, Printer, Package, ChevronRight, AlertTriangle, ChevronDown } from 'lucide-react';
+import styles from './album-status.module.css';
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+  FolderClock: <FolderClock size={18} />,
+  PenTool:     <PenTool size={18} />,
+  Printer:     <Printer size={18} />,
+  Package:     <Package size={18} />,
+  AlertTriangle: <AlertTriangle size={18} />,
+};
+
+const STATUS_CARDS = [
+  {
+    status: 'Pending',
+    label: 'Pending album works',
+    sublabel: 'Awaiting design start',
+    icon: 'FolderClock',
+    iconBg: 'rgba(251,146,60,0.12)',
+    iconColor: '#f97316',
+    accentColor: '#f97316',
+  },
+  {
+    status: 'Overdue',
+    label: 'Overdue Albums',
+    sublabel: 'Past delivery date',
+    icon: 'AlertTriangle',
+    iconBg: 'rgba(239,68,68,0.12)',
+    iconColor: '#ef4444',
+    accentColor: '#ef4444',
+  },
+  {
+    status: 'Designing',
+    label: 'Designing',
+    sublabel: 'Album in design process',
+    icon: 'PenTool',
+    iconBg: 'rgba(168,85,247,0.12)',
+    iconColor: '#a855f7',
+    accentColor: '#a855f7',
+  },
+  {
+    status: 'Sent for printing',
+    label: 'Sent for printing',
+    sublabel: 'In printing & production',
+    icon: 'Printer',
+    iconBg: 'rgba(59,130,246,0.12)',
+    iconColor: '#3b82f6',
+    accentColor: '#3b82f6',
+  },
+  {
+    status: 'Ready for delivery',
+    label: 'Ready for delivery',
+    sublabel: 'Albums ready to ship',
+    icon: 'Package',
+    iconBg: 'rgba(34,197,94,0.12)',
+    iconColor: '#22c55e',
+    accentColor: '#22c55e',
+  },
+];
+
 
 interface AlbumStatusClientProps {
   albums: any[];
@@ -25,10 +87,65 @@ const ALBUM_STATUS_OPTIONS = [
 
 export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [], initialTab = 'Pending' }: AlbumStatusClientProps) {
   const [albums, setAlbums] = useState(initialAlbums);
+  const router = useRouter();
+
+  useEffect(() => {
+    setAlbums(initialAlbums);
+  }, [initialAlbums]);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const { openBookingDetails } = useGlobalForm();
-  const [activeTab, setActiveTab] = useState<'Pending' | 'All' | 'Work in Progress' | 'Completed' | 'Delivered' | 'Overdue'>(initialTab as any);
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target as Node)) {
+        setIsFilterDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const counts = React.useMemo(() => {
+    const arr = Array.isArray(albums) ? albums : (albums ?? []);
+    return {
+      'Pending': arr.filter((b: any) => {
+        let cd: any = {};
+        try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
+        return (cd.fld_b_album_status || 'Pending') === 'Pending';
+      }).length,
+      'Designing': arr.filter((b: any) => {
+        let cd: any = {};
+        try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
+        return cd.fld_b_album_status === 'Designing';
+      }).length,
+      'Sent for printing': arr.filter((b: any) => {
+        let cd: any = {};
+        try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
+        return cd.fld_b_album_status === 'Sent for printing';
+      }).length,
+      'Ready for delivery': arr.filter((b: any) => {
+        let cd: any = {};
+        try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
+        return cd.fld_b_album_status === 'Ready for delivery';
+      }).length,
+      'Overdue': arr.filter((b: any) => {
+        let cd: any = {};
+        try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
+        const deliveryDateStr = cd.album_delivery_date || cd.delivery_date;
+        if (deliveryDateStr) {
+          const deliveryDate = new Date(deliveryDateStr);
+          const aStatus = (cd.fld_b_album_status || '').trim().toLowerCase();
+          if (deliveryDate < new Date() && aStatus !== 'delivered') return true;
+        }
+        return false;
+      }).length,
+    }
+  }, [albums]);
 
   const handleUpdateAlbum = async (bookingId: string, updates: { status?: string, customData?: any }) => {
     // Optimistic update
@@ -53,6 +170,12 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
       // Revert optimistic update ideally, but skipping for brevity
     } else {
       toast.success("Album updated");
+      globalMutate(
+        (key) => typeof key === 'string' && (key.startsWith('/api/bookings') || key.startsWith('/api/dashboard')),
+        undefined,
+        { revalidate: true }
+      );
+      router.refresh();
     }
   };
 
@@ -106,6 +229,15 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
     if (activeTab === 'Pending') {
       if (aStatus !== 'pending') return false;
     }
+    if (activeTab === 'Designing') {
+      if (aStatus !== 'designing') return false;
+    }
+    if (activeTab === 'Sent for printing') {
+      if (aStatus !== 'sent for printing') return false;
+    }
+    if (activeTab === 'Ready for delivery') {
+      if (aStatus !== 'ready for delivery') return false;
+    }
     if (activeTab === 'Work in Progress') {
       if (!['designing', 'sent for printing'].includes(aStatus)) return false;
     }
@@ -133,6 +265,11 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
     return true;
   });
 
+  const ITEMS_PER_PAGE = 25;
+  const totalPages = Math.max(1, Math.ceil(filteredAlbums.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedAlbums = filteredAlbums.slice((safeCurrentPage - 1) * ITEMS_PER_PAGE, safeCurrentPage * ITEMS_PER_PAGE);
+
   const totalCount = albums.length;
 
   return (
@@ -140,62 +277,82 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
       <div className="flex flex-col gap-6 max-w-[1400px] mx-auto pb-10">
         
         {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div onClick={() => setActiveTab('Work in Progress')} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 cursor-pointer hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 text-2xl">
-              <i className="ph-fill ph-chart-pie-slice"></i>
+        <div className={styles.cardRow}>
+          {STATUS_CARDS.map((card, index) => (
+            <div
+              key={card.status}
+              className={`bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer ${styles.cardAnim}`}
+              style={{ animationDelay: `${index * 80}ms`, ...(activeTab === card.status ? { borderColor: card.accentColor, boxShadow: `0 4px 12px ${card.iconBg}` } : {}) }}
+              onClick={() => setActiveTab(card.status)}
+            >
+              <div className="flex justify-between items-start">
+                <div 
+                  className="w-[32px] h-[32px] rounded-lg flex items-center justify-center transition-colors"
+                  style={{ background: card.iconBg, color: card.iconColor }}
+                >
+                  {ICON_MAP[card.icon]}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 font-bold text-[0.75rem] mb-0.5">{card.label}</div>
+                <div className="text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">
+                  {(counts as any)[card.status] ?? 0}
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-2xl font-black text-slate-800">{workInProgressCount}</div>
-              <div className="text-sm font-bold text-slate-800">Album Work in Progress</div>
-              <div className="text-xs text-slate-500 mt-0.5">Active albums in designing</div>
-            </div>
-          </div>
-          <div onClick={() => setActiveTab('Completed')} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-emerald-400 cursor-pointer hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 text-2xl">
-              <i className="ph-fill ph-check-circle"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-black text-slate-800">{completedCount}</div>
-              <div className="text-sm font-bold text-slate-800">Album Completed</div>
-              <div className="text-xs text-slate-500 mt-0.5">Ready for delivery</div>
-            </div>
-          </div>
-          <div onClick={() => setActiveTab('Delivered')} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-blue-400 cursor-pointer hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 text-2xl">
-              <i className="ph-fill ph-truck"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-black text-slate-800">{deliveredCount}</div>
-              <div className="text-sm font-bold text-slate-800">Delivered Today</div>
-              <div className="text-xs text-slate-500 mt-0.5">Albums delivered today</div>
-            </div>
-          </div>
-          <div onClick={() => setActiveTab('Overdue')} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 border-b-4 border-b-red-400 cursor-pointer hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-2xl">
-              <i className="ph-fill ph-warning-circle"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-black text-slate-800">{overdueCount}</div>
-              <div className="text-sm font-bold text-slate-800">Overdue Albums</div>
-              <div className="text-xs text-slate-500 mt-0.5">Past delivery date</div>
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Filters Row */}
         {totalCount > 0 && (
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-2">
-            <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto overflow-x-auto">
-              {['Pending', 'All', 'Work in Progress', 'Completed', 'Delivered', 'Overdue'].map(tab => (
-                <button 
-                  key={tab}
-                  onClick={() => setActiveTab(tab as any)}
-                  className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${activeTab === tab ? 'text-purple-700 border border-purple-200 bg-purple-50/50' : 'text-slate-600 hover:bg-slate-50 border border-transparent'}`}
-                >
-                  {tab}
-                </button>
-              ))}
+            <div className="relative w-full sm:w-auto" ref={filterDropdownRef}>
+              <button
+                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                className="flex items-center justify-between gap-2 w-full sm:w-[220px] bg-white px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm focus:outline-none"
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    activeTab === 'Pending' ? 'bg-slate-400' :
+                    activeTab === 'Overdue' ? 'bg-red-500' :
+                    activeTab === 'Designing' ? 'bg-orange-500' :
+                    activeTab === 'Sent for printing' ? 'bg-purple-500' :
+                    activeTab === 'Ready for delivery' ? 'bg-emerald-500' :
+                    activeTab === 'Delivered' ? 'bg-blue-500' : 'bg-slate-800'
+                  }`} />
+                  <span>{activeTab}</span>
+                </div>
+                <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isFilterDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {isFilterDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden py-1 animate-[fadeIn_0.15s_ease-out]">
+                  {['Pending', 'Overdue', 'Designing', 'Sent for printing', 'Ready for delivery', 'Delivered', 'All'].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => {
+                        setActiveTab(tab as any);
+                        setIsFilterDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm font-bold transition-colors ${
+                        activeTab === tab 
+                          ? 'bg-purple-50 text-purple-700' 
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${
+                        tab === 'Pending' ? 'bg-slate-400' :
+                        tab === 'Overdue' ? 'bg-red-500' :
+                        tab === 'Designing' ? 'bg-orange-500' :
+                        tab === 'Sent for printing' ? 'bg-purple-500' :
+                        tab === 'Ready for delivery' ? 'bg-emerald-500' :
+                        tab === 'Delivered' ? 'bg-blue-500' : 'bg-slate-800'
+                      }`} />
+                      <span>{tab}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <div className="relative w-full sm:w-64">
@@ -227,14 +384,14 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                     <tr className="border-b border-slate-100">
                       <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Client / Event</th>
                       <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Booking ID</th>
-                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Designer</th>
-                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Delivery Date</th>
-                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-center">Designer</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-center">Delivery Date</th>
+                      <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-center">Status</th>
                       <th className="p-5 text-[0.7rem] font-black text-slate-400 uppercase tracking-widest"></th>
                     </tr>
                   </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredAlbums.map((a: any) => {
+                  {paginatedAlbums.map((a: any) => {
                     let cData: any = {};
                     try {
                       cData = typeof a.customData === 'string' ? JSON.parse(a.customData) : (a.customData || {});
@@ -269,60 +426,67 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
 
                     return (
                       <tr key={a.id} className={`hover:bg-slate-50/80 transition-colors ${selectedAlbumId === a.id ? 'bg-slate-50' : ''}`}>
-                        <td className="p-5 whitespace-nowrap">
+                        <td 
+                          className="p-5 whitespace-nowrap cursor-pointer group"
+                          onClick={() => openBookingDetails(a.id)}
+                        >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center text-slate-500 font-black uppercase text-lg">
+                            <div className="w-10 h-10 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center text-slate-500 font-black uppercase text-lg group-hover:bg-purple-100 group-hover:text-purple-600 transition-colors">
                               {a.client?.name?.charAt(0)}
                             </div>
                             <div>
-                              <div className="font-black text-slate-800 text-sm">{a.client?.name}</div>
+                              <div className="font-black text-slate-800 text-sm group-hover:text-purple-600 transition-colors">{a.client?.name}</div>
                               <div className="text-xs text-slate-500 font-medium">{a.category} • {formattedShootDate}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="p-5 whitespace-nowrap">
-                          <span className="text-purple-600 font-black text-sm">{a.bookingNumber || `BK-${a.id.substring(a.id.length - 4).toUpperCase()}`}</span>
+                        <td 
+                          className="p-5 whitespace-nowrap cursor-pointer"
+                          onClick={() => openBookingDetails(a.id)}
+                        >
+                          <span className="text-purple-600 font-black text-sm hover:underline">
+                            {a.bookingNumber || `BK-${a.id.substring(a.id.length - 4).toUpperCase()}`}
+                          </span>
                         </td>
-                        <td className="p-5 whitespace-nowrap">
+                        <td className="p-5 whitespace-nowrap align-middle">
       <CustomDropdown 
         options={[{ label: "Unassigned", value: "" }, ...teamUsers.map(u => ({ label: u.name, value: u.id }))]}
         value={designerId || ""} 
         onChange={(val) => handleUpdateAlbum(a.id, { customData: { designer: val } })}
-        className="w-40 bg-transparent border-none outline-none shadow-none text-xs font-black"
+        className="w-40 mx-auto"
         placeholder="Unassigned"
       />
    </td>
-                        <td className="p-5 whitespace-nowrap flex flex-col">
-      <input 
-        type="date"
-        value={deliveryDateStr ? new Date(deliveryDateStr).toISOString().split('T')[0] : ""}
-        onChange={(e) => handleUpdateAlbum(a.id, { customData: { album_delivery_date: e.target.value } })}
-        className="bg-transparent text-xs font-black text-slate-800 border border-slate-200 rounded px-2 py-1 outline-none focus:border-purple-400 cursor-pointer"
-      />
-      {deliveryDateStr && new Date(deliveryDateStr) < new Date() && statusLabel.toLowerCase() !== 'delivered' && (
-        <div className="text-[0.65rem] text-orange-500 font-bold mt-0.5">Overdue by {Math.floor((new Date().getTime() - new Date(deliveryDateStr).getTime()) / (1000 * 3600 * 24))} days</div>
-      )}
-   </td>
-                        <td className="p-5 whitespace-nowrap">
+                        <td className="p-5 whitespace-nowrap align-middle">
+      <div className="w-40 mx-auto flex flex-col items-center">
+        <DatePickerInput 
+          value={deliveryDateStr ? new Date(deliveryDateStr).toISOString().split('T')[0] : ""}
+          onChange={(val) => handleUpdateAlbum(a.id, { customData: { album_delivery_date: val } })}
+        />
+        {deliveryDateStr && new Date(deliveryDateStr) < new Date() && statusLabel.toLowerCase() !== 'delivered' && (
+          <div className="text-[0.65rem] text-orange-500 font-bold mt-1 text-center">Overdue by {Math.floor((new Date().getTime() - new Date(deliveryDateStr).getTime()) / (1000 * 3600 * 24))} days</div>
+        )}
+      </div>
+    </td>
+                        <td className="p-5 whitespace-nowrap align-middle">
       <CustomDropdown 
         options={ALBUM_STATUS_OPTIONS}
         value={cData.fld_b_album_status || "Pending"} 
         onChange={(val) => {
           let newProgress = progress;
           if (val === 'Delivered') newProgress = 100;
-          handleUpdateAlbum(a.id, { customData: { fld_b_album_status: val, album_progress: newProgress.toString() } });
+          let updates: any = { customData: { fld_b_album_status: val, album_progress: newProgress.toString() } };
+          if (val === 'Delivered') updates.status = 'Delivered';
+          handleUpdateAlbum(a.id, updates);
         }}
-        className={cn("w-36 rounded-lg text-[0.75rem] font-black border-none", statusColor)}
+        className="w-40 mx-auto"
         placeholder="Select Status"
       />
    </td>
                         <td className="p-5 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
                             <button 
-                              onClick={() => {
-                                setSelectedAlbumId(a.id);
-                                openBookingDetails(a.id);
-                              }}
+                              onClick={() => setSelectedAlbumId(a.id)}
                               className={`px-5 py-1.5 rounded-xl text-sm font-black border transition-colors ${selectedAlbumId === a.id ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-white text-purple-600 border-purple-200 hover:bg-purple-50'}`}
                             >
                               View
@@ -345,17 +509,41 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
               </div>
             )}
             
-            {/* Pagination Mock */}
-            {totalCount > 0 && filteredAlbums.length > 0 && (
+            {/* Pagination Controls */}
+            {filteredAlbums.length > 0 && (
               <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50 mt-auto">
                 <div className="flex gap-1">
-                  <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600"><i className="ph-bold ph-caret-left"></i></button>
-                  <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 text-purple-700 font-bold text-sm">1</button>
-                  <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 font-bold text-sm">2</button>
-                  <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600"><i className="ph-bold ph-caret-right"></i></button>
+                  <button 
+                    disabled={safeCurrentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i className="ph-bold ph-caret-left"></i>
+                  </button>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button 
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={cn(
+                        "w-8 h-8 flex items-center justify-center rounded-lg border text-sm font-bold transition-colors",
+                        safeCurrentPage === page 
+                          ? "border-purple-200 bg-purple-50 text-purple-700" 
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button 
+                    disabled={safeCurrentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i className="ph-bold ph-caret-right"></i>
+                  </button>
                 </div>
                 <div className="text-xs font-bold text-slate-500">
-                  Showing 1 to {Math.min(filteredAlbums.length, 10)} of {filteredAlbums.length} albums
+                  Showing {(safeCurrentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(safeCurrentPage * ITEMS_PER_PAGE, filteredAlbums.length)} of {filteredAlbums.length} albums
                 </div>
               </div>
             )}
@@ -440,11 +628,10 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                         <div className="text-slate-500 font-medium">Delivery Date</div>
                         <div className="font-black text-slate-800 flex items-center gap-2">
     <span className="text-slate-400 font-normal">:</span> 
-    <input 
-      type="date"
+    <DatePickerInput 
       value={deliveryDateStr ? new Date(deliveryDateStr).toISOString().split('T')[0] : ""}
-      onChange={(e) => handleUpdateAlbum(selectedAlbum.id, { customData: { album_delivery_date: e.target.value } })}
-      className="bg-transparent border-b border-dashed border-slate-300 outline-none cursor-pointer"
+      onChange={(val) => handleUpdateAlbum(selectedAlbum.id, { customData: { album_delivery_date: val } })}
+      className="flex items-center justify-between bg-white text-[0.8rem] border border-slate-200 rounded-lg px-3 py-1.5 outline-none hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer w-[140px] h-[34px]"
     />
     {deliveryDateStr && new Date(deliveryDateStr) < new Date() && statusLabel.toLowerCase() !== 'delivered' && (
       <span className="text-orange-500 font-bold ml-1">(Overdue)</span>
@@ -543,7 +730,7 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                         </button>
                       </div>
                       <button 
-                        onClick={() => handleUpdateAlbum(selectedAlbum.id, { customData: { fld_b_album_status: 'Delivered', album_progress: '100' } })}
+                        onClick={() => handleUpdateAlbum(selectedAlbum.id, { status: 'Delivered', customData: { fld_b_album_status: 'Delivered', album_progress: '100' } })}
                         className="w-full mt-3 py-3 rounded-xl bg-purple-700 text-white font-bold text-sm hover:bg-purple-800 flex items-center justify-center gap-2 shadow-md transition-colors"
                       >
                         <i className="ph-bold ph-check-circle"></i> Mark as Completed

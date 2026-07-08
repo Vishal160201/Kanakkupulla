@@ -7,10 +7,6 @@ const connectionString = process.env.DATABASE_URL || '';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// Force delete to recreate with new schema
-if (globalForPrisma.prisma) {
-  delete (globalForPrisma as any).prisma;
-}
 
 let prisma: PrismaClient;
 

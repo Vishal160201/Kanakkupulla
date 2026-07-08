@@ -155,7 +155,7 @@ export async function DELETE(request: Request) {
       }
       if (entry.itemType === "PERSONAL_EXPENSE") {
         try {
-          await prisma.personalExpense.delete({ where: { id: entry.itemId } });
+          await prisma.transaction.delete({ where: { id: entry.itemId } });
         } catch (e) {}
       }
     }

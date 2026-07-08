@@ -20,6 +20,10 @@ export default function Sidebar() {
     }
   }, []);
 
+  if (pathname.startsWith('/settings')) {
+    return null;
+  }
+
   const toggleCollapse = () => {
     setIsCollapsed(prev => {
       const next = !prev;

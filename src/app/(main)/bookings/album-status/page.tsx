@@ -46,13 +46,24 @@ export default async function AlbumStatusPage({
   });
 
   // Serialize to avoid Next.js issues with dates
-  const serializedAlbums = albumBookings.map(b => ({
-    ...b,
-    date: b.date.toISOString(),
-    createdAt: b.createdAt.toISOString(),
-    updatedAt: b.updatedAt.toISOString(),
-    customData: typeof b.customData === 'string' ? b.customData : JSON.stringify(b.customData || {})
-  }));
+  const serializedAlbums = albumBookings.map(b => {
+    let cd: any = {};
+    try {
+      cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {});
+    } catch(e) {}
+
+    if (!cd.fld_b_album_status && (b.status || '').trim().toLowerCase() === 'delivered') {
+      cd.fld_b_album_status = 'Delivered';
+    }
+
+    return {
+      ...b,
+      date: b.date.toISOString(),
+      createdAt: b.createdAt.toISOString(),
+      updatedAt: b.updatedAt.toISOString(),
+      customData: JSON.stringify(cd)
+    };
+  });
 
   return <AlbumStatusClient albums={serializedAlbums as any} teamUsers={teamUsers} initialTab={initialTab} />;
 }

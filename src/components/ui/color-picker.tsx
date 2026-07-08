@@ -37,24 +37,24 @@ const tailwindToHex: Record<string, string> = {
   'bg-rose-500': '#f43f5e',
 };
 
+const normalizeColor = (c: string) => {
+  if (!c) return "#cbd5e1";
+  if (c.startsWith("#")) return c;
+  if (tailwindToHex[c]) return tailwindToHex[c];
+  return "#cbd5e1";
+};
+
 export function ColorPicker({ color, onChange, className }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [internalColor, setInternalColor] = useState(() => {
-    if (color && color.startsWith("#")) return color;
-    if (color && tailwindToHex[color]) return tailwindToHex[color];
-    return "#cbd5e1";
-  });
+
+
+  const [internalColor, setInternalColor] = useState(() => normalizeColor(color));
   
-  // Keep internal state in sync when prop changes
   useEffect(() => {
-    if (color) {
-      if (color.startsWith("#")) {
-        setInternalColor(color);
-      } else if (tailwindToHex[color]) {
-        setInternalColor(tailwindToHex[color]);
-      }
-    }
-  }, [color]);
+    const normalized = normalizeColor(color);
+    if (normalized !== internalColor) setInternalColor(normalized);
+  }, [color, internalColor]);
+
 
   const handleColorChange = (colorResult: any) => {
     const newHex = hsvaToHex(colorResult.hsva);

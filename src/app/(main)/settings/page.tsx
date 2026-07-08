@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import UserManagement from "@/components/settings/UserManagement";
 import RolesPermissions from "@/components/settings/RolesPermissions";
@@ -49,102 +49,122 @@ const GROUPS = [
 
 type SectionId = typeof GROUPS[number]["items"][number]["id"];
 
+interface SidebarContentProps {
+  groups: typeof GROUPS;
+  activeSection: SectionId;
+  onSectionSwitch: (id: SectionId) => void;
+  isCollapsed?: boolean;
+}
+
+const SidebarContent = ({ groups, activeSection, onSectionSwitch, isCollapsed = false }: SidebarContentProps) => {
+  const router = useRouter();
+  return (
+  <div className="flex flex-col h-full py-4 px-3 overflow-y-auto no-scrollbar overflow-x-hidden">
+    <button 
+      onClick={() => router.back()} 
+      className={`flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-800 transition-colors mb-4 ${isCollapsed ? 'justify-center px-0' : ''}`}
+      title={isCollapsed ? "Back" : undefined}
+    >
+      <i className="ph-bold ph-arrow-left text-lg shrink-0"></i>
+      {!isCollapsed && <span className="text-[0.85rem] font-bold">Back</span>}
+    </button>
+
+    {groups.map((group, groupIdx) => (
+      <div key={group.label} className={groupIdx > 0 ? "mt-6" : ""}>
+        <div className={`mb-2 text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest ${isCollapsed ? 'hidden' : 'px-3'}`}>
+          {group.label}
+        </div>
+        <div className="flex flex-col gap-1">
+          {group.items.map((item) => {
+            const isActive = activeSection === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSectionSwitch(item.id)}
+                title={isCollapsed ? item.label : undefined}
+                className={`flex items-center gap-3 py-2.5 rounded-xl transition-all duration-200 text-[0.85rem] font-semibold outline-none ${
+                  isCollapsed ? 'justify-center px-0' : 'px-3'
+                } ${
+                  isActive 
+                    ? "bg-orange-50 text-orange-600" 
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <i className={`${isActive ? "ph-fill" : "ph"} ${item.icon} text-lg shrink-0 ${isActive ? "text-orange-500" : "text-slate-400"}`}></i>
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    ))}
+  </div>
+)};
+
 function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Initialize from URL or default to 'system'
-  const initialSection = (searchParams.get("section") as SectionId) || "system";
-  
-  // Validate that the section exists, otherwise fallback to 'system'
-  const isValidSection = GROUPS.some(g => g.items.some(i => i.id === initialSection));
-  const validInitialSection = isValidSection ? initialSection : "system";
-
-  const [activeSection, setActiveSection] = useState<SectionId>(validInitialSection);
+  const activeSection = (searchParams.get("section") as SectionId) ?? "system";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  useEffect(() => {
+    const saved = localStorage.getItem('settingsPanelCollapsed');
+    if (saved === 'true') setIsCollapsed(true);
+  }, []);
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('settingsPanelCollapsed', String(next));
+      return next;
+    });
+  };
   
   // For transition animations
-  const [displayedSection, setDisplayedSection] = useState<SectionId>(validInitialSection);
+  const [displayedSection, setDisplayedSection] = useState<SectionId>(activeSection);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Sync state with URL params without full page reload
-  useEffect(() => {
-    const section = searchParams.get("section") as SectionId;
-    if (section && GROUPS.some(g => g.items.some(i => i.id === section)) && section !== activeSection) {
-      setActiveSection(section);
-      setDisplayedSection(section);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (searchParams.get("menu") === "open") {
-      setIsMobileMenuOpen(true);
-      window.history.replaceState(null, '', `?section=${activeSection}`);
-    }
-  }, [searchParams, activeSection]);
+  // Sync displayed section with active section if it changes externally
+  if (activeSection !== displayedSection && !isTransitioning) {
+    setDisplayedSection(activeSection);
+  }
 
   // Handle section switch with animation
-  const handleSectionSwitch = (id: SectionId) => {
+  const handleSectionSwitch = useCallback((id: SectionId) => {
     if (id === activeSection) return;
     setIsTransitioning(true);
-    setActiveSection(id);
     setIsMobileMenuOpen(false);
     
-    // Update URL without triggering navigation/scroll
-    window.history.replaceState(null, '', `?section=${id}`);
+    router.push(`?section=${id}`, { scroll: false });
     
     setTimeout(() => {
       setDisplayedSection(id);
       setIsTransitioning(false);
     }, 150); // Delay half the transition duration to swap components
-  };
+  }, [activeSection, router]);
 
-  const getActiveItem = () => {
-    for (const group of GROUPS) {
-      for (const item of group.items) {
-        if (item.id === activeSection) return item;
-      }
-    }
-    return GROUPS[0].items[0];
-  };
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full py-4 px-3 overflow-y-auto no-scrollbar">
-      {GROUPS.map((group, groupIdx) => (
-        <div key={group.label} className={groupIdx > 0 ? "mt-6" : ""}>
-          <div className="px-3 mb-2 text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest">
-            {group.label}
-          </div>
-          <div className="flex flex-col gap-1">
-            {group.items.map((item) => {
-              const isActive = activeSection === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleSectionSwitch(item.id)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-[0.85rem] font-semibold outline-none ${
-                    isActive 
-                      ? "bg-orange-50 text-orange-600" 
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                >
-                  <i className={`${isActive ? "ph-fill" : "ph"} ${item.icon} text-lg ${isActive ? "text-orange-500" : "text-slate-400"}`}></i>
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  const groupsMemo = useMemo(() => GROUPS, []);
 
   return (
     <div className="w-full h-full flex flex-col md:flex-row gap-6 lg:gap-8 relative">
       
       {/* Desktop Sidebar */}
-      <aside className="hidden md:block w-[220px] shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm h-[calc(100vh-140px)] sticky top-6">
-        <SidebarContent />
+      <aside className={`hidden md:block shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm h-[calc(100vh-140px)] sticky top-6 transition-all duration-200 ease-in-out ${isCollapsed ? 'w-[56px]' : 'w-[220px]'}`}>
+        <SidebarContent 
+          groups={groupsMemo} 
+          activeSection={activeSection} 
+          onSectionSwitch={handleSectionSwitch} 
+          isCollapsed={isCollapsed}
+        />
+        {/* Toggle Button */}
+        <button 
+          onClick={toggleCollapse}
+          className="absolute -right-3 top-10 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 shadow-sm z-10 transition-colors"
+        >
+          <i className={`ph-bold ${isCollapsed ? 'ph-caret-right' : 'ph-caret-left'}`}></i>
+        </button>
       </aside>
 
       {/* Mobile Bottom Sheet Overlay */}
@@ -165,7 +185,11 @@ function SettingsPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-2 pb-8">
-              <SidebarContent />
+              <SidebarContent 
+                groups={groupsMemo} 
+                activeSection={activeSection} 
+                onSectionSwitch={handleSectionSwitch} 
+              />
             </div>
           </div>
         </div>

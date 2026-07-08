@@ -21,7 +21,7 @@ export async function POST(
     }
 
     if (entry.itemType === "PERSONAL_EXPENSE") {
-      await prisma.personalExpense.update({
+      await prisma.transaction.update({
         where: { id: entry.itemId },
         data: { deletedAt: null }
       });

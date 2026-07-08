@@ -23,7 +23,7 @@ export const DEFAULT_LAYOUTS = [
           icon: "ph-calendar-blank",
           fields: [
             { id: "fld_b_date", name: "Shoot Date", type: "DATE", mandatory: true },
-            { id: "fld_b_time", name: "Start Time", type: "SINGLE_LINE", mandatory: true },
+            { id: "fld_b_time", name: "Start Time", type: "TIME", mandatory: true },
             { id: "fld_b_category", name: "Shoot Category", type: "PICK_LIST", mandatory: true, options: ["Wedding", "Fashion", "Baby & Kids", "Corporate", "Maternity", "Pre-Wedding", "Other"] },
             { id: "fld_b_location", name: "Location", type: "SINGLE_LINE", mandatory: true },
             { id: "fld_b_photographers", name: "Photographers", type: "MULTI_USER_PICKLIST", mandatory: false },
@@ -184,6 +184,7 @@ export const DEFAULT_LAYOUTS = [
             { id: "fld_pe_type", label: "Type", type: "PICK_LIST", mandatory: true, options: ["CREDIT", "DEBIT"] },
             { id: "fld_pe_category", label: "Category", type: "PICK_LIST", mandatory: true, options: ["Food", "Transport", "Shopping", "Bills", "EMI", "Entertainment", "Health", "Other"] },
             { id: "fld_pe_date", label: "Date", type: "DATE", mandatory: true, isRecordDate: true },
+            { id: "fld_pe_time", label: "Time", type: "TIME", mandatory: false },
             { id: "fld_pe_source", label: "Payment Source", type: "PICK_LIST", mandatory: true, options: ["Cash"] },
             { id: "fld_pe_notes", label: "Notes", type: "MULTI_LINE", mandatory: false }
           ]

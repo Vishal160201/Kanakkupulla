@@ -17,6 +17,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "../ui/DatePickerInput";
+import TimePickerInput from "../ui/TimePickerInput";
 import FileAttachment from "@/components/ui/FileAttachment";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -144,7 +145,7 @@ function BookingFormModalInner() {
         phone: b.client?.phone || b.phone || parsedCustomData.fld_b_phone || '',
         email: b.client?.email || b.email || parsedCustomData.fld_b_email || '',
         date: b.date ? (typeof b.date === 'string' ? b.date.split('T')[0] : new Date(b.date).toISOString().split('T')[0]) : (parsedCustomData.fld_b_date || ''),
-        time: b.time || parsedCustomData.fld_b_time || '',
+        time: parsedCustomData.fld_b_time || b.time || '',
         category: b.category || parsedCustomData.fld_b_category || '',
         location: b.location || parsedCustomData.fld_b_location || '',
         status: b.status || parsedCustomData.fld_b_status || '',
@@ -572,9 +573,9 @@ function BookingFormModalInner() {
         <DatePickerInput value={watch(fieldName as any) || ''} onChange={(date) => setValue(fieldName as any, date, { shouldValidate: true })} placeholder={field.placeholder || "Select Date..."} disableFutureDates={!!field.restrictFutureDate} />
       );
     }
-    if (field.id === 'fld_b_time') {
+    if (field.type === 'TIME') {
       return (
-        <input type="text" autoComplete="off" className="flex h-[45px] w-full rounded-xl border border-gray-200 bg-white px-4 py-2 text-[0.95rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" {...register(fieldName as any, { required: field.mandatory })} ref={(e) => { register(fieldName as any).ref(e); (timeInputRef as any).current = e; }} placeholder={field.placeholder || "Select Time..."} />
+        <TimePickerInput value={watch(fieldName as any) || ''} onChange={(time) => setValue(fieldName as any, time, { shouldValidate: true })} placeholder={field.placeholder || "e.g. HH:MM AM/PM"} hasError={!!isError} />
       );
     }
     if (field.type === 'PICK_LIST') {
