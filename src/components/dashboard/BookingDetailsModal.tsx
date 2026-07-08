@@ -125,7 +125,15 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
   const changeStatus = async (newStatus: string) => {
     if (!booking) return;
     setIsUpdatingStatus(true);
-    const res = await updateBookingStatusAction(booking.id, newStatus);
+    
+    let res;
+    const s = newStatus.toLowerCase();
+    if (['designing', 'sent for printing', 'ready for delivery', 'delivered'].includes(s)) {
+      res = await updateAlbumTrackingAction(booking.id, { customData: { fld_b_album_status: newStatus }, status: newStatus });
+    } else {
+      res = await updateBookingStatusAction(booking.id, newStatus);
+    }
+    
     setIsUpdatingStatus(false);
     if (res.success) {
       toast.success(`Status updated to ${newStatus}`);
@@ -151,7 +159,11 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
     }
     
     setIsUpdatingStatus(true);
-    const res = await updateAlbumTrackingAction(booking.id, { customData: { [fieldId]: newStatus } });
+    let updates: any = { customData: { [fieldId]: newStatus } };
+    if (fieldId === 'fld_b_album_status') {
+      updates.status = newStatus;
+    }
+    const res = await updateAlbumTrackingAction(booking.id, updates);
     setIsUpdatingStatus(false);
     
     if (res.success) {
@@ -645,6 +657,16 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                                   val = ids.map((id: string) => (teamUsers || []).find((u: any) => u.id === id)?.name || id).join(', ');
                                 } else if (val && field.type === 'DATE') {
                                   val = new Date(val).toLocaleDateString();
+                                } else if (val && field.type === 'TIME') {
+                                  const match = val.match(/^(\d{1,2}):(\d{2})$/);
+                                  if (match) {
+                                    const h24 = parseInt(match[1], 10);
+                                    const m = match[2];
+                                    const p = h24 >= 12 ? 'PM' : 'AM';
+                                    let h12 = h24 % 12;
+                                    if (h12 === 0) h12 = 12;
+                                    val = `${String(h12).padStart(2, '0')}:${m} ${p}`;
+                                  }
                                 }
 
                                 if (val === undefined || val === null || val === '') val = "N/A";
@@ -721,10 +743,9 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                             
                             {(() => {
                               const isAlbum = section.title.toLowerCase().includes('album');
-                              
                               if (isAlbum) {
                                 const s = (booking.status || 'Pending').toLowerCase();
-                                const isShootCompleted = s === 'shoot completed' || s === 'completed';
+                                const isShootCompleted = s === 'shoot completed' || s === 'completed' || ['designing', 'sent for printing', 'ready for delivery', 'delivered'].includes(s);
                                 if (!isShootCompleted) return null;
                               }
 
@@ -752,7 +773,14 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                               }
                                 
                               const effectiveFieldId = sectionStatusField?.id || (isAlbum ? 'fld_b_album_status' : '');
-                              const effectiveStatus = currentSectionStatus || (isAlbum ? booking.customData?.fld_b_album_status : null);
+                              let effectiveStatus = currentSectionStatus || (isAlbum ? booking.customData?.fld_b_album_status : null);
+                              
+                              if (!isAlbum && effectiveStatus) {
+                                const s = effectiveStatus.toLowerCase();
+                                if (['designing', 'sent for printing', 'ready for delivery', 'delivered'].includes(s)) {
+                                  effectiveStatus = 'Shoot Completed';
+                                }
+                              }
 
                               return (
                                 <div className="xl:border-l border-slate-100 xl:pl-6 pt-6 xl:pt-0 flex w-full xl:w-auto xl:min-w-[150px] h-full">

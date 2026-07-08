@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import DatePickerInput from "@/components/ui/DatePickerInput";
+import TimePickerInput from "@/components/ui/TimePickerInput";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { toast } from "sonner";
 import { PlusCircle, ShoppingBag, Loader2 } from "lucide-react";
@@ -351,6 +352,18 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
             onChange={(dateStr) => handleFieldChange(field.id, dateStr)}
             placeholder={`Select ${field.name.toLowerCase()}...`}
             disableFutureDates={!!field.restrictFutureDate}
+          />
+        </div>
+      );
+    }
+
+    if (field.type === 'TIME') {
+      return (
+        <div className="flex flex-col gap-2 w-full">
+          <TimePickerInput
+            value={value}
+            onChange={(timeStr) => handleFieldChange(field.id, timeStr)}
+            placeholder={`Select ${field.name.toLowerCase()}...`}
           />
         </div>
       );

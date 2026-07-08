@@ -190,23 +190,28 @@ export default function OverviewPage() {
     .map(([category, amount]) => ({ category, amount: amount as number, pct: totalExpenses > 0 ? (amount as number) / totalExpenses : 0 }))
     .sort((a, b) => b.amount - a.amount);
 
-  let cumulativePct = 0;
-  const donutSegments = heatmapData.map((data: any, idx: number) => {
+  const donutSegments = heatmapData.reduce<{ segments: any[]; cumulativePct: number }>((acc, data: any) => {
     const dasharray = 251.2;
     const dashoffset = dasharray - (data.pct * dasharray);
-    const rotation = cumulativePct * 360;
-    cumulativePct += data.pct;
+    const rotation = acc.cumulativePct * 360;
     const definedBg = categoryColors[data.category]?.bg;
     const colorName = definedBg ? definedBg.split('-')[1] : undefined;
+    
     return {
-      ...data,
-      dasharray,
-      dashoffset,
-      rotation,
-      color: getConsistentColorClasses(data.category, colorName),
-      icon: CATEGORY_ICONS[data.category] || getRelatableIcon(data.category),
+      segments: [
+        ...acc.segments,
+        {
+          ...data,
+          dasharray,
+          dashoffset,
+          rotation,
+          color: getConsistentColorClasses(data.category, colorName),
+          icon: CATEGORY_ICONS[data.category] || getRelatableIcon(data.category),
+        }
+      ],
+      cumulativePct: acc.cumulativePct + data.pct
     };
-  });
+  }, { segments: [], cumulativePct: 0 }).segments;
 
   const highestExpenseCategory = donutSegments.length > 0 ? donutSegments[0] : null;
 
@@ -274,23 +279,37 @@ export default function OverviewPage() {
   const sortedTodayIncome = Object.entries(todayIncomeByCategory).map(([cat, amt]) => ({ category: cat, amount: amt as number, pct: todayIncome > 0 ? (amt as number) / todayIncome : 0 })).sort((a, b) => b.amount - a.amount);
   const sortedTodayExpenses = Object.entries(todayExpensesByCategory).map(([cat, amt]) => ({ category: cat, amount: amt as number, pct: todayExpense > 0 ? (amt as number) / todayExpense : 0 })).sort((a, b) => b.amount - a.amount);
 
-  let curIncPct = 0;
-  const todayIncomeSegments = sortedTodayIncome.map((data: any) => {
-    const dasharray = 251.2; // 2 * pi * r (r=40)
-    const dashoffset = dasharray - (data.pct * dasharray);
-    const rotation = curIncPct * 360 - 90; // Start from top
-    curIncPct += data.pct;
-    return { ...data, dashoffset, rotation, color: getConsistentColorClasses(data.category) };
-  });
+  const todayIncomeSegments = sortedTodayIncome.reduce<{ segments: any[]; cumulativePct: number }>(
+    (acc, data: any) => {
+      const dasharray = 251.2; // 2 * pi * r (r=40)
+      const dashoffset = dasharray - (data.pct * dasharray);
+      const rotation = acc.cumulativePct * 360 - 90; // Start from top
+      return {
+        segments: [
+          ...acc.segments,
+          { ...data, dashoffset, rotation, color: getConsistentColorClasses(data.category) }
+        ],
+        cumulativePct: acc.cumulativePct + data.pct
+      };
+    },
+    { segments: [], cumulativePct: 0 }
+  ).segments;
 
-  let curExpPct = 0;
-  const todayExpenseSegments = sortedTodayExpenses.map((data: any) => {
-    const dasharray = 251.2; // 2 * pi * r (r=40)
-    const dashoffset = dasharray - (data.pct * dasharray);
-    const rotation = curExpPct * 360 - 90; // Start from top
-    curExpPct += data.pct;
-    return { ...data, dashoffset, rotation, color: getConsistentColorClasses(data.category) };
-  });
+  const todayExpenseSegments = sortedTodayExpenses.reduce<{ segments: any[]; cumulativePct: number }>(
+    (acc, data: any) => {
+      const dasharray = 251.2; // 2 * pi * r (r=40)
+      const dashoffset = dasharray - (data.pct * dasharray);
+      const rotation = acc.cumulativePct * 360 - 90; // Start from top
+      return {
+        segments: [
+          ...acc.segments,
+          { ...data, dashoffset, rotation, color: getConsistentColorClasses(data.category) }
+        ],
+        cumulativePct: acc.cumulativePct + data.pct
+      };
+    },
+    { segments: [], cumulativePct: 0 }
+  ).segments;
 
   const todayCashNet = todayTransactions.filter((t: any) => t.paymentMode?.toLowerCase() === 'cash').reduce((acc: number, t: any) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0);
   const todayUpiNet = todayTransactions.filter((t: any) => t.paymentMode?.toLowerCase() === 'upi').reduce((acc: number, t: any) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0);

@@ -26,7 +26,9 @@ import {
   TrendingUp,
   Check,
   Paperclip,
-  Download
+  Download,
+  Info,
+  FileText
 } from "lucide-react";
 import { getProductIcon } from "@/lib/productIcons";
 import { cn } from "@/lib/utils";
@@ -865,6 +867,68 @@ export default function OrderDetailsPanel() {
                     );
                   }
                   return null;
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Additional Custom Fields Section */}
+          {Object.entries(customData).some(([key, val]) => {
+            if (['amount', 'advanceAmount', 'dueAmount', 'paymentMode', 'clientPhone'].includes(key)) return false;
+            if (key.startsWith('fld_g_') === false && key !== 'time') return false;
+            return typeof val === 'string' && !val.startsWith('data:image');
+          }) && (
+            <div className="bg-white rounded-3xl p-5 md:p-6 border border-slate-100 shadow-sm flex flex-col print-section col-span-1 lg:col-span-12 mb-6">
+              <div className="flex items-center gap-2 text-sm font-bold text-indigo-800 mb-6">
+                <FileText size={16} /> Additional Details
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(customData).map(([key, val]: [string, any]) => {
+                  if (['amount', 'advanceAmount', 'dueAmount', 'paymentMode', 'clientPhone'].includes(key)) return null;
+                  if (key.startsWith('fld_g_') === false && key !== 'time') return null;
+                  if (val?.driveFile || (typeof val === 'string' && val.startsWith('data:image'))) return null;
+                  
+                  let displayVal = val;
+                  let Icon = Info;
+                  let iconColor = "text-slate-500";
+                  let iconBg = "bg-slate-50";
+
+                  if (typeof val === 'string') {
+                    const timeMatch = val.match(/^(\d{1,2}):(\d{2})$/);
+                    if (timeMatch || key.toLowerCase().includes('time')) {
+                      Icon = Clock;
+                      iconColor = "text-purple-500";
+                      iconBg = "bg-purple-50";
+                      if (timeMatch) {
+                        const h24 = parseInt(timeMatch[1], 10);
+                        const m = timeMatch[2];
+                        const p = h24 >= 12 ? 'PM' : 'AM';
+                        let h12 = h24 % 12;
+                        if (h12 === 0) h12 = 12;
+                        displayVal = `${String(h12).padStart(2, '0')}:${m} ${p}`;
+                      }
+                    } else if (key.toLowerCase().includes('date')) {
+                      Icon = Calendar;
+                      iconColor = "text-blue-500";
+                      iconBg = "bg-blue-50";
+                    }
+                  }
+
+                  const displayName = key.replace('fld_g_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                  return (
+                    <div key={key} className="flex items-start gap-3 w-full">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor} mt-0.5`}>
+                        <div className="scale-75 origin-center flex items-center justify-center">
+                          <Icon size={20} />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">{displayName}</p>
+                        <p className="font-bold text-slate-800 text-sm whitespace-pre-wrap break-words">{displayVal}</p>
+                      </div>
+                    </div>
+                  );
                 })}
               </div>
             </div>

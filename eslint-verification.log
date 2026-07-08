@@ -1,0 +1,22 @@
+  405 |   return (  react-hooks/set-state-in-effect
+  287 |  react-hooks/immutability
+  107 |  react-hooks/set-state-in-effect
+  25 |  react-hooks/set-state-in-effect
+  39 |  react-hooks/set-state-in-effect
+  31 |  react-hooks/set-state-in-effect
+  113 |         layoutSchema.sections.forEach((sec: any) => {  react-hooks/set-state-in-effect
+  56 |  react-hooks/immutability
+  98 |         quantity: order.quantity,  react-hooks/set-state-in-effect
+  45 |       setAdvanceDate(null);  react-hooks/set-state-in-effect
+  22 |  react-hooks/set-state-in-effect
+  26 |   return (  react-hooks/set-state-in-effect
+  47 |   return (  react-hooks/set-state-in-effect
+  152 |  react-hooks/set-state-in-effect
+  81 |     setIsSaving(true);  react-hooks/immutability
+  53 |   const isEnabled = (role: string, permission: string): boolean => {  react-hooks/set-state-in-effect
+  82 |   const getInitials = (name: string | null) => {  react-hooks/set-state-in-effect
+  52 |     try {  react-hooks/immutability
+  48 |       } else {  react-hooks/set-state-in-effect
+  85 |  react-hooks/set-state-in-effect
+  40 |   const updateDropdownPosition = useCallback(() => {  react-hooks/set-state-in-effect
+  101 |                                 react-hooks/set-state-in-effect

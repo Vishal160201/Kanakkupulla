@@ -146,7 +146,7 @@ export async function DELETE(
 
       // 2. Delete database record
       try {
-        await prisma.personalExpense.delete({ where: { id: entry.itemId } });
+        await prisma.transaction.delete({ where: { id: entry.itemId } });
       } catch (e) {}
     }
 
