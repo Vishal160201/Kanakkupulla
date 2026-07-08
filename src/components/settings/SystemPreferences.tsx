@@ -157,56 +157,7 @@ export default function SystemPreferences() {
           </div>
         </section>
 
-        {/* Status Colors */}
-        <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-md font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <i className="ph-fill ph-palette text-orange-500 text-lg"></i> Booking Status Colors
-          </h3>
-          <p className="text-[0.75rem] text-slate-500 mb-4">Map statuses from your booking form to specific UI colors used in the Booking Table and Dashboard.</p>
-          
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(prefs.statusColors).map(([status, colors]: [string, any]) => (
-              <div key={status} className="bg-slate-50 border border-gray-100 rounded-xl p-4 flex flex-col gap-3">
-                <div className="font-bold text-sm text-slate-800 flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.bg }}></div>
-                  {status}
-                </div>
-                <div className="flex gap-3">
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wide">Background</span>
-                    <div className="flex items-center gap-2">
-                      <ColorPicker 
-                        color={colors.bg || '#ffffff'} 
-                        onChange={(color) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, bg: color } } })}
-                      />
-                      <input 
-                        type="text" 
-                        value={colors.bg} 
-                        onChange={(e) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, bg: e.target.value } } })}
-                        className="w-full text-[0.7rem] font-semibold text-slate-800 border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-orange-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <span className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wide">Text</span>
-                    <div className="flex items-center gap-2">
-                      <ColorPicker 
-                        color={colors.text || '#000000'} 
-                        onChange={(color) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, text: color } } })}
-                      />
-                      <input 
-                        type="text" 
-                        value={colors.text} 
-                        onChange={(e) => setPrefs({ ...prefs, statusColors: { ...prefs.statusColors, [status]: { ...colors, text: e.target.value } } })}
-                        className="w-full text-[0.7rem] font-semibold text-slate-800 border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-orange-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+
 
       </div>
     </div>

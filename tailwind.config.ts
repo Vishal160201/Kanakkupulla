@@ -8,6 +8,18 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      keyframes: {
+        heartbeat: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+          '14%': { transform: 'scale(1.2)', opacity: '0.8' },
+          '28%': { transform: 'scale(1)', opacity: '1' },
+          '42%': { transform: 'scale(1.2)', opacity: '0.8' },
+          '70%': { transform: 'scale(1)', opacity: '1' },
+        }
+      },
+      animation: {
+        heartbeat: 'heartbeat 1.5s ease-in-out infinite',
+      },
       colors: {
         border: "#e5e7eb",
         input: "#e5e7eb",
