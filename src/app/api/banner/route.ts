@@ -84,18 +84,7 @@ export async function GET() {
     });
 
     if (bookings.length === 0) {
-      // Temporary mock data for testing UI
-      return NextResponse.json({
-        show: true,
-        settings,
-        day1: [
-          { id: 'test1', category: 'Pre-wedding', time: '10:00 AM', location: 'Marina Beach', client: { name: 'Rahul & Priya' } },
-          { id: 'test2', category: 'Maternity', time: '04:30 PM', location: 'ECR Studio', client: { name: 'Karthik' } }
-        ],
-        day2: [
-          { id: 'test3', category: 'Engagement', time: '09:00 AM', location: 'ITC Grand', client: { name: 'Vikram' } }
-        ]
-      });
+      return NextResponse.json({ show: false });
     }
 
     // 4. Group bookings

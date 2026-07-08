@@ -1,0 +1,49 @@
+.cardSlideIn {
+  animation: cardSlideIn 400ms ease forwards;
+  opacity: 0;
+}
+
+.cardItem:nth-child(1) { animation-delay: 0ms; }
+.cardItem:nth-child(2) { animation-delay: 80ms; }
+.cardItem:nth-child(3) { animation-delay: 160ms; }
+.cardItem:nth-child(4) { animation-delay: 240ms; }
+
+.spendSummary {
+  animation: fadeSlideUp 350ms ease 300ms forwards;
+  opacity: 0;
+}
+
+.emisSection {
+  animation: fadeSlideUp 350ms ease 450ms forwards;
+  opacity: 0;
+}
+
+.hideScrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hideScrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes cardSlideIn {
+  from {
+    transform: translateY(24px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeSlideUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
