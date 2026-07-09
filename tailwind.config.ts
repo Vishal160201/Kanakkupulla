@@ -15,10 +15,14 @@ const config: Config = {
           '28%': { transform: 'scale(1)', opacity: '1' },
           '42%': { transform: 'scale(1.2)', opacity: '0.8' },
           '70%': { transform: 'scale(1)', opacity: '1' },
+        },
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' },
         }
       },
       animation: {
         heartbeat: 'heartbeat 1.5s ease-in-out infinite',
+        shimmer: 'shimmer 1.5s infinite',
       },
       colors: {
         border: "#e5e7eb",

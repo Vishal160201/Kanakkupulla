@@ -61,7 +61,7 @@ export default function RevenueChart({ data, periodIncome = 0, periodExpense = 0
   };
 
   return (
-    <div className="bg-white rounded-[24px] p-5 md:p-6 border border-gray-100 shadow-sm flex flex-col h-full">
+    <div className="bg-white rounded-[24px] p-5 md:p-6 border border-gray-100 shadow-sm flex flex-col flex-1">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h3 className="text-[1.1rem] font-extrabold text-slate-900 tracking-tight">Revenue vs. Expenses</h3>
@@ -86,7 +86,7 @@ export default function RevenueChart({ data, periodIncome = 0, periodExpense = 0
         </div>
       </div>
       
-      <div className="w-full h-[280px] mt-4">
+      <div className="w-full min-h-[280px] flex-1 mt-4">
         {data && data.length > 0 ? (
           <ErrorBoundary>
             <ResponsiveContainer width="100%" height="100%">
