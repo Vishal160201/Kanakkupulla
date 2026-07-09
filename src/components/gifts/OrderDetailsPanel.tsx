@@ -28,7 +28,8 @@ import {
   Paperclip,
   Download,
   Info,
-  FileText
+  FileText,
+  Tag
 } from "lucide-react";
 import { getProductIcon } from "@/lib/productIcons";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,7 @@ export default function OrderDetailsPanel() {
   const [collectionError, setCollectionError] = useState<string | null>(null);
   const [collectionSuccess, setCollectionSuccess] = useState(false);
   const [dueCollectionDate, setDueCollectionDate] = useState<string>("");
+  const [pendingDiscountConfirm, setPendingDiscountConfirm] = useState<number | null>(null);
 
   const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
   const paymentDropdownRef = useRef<HTMLDivElement>(null);
@@ -93,6 +95,17 @@ export default function OrderDetailsPanel() {
   }, []);
 
   useEffect(() => {
+    // Reset all transient UI states when the active order changes
+    setShowDueCollection(false);
+    setShowRollbackWarning(null);
+    setCollectionError(null);
+    setCollectionSuccess(false);
+    setCollectionInput("");
+    setPendingDiscountConfirm(null);
+    setIsEditing(false);
+  }, [giftOrderDetailsId]);
+
+  useEffect(() => {
     if (order && !isEditing) {
       setEditForm({
         clientName: order.clientName,
@@ -100,7 +113,7 @@ export default function OrderDetailsPanel() {
         quantity: order.quantity,
         amount: order.customData?.amount || 0,
         advanceAmount: order.customData?.advanceAmount || 0,
-        dueAmount: Math.max(0, (Number(order.customData?.amount) || 0) - (order.transactions?.filter((t: any) => !t.deletedAt).reduce((sum: number, tx: any) => sum + tx.amount, 0) || Number(order.customData?.advanceAmount) || 0)),
+        dueAmount: Math.max(0, (Number(order.customData?.amount) || 0) - (order.transactions?.filter((t: any) => !t.deletedAt).reduce((sum: number, tx: any) => sum + tx.amount, 0) || Number(order.customData?.advanceAmount) || 0) - (Number(order.discountAmount) || Number(order.customData?.discountAmount) || 0)),
         dueDate: order.dueDate || "",
         paymentMode: order.customData?.paymentMode || "CASH",
       });
@@ -111,7 +124,8 @@ export default function OrderDetailsPanel() {
   const totalAmount = Number(customData.amount) || 0;
   const advanceAmount = order?.transactions?.find((t: any) => !t.deletedAt && t.description?.startsWith('Advance'))?.amount ?? Number(customData.advanceAmount) ?? 0;
   const collectedAmount = order?.transactions?.filter((t: any) => !t.deletedAt).reduce((sum: number, tx: any) => sum + tx.amount, 0) || advanceAmount;
-  const dueAmount = Math.max(0, totalAmount - collectedAmount);
+  const discountAmountValue = Number(order?.discountAmount) || Number(customData.discountAmount) || 0;
+  const dueAmount = Math.max(0, totalAmount - collectedAmount - discountAmountValue);
   const progressPercent = totalAmount > 0 ? Math.round((collectedAmount / totalAmount) * 100) : 0;
 
   const handleStatusChange = async (newStatus: string) => {
@@ -153,11 +167,17 @@ export default function OrderDetailsPanel() {
   };
 
   const handleConfirmCollection = async () => {
-    const collectVal = Number(collectionInput) || 0;
+    const collectVal = pendingDiscountConfirm !== null ? pendingDiscountConfirm : (Number(collectionInput) || 0);
     if (collectVal <= 0) {
       setCollectionError("Please enter a valid amount.");
       return;
     }
+    
+    if (collectVal < dueAmount && pendingDiscountConfirm === null) {
+      setPendingDiscountConfirm(collectVal);
+      return;
+    }
+    
     setCollectionError(null);
     setIsCollecting(true);
     try {
@@ -177,13 +197,14 @@ export default function OrderDetailsPanel() {
         })
       });
       if (!txRes.ok) throw new Error("Failed to create due collection transaction");
-      const newDueAmount = Math.max(0, dueAmount - collectVal);
+      const remainingToDiscount = Math.max(0, dueAmount - collectVal);
+      const updatedDiscount = (Number(order.discountAmount) || Number(customData.discountAmount) || 0) + remainingToDiscount;
       const res = await fetch(`/api/gifts/orders/${order.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           status: "DELIVERED",
-          customData: { ...customData, dueAmount: newDueAmount }
+          discountAmount: updatedDiscount 
         }),
       });
       if (!res.ok) throw new Error("Failed to update order status");
@@ -193,6 +214,32 @@ export default function OrderDetailsPanel() {
       setTimeout(() => { setShowDueCollection(false); setCollectionSuccess(false); }, 2000);
     } catch (err: any) {
       setCollectionError(err.message || "Failed to process collection.");
+    } finally {
+      setIsCollecting(false);
+      setPendingDiscountConfirm(null);
+    }
+  };
+
+  const handleDiscountCollection = async () => {
+    setCollectionError(null);
+    setIsCollecting(true);
+    try {
+      const updatedDiscount = (Number(order.discountAmount) || Number(customData.discountAmount) || 0) + dueAmount;
+      const res = await fetch(`/api/gifts/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          status: "DELIVERED",
+          discountAmount: updatedDiscount 
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update order status");
+      mutate();
+      globalMutate('/api/gifts/orders');
+      setCollectionSuccess(true);
+      setTimeout(() => { setShowDueCollection(false); setCollectionSuccess(false); }, 2000);
+    } catch (err: any) {
+      setCollectionError(err.message || "Failed to apply discount.");
     } finally {
       setIsCollecting(false);
     }
@@ -507,6 +554,14 @@ export default function OrderDetailsPanel() {
                     {isCollecting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                     {collectionSuccess ? "Collected" : "Confirm"}
                   </button>
+                  <button 
+                    onClick={handleDiscountCollection}
+                    disabled={isCollecting || collectionSuccess}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-xl border border-indigo-200 hover:bg-indigo-100 transition-colors shadow-sm disabled:opacity-70"
+                  >
+                    {isCollecting ? <Loader2 size={14} className="animate-spin" /> : <Tag size={14} />}
+                    Discounted
+                  </button>
                 </div>
               </div>
             </div>
@@ -594,6 +649,7 @@ export default function OrderDetailsPanel() {
                         min="1"
                         value={editForm.quantity}
                         onChange={e => setEditForm({...editForm, quantity: e.target.value})}
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
                         className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-2 text-slate-800 font-bold focus:border-blue-500 focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     ) : (
@@ -603,6 +659,7 @@ export default function OrderDetailsPanel() {
 
                   <div>
                     <label className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Due Date</label>
+
                     {isEditing ? (
                       <div className="w-full">
                         <DatePickerInput 
@@ -618,6 +675,35 @@ export default function OrderDetailsPanel() {
                       </div>
                     )}
                   </div>
+
+                  {/* Additional Product Custom Fields (e.g. Size) */}
+                  {Object.entries(customData).map(([key, val]: [string, any]) => {
+                    const normalized = key.replace('fld_g_', '').toLowerCase().replace(/_/g, '');
+                    if (['amount', 'advance', 'advanceamount', 'dueamount', 'paymentmode', 'clientphone', 'clientname', 'duedate', 'product', 'quantity'].includes(normalized)) return null;
+                    if (key.startsWith('fld_g_') === false && key !== 'time') return null;
+                    if (val?.driveFile || (typeof val === 'string' && val.startsWith('data:image'))) return null;
+                    
+                    const displayName = key.replace('fld_g_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    let displayVal = val;
+                    if (typeof val === 'string') {
+                      const timeMatch = val.match(/^(\d{1,2}):(\d{2})$/);
+                      if (timeMatch) {
+                        const h24 = parseInt(timeMatch[1], 10);
+                        const m = timeMatch[2];
+                        const p = h24 >= 12 ? 'PM' : 'AM';
+                        let h12 = h24 % 12;
+                        if (h12 === 0) h12 = 12;
+                        displayVal = `${String(h12).padStart(2, '0')}:${m} ${p}`;
+                      }
+                    }
+
+                    return (
+                      <div key={key}>
+                        <label className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">{displayName}</label>
+                        <div className="text-lg font-bold text-slate-800">{displayVal}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -770,19 +856,31 @@ export default function OrderDetailsPanel() {
                     <div className="text-xl font-black text-slate-800 relative z-10">₹{advanceAmount.toLocaleString()}</div>
                   </div>
 
-                  {/* Card 2: Due Amount */}
-                  <div className="bg-red-50/50 p-3 rounded-2xl border border-red-100 relative overflow-hidden group">
-                    <div className="flex items-center justify-between mb-2 relative z-10">
-                      <div className="w-8 h-8 rounded-xl bg-red-400 text-white flex items-center justify-center shadow-sm">
-                        <Receipt size={14} />
+                  {/* Card 2: Due Amount or Discount */}
+                  {discountAmountValue > 0 && dueAmount === 0 ? (
+                    <div className="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 relative overflow-hidden group">
+                      <div className="flex items-center justify-between mb-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-400 text-white flex items-center justify-center shadow-sm">
+                          <Tag size={14} />
+                        </div>
                       </div>
-                      <div className="w-5 h-5 rounded-full border-2 border-red-200 flex items-center justify-center text-red-400">
-                        <Clock size={12} strokeWidth={3} />
-                      </div>
+                      <div className="text-[0.6rem] font-bold text-indigo-700/70 uppercase tracking-widest mb-0.5 relative z-10">Discounted</div>
+                      <div className="text-xl font-black text-slate-800 relative z-10">₹{discountAmountValue.toLocaleString()}</div>
                     </div>
-                    <div className="text-[0.6rem] font-bold text-red-700/70 uppercase tracking-widest mb-0.5 relative z-10">Due Amount</div>
-                    <div className="text-xl font-black text-slate-800 relative z-10">₹{dueAmount.toLocaleString()}</div>
-                  </div>
+                  ) : (
+                    <div className="bg-red-50/50 p-3 rounded-2xl border border-red-100 relative overflow-hidden group">
+                      <div className="flex items-center justify-between mb-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-red-400 text-white flex items-center justify-center shadow-sm">
+                          <Receipt size={14} />
+                        </div>
+                        <div className="w-5 h-5 rounded-full border-2 border-red-200 flex items-center justify-center text-red-400">
+                          <Clock size={12} strokeWidth={3} />
+                        </div>
+                      </div>
+                      <div className="text-[0.6rem] font-bold text-red-700/70 uppercase tracking-widest mb-0.5 relative z-10">Due Amount</div>
+                      <div className="text-xl font-black text-slate-800 relative z-10">₹{dueAmount.toLocaleString()}</div>
+                    </div>
+                  )}
 
                   {/* Card 3: Mode of Payment */}
                   <div className="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 relative overflow-hidden group">
@@ -867,68 +965,6 @@ export default function OrderDetailsPanel() {
                     );
                   }
                   return null;
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Additional Custom Fields Section */}
-          {Object.entries(customData).some(([key, val]) => {
-            if (['amount', 'advanceAmount', 'dueAmount', 'paymentMode', 'clientPhone'].includes(key)) return false;
-            if (key.startsWith('fld_g_') === false && key !== 'time') return false;
-            return typeof val === 'string' && !val.startsWith('data:image');
-          }) && (
-            <div className="bg-white rounded-3xl p-5 md:p-6 border border-slate-100 shadow-sm flex flex-col print-section col-span-1 lg:col-span-12 mb-6">
-              <div className="flex items-center gap-2 text-sm font-bold text-indigo-800 mb-6">
-                <FileText size={16} /> Additional Details
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(customData).map(([key, val]: [string, any]) => {
-                  if (['amount', 'advanceAmount', 'dueAmount', 'paymentMode', 'clientPhone'].includes(key)) return null;
-                  if (key.startsWith('fld_g_') === false && key !== 'time') return null;
-                  if (val?.driveFile || (typeof val === 'string' && val.startsWith('data:image'))) return null;
-                  
-                  let displayVal = val;
-                  let Icon = Info;
-                  let iconColor = "text-slate-500";
-                  let iconBg = "bg-slate-50";
-
-                  if (typeof val === 'string') {
-                    const timeMatch = val.match(/^(\d{1,2}):(\d{2})$/);
-                    if (timeMatch || key.toLowerCase().includes('time')) {
-                      Icon = Clock;
-                      iconColor = "text-purple-500";
-                      iconBg = "bg-purple-50";
-                      if (timeMatch) {
-                        const h24 = parseInt(timeMatch[1], 10);
-                        const m = timeMatch[2];
-                        const p = h24 >= 12 ? 'PM' : 'AM';
-                        let h12 = h24 % 12;
-                        if (h12 === 0) h12 = 12;
-                        displayVal = `${String(h12).padStart(2, '0')}:${m} ${p}`;
-                      }
-                    } else if (key.toLowerCase().includes('date')) {
-                      Icon = Calendar;
-                      iconColor = "text-blue-500";
-                      iconBg = "bg-blue-50";
-                    }
-                  }
-
-                  const displayName = key.replace('fld_g_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-                  return (
-                    <div key={key} className="flex items-start gap-3 w-full">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${iconBg} ${iconColor} mt-0.5`}>
-                        <div className="scale-75 origin-center flex items-center justify-center">
-                          <Icon size={20} />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">{displayName}</p>
-                        <p className="font-bold text-slate-800 text-sm whitespace-pre-wrap break-words">{displayVal}</p>
-                      </div>
-                    </div>
-                  );
                 })}
               </div>
             </div>
@@ -1049,6 +1085,40 @@ export default function OrderDetailsPanel() {
                   </div>
                </div>
             </div>
+
+            {/* Discount Confirmation Dialog */}
+            <Dialog open={pendingDiscountConfirm !== null} onOpenChange={(open) => { if (!open) setPendingDiscountConfirm(null); }}>
+              <DialogContent className="sm:max-w-md rounded-2xl p-6 border-0 shadow-2xl">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mb-4">
+                    <Tag size={32} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-2">Discount Remaining Amount?</h3>
+                  <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                    You are collecting <span className="font-bold text-slate-800">₹{pendingDiscountConfirm?.toLocaleString()}</span> out of <span className="font-bold text-slate-800">₹{dueAmount.toLocaleString()}</span>. 
+                    <br />
+                    Is the remaining <span className="font-bold text-indigo-600 bg-indigo-50 px-1 rounded">₹{(dueAmount - (pendingDiscountConfirm || 0)).toLocaleString()}</span> discounted?
+                  </p>
+                  <div className="flex gap-3 w-full">
+                    <button
+                      onClick={() => setPendingDiscountConfirm(null)}
+                      className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+                      disabled={isCollecting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmCollection}
+                      className="flex-1 px-4 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors flex justify-center items-center gap-2"
+                      disabled={isCollecting}
+                    >
+                      {isCollecting ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
+                      Yes, Discount It
+                    </button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
           </motion.div>
         )}

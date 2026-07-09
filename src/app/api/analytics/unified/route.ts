@@ -143,6 +143,8 @@ export async function GET(req: Request) {
     }, {} as Record<string, number>);
     const orderStatusDistribution = Object.entries(statusDist).map(([name, value]) => ({ name, value }));
 
+    const totalDiscountGiven = productOrders.reduce((sum, po) => sum + (po.discountAmount || 0), 0);
+
     // Revenue Intelligence (Daily/Weekly aggregation)
     const revenueIntelligenceMap = new Map();
     let peakDay = { date: '', total: 0 };
@@ -284,7 +286,8 @@ export async function GET(req: Request) {
       bookingFunnel,
       giftsPerformance: {
         topProducts,
-        statusDistribution: orderStatusDistribution
+        statusDistribution: orderStatusDistribution,
+        totalDiscountGiven
       },
       collectionHealth: {
         chart: collectionHealth,

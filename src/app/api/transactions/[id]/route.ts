@@ -328,6 +328,34 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       where: { id },
       data: { deletedAt: new Date() }
     });
+
+    if (existing.productOrderId) {
+      const order = await prisma.productOrder.findUnique({
+        where: { id: existing.productOrderId }
+      });
+      if (order) {
+        if (existing.description?.startsWith("Advance") || existing.description?.startsWith("Full Payment")) {
+          const cData: any = order.customData || {};
+          const oldAdvance = Number(cData.advanceAmount) || 0;
+          const newAdvance = Math.max(0, oldAdvance - existing.amount);
+          await prisma.productOrder.update({
+            where: { id: order.id },
+            data: { 
+              customData: { ...cData, advanceAmount: newAdvance }
+            }
+          });
+        } else if (existing.description?.startsWith("Due Collection")) {
+          // If due collection is reverted, revert status back to READY and reset discount
+          await prisma.productOrder.update({
+            where: { id: order.id },
+            data: { 
+              status: "READY",
+              discountAmount: 0 
+            }
+          });
+        }
+      }
+    }
     return NextResponse.json({ success: true }, {
       headers: { "Cache-Control": "private, no-store" },
     });

@@ -239,6 +239,7 @@ model ProductOrder {
   customData   Json?
   orderNumber  String?       @unique
   dueDate      DateTime?
+  discountAmount Float         @default(0)
   date         DateTime      @default(now())
   product      Product       @relation(fields: [productId], references: [id])
   transactions Transaction[]

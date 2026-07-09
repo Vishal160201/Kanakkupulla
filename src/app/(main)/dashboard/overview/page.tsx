@@ -2,11 +2,18 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { Suspense } from "react";
+import { Suspense, useState, useMemo } from "react";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { useRouter } from "next/navigation";
-import HighPriorityAlerts from "@/components/dashboard/HighPriorityAlerts";
 import OverdueBookingBanners from "@/components/bookings/OverdueBookingBanners";
+import DashboardDateRangePicker from "@/components/dashboard/DashboardDateRangePicker";
+import RevenueChart from "@/components/dashboard/RevenueChart";
+import BookingBreakdown from "@/components/dashboard/BookingBreakdown";
+import QuickActions from "@/components/dashboard/QuickActions";
+import TaskAlerts from "@/components/dashboard/TaskAlerts";
+import RevenueTarget from "@/components/dashboard/RevenueTarget";
+import StatCards from "@/components/dashboard/StatCards";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const CATEGORY_ICONS: Record<string, string> = {
   "Photography Session": "ph-camera",
@@ -34,11 +41,18 @@ const fetcher = async (url: string) => {
   return data;
 };
 
-function DashboardMetrics() {
+function DashboardMetrics({ dateRange }: { dateRange: { startDate: Date; endDate: Date } | null }) {
   const router = useRouter();
   const { openBookingDetails } = useGlobalForm();
-  const { data, error, isLoading } = useSWR('/api/dashboard/overview', fetcher);
-  const today = new Date();
+  const { checkPermission } = usePermissions();
+  const canViewAnalytics = checkPermission('view_export_analytics');
+  
+  const query = useMemo(() => {
+    if (!dateRange) return '';
+    return `?startDate=${dateRange.startDate.toISOString()}&endDate=${dateRange.endDate.toISOString()}`;
+  }, [dateRange]);
+
+  const { data, error, isLoading } = useSWR(`/api/dashboard/overview${query}`, fetcher);
 
   if (isLoading) return <DashboardSkeleton />;
   if (error || !data) {
@@ -56,301 +70,249 @@ function DashboardMetrics() {
     pendingRetouch,
     topOrder,
     totalActiveOrders,
-    todayTransactions,
-    todayIncome,
-    todayExpense,
-    todayNet,
-    hotDatesCount
+    transactions,
+    periodIncome,
+    periodExpense,
+    hotDatesCount,
+    revenueChartData,
+    bookingBreakdownData
   } = data;
 
   const showHotDates = typeof hotDatesCount === 'number' && hotDatesCount > 0;
 
   return (
     <>
-      {/* Quick Stats Grid — Always same row */}
-      <div className={`grid grid-cols-2 md:grid-cols-${showHotDates ? '4' : '3'} gap-3 md:gap-5 mb-4`}>
-        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-100 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-200">
-          <div className="flex justify-between items-start">
-            <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-white flex items-center justify-center shadow-sm">
-              <i className="ph-fill ph-address-book text-[0.9rem] md:text-[1.1rem]"></i>
-            </div>
-          </div>
-          <div className="mt-1">
-            <div className="text-slate-400 font-bold text-[0.6rem] md:text-[0.7rem] mb-0.5 uppercase tracking-wider">Total Bookings</div>
-            <div className="text-[1.1rem] md:text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{totalBookings}</div>
-          </div>
+      <div className="flex flex-col lg:flex-row gap-6 mb-6">
+        <div className="flex-1 lg:w-[65%] min-w-0">
+          <TaskAlerts />
+          <StatCards 
+            totalBookings={totalBookings}
+            pendingRetouch={pendingRetouch}
+            hotDatesCount={hotDatesCount}
+            totalActiveOrders={totalActiveOrders}
+            showHotDates={showHotDates}
+          />
+          {canViewAnalytics && (
+            <RevenueChart data={revenueChartData} periodIncome={periodIncome} periodExpense={periodExpense} />
+          )}
         </div>
-
-        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-100 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-red-200">
-          <div className="flex justify-between items-start">
-            <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-red-400 to-red-600 text-white flex items-center justify-center shadow-sm">
-              <i className="ph-fill ph-package text-[0.9rem] md:text-[1.1rem]"></i>
-            </div>
-            <span className="bg-red-50 text-red-600 px-1.5 md:px-2 py-0.5 rounded-md text-[0.5rem] md:text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Priority</span>
-          </div>
-          <div className="mt-1">
-            <div className="text-slate-400 font-bold text-[0.6rem] md:text-[0.7rem] mb-0.5 uppercase tracking-wider">Gallery Deliveries</div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[1.1rem] md:text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{pendingRetouch}</span>
-              <span className="text-[0.75rem] md:text-[1rem] font-bold text-slate-400">Due</span>
-            </div>
-          </div>
-        </div>
-
-        {showHotDates && (
-          <Link href="/bookings/allBookings" className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl md:rounded-2xl p-4 md:p-5 border border-orange-200 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-300 group cursor-pointer" style={{ animation: 'fadeIn 0.5s ease-out, slideUp 0.5s ease-out' }}>
-            <div className="flex justify-between items-start">
-              <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 text-white flex items-center justify-center shadow-sm group-hover:shadow-orange-500/30 transition-all">
-                <i className="ph-fill ph-fire text-[1rem] md:text-[1.2rem] animate-pulse origin-bottom" style={{ animationDuration: '1.5s' }}></i>
-              </div>
-              <span className="bg-orange-100 text-orange-600 px-1.5 md:px-2 py-0.5 rounded-md text-[0.5rem] md:text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">High Value</span>
-            </div>
-            <div className="mt-1">
-              <div className="text-orange-600/80 font-bold text-[0.6rem] md:text-[0.7rem] mb-0.5 uppercase tracking-wider">Hot Dates</div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-[1.1rem] md:text-[1.5rem] font-extrabold text-orange-600 leading-none tracking-tight">{hotDatesCount}</span>
-                <span className="text-[0.75rem] md:text-[1rem] font-bold text-orange-400/80">Dates</span>
-              </div>
-            </div>
-          </Link>
-        )}
-
-        <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-100 flex flex-col justify-between min-h-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-blue-200">
-          <div className="flex justify-between items-start">
-            <div className="w-7 h-7 md:w-[32px] md:h-[32px] rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 text-white flex items-center justify-center shadow-sm">
-              <i className="ph-fill ph-gift text-[0.9rem] md:text-[1.1rem]"></i>
-            </div>
-            <span className="bg-blue-50 text-blue-600 px-1.5 md:px-2 py-0.5 rounded-md text-[0.5rem] md:text-[0.6rem] font-extrabold uppercase tracking-[0.5px]">Active</span>
-          </div>
-          <div className="mt-1">
-            <div className="text-slate-400 font-bold text-[0.6rem] md:text-[0.7rem] mb-0.5 uppercase tracking-wider">Gift Shop Orders</div>
-            <div className="text-[1.1rem] md:text-[1.5rem] font-extrabold text-slate-900 leading-none tracking-tight">{totalActiveOrders}</div>
-          </div>
+        
+        <div className="w-full lg:w-[35%] shrink-0 flex flex-col gap-6">
+          {canViewAnalytics && <RevenueTarget currentRevenue={periodIncome} />}
+          <BookingBreakdown data={bookingBreakdownData} />
         </div>
       </div>
 
-      {/* ═══════ TODAY'S TRANSACTIONS — Full-Width Showcase ═══════ */}
-      <div className="relative rounded-[24px] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl mb-2 transition-transform duration-300 hover:-translate-y-1 group">
-        {/* Animated Glow Orbs */}
-        <div className="absolute -top-20 -left-20 w-72 h-72 bg-orange-500 rounded-full blur-[120px] opacity-15 group-hover:opacity-25 transition-opacity duration-700" />
-        <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-violet-500 rounded-full blur-[100px] opacity-10 group-hover:opacity-20 transition-opacity duration-700" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500 rounded-full blur-[160px] opacity-[0.04]" />
-
-        {/* Header Bar */}
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 sm:px-8 pt-5 sm:pt-7 pb-0 gap-3 sm:gap-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <i className="ph-bold ph-receipt text-white text-lg" />
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Transactions */}
+        <div className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col min-h-[350px]">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <h3 className="text-white text-[1rem] sm:text-[1.15rem] font-extrabold tracking-tight leading-tight">Today&apos;s Transactions</h3>
-              <p className="text-slate-400 text-[0.65rem] sm:text-[0.7rem] font-semibold tracking-wide uppercase">{today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              <h3 className="text-[1.1rem] font-extrabold text-slate-900 tracking-tight">Recent Transactions</h3>
+              <p className="text-slate-400 text-[0.75rem] font-medium">For selected period</p>
             </div>
+            <Link href="/transactions" className="text-[0.7rem] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1 transition-colors">
+              View All
+            </Link>
           </div>
-          <Link href="/transactions" className="text-[0.75rem] sm:text-[0.8rem] font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 bg-white/5 hover:bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl border border-white/10 self-end sm:self-auto">
-            View All <i className="ph-bold ph-arrow-right" />
-          </Link>
-        </div>
 
-        {/* Summary Strip */}
-        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 px-5 sm:px-8 py-5">
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <i className="ph-bold ph-arrow-down-left text-emerald-400 text-xs" />
+          <div className="flex-1 flex flex-col gap-3 mt-2">
+            {(!transactions || transactions.length === 0) ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400">
+                <i className="ph ph-receipt text-3xl mb-2 opacity-50"></i>
+                <p className="font-medium text-sm">No transactions.</p>
               </div>
-              <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[1px]">Income</span>
-            </div>
-            <span className="text-white text-[1.5rem] font-extrabold tracking-tight">₹{todayIncome.toLocaleString('en-IN')}</span>
-          </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-lg bg-red-500/20 flex items-center justify-center">
-                <i className="ph-bold ph-arrow-up-right text-red-400 text-xs" />
-              </div>
-              <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[1px]">Expense</span>
-            </div>
-            <span className="text-white text-[1.5rem] font-extrabold tracking-tight">₹{todayExpense.toLocaleString('en-IN')}</span>
-          </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`w-6 h-6 rounded-lg ${todayNet >= 0 ? 'bg-emerald-500/20' : 'bg-red-500/20'} flex items-center justify-center`}>
-                <i className={`ph-bold ${todayNet >= 0 ? 'ph-trend-up text-emerald-400' : 'ph-trend-down text-red-400'} text-xs`} />
-              </div>
-              <span className="text-slate-400 text-[0.65rem] font-bold uppercase tracking-[1px]">Net Today</span>
-            </div>
-            <span className={`text-[1.5rem] font-extrabold tracking-tight ${todayNet >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {todayNet >= 0 ? '+' : ''}₹{todayNet.toLocaleString('en-IN')}
-            </span>
-          </div>
-        </div>
+            ) : (
+              transactions.slice(0, 5).map((txn: any) => {
+                let title = txn.description ? txn.description.split(' - ')[0] : txn.category;
+                const isGifts = txn.category === 'GIFTS_AND_FRAMES';
+                let isAdvance = false;
+                let isDue = false;
+                if (isGifts && txn.description) {
+                  const match = txn.description.match(/\(([^)]+)\)$/);
+                  if (match) title = match[1];
+                  if (txn.description.startsWith('Advance')) isAdvance = true;
+                  if (txn.description.startsWith('Due')) isDue = true;
+                }
 
-        {/* Transaction List */}
-        <div className="relative z-10 px-5 sm:px-8 pb-5 sm:pb-7">
-          {todayTransactions.length === 0 ? (
-            <div className="bg-white/5 backdrop-blur-sm border border-dashed border-white/10 rounded-2xl p-10 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-3">
-                <i className="ph ph-receipt text-3xl text-slate-500" />
-              </div>
-              <p className="text-slate-400 font-semibold text-sm">No transactions recorded today</p>
-              <p className="text-slate-500 text-xs mt-1">Add your first transaction to see it here</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {todayTransactions.map((txn: any, idx: number) => (
-                <div
-                  key={txn.id}
-                  className="group/item flex flex-col sm:flex-row sm:items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer gap-2 sm:gap-0"
-                  style={{ animationDelay: `${idx * 60}ms` }}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-lg ${
-                      txn.type === 'INCOME'
-                        ? 'bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 text-emerald-400 shadow-emerald-500/10'
-                        : 'bg-gradient-to-br from-red-400/20 to-red-600/20 text-red-400 shadow-red-500/10'
-                    }`}>
-                      <i className={`ph-fill ${CATEGORY_ICONS[txn.category] || 'ph-dots-three-circle'}`} />
-                    </div>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-bold text-[0.9rem] leading-tight">{txn.category}</span>
-                        <span className={`px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] ${
-                          txn.type === 'INCOME'
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-red-500/15 text-red-400'
-                        }`}>{txn.type}</span>
+                return (
+                  <div key={txn.id} className="flex items-center justify-between group py-1">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        txn.type === 'INCOME' ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'
+                      }`}>
+                        <i className={`ph-bold ${txn.type === 'INCOME' ? 'ph-arrow-down-left' : 'ph-arrow-up-right'}`}></i>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {txn.description && (
-                          <span className="text-slate-500 text-[0.75rem] font-medium truncate max-w-[200px]">{txn.description}</span>
-                        )}
-                        <span className="text-slate-600 text-[0.65rem] flex items-center gap-1">
-                          <i className={`ph-fill ${MODE_ICONS[txn.paymentMode] || 'ph-wallet'} text-[0.6rem]`} />
-                          {txn.paymentMode}
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-900 font-bold text-[0.85rem]">{title}</span>
+                          <span className={`text-[0.55rem] font-bold px-1.5 py-0.5 rounded-md uppercase ${
+                            txn.type === 'INCOME' ? 'bg-emerald-100/50 text-emerald-600' : 'bg-red-100/50 text-red-600'
+                          }`}>{txn.type}</span>
+                          {isGifts && isAdvance && (
+                            <span className="text-[0.55rem] font-bold px-1.5 py-0.5 rounded-md uppercase bg-blue-50 text-blue-600">ADV</span>
+                          )}
+                          {isGifts && isDue && (
+                            <span className="text-[0.55rem] font-bold px-1.5 py-0.5 rounded-md uppercase bg-red-50 text-red-600">DUE</span>
+                          )}
+                        </div>
+                        <span className="text-slate-400 text-[0.7rem] flex items-center gap-1">
+                          <span className="truncate max-w-[120px] uppercase text-[10px]">{isGifts ? 'GIFTS & FRAMES' : txn.category}</span> &middot;
+                          <i className={`ph-fill ${MODE_ICONS[txn.paymentMode] || 'ph-wallet'}`}></i> {txn.paymentMode}
                         </span>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 border-t border-white/10 sm:border-0 pt-2 sm:pt-0">
-                    <span className="text-slate-500 text-[0.7rem] font-semibold">
-                      {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  <div className="flex flex-col items-end">
+                    <span className="text-slate-400 text-[0.65rem] font-semibold">
+                      {new Date(txn.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    <span className={`text-[1.05rem] font-extrabold tracking-tight ${
-                      txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
-                    }`}>
+                    <span className={`font-extrabold text-[0.95rem] ${txn.type === 'INCOME' ? 'text-emerald-500' : 'text-red-500'}`}>
                       {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })
           )}
+          </div>
         </div>
-      </div>
 
-      {/* Bottom Split Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-[1.2rem] font-extrabold text-slate-900 tracking-tight">Upcoming Shoots</h3>
-            <Link href="/bookings/overview" className="text-[0.85rem] font-semibold text-slate-500 flex items-center gap-1 hover:text-slate-900 transition-colors">
-              View Calendar <i className="ph-fill ph-calendar-blank"></i>
+        {/* Upcoming Shoots */}
+        <div className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col min-h-[350px]">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-[1.1rem] font-extrabold text-slate-900 tracking-tight">Upcoming Shoots</h3>
+            </div>
+            <Link href="/bookings/overview" className="text-[0.7rem] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1 transition-colors">
+              View Calendar <i className="ph-bold ph-arrow-right"></i>
             </Link>
           </div>
-          
-          <div className="flex flex-col gap-4">
-            {upcomingShoots.length === 0 ? (
-               <div className="bg-white border border-dashed border-gray-300 rounded-[20px] p-8 text-center text-slate-400">
-                 <p className="font-medium">No upcoming shoots found.</p>
-                 <Link href="/bookings/overview" className="text-orange-500 text-sm font-bold mt-2 inline-block">Add Booking</Link>
-               </div>
-            ) : upcomingShoots.map((shoot: any) => (
-              <div key={shoot.id} onClick={() => openBookingDetails(shoot.id)} className="bg-orange-50 border border-orange-200 rounded-[20px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 cursor-pointer shadow-sm transition-all hover:translate-x-1 hover:shadow-md hover:bg-orange-100/50">
-                <div className="flex items-center gap-4 w-full sm:w-auto">
-                  <div className="w-[40px] h-[40px] rounded-xl bg-orange-100 text-orange-500 flex items-center justify-center text-[1.2rem] shrink-0">
-                    <i className="ph-fill ph-camera"></i>
-                  </div>
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <span className="bg-orange-100 text-orange-700 w-max px-2 py-0.5 rounded-md text-[0.6rem] font-extrabold uppercase tracking-[0.5px] mb-1">{shoot.category}</span>
-                    <h4 className="text-[1rem] font-extrabold text-slate-900 leading-tight tracking-tight mb-0.5 truncate">{shoot.client.name}</h4>
-                    <p className="text-slate-500 text-[0.8rem] font-medium mt-0.5 truncate">{new Date(shoot.date).toLocaleDateString()} at {shoot.time} - {shoot.location}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto sm:pl-4 border-t sm:border-t-0 sm:border-l border-orange-200 pt-3 sm:pt-0">
-                  <div className="flex flex-col items-end">
-                    <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-[0.5px] mb-0.5">Amount</span>
-                    <span className="text-[1rem] font-extrabold text-slate-900 leading-tight">₹{shoot.order?.package.toLocaleString('en-IN') || '0'}</span>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-[0.5px] mb-0.5">Status</span>
-                    <span className={`text-[0.9rem] font-bold leading-tight ${shoot.status === 'Confirmed' ? 'text-emerald-600' : 'text-orange-600'}`}>
-                      {shoot.status}
-                    </span>
-                  </div>
-                </div>
+
+          <div className="flex-1 flex flex-col gap-4 mt-2">
+            {(!upcomingShoots || upcomingShoots.length === 0) ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400">
+                <i className="ph ph-calendar-blank text-3xl mb-2 opacity-50"></i>
+                <p className="font-medium text-sm">No upcoming shoots.</p>
               </div>
-            ))}
+            ) : (
+              upcomingShoots.slice(0, 3).map((shoot: any) => (
+                <div key={shoot.id} onClick={() => openBookingDetails(shoot.id)} className="bg-orange-50/50 rounded-xl p-3 border border-orange-100 flex items-center justify-between cursor-pointer hover:bg-orange-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-500 flex items-center justify-center shrink-0">
+                      <i className="ph-fill ph-camera text-xl"></i>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-slate-900 font-bold text-[0.85rem] truncate max-w-[150px] uppercase">{shoot.client?.name}</span>
+                      <span className="text-slate-500 text-[0.7rem] mt-0.5">
+                        {new Date(shoot.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}, {shoot.time}
+                      </span>
+                      <span className="text-slate-400 text-[0.65rem] uppercase">{shoot.location}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-orange-500 text-[0.65rem] font-bold bg-orange-100 px-2 py-0.5 rounded-md uppercase">Pending</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-slate-400 text-[0.6rem] font-semibold uppercase tracking-wider">Amount</span>
+                      <span className="text-slate-900 font-extrabold text-[0.9rem]">₹{shoot.order?.package?.toLocaleString('en-IN') || '0'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
+          {upcomingShoots && upcomingShoots.length > 0 && (
+            <Link href="/bookings/allBookings" className="mt-4 text-center text-[0.75rem] font-bold text-slate-500 hover:text-slate-900 transition-colors">
+              View All Shoots <i className="ph-bold ph-arrow-right"></i>
+            </Link>
+          )}
         </div>
 
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-[1.2rem] font-extrabold text-slate-900 tracking-tight">Gift Shop Tracking</h3>
-            <i className="ph-fill ph-shopping-cart text-orange-500 text-[1.3rem]"></i>
+        {/* Gift Shop Tracking */}
+        <div className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col min-h-[350px]">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-[1.1rem] font-extrabold text-slate-900 tracking-tight">Gift Shop Tracking</h3>
+            </div>
+            <i className="ph-fill ph-shopping-cart text-slate-300 text-lg"></i>
           </div>
-          
-          {topOrder ? (
-            <div onClick={() => router.push('/gifts')} className="bg-white border border-gray-200 rounded-[20px] p-5 shadow-sm transition-all hover:border-orange-200 hover:-translate-y-1 hover:shadow-md cursor-pointer">
-              <div className="flex flex-col">
-                <div className="flex justify-between items-end mb-2.5">
-                  <span className="font-extrabold text-slate-900 text-[0.95rem]">{topOrder.product.name} ({topOrder.quantity}x)</span>
-                  <span className="font-bold text-slate-500 text-[0.75rem]">{topOrder.status}</span>
+
+          <div className="flex-1 flex flex-col mt-2">
+            {!topOrder ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400">
+                <i className="ph ph-package text-3xl mb-2 opacity-50"></i>
+                <p className="font-medium text-sm">No active orders.</p>
+              </div>
+            ) : (
+              <div onClick={() => router.push('/gifts')} className="cursor-pointer group">
+                <div className="flex justify-between items-end mb-3">
+                  <span className="font-extrabold text-slate-900 text-[0.95rem]">{topOrder.product?.name} ({topOrder.quantity}x)</span>
+                  <span className="font-bold text-slate-500 text-[0.7rem] uppercase">{topOrder.status}</span>
                 </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2.5">
-                  <div className={`h-full rounded-full ${
+                <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-3">
+                  <div className={`h-full rounded-full transition-all duration-1000 ${
                     topOrder.status === 'PENDING' ? 'bg-amber-500 w-[20%]' :
                     topOrder.status === 'PROCESSING' ? 'bg-blue-500 w-[50%]' :
                     topOrder.status === 'SHIPPED' ? 'bg-indigo-500 w-[80%]' : 'bg-emerald-500 w-[100%]'
                   }`}></div>
                 </div>
-                <div className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-[0.5px]">For: {topOrder.clientName}</div>
+                <div className="text-[0.7rem] font-semibold text-slate-500">For: {topOrder.clientName}</div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-slate-50 border border-dashed border-gray-200 rounded-[20px] p-8 text-center text-slate-400">
-               <i className="ph ph-package text-3xl mb-2 opacity-50"></i>
-               <p className="font-medium text-sm">No active product orders.</p>
-            </div>
+            )}
+          </div>
+          {topOrder && (
+            <Link href="/gifts" className="mt-auto pt-4 text-center text-[0.75rem] font-bold text-slate-500 hover:text-slate-900 transition-colors">
+              View All Orders <i className="ph-bold ph-arrow-right"></i>
+            </Link>
           )}
         </div>
       </div>
     </>
   );
 }
+
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-8 w-full animate-pulse">
-      <div className="grid grid-cols-3 gap-3 md:gap-5 mb-4">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white rounded-xl md:rounded-2xl h-[100px] md:h-[120px] border border-gray-100"></div>
-        ))}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1 lg:w-[65%]">
+          <div className="bg-white rounded-2xl h-[100px] mb-6 border border-gray-100"></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white rounded-2xl h-[110px] border border-gray-100"></div>
+            ))}
+          </div>
+          <div className="bg-white rounded-2xl h-[350px] border border-gray-100"></div>
+        </div>
+        <div className="w-full lg:w-[35%] flex flex-col gap-6">
+          <div className="bg-white rounded-2xl h-[180px] border border-gray-100"></div>
+          <div className="bg-white rounded-2xl h-[300px] border border-gray-100"></div>
+        </div>
       </div>
-      <div className="rounded-[24px] bg-slate-900 h-[300px] w-full"></div>
-      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
-        <div className="bg-white rounded-2xl h-[400px]"></div>
-        <div className="bg-white rounded-2xl h-[400px]"></div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl h-[350px] border border-gray-100"></div>
+        <div className="bg-white rounded-2xl h-[350px] border border-gray-100"></div>
+        <div className="bg-white rounded-2xl h-[350px] border border-gray-100"></div>
       </div>
     </div>
   );
 }
 
 export default function OverviewPage() {
+  const [dateRange, setDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null);
+
   return (
-    <section id="view-dashboard" className="flex flex-col gap-4 w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-20">
+    <section id="view-dashboard" className="flex flex-col gap-5 w-full max-w-[1400px] mx-auto pb-20 pt-4 bg-[#fafafa] min-h-screen">
       <OverdueBookingBanners />
-      <HighPriorityAlerts />
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+        <QuickActions />
+        <div className="ml-auto flex items-center justify-end z-20">
+          <DashboardDateRangePicker onRangeChange={setDateRange} />
+        </div>
+      </div>
+
       <Suspense fallback={<DashboardSkeleton />}>
-        <DashboardMetrics />
+        <DashboardMetrics dateRange={dateRange} />
       </Suspense>
     </section>
   );

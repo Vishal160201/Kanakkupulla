@@ -43,6 +43,7 @@ export async function PATCH(
     if (data.clientName) allowedUpdates.clientName = data.clientName;
     if (data.clientPhone !== undefined) allowedUpdates.clientPhone = data.clientPhone;
     if (data.dueDate !== undefined) allowedUpdates.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+    if (data.discountAmount !== undefined) allowedUpdates.discountAmount = data.discountAmount;
     if (data.customData) {
       // Fetch existing order to merge customData
       const existingOrder = await prisma.productOrder.findUnique({
