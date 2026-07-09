@@ -99,8 +99,8 @@ export async function GET(req: Request) {
         where: { date: { gte: startOfDay, lte: endOfDay }, deletedAt: null }
       }),
       prisma.booking.findMany({
-        where: { deletedAt: null, date: { gte: startOfDay, lte: endOfDay } },
-        select: { date: true, customData: true }
+        where: { deletedAt: null },
+        select: { id: true, date: true, status: true, category: true, customData: true, client: { select: { name: true } } }
       })
     ]);
 
@@ -127,20 +127,36 @@ export async function GET(req: Request) {
 
     const revenueChartData = Object.values(dailyDataMap).sort((a, b) => a.date.localeCompare(b.date));
 
-    const categoryCount: Record<string, number> = {};
+    const pendingAlbumsRaw: any[] = [];
     bookingsForChart.forEach(b => {
-      let cat = 'Other';
-      if (b.customData && typeof b.customData === 'object') {
-        const cd = b.customData as any;
-        cat = cd.eventType || cd.category || 'Other';
+      let cd: any = {};
+      if (b.customData) {
+        cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : b.customData;
       }
-      categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+      
+      const isAlbum = b.category === 'Album' || 
+                     cd?.fld_b_inclusions?.includes('Album') || 
+                     cd?.album_status ||
+                     cd?.fld_b_album_status;
+      const bStatus = (b.status || '').trim().toLowerCase();
+      
+      const qualifiesAsAlbum = isAlbum || ['shoot completed', 'designing', 'printing', 'album work in progress'].includes(bStatus);
+      
+      if (qualifiesAsAlbum) {
+        const albumStatus = cd?.fld_b_album_status || 'Pending';
+        if (albumStatus !== 'Delivered') {
+          pendingAlbumsRaw.push({
+            id: b.id,
+            clientName: (b.client as any)?.name || 'Unknown',
+            status: albumStatus,
+            date: b.date
+          });
+        }
+      }
     });
 
-    const bookingBreakdownData = Object.keys(categoryCount).map(key => ({
-      name: key,
-      value: categoryCount[key]
-    }));
+    pendingAlbumsRaw.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const bookingBreakdownData = pendingAlbumsRaw.slice(0, 5);
 
     const prefsDoc = await prisma.systemSetting.findUnique({
       where: { key: 'UI_PREFERENCES' }
