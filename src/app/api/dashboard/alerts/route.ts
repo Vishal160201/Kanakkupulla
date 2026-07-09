@@ -12,7 +12,7 @@ export async function GET(req: Request) {
 
     const alerts = await prisma.notification.findMany({
       where: {
-        userId: session.user.id,
+        userId: (session.user as any).id,
         isRead: false,
         priority: 'HIGH',
       },
