@@ -33,7 +33,7 @@ const STATUS_STYLE_MAP: Record<string, { label: string; dot: string; bg: string;
   PENDING: { label: "PENDING", dot: "bg-orange-500", bg: "bg-orange-100", text: "text-orange-800", border: "border-orange-200" },
   PROCESSING: { label: "IN PRODUCTION", dot: "bg-slate-500", bg: "bg-slate-200", text: "text-slate-700", border: "border-slate-300" },
   READY: { label: "READY FOR PICKUP", dot: "bg-amber-600", bg: "bg-amber-100", text: "text-amber-800", border: "border-amber-200" },
-  DELIVERED: { label: "SHIPPED", dot: "bg-blue-300", bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200" },
+  DELIVERED: { label: "DELIVERED", dot: "bg-blue-300", bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200" },
 };
 
 export default function AllOrdersList({ products }: AllOrdersListProps) {

@@ -403,6 +403,11 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
           type={typeAttr}
           value={value}
           onChange={(e) => handleFieldChange(field.id, e.target.value)}
+          onWheel={(e) => {
+            if (typeAttr === 'number') {
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
           className={`h-[45px] px-4 rounded-xl border-slate-200 bg-white text-[0.95rem] ${typeAttr === 'number' ? '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none' : ''
             }`}
           placeholder={field.placeholder || `Enter ${field.name}`}

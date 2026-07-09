@@ -9,7 +9,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, Legend 
 } from "recharts";
 import { 
-  TrendingUp, TrendingDown, DollarSign, Target, ShoppingBag, PieChart as PieChartIcon, Users, Briefcase, Info, X
+  TrendingUp, TrendingDown, DollarSign, Target, ShoppingBag, PieChart as PieChartIcon, Users, Briefcase, Info, X, Tag
 } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -325,12 +325,20 @@ export default function AnalyticsPage() {
         <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 p-5 shadow-sm flex flex-col h-auto lg:h-[400px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><ShoppingBag size={18} className="text-amber-500"/> Gifts Performance</h3>
-            {activeProductFilter && (
-              <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full text-xs font-bold text-amber-700 fade-in">
-                <span>{activeProductFilter}</span>
-                <button onClick={() => setActiveProductFilter(null)} className="hover:bg-amber-200 rounded-full p-0.5 transition-colors"><X size={12} /></button>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {giftsPerformance?.totalDiscountGiven > 0 && (
+                <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-[0.7rem] font-bold text-indigo-700 shadow-sm">
+                  <Tag size={12} />
+                  Total Discount: ₹{giftsPerformance.totalDiscountGiven.toLocaleString('en-IN')}
+                </div>
+              )}
+              {activeProductFilter && (
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full text-xs font-bold text-amber-700 fade-in">
+                  <span>{activeProductFilter}</span>
+                  <button onClick={() => setActiveProductFilter(null)} className="hover:bg-amber-200 rounded-full p-0.5 transition-colors"><X size={12} /></button>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="flex flex-col lg:flex-row gap-8 flex-1">

@@ -145,7 +145,11 @@ export default function TransactionDetailsModal() {
         throw new Error(errorData.error || "Delete failed");
       }
       await mutate(
-        (key) => typeof key === "string" && key.startsWith("/api/transactions"),
+        (key) => typeof key === "string" && (
+          key.startsWith("/api/transactions") || 
+          key.startsWith("/api/gifts/orders") || 
+          key.startsWith("/api/bookings")
+        ),
         undefined,
         { revalidate: true }
       );

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
-import { Loader2, Image as ImageIcon, Edit2, Trash2, Filter } from "lucide-react";
+import { Loader2, Image as ImageIcon, Edit2, Trash2, Filter, Search } from "lucide-react";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,16 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
   const { openGiftOrderDetails } = useGlobalForm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredOrders = orders.filter((order) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const matchClient = order.clientName?.toLowerCase().includes(q);
+    const matchPhone = order.clientPhone?.toLowerCase().includes(q);
+    const matchProduct = order.product?.name?.toLowerCase().includes(q);
+    return matchClient || matchPhone || matchProduct;
+  });
 
   const handleDelete = async (e: React.MouseEvent, orderId: string) => {
     e.stopPropagation();
@@ -63,14 +73,20 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
 
   return (
     <div className="bg-white/60 backdrop-blur-xl rounded-3xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-      <div className="flex items-center justify-between p-4 sm:p-6 pb-4">
-        <h3 className="text-[1.15rem] sm:text-[1.35rem] font-extrabold text-slate-800 tracking-tight">Active Gift Orders</h3>
-        {orders.length > 0 && (
-          <div className="flex gap-2 sm:gap-3">
-            <button className="flex items-center justify-center p-2 sm:px-4 sm:py-2 bg-white rounded-lg text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors" title="Filter">
-              <Filter className="w-4 h-4 sm:hidden" />
-              <span className="hidden sm:block text-sm font-semibold">Filter</span>
-            </button>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 pb-4 gap-4">
+        <h3 className="text-[1.15rem] sm:text-[1.35rem] font-extrabold text-slate-800 tracking-tight shrink-0">Active Gift Orders</h3>
+        {(orders.length > 0 || searchQuery) && (
+          <div className="flex items-center w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search orders..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900 transition-all shadow-sm"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -87,14 +103,14 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100/50">
-            {orders.length === 0 ? (
+            {filteredOrders.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center text-slate-500 font-medium">
-                  No orders found.
+                  {searchQuery ? "No orders match your search." : "No orders found."}
                 </td>
               </tr>
             ) : (
-              orders.map((order) => {
+              filteredOrders.map((order) => {
                 const statusStyle = STATUS_MAP[order.status] || STATUS_MAP.PENDING;
                 const uiProps = getProductIcon(order.product?.id);
                 const Icon = uiProps.icon;
@@ -196,12 +212,12 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
 
         {/* Mobile Card List */}
         <div className="sm:hidden flex flex-col divide-y divide-slate-100/50">
-          {orders.length === 0 ? (
+          {filteredOrders.length === 0 ? (
             <div className="px-6 py-12 text-center text-slate-500 font-medium">
-              No orders found.
+              {searchQuery ? "No orders match your search." : "No orders found."}
             </div>
           ) : (
-            orders.map((order) => {
+            filteredOrders.map((order) => {
               const statusStyle = STATUS_MAP[order.status] || STATUS_MAP.PENDING;
               return (
                 <div 
