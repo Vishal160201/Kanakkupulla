@@ -29,9 +29,9 @@ export default async function UpcomingBookingsPage() {
     location: b.location,
     phone: b.client.phone,
     email: b.client.email || '',
-    package: b.order?.package.toString() || '',
-    advance: b.order?.advance.toString() || '',
-    due: b.order?.due.toString() || '',
+    package: b.order?.package?.toString() || '',
+    advance: b.order?.advance?.toString() || '',
+    due: b.order?.due?.toString() || '',
     status: b.status as any
   }));
 
