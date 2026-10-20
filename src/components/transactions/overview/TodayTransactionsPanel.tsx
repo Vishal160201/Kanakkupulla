@@ -17,9 +17,11 @@ interface TodayTransactionsPanelProps {
   todayExpense: number;
   todayNet: number;
   todayTransactions: Transaction[];
+  /** Label each row with its shop (the "All Shops" view). */
+  showShop?: boolean;
 }
 
-export default function TodayTransactionsPanel({ overviewKey, today, todayIncome, todayExpense, todayNet, todayTransactions }: TodayTransactionsPanelProps) {
+export default function TodayTransactionsPanel({ overviewKey, today, todayIncome, todayExpense, todayNet, todayTransactions, showShop = false }: TodayTransactionsPanelProps) {
   const { openTransactionForm, openTransactionDetails } = useGlobalForm();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
@@ -132,6 +134,7 @@ export default function TodayTransactionsPanel({ overviewKey, today, todayIncome
                 key={txn.id}
                 txn={txn}
                 index={idx}
+                showShop={showShop}
                 isConfirmingDelete={confirmDeleteId === txn.id}
                 isDeleting={isDeletingId === txn.id}
                 deleteErrorMessage={deleteError?.id === txn.id ? deleteError.message : null}

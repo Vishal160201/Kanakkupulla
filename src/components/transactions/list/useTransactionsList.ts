@@ -4,6 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { FetchError, fetcher } from "@/lib/fetcher";
+import { useShopQueryParam } from "@/components/providers/ShopProvider";
 import type { Transaction, TransactionListResponse } from "@/types/transactions";
 import { buildListQuery, type ListFilterParams } from "./listFilters";
 
@@ -15,7 +16,9 @@ import { buildListQuery, type ListFilterParams } from "./listFilters";
  * shows the skeleton instead (`isLoading`), matching the original fetch flow.
  */
 export function useTransactionsList(filterParams: ListFilterParams) {
-  const query = buildListQuery(filterParams);
+  // The active shop is part of the query (and so the SWR key and the page reset).
+  const shopParam = useShopQueryParam();
+  const query = [buildListQuery(filterParams), shopParam].filter(Boolean).join('&');
   const [pageState, setPageState] = useState({ query, page: 1 });
   const currentPage = pageState.query === query ? pageState.page : 1;
 
@@ -24,7 +27,7 @@ export function useTransactionsList(filterParams: ListFilterParams) {
     : query;
 
   const { data, error, isLoading: isFetching, mutate } = useSWR<TransactionListResponse>(
-    `/api/transactions?${pageQuery}`,
+    shopParam === null ? null : `/api/transactions?${pageQuery}`,
     fetcher,
     {
       keepPreviousData: true,
@@ -42,7 +45,7 @@ export function useTransactionsList(filterParams: ListFilterParams) {
   );
 
   // First page of a (new) filter set: show the skeleton, not the previous results.
-  const isLoading = isFetching && currentPage === 1;
+  const isLoading = (isFetching || shopParam === null) && currentPage === 1;
   const isLoadingMore = isFetching && currentPage > 1;
   const listData = isLoading || (error && currentPage === 1) ? undefined : data;
 

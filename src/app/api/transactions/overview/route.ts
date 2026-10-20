@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/authz";
 import { parseSearchParams } from "@/lib/validations/http";
 import { transactionOverviewQuerySchema } from "@/lib/validations/transactions";
+import { shopSummarySelect, shopWhere } from "@/lib/shops";
 
 export async function GET(req: Request) {
   try {
@@ -12,9 +13,10 @@ export async function GET(req: Request) {
 
     const query = parseSearchParams(req, transactionOverviewQuerySchema);
     if (query.error) return query.error;
-    const { startDate, endDate } = query.data;
+    const { startDate, endDate, shopId } = query.data;
 
-    const whereClause: Prisma.TransactionWhereInput = { deletedAt: null };
+    const shopFilter = shopWhere(shopId);
+    const whereClause: Prisma.TransactionWhereInput = { deletedAt: null, ...shopFilter };
 
     if (startDate || endDate) {
       whereClause.date = {
@@ -54,19 +56,21 @@ export async function GET(req: Request) {
           { date: 'desc' },
           { createdAt: 'desc' }
         ],
-        take: 100
+        take: 100,
+        include: { shop: { select: shopSummarySelect } },
       }),
       // Today's Transactions
       prisma.transaction.findMany({
-        where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null },
+        where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null, ...shopFilter },
         orderBy: { date: 'desc' },
-        take: 500
+        take: 500,
+        include: { shop: { select: shopSummarySelect } },
       }),
       // Today's Income + Expense combined
       prisma.transaction.groupBy({
         by: ['type'],
         _sum: { amount: true },
-        where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null }
+        where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null, ...shopFilter }
       }),
     ]);
 

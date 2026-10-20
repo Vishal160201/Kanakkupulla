@@ -3,10 +3,13 @@
 import type React from "react";
 import type { TodayTransactionItem } from "@/types/transactions";
 import { CATEGORY_ICONS, MODE_ICONS, getGiftsBadgeInfo } from "../categoryStyles";
+import ShopBadge from "@/components/shops/ShopBadge";
 
 interface TodayTransactionRowProps {
   txn: TodayTransactionItem;
   index: number;
+  /** Show the entry's shop (the "All Shops" view). */
+  showShop?: boolean;
   isConfirmingDelete: boolean;
   isDeleting: boolean;
   deleteErrorMessage: string | null;
@@ -21,6 +24,7 @@ interface TodayTransactionRowProps {
 export default function TodayTransactionRow({
   txn,
   index,
+  showShop = false,
   isConfirmingDelete,
   isDeleting,
   deleteErrorMessage,
@@ -87,6 +91,7 @@ export default function TodayTransactionRow({
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
+            {showShop && <ShopBadge shop={txn.shop} tone="dark" />}
             {description && (
               <span className="text-slate-500 text-[0.75rem] font-medium truncate max-w-[200px]">{description}</span>
             )}

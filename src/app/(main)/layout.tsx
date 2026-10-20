@@ -5,6 +5,7 @@ import { SystemProvider } from "@/components/providers/SystemProvider";
 import PageTransition from "@/components/layout/PageTransition";
 import { MobileNavProvider } from "@/components/providers/MobileNavProvider";
 import { GlobalFormProvider } from "@/components/providers/GlobalFormProvider";
+import { ShopProvider } from "@/components/providers/ShopProvider";
 import GlobalModals from "@/components/layout/GlobalModals";
 import React from "react";
 
@@ -17,6 +18,7 @@ export default function MainLayout({
     <SystemProvider>
       <MobileNavProvider>
         <BookingProvider>
+          <ShopProvider>
           <GlobalFormProvider>
             <Sidebar />
             <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden">
@@ -31,6 +33,7 @@ export default function MainLayout({
             {/* Global Forms (code-split, client-only) */}
             <GlobalModals />
           </GlobalFormProvider>
+          </ShopProvider>
         </BookingProvider>
       </MobileNavProvider>
     </SystemProvider>

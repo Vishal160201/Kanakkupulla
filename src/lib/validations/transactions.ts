@@ -11,6 +11,7 @@ import {
   queryString,
   queryDate,
 } from "./common";
+import { shopIdQuery } from "./shops";
 
 export const TRANSACTION_TYPES = ["INCOME", "EXPENSE"] as const;
 
@@ -29,6 +30,7 @@ export const TRANSACTION_STANDARD_KEYS = [
   "productOrderId",
   "bookingId",
   "recordDate",
+  "shopId",
 ] as const;
 
 /** POST /api/transactions */
@@ -44,6 +46,7 @@ export const transactionCreateSchema = z
     productOrderId: optionalId,
     bookingId: optionalId,
     recordDate: optionalDateInput("Invalid record date."),
+    shopId: optionalId,
   })
   .catchall(jsonValue);
 
@@ -58,6 +61,7 @@ export const transactionReplaceSchema = z
     paymentMode: optionalText,
     description: optionalText,
     status: optionalText,
+    shopId: optionalId,
   })
   .catchall(jsonValue);
 
@@ -71,6 +75,7 @@ export const transactionUpdateSchema = z
     paymentMode: optionalText,
     description: optionalText,
     status: optionalText,
+    shopId: optionalId,
   })
   .catchall(jsonValue);
 
@@ -103,6 +108,7 @@ export const bulkTransactionItemSchema = z
     description: optionalText,
     status: optionalText,
     recordDate: optionalDateInput("Invalid record date."),
+    shopId: optionalId,
   })
   .catchall(jsonValue);
 
@@ -110,7 +116,8 @@ export const bulkTransactionSchema = z
   .array(bulkTransactionItemSchema, { message: "Expected an array of transactions" })
   .min(1, "No transactions provided")
   .max(100, "Too many transactions in one request")
-  .refine(items => new Set(items.map(item => item.type)).size <= 1, { message: "All categories must be same type" });
+  .refine(items => new Set(items.map(item => item.type)).size <= 1, { message: "All categories must be same type" })
+  .refine(items => new Set(items.map(item => item.shopId ?? "")).size <= 1, { message: "All entries in a group must belong to the same shop" });
 
 /** GET /api/transactions */
 export const transactionListQuerySchema = z.object({
@@ -136,10 +143,17 @@ export const transactionListQuerySchema = z.object({
   type: queryString,
   paymentMode: queryString,
   page: queryInt(1, 1, 100000),
+  shopId: shopIdQuery,
 });
 
 /** GET /api/transactions/overview */
 export const transactionOverviewQuerySchema = z.object({
   startDate: queryDate,
   endDate: queryDate,
+  shopId: shopIdQuery,
+});
+
+/** GET /api/transactions/[id] — optional shop for the day-impact totals. */
+export const transactionDetailQuerySchema = z.object({
+  shopId: shopIdQuery,
 });

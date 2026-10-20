@@ -37,10 +37,11 @@ const escapeCsv = (val: unknown) => {
 const fileStamp = () => new Date().toISOString().split('T')[0];
 
 function exportCsv(transactions: Transaction[], s: ExportSummary) {
-  const headers = ['Transaction ID', 'Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount', 'Attachment URL', 'Custom Data', 'Booking ID'];
+  const headers = ['Transaction ID', 'Date', 'Shop', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount', 'Attachment URL', 'Custom Data', 'Booking ID'];
   const rows = transactions.map(tx => [
     escapeCsv(tx.transactionId),
     escapeCsv(new Date(tx.date).toLocaleDateString('en-IN')),
+    escapeCsv(tx.shop?.name),
     escapeCsv(tx.type),
     escapeCsv(tx.category),
     escapeCsv(tx.description),
@@ -82,6 +83,7 @@ async function exportPdf(transactions: Transaction[], s: ExportSummary) {
   const tableData = transactions.map(tx => [
     tx.transactionId ?? '',
     new Date(tx.date).toLocaleDateString('en-IN'),
+    tx.shop?.name ?? '',
     tx.type,
     tx.category,
     tx.description || '',
@@ -90,7 +92,7 @@ async function exportPdf(transactions: Transaction[], s: ExportSummary) {
     tx.amount.toString()
   ]);
   autoTable(doc, {
-    head: [['Transaction ID', 'Date', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount']],
+    head: [['Transaction ID', 'Date', 'Shop', 'Type', 'Category', 'Description', 'Payment Mode', 'Status', 'Amount']],
     body: tableData,
     startY: 20,
   });

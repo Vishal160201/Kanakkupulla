@@ -1,6 +1,8 @@
 // Shared shapes for the Transactions area (ledger list, overview, add/edit
 // form, details modal). Money fields arrive from the API as plain numbers.
 
+import type { ShopSummary } from "./shops";
+
 export type TransactionType = "INCOME" | "EXPENSE";
 
 /** A transaction row as returned by the list / overview APIs. */
@@ -18,6 +20,9 @@ export interface Transaction {
   bookingId?: string | null;
   productOrderId?: string | null;
   groupId?: string | null;
+  /** Shop the entry belongs to. */
+  shopId?: string | null;
+  shop?: ShopSummary | null;
   /** Free-form layout field values; shape depends on the form layout. */
   customData?: unknown;
 }
@@ -68,6 +73,7 @@ export interface TodayTransactionGroup {
   amount: number;
   date: string;
   paymentMode: string;
+  shop?: ShopSummary | null;
   children: Transaction[];
 }
 
@@ -136,6 +142,8 @@ export interface EditableTransaction {
   paymentMode?: string;
   description?: string | null;
   status?: string;
+  shopId?: string | null;
+  shop?: ShopSummary | null;
   customData?: Record<string, unknown> | null;
   items?: { category: string; amount: number | string }[];
 }
@@ -167,6 +175,8 @@ export interface TransactionDetail {
   status: string;
   attachmentUrl?: string | null;
   bookingId?: string | null;
+  shopId?: string | null;
+  shop?: ShopSummary | null;
   booking?: {
     id: string;
     bookingNumber?: string | null;

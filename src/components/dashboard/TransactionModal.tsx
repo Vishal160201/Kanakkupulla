@@ -3,8 +3,9 @@
 import React, { Suspense } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useTransactionForm } from "@/components/transactions/form/useTransactionForm";
-import { evaluateVisibility } from "@/components/transactions/form/transactionFormUtils";
+import { evaluateVisibility, textValue } from "@/components/transactions/form/transactionFormUtils";
 import TransactionFormField from "@/components/transactions/form/TransactionFormField";
+import ShopPickerField from "@/components/transactions/form/ShopPickerField";
 
 function TransactionModalInner() {
   const {
@@ -12,6 +13,7 @@ function TransactionModalInner() {
     isEditMode,
     layoutSchema,
     driveStatus,
+    originalShopId,
     form,
     errors,
     isSubmitting,
@@ -38,6 +40,14 @@ function TransactionModalInner() {
           </div>
 
           <div className="px-5 sm:px-8 py-5 sm:py-6 overflow-y-auto flex-1 min-h-0">
+            {layoutSchema?.sections && (
+              <ShopPickerField
+                value={textValue(form.shopId)}
+                onChange={setField("shopId")}
+                error={errors.shopId}
+                originalShopId={isEditMode ? originalShopId : null}
+              />
+            )}
             {layoutSchema?.sections ? (
               layoutSchema.sections.map((section) => {
                 if (section.visibilityRule && !evaluateVisibility(section.visibilityRule, form)) return null;

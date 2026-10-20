@@ -3,8 +3,8 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { useShops } from "@/components/providers/ShopProvider";
 import { toast } from "sonner";
-import BudgetOverview from "@/components/dashboard/BudgetOverview";
 import HighPriorityAlerts from "@/components/dashboard/HighPriorityAlerts";
 import {
   EMPTY_TEMP_FILTERS,
@@ -32,6 +32,9 @@ function TransactionsList() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { openTransactionDetails, openTransactionForm } = useGlobalForm();
+  const { activeShopId, shops } = useShops();
+  // Label each row with its shop only when several shops are mixed in one list.
+  const showShop = activeShopId === "all" && shops.length > 1;
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -129,7 +132,6 @@ function TransactionsList() {
   return (
     <div className="animate-fade-in w-full">
       <HighPriorityAlerts />
-      <BudgetOverview />
 
       {/* Transaction Activity */}
       <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 animate-slide-up" style={{ animationDelay: "100ms" }}>
@@ -171,6 +173,7 @@ function TransactionsList() {
               <TransactionListRow
                 key={tx.id}
                 tx={tx}
+                showShop={showShop}
                 expandedGroups={expandedGroups}
                 onToggleGroup={toggleGroup}
                 onOpenDetails={openTransactionDetails}

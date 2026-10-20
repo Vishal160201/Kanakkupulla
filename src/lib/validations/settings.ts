@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, jsonObject, jsonValue, nonNegativeAmount, numeric } from "./common";
+import { jsonObject, jsonValue } from "./common";
 
 export const FORM_KEYS = ["BOOKING_FORM", "TRANSACTION_FORM", "GIFT_ORDER_FORM"] as const;
 
@@ -38,31 +38,3 @@ export const systemSettingSchema = z.object({
     .regex(/^[A-Za-z0-9_.-]{1,100}$/, "Invalid setting key"),
   value: jsonValue.refine(v => v !== null, { message: "Missing required fields" }),
 });
-
-const month = numeric("Month must be a number.").pipe(z.number().int().min(1, "Invalid month").max(12, "Invalid month"));
-const year = numeric("Year must be a number.").pipe(z.number().int().min(2000, "Invalid year").max(2100, "Invalid year"));
-
-/** GET /api/settings/budgets */
-export const budgetListQuerySchema = z.object({
-  month: z
-    .string()
-    .optional()
-    .transform(v => (v ? Number(v) : new Date().getMonth() + 1))
-    .pipe(z.number().int().min(1, "Invalid month").max(12, "Invalid month")),
-  year: z
-    .string()
-    .optional()
-    .transform(v => (v ? Number(v) : new Date().getFullYear()))
-    .pipe(z.number().int().min(2000, "Invalid year").max(2100, "Invalid year")),
-});
-
-/** POST /api/settings/budgets */
-export const budgetUpsertSchema = z.object({
-  category: z.string({ message: "Category is required." }).trim().min(1, "Category is required."),
-  month,
-  year,
-  monthlyLimit: nonNegativeAmount("Monthly limit must be zero or more."),
-});
-
-/** DELETE /api/settings/budgets?id= */
-export const budgetDeleteQuerySchema = z.object({ id: idSchema });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requirePermission } from "@/lib/authz";
 import { generateTransactionIds } from "@/lib/transactionId";
+import { resolveShopForWrite, ShopError } from "@/lib/shops";
 import { parseJsonBody } from "@/lib/validations/http";
 import { pickCustomFields } from "@/lib/validations/common";
 import { bulkTransactionSchema } from "@/lib/validations/transactions";
@@ -19,9 +20,12 @@ export async function POST(request: Request) {
     // Generate a unique groupId for this bulk operation
     const groupId = `grp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const transactionIds = await generateTransactionIds(body.length);
+    // The schema guarantees every entry names the same shop (or none → default shop)
+    const shopId = await resolveShopForWrite(body[0]?.shopId);
 
     const transactionsData = body.map((tx, i) => {
-      const { amount, type, date, category, paymentMode, description, status, recordDate, ...restBody } = tx;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- shopId is resolved once for the whole group
+      const { amount, type, date, category, paymentMode, description, status, recordDate, shopId: _itemShopId, ...restBody } = tx;
       const customData = pickCustomFields(restBody);
       return {
         transactionId: transactionIds[i],
@@ -34,6 +38,7 @@ export async function POST(request: Request) {
         status: status || "SETTLED",
         customData: Object.keys(customData).length > 0 ? customData : undefined,
         user: { connect: { id: userId } },
+        shop: { connect: { id: shopId } },
         groupId,
       };
     });
@@ -48,6 +53,7 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to bulk create transactions:", error);
     return NextResponse.json({ error: "Failed to bulk create transactions." }, { status: 500 });
   }

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import prisma, { toNumber } from '@/lib/prisma';
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, sub, format } from 'date-fns';
 import { requirePermission } from "@/lib/authz";
 import { parseSearchParams } from "@/lib/validations/http";
 import { analyticsQuerySchema } from "@/lib/validations/dashboard";
+import { shopWhere } from "@/lib/shops";
 
 type RevenueDay = { date: string; Bookings: number; Gifts: number; 'Xerox/PP': number; Other: number; total: number; isPeak?: boolean };
 type TrendDay = { date: string; income: number; expense: number };
@@ -16,7 +17,9 @@ export async function GET(req: Request) {
 
     const query = parseSearchParams(req, analyticsQuerySchema);
     if (query.error) return query.error;
-    const { startDate: startDateParam, endDate: endDateParam } = query.data;
+    const { startDate: startDateParam, endDate: endDateParam, shopId } = query.data;
+    // Only ledger-derived figures follow the shop filter; booking and gift-order figures are studio-wide
+    const shopFilter = shopWhere(shopId);
     const range = query.data.range ?? 'this-month';
 
     const today = new Date();
@@ -57,11 +60,11 @@ export async function GET(req: Request) {
     // Only the fields the aggregations below need
     const [currentTx, prevTx] = await Promise.all([
       prisma.transaction.findMany({
-        where: { date: { gte: startDate, lte: endDate }, deletedAt: null },
+        where: { date: { gte: startDate, lte: endDate }, deletedAt: null, ...shopFilter },
         select: { id: true, amount: true, type: true, category: true, date: true, booking: { select: { clientId: true } } }
       }),
       prisma.transaction.findMany({
-        where: { date: { gte: prevStartDate, lte: prevEndDate }, deletedAt: null },
+        where: { date: { gte: prevStartDate, lte: prevEndDate }, deletedAt: null, ...shopFilter },
         select: { amount: true, type: true, category: true }
       })
     ]);
@@ -104,7 +107,14 @@ export async function GET(req: Request) {
     
     const totalBilled = orders.reduce((sum, o) => sum + o.package, 0);
     const avgOrderValue = orders.length > 0 ? Math.round(totalBilled / orders.length) : 0;
-    const collectionRate = totalBilled > 0 ? Math.round((totalRevenue / totalBilled) * 100) : 0;
+    // Billing is studio-wide, so the collection rate always uses studio-wide income
+    const studioRevenue = shopId
+      ? toNumber((await prisma.transaction.aggregate({
+          _sum: { amount: true },
+          where: { date: { gte: startDate, lte: endDate }, deletedAt: null, type: 'INCOME' },
+        }))._sum.amount)
+      : totalRevenue;
+    const collectionRate = totalBilled > 0 ? Math.round((studioRevenue / totalBilled) * 100) : 0;
 
     // Booking Funnel
     // Upcoming, Confirmed, Completed, Pending Retouch, Delivered
@@ -292,6 +302,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({
+      shopId: shopId ?? null,
       metrics: {
         totalRevenue,
         totalExpenses,

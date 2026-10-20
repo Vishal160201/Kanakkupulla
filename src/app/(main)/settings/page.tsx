@@ -2,6 +2,7 @@
 
 import { useState, Suspense, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import UserManagement from "@/components/settings/UserManagement";
 import RolesPermissions from "@/components/settings/RolesPermissions";
 import LayoutsFieldsBuilder from "@/components/settings/LayoutsFieldsBuilder";
@@ -10,6 +11,7 @@ import ReminderPreferences from "@/components/settings/ReminderPreferences";
 import RecycleBin from "@/components/settings/RecycleBin";
 import GoogleDriveIntegration from "@/components/settings/integrations/GoogleDriveIntegration";
 import WhatsAppIntegration from "@/components/settings/integrations/WhatsAppIntegration";
+import ShopsSettings from "@/components/settings/shops/ShopsSettings";
 
 const GROUPS = [
   {
@@ -17,6 +19,7 @@ const GROUPS = [
     items: [
       { id: "system", label: "System Preferences", icon: "ph-gear-fine" },
       { id: "notifications", label: "Notification Preferences", icon: "ph-bell" },
+      { id: "shops", label: "Shops", icon: "ph-storefront" },
     ]
   },
   {
@@ -49,6 +52,14 @@ const GROUPS = [
 
 type SectionId = typeof GROUPS[number]["items"][number]["id"];
 
+interface SettingsGroup {
+  label: string;
+  items: readonly { id: SectionId; label: string; icon: string }[];
+}
+
+/** Sections only admins can see / open. */
+const ADMIN_ONLY_SECTIONS: ReadonlySet<SectionId> = new Set<SectionId>(["shops"]);
+
 // Sidebar collapsed preference, persisted in localStorage and read via
 // useSyncExternalStore (server/hydration snapshot = expanded).
 const COLLAPSED_KEY = "settingsPanelCollapsed";
@@ -69,7 +80,7 @@ const setCollapsedPreference = (next: boolean) => {
 };
 
 interface SidebarContentProps {
-  groups: typeof GROUPS;
+  groups: readonly SettingsGroup[];
   activeSection: SectionId;
   onSectionSwitch: (id: SectionId) => void;
   isCollapsed?: boolean;
@@ -153,7 +164,17 @@ function SettingsPage() {
     }, 150); // Delay half the transition duration to swap components
   }, [activeSection, router]);
 
-  const groupsMemo = useMemo(() => GROUPS, []);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  const groupsMemo = useMemo<readonly SettingsGroup[]>(
+    () => isAdmin
+      ? GROUPS
+      : GROUPS
+          .map((group) => ({ ...group, items: group.items.filter((item) => !ADMIN_ONLY_SECTIONS.has(item.id)) }))
+          .filter((group) => group.items.length > 0),
+    [isAdmin]
+  );
 
   return (
     <div className="w-full h-full flex flex-col md:flex-row gap-6 lg:gap-8 relative">
@@ -220,6 +241,9 @@ function SettingsPage() {
           {displayedSection === "whatsapp-bot" && <WhatsAppIntegration />}
           {displayedSection === "system" && <SystemPreferences />}
           {displayedSection === "notifications" && <ReminderPreferences />}
+          {displayedSection === "shops" && (isAdmin ? <ShopsSettings /> : (
+            <div className="p-8 text-center text-slate-500">Only admins can manage shops.</div>
+          ))}
         </div>
       </div>
       

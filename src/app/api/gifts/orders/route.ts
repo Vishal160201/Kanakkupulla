@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/orderId";
 import { broadcastNotification } from "@/lib/notifications";
+import { getDefaultShopId } from "@/lib/shops";
 import { requirePermission, requireUser } from "@/lib/authz";
 import type { Prisma } from "@prisma/client";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
@@ -137,6 +138,8 @@ export async function POST(request: Request) {
           data: {
             productOrder: { connect: { id: order.id } },
             user: { connect: { id: auth.user.id } },
+            // Automatic gift payments go to the default shop
+            shop: { connect: { id: await getDefaultShopId(tx) } },
             amount: txAmount,
             type: "INCOME",
             date: advanceDate ?? recordDate ?? new Date(),

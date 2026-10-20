@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { fetcher } from "@/lib/fetcher";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { useShops } from "@/components/providers/ShopProvider";
 import type {
   EditableTransaction,
   TransactionEditResponse,
@@ -24,6 +25,9 @@ import {
 } from "./transactionFormUtils";
 
 const isTransactionKey = (key: unknown) => typeof key === 'string' && key.startsWith('/api/transactions');
+/** Shop-aware views derived from the ledger (keys carry date / shop query params). */
+const isLedgerDerivedKey = (key: unknown) =>
+  typeof key === 'string' && (key.startsWith('/api/dashboard/overview') || key.startsWith('/api/analytics'));
 
 /** State, data loading and submission for the global add/edit transaction modal. */
 export function useTransactionForm() {
@@ -55,7 +59,7 @@ export function useTransactionForm() {
       undefined,
       { revalidate: true }
     );
-    mutate('/api/dashboard/overview');
+    mutate(isLedgerDerivedKey);
     closeTransactionForm();
   };
 
@@ -70,10 +74,15 @@ export function useTransactionForm() {
 
   const isEditMode = !!editTransaction;
 
+  // New entries start in the shop being viewed; "All Shops" (with several shops) leaves it unset.
+  const { shops, activeShopId, isReady: shopsReady } = useShops();
+  const presetShopId = activeShopId !== "all" ? activeShopId : (shops.length === 1 ? shops[0].id : "");
+  const originalShopId = editTransaction?.shopId ?? null;
+
   // Re-seed the form whenever the modal opens or its source data arrives.
   // Done during render (instead of in an effect) by remembering the inputs it
   // was last seeded from, so the stale form is never committed to the screen.
-  const seedInputs = [isOpen, editTransaction, isTxLoading, layoutSchema, searchParams, transactionInitialData];
+  const seedInputs = [isOpen, editTransaction, isTxLoading, layoutSchema, searchParams, transactionInitialData, shopsReady];
   const [seededFrom, setSeededFrom] = useState<unknown[] | null>(null);
   if (seededFrom === null || seedInputs.some((input, i) => !Object.is(input, seededFrom[i]))) {
     setSeededFrom(seedInputs);
@@ -81,12 +90,15 @@ export function useTransactionForm() {
       if (editTransaction) {
         setForm(buildEditFormState(editTransaction));
       } else if (layoutSchema?.sections) {
-        setForm(buildDefaultFormState(
-          layoutSchema,
-          searchParams.get('type') || transactionInitialData?.type,
-          searchParams.get('category') || transactionInitialData?.category,
-          new Date()
-        ));
+        setForm({
+          ...buildDefaultFormState(
+            layoutSchema,
+            searchParams.get('type') || transactionInitialData?.type,
+            searchParams.get('category') || transactionInitialData?.category,
+            new Date()
+          ),
+          shopId: presetShopId,
+        });
       }
       setErrors({});
     }
@@ -96,6 +108,8 @@ export function useTransactionForm() {
 
   const validate = () => {
     const errs = validateTransactionForm(form, layoutSchema);
+    // Shop is required whenever shops exist (the server would otherwise silently use the default).
+    if (shops.length > 0 && !form.shopId) errs.shopId = "Choose which shop this entry belongs to.";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -108,6 +122,7 @@ export function useTransactionForm() {
     setIsSubmitting(true);
 
     const payload: TransactionFormState = { ...form };
+    if (!payload.shopId) delete payload.shopId;
     if (payload.amount) payload.amount = parseFloat(String(payload.amount));
 
     try {
@@ -189,6 +204,7 @@ export function useTransactionForm() {
     isEditMode,
     layoutSchema,
     driveStatus,
+    originalShopId,
     form,
     errors,
     isSubmitting,

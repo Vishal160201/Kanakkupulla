@@ -182,6 +182,7 @@ export function groupTodayTransactions(todayTransactions: Transaction[]): TodayT
           amount: tx.amount,
           date: tx.date,
           paymentMode: tx.paymentMode,
+          shop: tx.shop,
           children: [tx]
         };
         grouped.set(tx.groupId, newGroup);

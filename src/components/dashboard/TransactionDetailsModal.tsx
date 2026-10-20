@@ -6,6 +6,8 @@ import useSWR, { mutate } from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { toast } from "sonner";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { useShopQueryParam, useShops, withQuery } from "@/components/providers/ShopProvider";
+import ShopBadge from "@/components/shops/ShopBadge";
 import type { TransactionDetailResponse } from "@/types/transactions";
 import TransactionSummarySection from "@/components/transactions/details/TransactionSummarySection";
 import TransactionImpactSection from "@/components/transactions/details/TransactionImpactSection";
@@ -14,10 +16,16 @@ export default function TransactionDetailsModal() {
   const { isTransactionDetailsOpen, transactionDetailsId, closeTransactionDetails, openTransactionForm, openBookingDetails, openGiftOrderDetails } = useGlobalForm();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { data, error, isLoading } = useSWR<TransactionDetailResponse>(
-    isTransactionDetailsOpen && transactionDetailsId ? `/api/transactions/${transactionDetailsId}` : null,
+  // Day-impact totals follow the shop switcher; the shop is part of the key.
+  const shopParam = useShopQueryParam();
+  const { shops, activeShop } = useShops();
+  const { data, error, isLoading: isFetching } = useSWR<TransactionDetailResponse>(
+    isTransactionDetailsOpen && transactionDetailsId && shopParam !== null
+      ? withQuery(`/api/transactions/${transactionDetailsId}`, shopParam)
+      : null,
     fetcher
   );
+  const isLoading = isFetching || (isTransactionDetailsOpen && shopParam === null);
 
   const transaction = data?.transaction;
   const isIncome = transaction?.type === "INCOME";
@@ -97,9 +105,12 @@ export default function TransactionDetailsModal() {
         >
           <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5 sm:px-7">
             <div>
-              <DialogTitle className="text-lg font-black text-slate-950 sm:text-xl">
-                Transaction Details
-              </DialogTitle>
+              <div className="flex min-w-0 items-center gap-2">
+                <DialogTitle className="text-lg font-black text-slate-950 sm:text-xl">
+                  Transaction Details
+                </DialogTitle>
+                {shops.length > 1 && <ShopBadge shop={transaction?.shop} className="text-[11px]" />}
+              </div>
               <p className="mt-0.5 text-[11px] font-semibold text-slate-400 sm:hidden">
                 Review the complete record
               </p>
@@ -146,6 +157,7 @@ export default function TransactionDetailsModal() {
                   impact={data.impact}
                   receipt={receipt}
                   isIncome={isIncome}
+                  scopeLabel={shops.length > 1 ? (activeShop ? activeShop.name : "All shops") : undefined}
                 />
               </div>
             )}

@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/authz";
 import { parseSearchParams } from "@/lib/validations/http";
 import { asJsonRecord } from "@/lib/validations/common";
 import { dashboardOverviewQuerySchema } from "@/lib/validations/dashboard";
+import { shopSummarySelect, shopWhere } from "@/lib/shops";
 
 type PendingAlbum = { id: string; clientName: string; status: string; date: Date };
 
@@ -15,7 +16,10 @@ export async function GET(req: Request) {
 
     const query = parseSearchParams(req, dashboardOverviewQuerySchema);
     if (query.error) return query.error;
-    const { startDate: startDateParam, endDate: endDateParam } = query.data;
+    const { startDate: startDateParam, endDate: endDateParam, shopId } = query.data;
+    // Ledger figures follow the shop switcher; booking and gift figures are studio-wide
+    const shopFilter = shopWhere(shopId);
+    const shopSql = shopId ? Prisma.sql`AND "shopId" = ${shopId}` : Prisma.empty;
 
     const today = new Date();
 
@@ -87,22 +91,22 @@ export async function GET(req: Request) {
 
     const [transactions, dailyTotals, typeAgg, bookingsForChart] = await Promise.all([
       prisma.transaction.findMany({
-        where: { date: { gte: startOfDay, lte: endOfDay }, deletedAt: null },
+        where: { date: { gte: startOfDay, lte: endOfDay }, deletedAt: null, ...shopFilter },
         orderBy: { date: 'desc' },
         take: 10,
-        select: { id: true, transactionId: true, amount: true, type: true, category: true, paymentMode: true, description: true, date: true },
+        select: { id: true, transactionId: true, amount: true, type: true, category: true, paymentMode: true, description: true, date: true, shopId: true, shop: { select: shopSummarySelect } },
       }),
       // Per-day income/expense totals (UTC day, matching toISOString below), aggregated in SQL
       prisma.$queryRaw<{ day: string; type: string; total: Prisma.Decimal | null }[]>`
         SELECT to_char("date", 'YYYY-MM-DD') AS day, "type", SUM("amount") AS total
         FROM "Transaction"
-        WHERE "date" >= ${startOfDay} AND "date" <= ${endOfDay} AND "deletedAt" IS NULL
+        WHERE "date" >= ${startOfDay} AND "date" <= ${endOfDay} AND "deletedAt" IS NULL ${shopSql}
         GROUP BY 1, 2
       `,
       prisma.transaction.groupBy({
         by: ['type'],
         _sum: { amount: true },
-        where: { date: { gte: startOfDay, lte: endOfDay }, deletedAt: null }
+        where: { date: { gte: startOfDay, lte: endOfDay }, deletedAt: null, ...shopFilter }
       }),
       prisma.booking.findMany({
         where: { deletedAt: null },

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requirePermission } from "@/lib/authz";
 import { generateTransactionIds } from "@/lib/transactionId";
+import { resolveShopForWrite, ShopError } from "@/lib/shops";
 import { parseJsonBody } from "@/lib/validations/http";
 import { pickCustomFields } from "@/lib/validations/common";
 import { bulkTransactionSchema } from "@/lib/validations/transactions";
@@ -57,8 +58,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
 
     const existingTransactions = await prisma.transaction.findMany({
       where: { groupId, deletedAt: null },
-      select: { id: true, category: true },
+      select: { id: true, category: true, shopId: true },
     });
+
+    // A group lives in one shop: an explicit shop moves the whole group; otherwise new entries join
+    // the group's current shop (or the default shop for a brand-new group).
+    const requestedShopId = body[0]?.shopId;
+    const currentShopId = existingTransactions[0]?.shopId;
+    const shopId = requestedShopId && requestedShopId !== currentShopId
+      ? await resolveShopForWrite(requestedShopId)
+      : currentShopId ?? (await resolveShopForWrite(undefined));
 
     const existingByCategory = new Map(existingTransactions.map(tx => [tx.category, tx]));
     // Mirrors the loop below: the first entry per existing category updates it, the rest are created.
@@ -70,7 +79,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
     const transactionsToCreate = [];
 
     for (const tx of body) {
-      const { amount, type, date, category, paymentMode, description, status, recordDate, ...restBody } = tx;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- shopId is resolved once for the whole group
+      const { amount, type, date, category, paymentMode, description, status, recordDate, shopId: _itemShopId, ...restBody } = tx;
       const customData = pickCustomFields(restBody);
 
       const payload = {
@@ -82,6 +92,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
         description: description?.trim() || null,
         status: status || "SETTLED",
         customData: Object.keys(customData).length > 0 ? customData : undefined,
+        shopId,
       };
 
       const existing = existingByCategory.get(category);
@@ -96,7 +107,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
           data: {
             ...payload,
             transactionId: newIds[transactionsToCreate.length],
-            user: { connect: { id: userId } },
+            userId,
             groupId
           }
         }));
@@ -117,6 +128,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to update bulk transactions:", error);
     return NextResponse.json({ error: "Failed to update bulk transactions." }, { status: 500 });
   }

@@ -2,6 +2,7 @@
 
 import type { Transaction, TransactionListGroup, TransactionListItem } from "@/types/transactions";
 import { getConsistentColorClasses, getGiftsBadgeInfo, getRelatableIcon } from "../categoryStyles";
+import ShopBadge from "@/components/shops/ShopBadge";
 
 const isGroup = (tx: TransactionListItem): tx is TransactionListGroup => 'isGroup' in tx && tx.isGroup === true;
 
@@ -38,6 +39,8 @@ export function groupLedgerTransactions(transactions: Transaction[]): Transactio
 interface TransactionListRowProps {
   tx: TransactionListItem;
   isChild?: boolean;
+  /** Show the entry's shop (the "All Shops" view). */
+  showShop?: boolean;
   expandedGroups: Set<string>;
   onToggleGroup: (groupId: string) => void;
   onOpenDetails: (id: string) => void;
@@ -45,7 +48,7 @@ interface TransactionListRowProps {
   onDelete: (id: string) => void;
 }
 
-export default function TransactionListRow({ tx, isChild = false, expandedGroups, onToggleGroup, onOpenDetails, onEdit, onDelete }: TransactionListRowProps) {
+export default function TransactionListRow({ tx, isChild = false, showShop = false, expandedGroups, onToggleGroup, onOpenDetails, onEdit, onDelete }: TransactionListRowProps) {
   const group = isGroup(tx) ? tx : null;
   const primaryCategory = group ? group.categoryNames[0] : tx.category;
   const colorClass = getConsistentColorClasses(primaryCategory);
@@ -97,6 +100,7 @@ export default function TransactionListRow({ tx, isChild = false, expandedGroups
                   DUE
                 </span>
               )}
+              {showShop && !isChild && <ShopBadge shop={tx.shop} />}
               <span className="truncate text-[11px] text-slate-400 font-medium shrink-0">{new Date(tx.date).toLocaleDateString('en-GB')} &middot; {tx.paymentMode}</span>
               {!group && <span className="hidden sm:inline text-[10px] text-slate-300 font-mono shrink-0">{tx.transactionId}</span>}
             </div>

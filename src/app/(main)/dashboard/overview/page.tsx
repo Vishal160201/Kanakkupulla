@@ -11,6 +11,9 @@ import TaskAlerts from "@/components/dashboard/TaskAlerts";
 import RevenueTarget from "@/components/dashboard/RevenueTarget";
 import StatCards from "@/components/dashboard/StatCards";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useShopQueryParam, useShops } from "@/components/providers/ShopProvider";
+import ShopSwitcher from "@/components/shops/ShopSwitcher";
+import ActiveShopLabel from "@/components/shops/ActiveShopLabel";
 import { GiftShopCard, RecentTransactionsCard, UpcomingShootsCard } from "./DashboardCards";
 import type { DashboardOverviewResponse } from "./types";
 
@@ -25,15 +28,25 @@ const fetcher = async (url: string) => {
 function DashboardMetrics({ dateRange }: { dateRange: { startDate: Date; endDate: Date } | null }) {
   const { checkPermission } = usePermissions();
   const canViewAnalytics = checkPermission('view_export_analytics');
-  
+  // Ledger figures (income, expense, revenue chart, recent transactions) follow the shop switcher.
+  const shopParam = useShopQueryParam();
+
   const query = useMemo(() => {
-    if (!dateRange) return '';
-    return `?startDate=${dateRange.startDate.toISOString()}&endDate=${dateRange.endDate.toISOString()}`;
-  }, [dateRange]);
+    const params = new URLSearchParams();
+    if (dateRange) {
+      params.set('startDate', dateRange.startDate.toISOString());
+      params.set('endDate', dateRange.endDate.toISOString());
+    }
+    const qs = [params.toString(), shopParam].filter(Boolean).join('&');
+    return qs ? `?${qs}` : '';
+  }, [dateRange, shopParam]);
 
-  const { data, error, isLoading } = useSWR<DashboardOverviewResponse>(`/api/dashboard/overview${query}`, fetcher);
+  const { data, error, isLoading } = useSWR<DashboardOverviewResponse>(
+    shopParam === null ? null : `/api/dashboard/overview${query}`,
+    fetcher
+  );
 
-  if (isLoading) return <DashboardSkeleton />;
+  if (isLoading || shopParam === null) return <DashboardSkeleton />;
   if (error || !data) {
     return (
       <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200">
@@ -125,10 +138,23 @@ function DashboardSkeleton() {
 
 export default function OverviewPage() {
   const [dateRange, setDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null);
+  const { shops } = useShops();
 
   return (
     <section id="view-dashboard" className="flex flex-col gap-5 w-full max-w-[1400px] mx-auto pb-20 pt-4 bg-[#fafafa] min-h-screen">
       <OverdueBookingBanners />
+
+      {shops.length > 1 && (
+        <div className="flex flex-col gap-2">
+          <ShopSwitcher />
+          <div className="flex flex-wrap items-center gap-2">
+            <ActiveShopLabel />
+            <span className="text-[11px] font-semibold text-slate-400">
+              Income, expenses and recent transactions follow the selected shop; bookings and gift orders are studio-wide.
+            </span>
+          </div>
+        </div>
+      )}
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <QuickActions />

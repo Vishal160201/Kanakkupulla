@@ -69,29 +69,6 @@ export async function DELETE(
     }
 
     await prisma.$transaction(async tx => {
-      // Budgets are studio-wide but owned by their creator (and block the delete), so hand them to
-      // the acting admin; where the admin already has the same budget, the deleted user's copy goes.
-      const budgets = await tx.categoryBudget.findMany({
-        where: { userId: id },
-        select: { id: true, category: true, month: true, year: true },
-      });
-      if (budgets.length > 0) {
-        const adminBudgets = await tx.categoryBudget.findMany({
-          where: {
-            userId: currentUserId,
-            OR: budgets.map(b => ({ category: b.category, month: b.month, year: b.year })),
-          },
-          select: { category: true, month: true, year: true },
-        });
-        const key = (b: { category: string; month: number; year: number }) => `${b.category}|${b.month}|${b.year}`;
-        const adminKeys = new Set(adminBudgets.map(key));
-        const duplicateIds = budgets.filter(b => adminKeys.has(key(b))).map(b => b.id);
-        const transferIds = budgets.filter(b => !adminKeys.has(key(b))).map(b => b.id);
-
-        await tx.categoryBudget.deleteMany({ where: { id: { in: duplicateIds } } });
-        await tx.categoryBudget.updateMany({ where: { id: { in: transferIds } }, data: { userId: currentUserId } });
-      }
-
       await tx.account.deleteMany({ where: { userId: id } });
       await tx.session.deleteMany({ where: { userId: id } });
       await tx.user.delete({ where: { id } });

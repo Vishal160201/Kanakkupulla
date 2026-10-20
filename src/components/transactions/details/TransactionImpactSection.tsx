@@ -12,10 +12,12 @@ interface TransactionImpactSectionProps {
   impact: TransactionImpact;
   receipt: ReceiptInfo | null;
   isIncome: boolean;
+  /** Which shop(s) the day totals cover, when there is more than one shop. */
+  scopeLabel?: string;
 }
 
 /** Right column of the details modal: day impact, attachment, record info. */
-export default function TransactionImpactSection({ transaction, impact, receipt, isIncome }: TransactionImpactSectionProps) {
+export default function TransactionImpactSection({ transaction, impact, receipt, isIncome, scopeLabel }: TransactionImpactSectionProps) {
   const signedImpact = isIncome ? transaction.amount || 0 : -(transaction.amount || 0);
 
   return (
@@ -24,6 +26,7 @@ export default function TransactionImpactSection({ transaction, impact, receipt,
         <h3 className="text-base font-black text-slate-900">Impact on selected day</h3>
         <p className="mt-1 text-xs font-semibold text-slate-400">
           Totals for {new Date(transaction.date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+          {scopeLabel && <> &middot; {scopeLabel}</>}
         </p>
       </div>
 

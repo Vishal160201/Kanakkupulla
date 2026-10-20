@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { useShopQueryParam } from "@/components/providers/ShopProvider";
 import type { AnalyticsMetrics, AnalyticsResponse, TopClient } from "@/components/analytics/types";
 import AnalyticsHeader from "@/components/analytics/AnalyticsHeader";
 import { KpiStrip, SmartInsightsPanel } from "@/components/analytics/InsightsAndKpis";
@@ -63,16 +64,24 @@ export default function AnalyticsPage() {
     setActiveClient(null);
   };
 
+  // Ledger-derived figures follow the shop switcher (held back until the shop is known).
+  const shopParam = useShopQueryParam();
+
   // Query Params
   const queryStr = useMemo(() => {
     let q = `?range=${dateRange}`;
     if (dateRange === 'custom' && confirmedCustomRange.start && confirmedCustomRange.end) {
       q += `&startDate=${confirmedCustomRange.start}&endDate=${confirmedCustomRange.end}`;
     }
+    if (shopParam) q += `&${shopParam}`;
     return q;
-  }, [dateRange, confirmedCustomRange]);
+  }, [dateRange, confirmedCustomRange, shopParam]);
 
-  const { data: analyticsData, isLoading } = useSWR<AnalyticsResponse>(`/api/analytics/unified${queryStr}`, fetcher);
+  const { data: analyticsData, isLoading: isFetching } = useSWR<AnalyticsResponse>(
+    shopParam === null ? null : `/api/analytics/unified${queryStr}`,
+    fetcher
+  );
+  const isLoading = isFetching || shopParam === null;
 
   const data: AnalyticsResponse = analyticsData || {};
   const metrics = data.metrics || EMPTY_METRICS;

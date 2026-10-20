@@ -2,6 +2,7 @@ import type { Prisma, RecycleBin } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getGoogleDriveToken, type DriveSession } from "@/lib/googleDriveAuth";
 import { roleHasPermission, type SessionUser } from "@/lib/authz";
+import { getDefaultShopId } from "@/lib/shops";
 
 export const PRODUCT_ORDER_TYPES = ["product-order", "gift", "frame"];
 
@@ -138,6 +139,14 @@ export async function restoreEntry(entry: RecycleBin) {
     const order = data as ProductOrderSnapshot;
     const transactions = Array.isArray(order.transactions) ? order.transactions.filter(t => !t.deletedAt) : [];
     await prisma.$transaction(async tx => {
+      // Snapshots from before shops existed have no shopId, and a snapshot's shop may since have
+      // been deleted (its entries were removed with the order), so fall back to the default shop.
+      const snapshotShopIds = [...new Set(transactions.map(t => t.shopId).filter((id): id is string => !!id))];
+      const existingShopIds = new Set(
+        (await tx.shop.findMany({ where: { id: { in: snapshotShopIds } }, select: { id: true } })).map(s => s.id)
+      );
+      const defaultShopId = transactions.length > 0 ? await getDefaultShopId(tx) : "";
+
       await tx.productOrder.create({
         data: {
           id: order.id,
@@ -174,7 +183,7 @@ export async function restoreEntry(entry: RecycleBin) {
             customData: t.customData ?? undefined,
             bookingId: t.bookingId,
             groupId: t.groupId,
-            shopId: t.shopId,
+            shopId: t.shopId && existingShopIds.has(t.shopId) ? t.shopId : defaultShopId,
             productOrderId: entry.itemId,
             userId: t.userId,
             createdAt: toDate(t.createdAt),

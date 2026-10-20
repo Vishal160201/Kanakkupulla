@@ -4,7 +4,8 @@ Kanakkupulla is a management app for a photography studio. It covers:
 
 - **Bookings**: shoots, clients, calendar, upcoming shoots and overdue alerts
 - **Album tracking**: progress of albums and deliverables for each booking
-- **Transactions ledger**: income and expenses, budgets, PDF exports
+- **Transactions ledger (Daily Kanakku)**: income and expenses per shop, with a shop switcher, CSV/PDF exports
+- **Shops**: admins manage shops in Settings → Shops; booking and gift payments go to the default shop
 - **Gifts & frames orders**: product orders with invoices
 - **Analytics**: dashboards for revenue, bookings and orders
 - **Roles & permissions**: Admin, Staff and Photographer roles with per-module permissions
@@ -63,6 +64,8 @@ Schema changes are managed with Prisma Migrate. Migrations live in `prisma/migra
 
 - `0_init` is the baseline. It matches the schema the existing (`db push`-managed) production database already has.
 - `1_invoices_and_shops` adds `Shop`, `Invoice`, `InvoiceLineItem`, the optional `Transaction.shopId` and new `Transaction` indexes.
+- `2_money_decimal_and_indexes` stores money as `numeric(12,2)` and adds indexes and cascades.
+- `3_multi_shop` creates "Main Shop", moves every existing transaction into it, makes `Transaction.shopId` required, stores the default shop in the `default_shop_id` system setting, and drops the removed `CategoryBudget` table (it refuses to run if that table has rows).
 
 Steps:
 

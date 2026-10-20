@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
+import { useShopQueryParam, useShops } from "@/components/providers/ShopProvider";
 import type { TransactionLayoutResponse, TransactionsOverviewResponse } from "@/types/transactions";
 import {
   buildHeatmapSegments,
@@ -23,17 +24,22 @@ import DailyNetTrendCard from "@/components/transactions/overview/DailyNetTrendC
 import SmartInsightBanner from "@/components/transactions/overview/SmartInsightBanner";
 
 export default function OverviewPage() {
+  const shopParam = useShopQueryParam();
+  const { activeShopId, shops } = useShops();
+  const showShop = activeShopId === "all" && shops.length > 1;
+
   const queryStr = React.useMemo(() => {
     const todayDate = new Date();
     const yearStart = new Date(todayDate.getFullYear(), 0, 1);
     return `?startDate=${yearStart.toISOString()}`;
   }, []);
 
-  const overviewKey = `/api/transactions/overview${queryStr}`;
+  // Held back (null) until the active shop is known; the shop is part of the key.
+  const overviewKey = shopParam === null ? null : `/api/transactions/overview${queryStr}${shopParam ? `&${shopParam}` : ''}`;
   const { data, isLoading } = useSWR<TransactionsOverviewResponse>(overviewKey, fetcher);
   const { data: layoutRes } = useSWR<TransactionLayoutResponse>('/api/settings/layouts/TRANSACTION_FORM', fetcher);
 
-  if (isLoading || !data) {
+  if (isLoading || !data || !overviewKey) {
     return <div className="flex justify-center items-center h-64"><div className="animate-pulse w-8 h-8 rounded-full bg-orange-500"></div></div>;
   }
 
@@ -123,6 +129,7 @@ export default function OverviewPage() {
         todayExpense={todayExpense}
         todayNet={todayNet}
         todayTransactions={todayTransactions}
+        showShop={showShop}
       />
 
       <div className="flex items-end justify-between gap-4 mb-4">

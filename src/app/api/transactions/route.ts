@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import prisma, { toNumber } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/notifications";
 import { generateNextTransactionId } from "@/lib/transactionId";
+import { resolveShopForWrite, shopSummarySelect, shopWhere, ShopError } from "@/lib/shops";
 import { canWriteTransaction, forbiddenResponse, requirePermission, requireUser } from "@/lib/authz";
 import type { Prisma } from "@prisma/client";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
@@ -21,10 +22,10 @@ export async function GET(request: Request) {
 
   const query = parseSearchParams(request, transactionListQuerySchema);
   if (query.error) return query.error;
-  const { month, categories: category, view, dateFrom, dateTo, amountMin, amountMax, category: legacyCategory, type, paymentMode, page } = query.data;
+  const { month, categories: category, view, dateFrom, dateTo, amountMin, amountMax, category: legacyCategory, type, paymentMode, page, shopId } = query.data;
 
   try {
-    const whereClause: Prisma.TransactionWhereInput = { deletedAt: null };
+    const whereClause: Prisma.TransactionWhereInput = { deletedAt: null, ...shopWhere(shopId) };
     // 1. Date Logic — F4: Fixed date mutation bug by NOT reusing the same `now` object
     if (dateFrom || dateTo) {
       whereClause.date = {
@@ -88,6 +89,7 @@ export async function GET(request: Request) {
         ],
         take: PAGE_SIZE,
         skip: (page - 1) * PAGE_SIZE,
+        include: { shop: { select: shopSummarySelect } },
       }),
       prisma.transaction.count({ where: whereClause }),
     ]);
@@ -119,7 +121,7 @@ export async function POST(request: Request) {
 
     const parsed = await parseJsonBody(request, transactionCreateSchema);
     if (parsed.error) return parsed.error;
-    const { amount: parsedAmount, type, date, category, paymentMode, description, status, productOrderId, bookingId, recordDate, ...restBody } = parsed.data;
+    const { amount: parsedAmount, type, date, category, paymentMode, description, status, productOrderId, bookingId, recordDate, shopId, ...restBody } = parsed.data;
 
     if (!(await canWriteTransaction(auth.user, { bookingId, productOrderId }))) {
       return forbiddenResponse();
@@ -127,6 +129,8 @@ export async function POST(request: Request) {
 
     const customData = pickCustomFields(restBody);
     const txDate = recordDate ?? date;
+    // Entries without a shop (booking advances, gift payments, older clients) go to the default shop
+    const resolvedShopId = await resolveShopForWrite(shopId);
 
     const transactionId = await generateNextTransactionId();
 
@@ -144,7 +148,9 @@ export async function POST(request: Request) {
         ...(bookingId ? { booking: { connect: { id: bookingId } } } : {}),
         customData: Object.keys(customData).length > 0 ? customData : undefined,
         user: { connect: { id: userId } },
+        shop: { connect: { id: resolvedShopId } },
       },
+      include: { shop: { select: shopSummarySelect } },
     });
 
     if (type === "INCOME") {
@@ -158,44 +164,6 @@ export async function POST(request: Request) {
         entityType: "transaction",
         skipUserId: userId
       }).catch(console.error);
-    } else if (type === "EXPENSE") {
-      // Check Budget limits
-      const month = txDate.getMonth() + 1;
-      const year = txDate.getFullYear();
-      
-      const budget = await prisma.categoryBudget.findFirst({
-        where: { category, month, year }
-      });
-
-      if (budget) {
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0, 23, 59, 59, 999);
-        
-        const categoryExpenses = await prisma.transaction.aggregate({
-          where: {
-            type: "EXPENSE",
-            category,
-            date: { gte: startDate, lte: endDate },
-            status: "SETTLED",
-            deletedAt: null
-          },
-          _sum: { amount: true }
-        });
-        
-        const totalSpent = toNumber(categoryExpenses._sum.amount);
-        
-        if (totalSpent > budget.monthlyLimit) {
-           broadcastNotification({
-             title: "Budget Exceeded",
-             message: `⚠️ ${category} budget exceeded by ₹${totalSpent - budget.monthlyLimit}.`,
-             type: "BUDGET_EXCEEDED",
-             actionUrl: `/settings`,
-             entityId: budget.id,
-             entityType: "budget",
-             priority: "HIGH"
-           }).catch(console.error);
-        }
-      }
     }
 
     return NextResponse.json(newTransaction, {
@@ -203,6 +171,7 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to create transaction:", error);
     return NextResponse.json({ error: "Failed to create transaction." }, { status: 500 });
   }
@@ -215,7 +184,7 @@ export async function PUT(request: Request) {
   try {
     const parsed = await parseJsonBody(request, transactionReplaceSchema);
     if (parsed.error) return parsed.error;
-    const { id, amount: parsedAmount, type, date, category, paymentMode, description, status, ...restBody } = parsed.data;
+    const { id, amount: parsedAmount, type, date, category, paymentMode, description, status, shopId, ...restBody } = parsed.data;
 
     const existing = await prisma.transaction.findFirst({ where: { id, deletedAt: null } });
     if (!existing) {
@@ -226,6 +195,8 @@ export async function PUT(request: Request) {
     }
 
     const customData = { ...asJsonRecord(existing.customData), ...pickCustomFields(restBody) };
+    // Moving an entry to another shop requires that shop to be active
+    const nextShopId = shopId && shopId !== existing.shopId ? await resolveShopForWrite(shopId) : undefined;
 
     const updated = await prisma.transaction.update({
       where: { id },
@@ -238,11 +209,14 @@ export async function PUT(request: Request) {
         description: description?.trim() || null,
         status: status || existing.status,
         customData: Object.keys(customData).length > 0 ? customData : undefined,
+        ...(nextShopId ? { shopId: nextShopId } : {}),
       },
+      include: { shop: { select: shopSummarySelect } },
     });
 
     return NextResponse.json(updated, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to update transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }

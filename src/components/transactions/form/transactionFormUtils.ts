@@ -80,7 +80,8 @@ export function buildEditFormState(editTransaction: EditableTransaction): Transa
     paymentMode: editTransaction.paymentMode,
     description: editTransaction.description || "",
     status: editTransaction.status,
-    ...(editTransaction.customData || {})
+    ...(editTransaction.customData || {}),
+    shopId: editTransaction.shopId ?? "",
   };
 
   if (editTransaction.items && Array.isArray(editTransaction.items)) {

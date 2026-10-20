@@ -30,7 +30,6 @@ function extend(client: PrismaClient) {
       transaction: { amount: money('amount') },
       product: { price: money('price') },
       productOrder: { discountAmount: money('discountAmount') },
-      categoryBudget: { monthlyLimit: money('monthlyLimit') },
       invoice: { discount: money('discount') },
       invoiceLineItem: { rate: money('rate'), amount: money('amount') },
     },

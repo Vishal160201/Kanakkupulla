@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import prisma, { toNumber } from "@/lib/prisma";
 import { canWriteTransaction, forbiddenResponse, requirePermission, requireUser } from "@/lib/authz";
 import { DEFAULT_LAYOUTS } from "@/lib/defaultLayouts";
-import { parseJsonBody } from "@/lib/validations/http";
+import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
+import { resolveShopForWrite, shopSummarySelect, shopWhere, ShopError } from "@/lib/shops";
 import { asJsonRecord, pickCustomFields } from "@/lib/validations/common";
-import { transactionPatchSchema, transactionUpdateSchema } from "@/lib/validations/transactions";
+import { transactionDetailQuerySchema, transactionPatchSchema, transactionUpdateSchema } from "@/lib/validations/transactions";
 
 type LayoutField = { id: string; name: string; type: string };
 
@@ -33,6 +34,9 @@ const endOfDay = (date: Date) =>
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission("view_transactions", "manage_transactions", "manage_bookings");
   if (auth.error) return auth.error;
+
+  const query = parseSearchParams(request, transactionDetailQuerySchema);
+  if (query.error) return query.error;
 
   try {
     const { id } = await params;
@@ -78,6 +82,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         },
         user: booking.createdBy || null,
         productOrder: null,
+        shopId: null,
+        shop: null,
         customFields: []
       };
 
@@ -102,7 +108,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           },
         },
         user: { select: { id: true, name: true, email: true } },
-        productOrder: { select: { id: true, orderNumber: true } }
+        productOrder: { select: { id: true, orderNumber: true } },
+        shop: { select: shopSummarySelect },
       },
     });
 
@@ -114,9 +121,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       gte: startOfDay(transaction.date),
       lte: endOfDay(transaction.date),
     };
+    // Day totals follow the shop being viewed (all shops when none is selected)
     const scopedDayWhere = {
       date: dateRange,
       deletedAt: null,
+      ...shopWhere(query.data.shopId),
     };
 
     const [incomeAggregate, expenseAggregate, categoryAggregate, layout] = await Promise.all([
@@ -226,7 +235,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const parsed = await parseJsonBody(request, transactionUpdateSchema);
     if (parsed.error) return parsed.error;
-    const { amount, type, date, category, paymentMode, description, status, ...restBody } = parsed.data;
+    const { amount, type, date, category, paymentMode, description, status, shopId, ...restBody } = parsed.data;
 
     const existing = await prisma.transaction.findUnique({
       where: { id },
@@ -239,6 +248,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const customData = { ...asJsonRecord(existing.customData), ...pickCustomFields(restBody) };
+    // Moving an entry to another shop requires that shop to be active
+    const nextShopId = shopId && shopId !== existing.shopId ? await resolveShopForWrite(shopId) : undefined;
 
     const updatedTransaction = await prisma.transaction.update({
       where: { id },
@@ -251,13 +262,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         ...(description !== undefined && { description: description?.trim() || null }),
         ...(status && { status }),
         ...(Object.keys(customData).length > 0 && { customData }),
+        ...(nextShopId && { shopId: nextShopId }),
       },
+      include: { shop: { select: shopSummarySelect } },
     });
 
     return NextResponse.json(updatedTransaction, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to update transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
