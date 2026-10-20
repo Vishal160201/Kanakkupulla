@@ -12,6 +12,7 @@ import RecycleBin from "@/components/settings/RecycleBin";
 import GoogleDriveIntegration from "@/components/settings/integrations/GoogleDriveIntegration";
 import WhatsAppIntegration from "@/components/settings/integrations/WhatsAppIntegration";
 import ShopsSettings from "@/components/settings/shops/ShopsSettings";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 const GROUPS = [
   {
@@ -90,14 +91,17 @@ const SidebarContent = ({ groups, activeSection, onSectionSwitch, isCollapsed = 
   const router = useRouter();
   return (
   <div className="flex flex-col h-full py-4 px-3 overflow-y-auto no-scrollbar overflow-x-hidden">
-    <button 
-      onClick={() => router.push('/')} 
-      className={`flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-800 transition-colors mb-4 ${isCollapsed ? 'justify-center px-0' : ''}`}
-      title={isCollapsed ? "Back" : undefined}
-    >
-      <i className="ph-bold ph-arrow-left text-lg shrink-0"></i>
-      {!isCollapsed && <span className="text-[0.85rem] font-bold">Back</span>}
-    </button>
+    <Tooltip content={isCollapsed ? "Back" : undefined} side="right">
+      <button
+        type="button"
+        onClick={() => router.push('/')}
+        aria-label={isCollapsed ? "Back" : undefined}
+        className={`flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-800 transition-colors mb-4 ${isCollapsed ? 'justify-center px-0' : ''}`}
+      >
+        <i className="ph-bold ph-arrow-left text-lg shrink-0"></i>
+        {!isCollapsed && <span className="text-[0.85rem] font-bold">Back</span>}
+      </button>
+    </Tooltip>
 
     {groups.map((group, groupIdx) => (
       <div key={group.label} className={groupIdx > 0 ? "mt-6" : ""}>
@@ -108,21 +112,23 @@ const SidebarContent = ({ groups, activeSection, onSectionSwitch, isCollapsed = 
           {group.items.map((item) => {
             const isActive = activeSection === item.id;
             return (
-              <button
-                key={item.id}
-                onClick={() => onSectionSwitch(item.id)}
-                title={isCollapsed ? item.label : undefined}
-                className={`flex items-center gap-3 py-2.5 rounded-xl transition-all duration-200 text-[0.85rem] font-semibold outline-none ${
-                  isCollapsed ? 'justify-center px-0' : 'px-3'
-                } ${
-                  isActive 
-                    ? "bg-orange-50 text-orange-600" 
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                <i className={`${isActive ? "ph-fill" : "ph"} ${item.icon} text-lg shrink-0 ${isActive ? "text-orange-500" : "text-slate-400"}`}></i>
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
-              </button>
+              <Tooltip key={item.id} content={isCollapsed ? item.label : undefined} side="right">
+                <button
+                  type="button"
+                  onClick={() => onSectionSwitch(item.id)}
+                  aria-label={isCollapsed ? item.label : undefined}
+                  className={`flex items-center gap-3 py-2.5 rounded-xl transition-all duration-200 text-[0.85rem] font-semibold outline-none ${
+                    isCollapsed ? 'justify-center px-0' : 'px-3'
+                  } ${
+                    isActive
+                      ? "bg-orange-50 text-orange-600"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <i className={`${isActive ? "ph-fill" : "ph"} ${item.icon} text-lg shrink-0 ${isActive ? "text-orange-500" : "text-slate-400"}`}></i>
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                </button>
+              </Tooltip>
             );
           })}
         </div>

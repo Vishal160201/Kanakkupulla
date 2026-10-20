@@ -2,6 +2,7 @@
 
 import { AlertTriangle, CheckCircle2, Loader2, Tag, Wallet } from "lucide-react";
 import type { GiftOrderDetails } from "./useGiftOrderDetails";
+import DatePickerInput from "@/components/ui/DatePickerInput";
 
 interface RollbackWarningProps {
   isUpdatingStatus: string | null;
@@ -79,14 +80,11 @@ export function DueCollectionPanel({ dueAmount, collection }: DueCollectionPanel
             className="w-full bg-white border border-amber-200 rounded-xl pl-6 pr-3 py-2 text-slate-800 font-bold text-xs focus:border-amber-400 focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
-        <div className="relative w-full sm:w-36">
-          <input
-            type="date"
-            aria-label="Collection date"
-            value={dueCollectionDate}
-            onChange={(e) => setDueCollectionDate(e.target.value)}
-            disabled={disabled}
-            className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-slate-800 font-bold text-xs focus:border-amber-400 focus:outline-none transition-colors"
+        <div className={`relative w-full sm:w-40 ${disabled ? "pointer-events-none opacity-60" : ""}`} aria-label="Collection date">
+          <DatePickerInput
+            value={dueCollectionDate || null}
+            onChange={setDueCollectionDate}
+            className="flex h-[38px] w-full items-center justify-between rounded-xl border border-amber-200 bg-white px-3 text-xs font-bold text-slate-800 cursor-pointer hover:border-amber-400 transition-colors"
           />
         </div>
         <div className="flex gap-2 w-full sm:w-auto">

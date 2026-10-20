@@ -20,6 +20,10 @@ function ResetPasswordForm() {
   const resetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!password) {
+      setError("Enter a new password.");
+      return;
+    }
 
     if (!token) {
       setError("Invalid or missing token.");
@@ -88,7 +92,7 @@ function ResetPasswordForm() {
         </div>
       )}
 
-      <form onSubmit={resetPassword} className="flex flex-col gap-5">
+      <form onSubmit={resetPassword} noValidate className="flex flex-col gap-5">
         <div className="relative">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
             <i className="ph ph-lock-key text-[1.1rem]"></i>
@@ -99,7 +103,6 @@ function ResetPasswordForm() {
             className="w-full h-[50px] pl-11 pr-11 bg-white border border-slate-200 rounded-full text-[0.95rem] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-400"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
           />
           <button
             type="button"
@@ -122,7 +125,6 @@ function ResetPasswordForm() {
             className="w-full h-[50px] pl-11 pr-4 bg-white border border-slate-200 rounded-full text-[0.95rem] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-400"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            required
           />
         </div>
 

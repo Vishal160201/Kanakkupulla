@@ -114,10 +114,10 @@ async function deliver(user: Recipient, content: NotificationContent): Promise<s
   if (WHATSAPP_ENABLED && user.phone) {
     const cleanPhone = user.phone.replace(/[^0-9]/g, "");
     if (cleanPhone.length >= 10) {
-      let prefix = "🔔 *Moondot Notification*";
-      if (priority === "HIGH") prefix = "🚨 *High Priority Alert*";
-      else if (type === "BOOKING_CREATED") prefix = "🆕 *New Booking Alert*";
-      else if (type === "BOOKING_UPDATED") prefix = "🔄 *Status Update*";
+      let prefix = "*Moondot Notification*";
+      if (priority === "HIGH") prefix = "*High Priority Alert*";
+      else if (type === "BOOKING_CREATED") prefix = "*New Booking Alert*";
+      else if (type === "BOOKING_UPDATED") prefix = "*Status Update*";
 
       let text = `${prefix}\n\n${message}`;
       if (link) text += `\n\nView details: ${link}`;

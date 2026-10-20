@@ -110,7 +110,7 @@ export default function OverdueBookingBanners() {
             </div>
             <div>
               <p className="text-[15px] font-bold text-slate-800">
-                📸 {booking.client?.name}&apos;s shoot on {format(new Date(booking.date), "MMM d, yyyy")}
+                <i className="ph-bold ph-camera text-slate-500 mr-1.5 align-[-2px]" />{booking.client?.name}&apos;s shoot on {format(new Date(booking.date), "MMM d, yyyy")}
               </p>
             </div>
           </div>

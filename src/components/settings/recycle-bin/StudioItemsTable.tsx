@@ -2,6 +2,7 @@
 
 import RowActions from "./RowActions";
 import type { StudioRecycleBinState } from "./useStudioRecycleBin";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 const typeBadgeClass = (type: string) =>
   type === "INCOME" ? "bg-emerald-500/15 text-emerald-600" :
@@ -70,10 +71,14 @@ export default function StudioItemsTable({ bin }: { bin: StudioRecycleBinState }
                   />
                 </td>
                 <td className="p-4 max-w-[150px]">
-                  <span className="text-sm font-bold text-slate-500 font-mono block truncate" title={item.transactionId}>{item.transactionId}</span>
+                  <Tooltip content={item.transactionId}>
+                    <span className="text-sm font-bold text-slate-500 font-mono block truncate">{item.transactionId}</span>
+                  </Tooltip>
                 </td>
                 <td className="p-4 max-w-[200px]">
-                  <span className="text-sm font-bold text-slate-900 block truncate" title={item.entryName}>{item.entryName}</span>
+                  <Tooltip content={item.entryName}>
+                    <span className="text-sm font-bold text-slate-900 block truncate">{item.entryName}</span>
+                  </Tooltip>
                 </td>
                 <td className="p-4">
                   <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold tracking-wide capitalize ${typeBadgeClass(item.originalType)}`}>

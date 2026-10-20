@@ -3,6 +3,7 @@
 import type { FormField } from "@/types/settings";
 import { getFieldTypeDef } from "./constants";
 import type { CanvasDrag } from "./useCanvasDrag";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface FieldCardProps {
   field: FormField;
@@ -89,15 +90,16 @@ export default function FieldCard({ field, index, sectionId, isSectionLocked, is
         {/* Floating Action Menu (Delete) */}
         {!isSectionLocked && (
           <div className={`absolute -right-2 -top-2 bg-white border border-gray-200 rounded-full shadow-sm flex items-center transition-opacity z-20 ${isSelected ? "opacity-100" : "opacity-0 group-hover/field:opacity-100"}`}>
-            <button
-              type="button"
-              onClick={(e) => onRemove(sectionId, field.id, e)}
-              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-600 rounded-full hover:bg-slate-50"
-              title="Delete Field"
-              aria-label="Delete field"
-            >
-              <i className="ph-bold ph-trash"></i>
-            </button>
+            <Tooltip content="Delete Field">
+              <button
+                type="button"
+                onClick={(e) => onRemove(sectionId, field.id, e)}
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-600 rounded-full hover:bg-slate-50"
+                aria-label="Delete field"
+              >
+                <i className="ph-bold ph-trash"></i>
+              </button>
+            </Tooltip>
           </div>
         )}
       </div>

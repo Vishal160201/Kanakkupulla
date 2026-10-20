@@ -14,6 +14,7 @@ interface BookingTableProps {
 }
 
 import { useEffect } from 'react';
+import { Tooltip } from "@/components/ui/Tooltip";
 
 export default function BookingTable({ bookings, currentPage = 1, totalPages = 1 }: BookingTableProps) {
   const { filters, setHasData } = useBookings();
@@ -239,9 +240,11 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
 
               return (
                 <div className="flex gap-1.5 items-center">
-                  <button type="button" onClick={() => navigateTo(1)} disabled={currentPage === 1} className={baseBtnClass} title="First Page">
-                    First
-                  </button>
+                  <Tooltip content="First page">
+                    <button type="button" onClick={() => navigateTo(1)} disabled={currentPage === 1} className={baseBtnClass}>
+                      First
+                    </button>
+                  </Tooltip>
                   <button type="button" onClick={() => navigateTo(currentPage - 1)} disabled={currentPage <= 1} className={baseBtnClass}>
                     Prev
                   </button>
@@ -253,9 +256,11 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
                   <button type="button" onClick={() => navigateTo(currentPage + 1)} disabled={currentPage >= totalPages} className={baseBtnClass}>
                     Next
                   </button>
-                  <button type="button" onClick={() => navigateTo(totalPages)} disabled={currentPage === totalPages} className={baseBtnClass} title="Last Page">
-                    Last
-                  </button>
+                  <Tooltip content="Last page">
+                    <button type="button" onClick={() => navigateTo(totalPages)} disabled={currentPage === totalPages} className={baseBtnClass}>
+                      Last
+                    </button>
+                  </Tooltip>
                 </div>
               );
             })()}

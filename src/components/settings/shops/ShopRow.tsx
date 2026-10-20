@@ -1,6 +1,8 @@
 "use client";
 
 import type { Shop } from "@/types/shops";
+import ShopIcon from "@/components/shops/ShopIcon";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface ShopRowProps {
   shop: Shop;
@@ -30,7 +32,7 @@ export default function ShopRow({ shop, isBusy, isLastActive, onEdit, onSetDefau
           className="w-11 h-11 shrink-0 rounded-xl flex items-center justify-center text-xl text-white shadow-sm"
           style={{ backgroundColor: shop.color }}
         >
-          {shop.icon || <i className="ph-bold ph-storefront" />}
+          <ShopIcon icon={shop.icon} />
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -69,25 +71,27 @@ export default function ShopRow({ shop, isBusy, isLastActive, onEdit, onSetDefau
             <i className="ph-bold ph-star" /> Set as default
           </button>
         )}
-        <button
-          type="button"
-          onClick={onToggleArchive}
-          disabled={isBusy}
-          title={isLastActive ? "You can't archive the last active shop" : undefined}
-          className={`${actionClass} ${isLastActive ? "text-slate-300 hover:bg-slate-50" : "text-slate-600 hover:bg-slate-100"}`}
-        >
-          <i className={`ph-bold ${shop.isArchived ? "ph-arrow-counter-clockwise" : "ph-archive"}`} />
-          {shop.isArchived ? "Unarchive" : "Archive"}
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={isBusy}
-          title={hasEntries ? "Shops with ledger entries can't be deleted. Archive it instead." : undefined}
-          className={`${actionClass} ${hasEntries ? "text-slate-300 hover:bg-slate-50" : "text-rose-600 hover:bg-rose-50"}`}
-        >
-          <i className="ph-bold ph-trash" /> Delete
-        </button>
+        <Tooltip content={isLastActive ? "You can't archive the last active shop" : undefined}>
+          <button
+            type="button"
+            onClick={onToggleArchive}
+            disabled={isBusy}
+            className={`${actionClass} ${isLastActive ? "text-slate-300 hover:bg-slate-50" : "text-slate-600 hover:bg-slate-100"}`}
+          >
+            <i className={`ph-bold ${shop.isArchived ? "ph-arrow-counter-clockwise" : "ph-archive"}`} />
+            {shop.isArchived ? "Unarchive" : "Archive"}
+          </button>
+        </Tooltip>
+        <Tooltip content={hasEntries ? "Shops with ledger entries can't be deleted. Archive it instead." : undefined}>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={isBusy}
+            className={`${actionClass} ${hasEntries ? "text-slate-300 hover:bg-slate-50" : "text-rose-600 hover:bg-rose-50"}`}
+          >
+            <i className="ph-bold ph-trash" /> Delete
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

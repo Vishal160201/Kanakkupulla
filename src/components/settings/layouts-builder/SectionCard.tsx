@@ -6,6 +6,7 @@ import FieldCard from "./FieldCard";
 import SectionIconPicker from "./SectionIconPicker";
 import type { CanvasDrag } from "./useCanvasDrag";
 import type { LayoutBuilder } from "./useLayoutBuilder";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface SectionCardProps {
   section: FormSection;
@@ -81,15 +82,16 @@ export default function SectionCard({ section, builder, drag }: SectionCardProps
           />
         </div>
         {!isSectionLocked && (
-          <button
-            type="button"
-            onClick={() => builder.removeSection(section.id)}
-            className="opacity-0 group-hover/section:opacity-100 text-slate-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-all"
-            title="Delete Section"
-            aria-label="Delete section"
-          >
-            <i className="ph-bold ph-trash text-lg"></i>
-          </button>
+          <Tooltip content="Delete Section">
+            <button
+              type="button"
+              onClick={() => builder.removeSection(section.id)}
+              className="opacity-0 group-hover/section:opacity-100 text-slate-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-all"
+              aria-label="Delete section"
+            >
+              <i className="ph-bold ph-trash text-lg"></i>
+            </button>
+          </Tooltip>
         )}
       </div>
 

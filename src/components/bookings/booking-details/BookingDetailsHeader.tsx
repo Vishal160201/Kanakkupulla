@@ -119,7 +119,6 @@ export default function BookingDetailsHeader(props: BookingDetailsHeaderProps) {
               type="button"
               onClick={onDelete}
               className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-red-50 hover:px-3"
-              title="Delete"
             >
               <Trash2 className="w-5 h-5 text-red-500 group-hover:text-red-600 shrink-0 transition-colors" />
               <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-red-600 whitespace-nowrap">
@@ -131,7 +130,6 @@ export default function BookingDetailsHeader(props: BookingDetailsHeaderProps) {
               onClick={onExport}
               disabled={isExporting}
               className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-white hover:border hover:border-slate-200 hover:shadow-sm hover:px-3 border border-transparent"
-              title="Export"
             >
               {isExporting ? spinner : <Upload className="w-5 h-5 text-slate-500 group-hover:text-slate-700 shrink-0 transition-colors" />}
               <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-slate-700 whitespace-nowrap">
@@ -144,7 +142,6 @@ export default function BookingDetailsHeader(props: BookingDetailsHeaderProps) {
                 onClick={onGenerateInvoice}
                 disabled={isGeneratingInvoice}
                 className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-[#0B1E40] hover:px-3"
-                title="Invoice"
               >
                 {isGeneratingInvoice ? spinner : <Receipt className="w-5 h-5 text-slate-700 group-hover:text-white shrink-0 transition-colors" />}
                 <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-white whitespace-nowrap">

@@ -4,6 +4,7 @@ import { Paperclip } from "lucide-react";
 import type { GiftOrderCustomData } from "@/types/gifts";
 import { isDriveAttachment } from "@/types/gifts";
 import { isAttachmentValue } from "./orderDetailsConstants";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 export function hasAttachments(customData: GiftOrderCustomData) {
   return Object.values(customData).some(isAttachmentValue);
@@ -47,9 +48,11 @@ export default function AttachmentsCard({ customData }: { customData: GiftOrderC
           }
           if (typeof val === 'string' && val.startsWith('data:image')) {
             return (
-              <button type="button" key={key} aria-label="View attachment full size" className="w-24 h-24 rounded-xl border border-slate-200 overflow-hidden bg-slate-100 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.open(val, '_blank')} title="Click to view full size">
-                <img src={val} alt="Attachment" className="w-full h-full object-cover" />
-              </button>
+              <Tooltip key={key} content="Click to view full size">
+                <button type="button" aria-label="View attachment full size" className="w-24 h-24 rounded-xl border border-slate-200 overflow-hidden bg-slate-100 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.open(val, '_blank')}>
+                  <img src={val} alt="Attachment" className="w-full h-full object-cover" />
+                </button>
+              </Tooltip>
             );
           }
           return null;

@@ -4,6 +4,7 @@ import type React from "react";
 import type { TodayTransactionItem } from "@/types/transactions";
 import { CATEGORY_ICONS, MODE_ICONS, getGiftsBadgeInfo } from "../categoryStyles";
 import ShopBadge from "@/components/shops/ShopBadge";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface TodayTransactionRowProps {
   txn: TodayTransactionItem;
@@ -150,27 +151,29 @@ export default function TodayTransactionRow({
           ) : (
             <>
               <div className={`flex items-center gap-1 w-[64px] justify-end ${single?.productOrderId || single?.bookingId ? 'invisible' : 'visible'}`}>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(txn.id);
-                  }}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                  title="Edit transaction"
-                  aria-label="Edit transaction"
-                >
-                  <i className="ph ph-pencil-simple text-lg" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onRequestDelete(txn.id); }}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-                  title="Delete transaction"
-                  aria-label="Delete transaction"
-                >
-                  <i className="ph ph-trash text-lg" />
-                </button>
+                <Tooltip content="Edit transaction">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(txn.id);
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                    aria-label="Edit transaction"
+                  >
+                    <i className="ph ph-pencil-simple text-lg" />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Delete transaction">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onRequestDelete(txn.id); }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                    aria-label="Delete transaction"
+                  >
+                    <i className="ph ph-trash text-lg" />
+                  </button>
+                </Tooltip>
               </div>
             </>
           )}

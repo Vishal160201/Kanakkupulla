@@ -6,6 +6,7 @@ import InviteUserModal from "./InviteUserModal";
 import EditUserModal from "./EditUserModal";
 import { toast } from "sonner";
 import type { TeamMember } from "@/types/settings";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 const PERSONAL_TRACKER_EMAIL = process.env.NEXT_PUBLIC_PERSONAL_TRACKER_EMAIL;
 
@@ -130,8 +131,8 @@ export default function UserManagement() {
               const isEditable = isCurrentUser || !isSuperAdmin;
 
               return (
+                <Tooltip key={user.id} content={isEditable ? undefined : "Cannot edit master admin"}>
                 <div
-                  key={user.id}
                   onClick={() => {
                     if (!isEditable) {
                       toast.error("This master admin cannot be edited by others.");
@@ -144,7 +145,6 @@ export default function UserManagement() {
                   } ${
                     isCurrentUser ? "bg-[#fcfaff] border-purple-100 shadow-sm hover:border-purple-200" : "bg-white border-gray-100 shadow-sm " + (isEditable ? "hover:border-orange-100" : "")
                   }`}
-                  title={isEditable ? "Click to edit user" : "Cannot edit master admin"}
                 >
                   {/* Avatar */}
                   <div className={`w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-sm shrink-0 relative ${getAvatarColor(user.name)}`}>
@@ -192,19 +192,20 @@ export default function UserManagement() {
                         <span className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider">Reset Code:</span>
                         <div className="flex items-center gap-1 bg-orange-50 border border-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[0.65rem] font-mono font-bold">
                           {user.tempPassword}
-                          <button
-                            type="button"
-                            aria-label="Copy reset code"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(user.tempPassword!);
-                              toast.success("Code copied!");
-                            }}
-                            className="text-orange-400 hover:text-orange-600 transition-colors"
-                            title="Copy code"
-                          >
-                            <i className="ph ph-copy text-[0.65rem]"></i>
-                          </button>
+                          <Tooltip content="Copy code">
+                            <button
+                              type="button"
+                              aria-label="Copy reset code"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(user.tempPassword!);
+                                toast.success("Code copied!");
+                              }}
+                              className="text-orange-400 hover:text-orange-600 transition-colors"
+                            >
+                              <i className="ph ph-copy text-[0.65rem]"></i>
+                            </button>
+                          </Tooltip>
                         </div>
                       </div>
                     )}
@@ -220,6 +221,7 @@ export default function UserManagement() {
                     <i className="ph ph-caret-right text-slate-300 group-hover:text-slate-500"></i>
                   </div>
                 </div>
+                </Tooltip>
               );
             })
           )}

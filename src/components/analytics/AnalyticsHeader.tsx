@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useShops } from "@/components/providers/ShopProvider";
 import ShopSwitcher from "@/components/shops/ShopSwitcher";
-import ActiveShopLabel from "@/components/shops/ActiveShopLabel";
 
 const RANGES = ['today', 'this-week', 'this-month', 'this-year', 'custom'];
 
@@ -50,7 +49,6 @@ export default function AnalyticsHeader({ dateRange, onRangeChange, onConfirmCus
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Analytics Studio</h1>
-            {hasShops && <ActiveShopLabel />}
           </div>
           <p className="text-sm font-medium text-slate-500 mt-1">Moondot Studio Performance Dashboard</p>
         </div>
@@ -119,16 +117,8 @@ export default function AnalyticsHeader({ dateRange, onRangeChange, onConfirmCus
       </div>
 
       {hasShops && (
-        <div className="flex flex-col gap-2 border-t border-slate-100 pt-4">
-          <ShopSwitcher />
-          <p className="flex items-start gap-1.5 text-[11px] font-semibold leading-snug text-slate-400">
-            <i className="ph-bold ph-info text-sm text-slate-400 mt-px" />
-            <span>
-              Revenue, expenses, net profit, growth, revenue intelligence, daily trends and top-client spend follow the selected shop.
-              Booking funnel, gifts performance, collection health, collection rate, average order value and client counts
-              are studio-wide.
-            </span>
-          </p>
+        <div className="border-t border-slate-100 pt-4">
+          <ShopSwitcher note="Revenue, expenses, net profit, growth, daily trends and top-client spend follow the selected shop. The booking funnel, gift performance, collection health, collection rate, average order value and client counts are studio-wide." />
         </div>
       )}
     </div>

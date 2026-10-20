@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image as PdfImage } from '@react-pdf/renderer';
 import { InvoiceViewModel } from '../types/invoiceViewModel';
-import { InstagramIcon, GlobeIcon, PhoneIcon, MailIcon } from '../icons';
+import { InstagramIcon, GlobeIcon, PhoneIcon, MailIcon, HeartIcon } from '../icons';
 import { colors, typography } from '../theme/invoiceTheme';
 
 const styles = StyleSheet.create({
@@ -111,6 +111,11 @@ const styles = StyleSheet.create({
   thankYouWrapper: {
     marginTop: 16,
   },
+  thankYouRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   thankYouCursive: {
     fontFamily: typography.cursiveFamily,
     fontSize: 26,
@@ -206,7 +211,10 @@ export const Footer = ({ viewModel }: FooterProps) => (
         ))}
         
         <View style={styles.thankYouWrapper}>
-          <Text style={styles.thankYouCursive}>Thank You! ♥</Text>
+          <View style={styles.thankYouRow}>
+            <Text style={styles.thankYouCursive}>Thank You!</Text>
+            <HeartIcon color={colors.gold} size={16} />
+          </View>
           <Text style={styles.thankYouSub}>We truly appreciate your trust in us.</Text>
         </View>
       </View>

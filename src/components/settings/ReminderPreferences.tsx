@@ -119,7 +119,7 @@ export default function ReminderPreferences() {
           <p className="text-sm text-slate-500 mt-1">Configure when system reminders are triggered.</p>
         </div>
         <div className="flex items-center gap-3">
-          {saved && <span className="text-sm font-semibold text-green-600 animate-fade-in-up">✓ Saved</span>}
+          {saved && <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-600 animate-fade-in-up"><i className="ph-bold ph-check-circle" /> Saved</span>}
           <button
             onClick={handleSave}
             disabled={isSaving}

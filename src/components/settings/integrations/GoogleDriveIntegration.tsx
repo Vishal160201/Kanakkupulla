@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { signIn, useSession, getProviders } from "next-auth/react";
 import { toast } from "sonner";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 export default function GoogleDriveIntegration() {
   const { data: session } = useSession();
@@ -130,9 +131,11 @@ export default function GoogleDriveIntegration() {
           {!isLoading && isConnected ? (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-700 truncate max-w-[150px]" title={email || "Connected"}>
-                  {email || "Connected"}
-                </span>
+                <Tooltip content={email || "Connected"}>
+                  <span className="text-sm font-medium text-slate-700 truncate max-w-[150px]">
+                    {email || "Connected"}
+                  </span>
+                </Tooltip>
                 
                 {isAdmin && !showDisconnectConfirm && (
                   <button

@@ -3,6 +3,7 @@
 import type { Transaction, TransactionListGroup, TransactionListItem } from "@/types/transactions";
 import { getConsistentColorClasses, getGiftsBadgeInfo, getRelatableIcon } from "../categoryStyles";
 import ShopBadge from "@/components/shops/ShopBadge";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 const isGroup = (tx: TransactionListItem): tx is TransactionListGroup => 'isGroup' in tx && tx.isGroup === true;
 
@@ -114,34 +115,36 @@ export default function TransactionListRow({ tx, isChild = false, showShop = fal
           </div>
 
           <div className="flex items-center gap-1 w-[64px] justify-end">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete(tx.id);
-              }}
-              className={group
-                ? `h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100`
-                : `h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
-              title={group ? "Delete Group" : "Delete Transaction"}
-              aria-label={group ? "Delete Group" : "Delete Transaction"}
-            >
-              <i className="ph-bold ph-trash"></i>
-            </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onEdit(tx.id);
-              }}
-              className={group
-                ? `h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100`
-                : `h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
-              title={group ? "Edit Group" : "Edit Transaction"}
-              aria-label={group ? "Edit Group" : "Edit Transaction"}
-            >
-              <i className="ph-bold ph-pencil-simple"></i>
-            </button>
+            <Tooltip content={group ? "Delete Group" : "Delete Transaction"}>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete(tx.id);
+                }}
+                className={group
+                  ? `h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100`
+                  : `h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-rose-100 hover:text-rose-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
+                aria-label={group ? "Delete Group" : "Delete Transaction"}
+              >
+                <i className="ph-bold ph-trash"></i>
+              </button>
+            </Tooltip>
+            <Tooltip content={group ? "Edit Group" : "Edit Transaction"}>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEdit(tx.id);
+                }}
+                className={group
+                  ? `h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100`
+                  : `h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-orange-100 hover:text-orange-600 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${tx.productOrderId || tx.bookingId ? 'invisible' : 'visible'}`}
+                aria-label={group ? "Edit Group" : "Edit Transaction"}
+              >
+                <i className="ph-bold ph-pencil-simple"></i>
+              </button>
+            </Tooltip>
           </div>
 
           {group ? (

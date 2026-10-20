@@ -102,7 +102,7 @@ function OrderFormBody({ products, layoutSchema, driveStatus, defaultProductId, 
       </DialogHeader>
 
       <div className="overflow-y-auto p-6 flex-1">
-        <form id="dynamic-gift-form" onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <form id="dynamic-gift-form" noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
           {!layoutSchema ? (
             <div className="flex flex-col items-center justify-center py-10">
               <Loader2 className="animate-spin text-slate-400 mb-2" size={24} />

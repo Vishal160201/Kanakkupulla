@@ -11,9 +11,8 @@ import TaskAlerts from "@/components/dashboard/TaskAlerts";
 import RevenueTarget from "@/components/dashboard/RevenueTarget";
 import StatCards from "@/components/dashboard/StatCards";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useShopQueryParam, useShops } from "@/components/providers/ShopProvider";
+import { useShopQueryParam } from "@/components/providers/ShopProvider";
 import ShopSwitcher from "@/components/shops/ShopSwitcher";
-import ActiveShopLabel from "@/components/shops/ActiveShopLabel";
 import { GiftShopCard, RecentTransactionsCard, UpcomingShootsCard } from "./DashboardCards";
 import type { DashboardOverviewResponse } from "./types";
 
@@ -138,24 +137,13 @@ function DashboardSkeleton() {
 
 export default function OverviewPage() {
   const [dateRange, setDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null);
-  const { shops } = useShops();
 
   return (
     <section id="view-dashboard" className="flex flex-col gap-5 w-full max-w-[1400px] mx-auto pb-20 pt-4 bg-[#fafafa] min-h-screen">
       <OverdueBookingBanners />
 
-      {shops.length > 1 && (
-        <div className="flex flex-col gap-2">
-          <ShopSwitcher />
-          <div className="flex flex-wrap items-center gap-2">
-            <ActiveShopLabel />
-            <span className="text-[11px] font-semibold text-slate-400">
-              Income, expenses and recent transactions follow the selected shop; bookings and gift orders are studio-wide.
-            </span>
-          </div>
-        </div>
-      )}
-      
+      <ShopSwitcher note="Income, expenses and recent transactions follow the selected shop. Bookings and gift orders are studio-wide." />
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <QuickActions />
         <div className="ml-auto flex items-center justify-end z-20">

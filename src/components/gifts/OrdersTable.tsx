@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { getProductIcon } from "@/lib/productIcons";
 import type { GiftOrder } from "@/types/gifts";
 import { STATUS_STYLE_MAP as STATUS_MAP } from "./giftOrderStatus";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface OrdersTableProps {
   orders: GiftOrder[];
@@ -162,24 +163,26 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                         </div>
                       ) : (
                         <div className="flex items-center justify-end sm:justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }}
-                            type="button"
-                            aria-label="View / Edit"
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="View / Edit"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }}
-                            type="button"
-                            aria-label="Delete"
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <Tooltip content="View / Edit">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }}
+                              type="button"
+                              aria-label="View / Edit"
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip content="Delete">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }}
+                              type="button"
+                              aria-label="Delete"
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </Tooltip>
                         </div>
                       )}
                     </td>

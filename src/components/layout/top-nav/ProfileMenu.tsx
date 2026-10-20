@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { useDismiss } from "./useDismiss";
 import type { NotificationPreferences } from "./useNotificationPreferences";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 export interface NavUser {
   name: string;
@@ -85,31 +86,33 @@ export default function ProfileMenu({ user, preferences, buttonClassName }: Prof
               <div className="text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest">Notification Preferences</div>
 
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleEmail(); }}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${emailNotifs ? 'bg-orange-50 text-orange-500 hover:bg-orange-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
-                  title={emailNotifs ? "Disable Email Alerts" : "Enable Email Alerts"}
-                  aria-label={emailNotifs ? "Disable Email Alerts" : "Enable Email Alerts"}
-                  aria-pressed={emailNotifs}
-                >
-                  <i className={`text-[1.3rem] transition-transform duration-300 ${emailNotifs ? 'ph-fill ph-envelope-simple scale-110' : 'ph ph-envelope-simple'}`}></i>
-                </button>
+                <Tooltip content={emailNotifs ? "Disable Email Alerts" : "Enable Email Alerts"}>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleEmail(); }}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${emailNotifs ? 'bg-orange-50 text-orange-500 hover:bg-orange-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                    aria-label={emailNotifs ? "Disable Email Alerts" : "Enable Email Alerts"}
+                    aria-pressed={emailNotifs}
+                  >
+                    <i className={`text-[1.3rem] transition-transform duration-300 ${emailNotifs ? 'ph-fill ph-envelope-simple scale-110' : 'ph ph-envelope-simple'}`}></i>
+                  </button>
+                </Tooltip>
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    togglePush();
-                  }}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${pushNotifs ? 'bg-blue-50 text-blue-500 hover:bg-blue-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
-                  title={pushNotifs ? "Disable Push Alerts" : "Enable Push Alerts"}
-                  aria-label={pushNotifs ? "Disable Push Alerts" : "Enable Push Alerts"}
-                  aria-pressed={pushNotifs}
-                >
-                  <i className={`text-[1.3rem] transition-transform duration-300 ${pushNotifs ? 'ph-fill ph-device-mobile scale-110' : 'ph ph-device-mobile'}`}></i>
-                </button>
+                <Tooltip content={pushNotifs ? "Disable Push Alerts" : "Enable Push Alerts"}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      togglePush();
+                    }}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${pushNotifs ? 'bg-blue-50 text-blue-500 hover:bg-blue-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                    aria-label={pushNotifs ? "Disable Push Alerts" : "Enable Push Alerts"}
+                    aria-pressed={pushNotifs}
+                  >
+                    <i className={`text-[1.3rem] transition-transform duration-300 ${pushNotifs ? 'ph-fill ph-device-mobile scale-110' : 'ph ph-device-mobile'}`}></i>
+                  </button>
+                </Tooltip>
               </div>
             </div>
           </div>

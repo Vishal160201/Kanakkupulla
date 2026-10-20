@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type DropdownOption = string | { label: string, value: string, color?: string };
+/** `icon` is a Phosphor icon name (e.g. "storefront"); `hint` is a small trailing tag (e.g. "Archived"). */
+export type DropdownOption = string | { label: string, value: string, color?: string, icon?: string, hint?: string };
 
 interface CustomDropdownProps {
   options: DropdownOption[];
@@ -132,6 +133,7 @@ export default function CustomDropdown({
   });
   const displayText = selectedOpt ? (typeof selectedOpt === 'string' ? selectedOpt : selectedOpt.label) : placeholder;
   const displayColor = (selectedOpt && typeof selectedOpt !== 'string') ? selectedOpt.color : undefined;
+  const displayIcon = (selectedOpt && typeof selectedOpt !== 'string') ? selectedOpt.icon : undefined;
 
   // Ensure scroll into view for keyboard nav
   useEffect(() => {
@@ -156,6 +158,8 @@ export default function CustomDropdown({
           const val = typeof opt === 'string' ? opt : opt.value;
           const label = typeof opt === 'string' ? opt : opt.label;
           const color = typeof opt === 'string' ? undefined : opt.color;
+          const icon = typeof opt === 'string' ? undefined : opt.icon;
+          const hint = typeof opt === 'string' ? undefined : opt.hint;
           const isSelected = val === value;
           const isFocused = idx === focusedIndex;
           
@@ -173,13 +177,21 @@ export default function CustomDropdown({
               )}
             >
               <div className="flex items-center gap-2 truncate">
-                {color && (
+                {color && !icon && (
                   <div 
                     className={cn("w-3 h-3 rounded-full shrink-0", !color.startsWith('#') ? color : '')}
                     style={color.startsWith('#') ? { backgroundColor: color } : {}}
                   />
                 )}
+                {icon && (
+                  <i
+                    aria-hidden="true"
+                    className={`ph-bold ph-${icon} text-base shrink-0 ${color?.startsWith('#') ? '' : 'text-slate-500'}`}
+                    style={color?.startsWith('#') ? { color } : undefined}
+                  />
+                )}
                 <span className="truncate">{label}</span>
+                {hint && <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0">{hint}</span>}
               </div>
               {isSelected && <Check size={16} className="text-blue-600 shrink-0" />}
             </button>
@@ -205,10 +217,17 @@ export default function CustomDropdown({
         )}
       >
         <div className="flex items-center gap-2 truncate">
-          {displayColor && (
+          {displayColor && !displayIcon && (
             <div 
               className={cn("w-3 h-3 rounded-full shrink-0", !displayColor.startsWith('#') ? displayColor : '')}
               style={displayColor.startsWith('#') ? { backgroundColor: displayColor } : {}}
+            />
+          )}
+          {displayIcon && (
+            <i
+              aria-hidden="true"
+              className={`ph-bold ph-${displayIcon} text-base shrink-0 ${displayColor?.startsWith('#') ? '' : 'text-slate-500'}`}
+              style={displayColor?.startsWith('#') ? { color: displayColor } : undefined}
             />
           )}
           <span className="truncate">{displayText}</span>

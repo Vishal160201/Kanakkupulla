@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { InvoiceViewModel } from '../types/invoiceViewModel';
 import { ProgressBar } from '../ui/ProgressBar';
+import { CheckIcon } from '../icons';
 import { colors, typography } from '../theme/invoiceTheme';
 
 const styles = StyleSheet.create({
@@ -163,7 +164,7 @@ export const PaymentProgress = ({ viewModel }: PaymentProgressProps) => {
                 ...(isCompleted ? [styles.stepCircleCompleted] : []),
               ]}>
                 {isCompleted ? (
-                  <Text style={styles.stepNumberActive}>✓</Text>
+                  <CheckIcon color="#FFFFFF" size={10} />
                 ) : (
                   <Text style={isActive ? [styles.stepNumber, styles.stepNumberActive] : styles.stepNumber}>{idx + 1}</Text>
                 )}

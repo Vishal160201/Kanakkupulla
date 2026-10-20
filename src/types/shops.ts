@@ -4,7 +4,7 @@
 export interface Shop {
   id: string;
   name: string;
-  /** Optional emoji shown next to the name. */
+  /** Phosphor icon name from SHOP_ICONS (src/lib/shopIcons.ts); null uses the storefront icon. */
   icon: string | null;
   /** Hex colour, e.g. "#6366f1". */
   color: string;

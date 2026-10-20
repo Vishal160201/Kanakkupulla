@@ -2,6 +2,7 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { TempFilters } from "./listFilters";
+import DatePickerInput from "@/components/ui/DatePickerInput";
 
 interface AdvancedFilterDialogProps {
   open: boolean;
@@ -22,7 +23,6 @@ const MODE_OPTIONS = [
   {v: 'Card', l: 'Card', icon: 'ph-bold ph-credit-card'},
 ];
 
-const DATE_INPUT_CLASS = "w-full h-12 pl-9 pr-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all appearance-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer";
 const AMOUNT_INPUT_CLASS = "w-full h-12 pl-7 pr-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all";
 
 function SectionLabel({ icon, children }: { icon: string; children: React.ReactNode }) {
@@ -54,27 +54,19 @@ export default function AdvancedFilterDialog({ open, onOpenChange, tempFilters, 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">From</label>
-                <div className="relative">
-                  <i className="ph-bold ph-calendar absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-                  <input
-                    type="date"
-                    value={tempFilters.dateFrom}
-                    onChange={e => update({ dateFrom: e.target.value })}
-                    className={DATE_INPUT_CLASS}
-                  />
-                </div>
+                <DatePickerInput
+                  value={tempFilters.dateFrom || null}
+                  onChange={value => update({ dateFrom: value })}
+                  placeholder="Any date"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">To</label>
-                <div className="relative">
-                  <i className="ph-bold ph-calendar absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-                  <input
-                    type="date"
-                    value={tempFilters.dateTo}
-                    onChange={e => update({ dateTo: e.target.value })}
-                    className={DATE_INPUT_CLASS}
-                  />
-                </div>
+                <DatePickerInput
+                  value={tempFilters.dateTo || null}
+                  onChange={value => update({ dateTo: value })}
+                  placeholder="Any date"
+                />
               </div>
             </div>
           </div>

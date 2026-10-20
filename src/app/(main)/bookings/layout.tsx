@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import Modals from '@/components/dashboard/Modals';
 import { useBookings } from '@/components/providers/BookingProvider';
 import { useGlobalForm } from '@/components/providers/GlobalFormProvider';
+import { Tooltip } from "@/components/ui/Tooltip";
 
 /** Row of the /api/bookings list as used by the schedule export. */
 interface ExportBooking {
@@ -192,9 +193,11 @@ export default function BookingsLayout({
                 {filters.clientName && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#c2410c" }}>{filters.clientName}</span>}
                 {filters.location && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#c2410c" }}>{filters.location}</span>}
                 {(filters.dateStart || filters.dateEnd) && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#c2410c" }}>{filters.dateStart || 'Any'} to {filters.dateEnd || 'Any'}</span>}
-                <button aria-label="Clear filters" onClick={() => setFilters({ categories: [], statuses: [], clientName: '', location: '', dateStart: '', dateEnd: '', amountMin: '', amountMax: '' })} style={{ background: "none", border: "none", color: "#ea580c", cursor: "pointer", display: "flex", alignItems: "center", marginLeft: "4px" }} title="Clear Filters">
-                  <i className="ph-bold ph-x"></i>
-                </button>
+                <Tooltip content="Clear filters">
+                  <button type="button" aria-label="Clear filters" onClick={() => setFilters({ categories: [], statuses: [], clientName: '', location: '', dateStart: '', dateEnd: '', amountMin: '', amountMax: '' })} style={{ background: "none", border: "none", color: "#ea580c", cursor: "pointer", display: "flex", alignItems: "center", marginLeft: "4px" }}>
+                    <i className="ph-bold ph-x"></i>
+                  </button>
+                </Tooltip>
               </div>
             ) : null}
             <button className="btn btn-outline" onClick={() => setIsFilterModalOpen(true)}><i className="ph-fill ph-funnel icon-3d-styled"></i> Filters</button>

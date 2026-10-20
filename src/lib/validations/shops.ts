@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { idSchema, queryBoolean } from "./common";
+import { SHOP_ICONS } from "../shopIcons";
 
 const name = z.string({ message: "Shop name is required." }).trim().min(1, "Shop name is required.").max(60, "Shop name is too long.");
 const color = z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Colour must be a hex value like #6366f1.");
+// Shops use Phosphor icon names from SHOP_ICONS, never free text or emoji
 const icon = z
-  .string()
-  .trim()
-  .max(16, "Icon must be a single emoji.")
+  .enum(SHOP_ICONS, { message: "Pick one of the shop icons." })
   .nullish()
-  .transform(v => (v ? v : null));
+  .transform(v => v ?? null);
 
 /** POST /api/shops */
 export const shopCreateSchema = z.object({

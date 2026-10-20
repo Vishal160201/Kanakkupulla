@@ -11,6 +11,7 @@ import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { Suspense } from "react";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 /** Booking row as returned by GET /api/bookings (only the fields used here). */
 interface ApiBooking {
@@ -336,9 +337,11 @@ function CalendarWidgetInner() {
       <div className="calendar-header flex-col sm:flex-row gap-4 sm:gap-0">
         <div className="calendar-title">
           <div style={{ position: "relative" }}>
-            <button type="button" style={{ cursor: "pointer", display: "flex", alignItems: "center" }} title="Select Month & Year" aria-expanded={isPickerOpen} onClick={() => setIsPickerOpen(!isPickerOpen)}>
-              <span id="calendar-month-year-text">{headerText}</span>
-            </button>
+            <Tooltip content="Select month & year">
+              <button type="button" style={{ cursor: "pointer", display: "flex", alignItems: "center" }} aria-expanded={isPickerOpen} onClick={() => setIsPickerOpen(!isPickerOpen)}>
+                <span id="calendar-month-year-text">{headerText}</span>
+              </button>
+            </Tooltip>
             {isPickerOpen && view === 'week' && <WeekPicker {...pickerProps} />}
             {isPickerOpen && view === 'day' && <DayPicker {...pickerProps} />}
             {isPickerOpen && view === 'month' && <MonthYearPicker {...pickerProps} />}

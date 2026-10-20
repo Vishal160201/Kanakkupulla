@@ -18,6 +18,7 @@ import DynamicField from "@/components/bookings/booking-form/DynamicField";
 import InstallmentsFields from "@/components/bookings/booking-form/InstallmentsFields";
 import BookingFormSection from "@/components/bookings/booking-form/BookingFormSection";
 import { toast } from "sonner";
+import DeleteTransactionDialog from "@/components/transactions/list/DeleteTransactionDialog";
 
 type UsersResponse = TeamUser[] | { users?: TeamUser[] };
 
@@ -159,19 +160,32 @@ function BookingFormModalInner() {
     return { ...user, isBusy };
   });
 
-  const handleDeleteInstallment = async (idx: number) => {
-    const inst = installments[idx];
-    if (inst.transactionId) {
-      if (!confirm('Are you sure you want to delete this payment transaction?')) return;
-      try {
-        await fetch(`/api/transactions/${inst.transactionId}`, { method: 'DELETE' });
-        toast.success('Transaction deleted');
-      } catch {
-        toast.error('Failed to delete transaction');
-        return;
-      }
+  // Index of a saved installment awaiting delete confirmation (unsaved rows are removed directly)
+  const [pendingDeleteIdx, setPendingDeleteIdx] = useState<number | null>(null);
+  const [isDeletingInstallment, setIsDeletingInstallment] = useState(false);
+
+  const removeInstallmentRow = (idx: number) => setInstallments(rows => rows.filter((_, i) => i !== idx));
+
+  const handleDeleteInstallment = (idx: number) => {
+    if (installments[idx]?.transactionId) setPendingDeleteIdx(idx);
+    else removeInstallmentRow(idx);
+  };
+
+  const confirmDeleteInstallment = async () => {
+    if (pendingDeleteIdx === null) return;
+    const inst = installments[pendingDeleteIdx];
+    setIsDeletingInstallment(true);
+    try {
+      const res = await fetch(`/api/transactions/${inst.transactionId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      toast.success('Payment moved to the recycle bin');
+      removeInstallmentRow(pendingDeleteIdx);
+      setPendingDeleteIdx(null);
+    } catch {
+      toast.error('Failed to delete payment');
+    } finally {
+      setIsDeletingInstallment(false);
     }
-    setInstallments(installments.filter((_, i) => i !== idx));
   };
 
   const statusFieldId = getAllFields(layoutSchema).find(f => f.type === 'STATUS_PICKER')?.id;
@@ -200,7 +214,7 @@ function BookingFormModalInner() {
           </div>
         </DialogHeader>
         <div className="px-5 py-5 sm:px-10 sm:py-8 flex-1 overflow-y-auto">
-          <form id="booking-form" onSubmit={handleSubmit(onSubmit, onError)} className="hidden">
+          <form id="booking-form" noValidate onSubmit={handleSubmit(onSubmit, onError)} className="hidden">
             <input type="hidden" {...register('installments')} value={JSON.stringify(installments)} />
           </form>
           {layoutSchema && layoutSchema.sections ? (
@@ -254,6 +268,12 @@ function BookingFormModalInner() {
         </div>
         </motion.div>
       </DialogContent>
+      <DeleteTransactionDialog
+        open={pendingDeleteIdx !== null}
+        isDeleting={isDeletingInstallment}
+        onCancel={() => setPendingDeleteIdx(null)}
+        onConfirm={confirmDeleteInstallment}
+      />
     </Dialog>
   );
 }

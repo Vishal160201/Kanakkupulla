@@ -17,8 +17,14 @@ export default function LoginPage() {
   const [showPendingPopup, setShowPendingPopup] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [rememberMe, setRememberMe] = useState(true);
+
   const loginUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validated here (not by the browser) so errors show in the app's own banner
+    if (!data.email.trim()) return setError("Enter your email address.");
+    if (!/^\S+@\S+\.\S+$/.test(data.email.trim())) return setError("Enter a valid email address.");
+    if (!data.password) return setError("Enter your password.");
     setLoading(true);
     setError(null);
     const signInData = await signIn("credentials", {
@@ -66,7 +72,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <form onSubmit={loginUser} className="flex flex-col gap-5">
+      <form onSubmit={loginUser} noValidate className="flex flex-col gap-5">
         <div className="relative">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
             <i className="ph ph-user text-[1.1rem]"></i>
@@ -77,7 +83,7 @@ export default function LoginPage() {
             className="w-full h-[50px] pl-11 pr-4 bg-white border border-slate-200 rounded-full text-[0.95rem] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-400"
             value={data.email}
             onChange={(e) => setData({ ...data, email: e.target.value })}
-            required
+            autoComplete="email"
           />
         </div>
 
@@ -91,7 +97,7 @@ export default function LoginPage() {
             className="w-full h-[50px] pl-11 pr-11 bg-white border border-slate-200 rounded-full text-[0.95rem] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-400"
             value={data.password}
             onChange={(e) => setData({ ...data, password: e.target.value })}
-            required
+            autoComplete="current-password"
           />
           <button
             type="button"
@@ -105,10 +111,21 @@ export default function LoginPage() {
         </div>
 
         <div className="flex justify-between items-center px-1 mt-1 mb-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" className="w-4 h-4 accent-orange-500 rounded border-slate-300" />
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={rememberMe}
+            onClick={() => setRememberMe((v) => !v)}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <span
+              aria-hidden="true"
+              className={`w-4 h-4 rounded-[5px] border flex items-center justify-center transition-colors ${rememberMe ? "bg-orange-500 border-orange-500" : "bg-white border-slate-300"}`}
+            >
+              {rememberMe && <i className="ph-bold ph-check text-[10px] text-white" />}
+            </span>
             <span className="text-[0.8rem] text-slate-600 font-medium">Remember Me</span>
-          </label>
+          </button>
           <a href="#" onClick={async (e) => {
             e.preventDefault();
             if (!data.email) {

@@ -1,6 +1,7 @@
 "use client";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface PriorityAlert {
   id: string;
@@ -34,13 +35,14 @@ export default function HighPriorityAlerts() {
               <p className="text-[0.75rem] font-medium text-red-700/80">{alert.message}</p>
             </div>
           </div>
-          <button type="button" aria-label="Dismiss alert"
-            onClick={() => handleDismiss(alert.id)}
-            className="text-red-400 hover:text-red-600 transition-colors shrink-0"
-            title="Dismiss"
-          >
-            <i className="ph ph-x text-lg"></i>
-          </button>
+          <Tooltip content="Dismiss">
+            <button type="button" aria-label="Dismiss alert"
+              onClick={() => handleDismiss(alert.id)}
+              className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+            >
+              <i className="ph ph-x text-lg"></i>
+            </button>
+          </Tooltip>
         </div>
       ))}
     </div>

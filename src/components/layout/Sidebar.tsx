@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useMobileNav } from "../providers/MobileNavProvider";
 import { useSyncExternalStore } from "react";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 // Collapsed state is persisted in localStorage; read through useSyncExternalStore so the
 // server render (and hydration) uses the expanded default and the client then picks up
@@ -96,23 +97,24 @@ export default function Sidebar() {
           const isPersonal = item.name === "Personal";
           return (
             <li key={item.path} className={isPersonal ? "animate-[fadeIn_0.5s_ease-out]" : ""}>
-              <Link 
-                href={item.path} 
-                prefetch={true}
-                title={isCollapsed ? item.name : undefined}
-                aria-label={item.name}
-                aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-3 py-3 rounded-xl no-underline font-bold text-[0.9rem] transition-all duration-150 ${
-                  isCollapsed ? 'px-4 lg:px-0 lg:justify-center' : 'px-4'
-                } ${
-                  isActive 
-                    ? 'bg-orange-500 text-white shadow-[0_4px_10px_rgba(249,115,22,0.3)]' 
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
-                }`}
-              >
-                <i aria-hidden="true" className={`ph-fill ${item.icon} text-xl ${isActive ? 'text-white' : 'text-slate-400'}`}></i> 
-                <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:hidden' : 'block'}`}>{item.name}</span>
-              </Link>
+              <Tooltip content={isCollapsed ? item.name : undefined} side="right">
+                <Link 
+                  href={item.path} 
+                  prefetch={true}
+                  aria-label={item.name}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex items-center gap-3 py-3 rounded-xl no-underline font-bold text-[0.9rem] transition-all duration-150 ${
+                    isCollapsed ? 'px-4 lg:px-0 lg:justify-center' : 'px-4'
+                  } ${
+                    isActive 
+                      ? 'bg-orange-500 text-white shadow-[0_4px_10px_rgba(249,115,22,0.3)]' 
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
+                  }`}
+                >
+                  <i aria-hidden="true" className={`ph-fill ${item.icon} text-xl ${isActive ? 'text-white' : 'text-slate-400'}`}></i> 
+                  <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:hidden' : 'block'}`}>{item.name}</span>
+                </Link>
+              </Tooltip>
             </li>
           );
         })}
@@ -120,23 +122,24 @@ export default function Sidebar() {
       
       <div className="mt-auto flex flex-col gap-3">
         {userRole === "ADMIN" && (
-          <Link 
-            href="/settings" 
-            prefetch={true}
-            title={isCollapsed ? "Settings" : undefined}
-            aria-label="Settings"
-            aria-current={pathname.startsWith('/settings') ? "page" : undefined}
-            className={`flex items-center gap-3 py-3 rounded-xl no-underline font-bold text-[0.9rem] transition-all duration-150 ${
-              isCollapsed ? 'px-4 lg:px-0 lg:justify-center' : 'px-4'
-            } ${
-              pathname.startsWith('/settings')
-                ? 'bg-orange-500 text-white shadow-[0_4px_10px_rgba(249,115,22,0.3)]'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
-            }`}
-          >
-            <i aria-hidden="true" className={`ph-fill ph-gear text-xl ${pathname.startsWith('/settings') ? 'text-white' : 'text-slate-400'}`}></i> 
-            <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:hidden' : 'block'}`}>Settings</span>
-          </Link>
+          <Tooltip content={isCollapsed ? "Settings" : undefined} side="right">
+            <Link 
+              href="/settings" 
+              prefetch={true}
+              aria-label="Settings"
+              aria-current={pathname.startsWith('/settings') ? "page" : undefined}
+              className={`flex items-center gap-3 py-3 rounded-xl no-underline font-bold text-[0.9rem] transition-all duration-150 ${
+                isCollapsed ? 'px-4 lg:px-0 lg:justify-center' : 'px-4'
+              } ${
+                pathname.startsWith('/settings')
+                  ? 'bg-orange-500 text-white shadow-[0_4px_10px_rgba(249,115,22,0.3)]'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
+              }`}
+            >
+              <i aria-hidden="true" className={`ph-fill ph-gear text-xl ${pathname.startsWith('/settings') ? 'text-white' : 'text-slate-400'}`}></i> 
+              <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:hidden' : 'block'}`}>Settings</span>
+            </Link>
+          </Tooltip>
         )}
       </div>
     </aside>

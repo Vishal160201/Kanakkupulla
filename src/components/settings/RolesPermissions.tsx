@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface RolePermission {
   id: string;
@@ -164,36 +165,40 @@ export default function RolesPermissions() {
 
                     return (
                       <td key={role} className="px-4 py-4 text-center">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={enabled}
-                          aria-label={`${ROLE_DISPLAY[role].label}: ${perm.label}`}
-                          onClick={() => handleToggle(role, permKey)}
-                          disabled={isAdmin || isUpdating}
-                          className={`relative w-11 h-6 rounded-full transition-all duration-200 ${
-                            isAdmin
-                              ? "cursor-not-allowed opacity-70"
-                              : "cursor-pointer hover:shadow-md"
-                          } ${
-                            enabled
-                              ? isAdmin
-                                ? "bg-orange-400"
-                                : "bg-green-500 shadow-sm"
-                              : "bg-slate-200"
-                          }`}
-                          title={isAdmin ? "Admin permissions are locked" : `Toggle ${perm.label}`}
-                        >
-                          <span
-                            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 flex items-center justify-center ${
-                              enabled ? "translate-x-5" : "translate-x-0"
-                            }`}
-                          >
-                            {isAdmin && enabled && (
-                              <i className="ph-fill ph-lock-simple text-[0.5rem] text-orange-400"></i>
-                            )}
+                        {/* span wrapper: disabled buttons don't reliably emit hover events */}
+                        <Tooltip content={isAdmin ? "Admin permissions are locked" : `Toggle ${perm.label}`}>
+                          <span className="inline-flex align-middle">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={enabled}
+                              aria-label={`${ROLE_DISPLAY[role].label}: ${perm.label}`}
+                              onClick={() => handleToggle(role, permKey)}
+                              disabled={isAdmin || isUpdating}
+                              className={`relative w-11 h-6 rounded-full transition-all duration-200 ${
+                                isAdmin
+                                  ? "cursor-not-allowed opacity-70"
+                                  : "cursor-pointer hover:shadow-md"
+                              } ${
+                                enabled
+                                  ? isAdmin
+                                    ? "bg-orange-400"
+                                    : "bg-green-500 shadow-sm"
+                                  : "bg-slate-200"
+                              }`}
+                            >
+                              <span
+                                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 flex items-center justify-center ${
+                                  enabled ? "translate-x-5" : "translate-x-0"
+                                }`}
+                              >
+                                {isAdmin && enabled && (
+                                  <i className="ph-fill ph-lock-simple text-[0.5rem] text-orange-400"></i>
+                                )}
+                              </span>
+                            </button>
                           </span>
-                        </button>
+                        </Tooltip>
                       </td>
                     );
                   })}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { HeatmapSegment } from "./overviewData";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface OverviewKpiCardsProps {
   todayIncome: number;
@@ -131,9 +132,11 @@ export default function OverviewKpiCards({ todayIncome, todayExpense, todayNet, 
 
           {/* Main Value + Pills side by side */}
           <div className="flex items-center justify-between gap-2 flex-1 relative z-10 mt-2 sm:mt-3 min-w-0">
-            <div className="text-[1.1rem] sm:text-[1.4rem] md:text-[1.6rem] font-black text-[#1a1f36] leading-none truncate" title={`₹${todayNet.toLocaleString('en-IN')}`}>
-              ₹{wholeRupees(todayNet)}
-            </div>
+            <Tooltip content={`₹${todayNet.toLocaleString('en-IN')}`}>
+              <div className="text-[1.1rem] sm:text-[1.4rem] md:text-[1.6rem] font-black text-[#1a1f36] leading-none truncate">
+                ₹{wholeRupees(todayNet)}
+              </div>
+            </Tooltip>
 
             <div className="flex flex-col gap-1.5 shrink-0">
               {/* CASH Pill */}

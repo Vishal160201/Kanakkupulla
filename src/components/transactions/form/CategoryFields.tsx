@@ -3,6 +3,7 @@
 import CustomMultiDropdown from "@/components/ui/CustomMultiDropdown";
 import { FieldError, FieldLabel, type TransactionFieldProps } from "./FieldChrome";
 import { optionLabel, optionValue, splitSelection, textValue } from "./transactionFormUtils";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 /** Single amount input (hidden when several categories split the amount). */
 export function AmountField({ field, fieldName, form, errors, setField }: TransactionFieldProps) {
@@ -60,7 +61,9 @@ export function MultiSelectField({ field, fieldName, form, errors, setField, wit
              const err = errors[`amount_${cat}`];
              return (
              <div key={cat} className="flex items-center gap-3">
-               <div className="text-sm font-bold text-slate-700 w-1/3 truncate bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-100" title={cat}>{cat}</div>
+               <Tooltip content={cat}>
+                 <div className="text-sm font-bold text-slate-700 w-1/3 truncate bg-slate-50 px-3 py-2.5 rounded-lg border border-slate-100">{cat}</div>
+               </Tooltip>
                <div className={`flex-1 bg-white rounded-xl border px-3 py-2 flex items-center gap-2 focus-within:ring-2 focus-within:ring-orange-500/20 shadow-sm ${err ? 'border-red-400 focus-within:border-red-400' : 'border-slate-200 focus-within:border-orange-400'}`}>
                  <span className="text-slate-400 font-medium">₹</span>
                  <input

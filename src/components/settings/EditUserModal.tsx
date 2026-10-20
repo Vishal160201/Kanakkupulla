@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { TeamMember } from "@/types/settings";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface EditUserModalProps {
   user: TeamMember;
@@ -113,18 +114,19 @@ export default function EditUserModal({ user, onClose, onSuccess, isCurrentUser 
                   disabled
                   className="w-full px-4 py-3 bg-slate-100 border border-gray-200 rounded-xl text-xs font-mono text-slate-900 font-bold cursor-not-allowed"
                 />
-                <button
-                  type="button"
-                  aria-label="Copy user ID"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`#MDuser-${String(user.idNumber).padStart(3, '0')}`);
-                    toast.success("User ID copied!");
-                  }}
-                  className="p-3 bg-white border border-gray-200 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors shadow-sm"
-                  title="Copy User ID"
-                >
-                  <i className="ph ph-copy text-lg"></i>
-                </button>
+                <Tooltip content="Copy user ID">
+                  <button
+                    type="button"
+                    aria-label="Copy user ID"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`#MDuser-${String(user.idNumber).padStart(3, '0')}`);
+                      toast.success("User ID copied!");
+                    }}
+                    className="p-3 bg-white border border-gray-200 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <i className="ph ph-copy text-lg"></i>
+                  </button>
+                </Tooltip>
               </div>
             </div>
 

@@ -2,6 +2,7 @@
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { APP_ICONS_BY_CATEGORY } from "@/lib/appIcons";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface SectionIconPickerProps {
   icon: string | undefined;
@@ -26,16 +27,16 @@ export default function SectionIconPicker({ icon, onChange }: SectionIconPickerP
               <p className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">{cat}</p>
               <div className="grid grid-cols-5 gap-1">
                 {icons.map((appIcon) => (
-                  <button
-                    type="button"
-                    key={appIcon.id}
-                    onClick={() => onChange(appIcon.className)}
-                    title={appIcon.label}
-                    aria-label={appIcon.label}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${icon === appIcon.className ? "bg-orange-500 text-white shadow-md shadow-orange-500/20" : "text-slate-600 hover:bg-slate-100 hover:text-orange-600"}`}
-                  >
-                    <i className={`ph-fill ${appIcon.className}`}></i>
-                  </button>
+                  <Tooltip key={appIcon.id} content={appIcon.label}>
+                    <button
+                      type="button"
+                      onClick={() => onChange(appIcon.className)}
+                      aria-label={appIcon.label}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${icon === appIcon.className ? "bg-orange-500 text-white shadow-md shadow-orange-500/20" : "text-slate-600 hover:bg-slate-100 hover:text-orange-600"}`}
+                    >
+                      <i className={`ph-fill ${appIcon.className}`}></i>
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
             </div>

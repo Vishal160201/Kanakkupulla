@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface InviteUserModalProps {
   onClose: () => void;
@@ -27,6 +28,10 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
 
     if (!name.trim() || !email.trim()) {
       toast.error("Please fill in name and email");
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      toast.error("Enter a valid email address");
       return;
     }
 
@@ -109,15 +114,16 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
                   <code className="flex-1 bg-white border border-slate-200 rounded-lg px-4 py-2.5 font-mono text-sm text-slate-900 tracking-wider">
                     {result.tempPassword}
                   </code>
-                  <button
-                    type="button"
-                    aria-label="Copy password"
-                    onClick={handleCopyPassword}
-                    className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
-                    title="Copy password"
-                  >
-                    <i className="ph ph-copy text-lg"></i>
-                  </button>
+                  <Tooltip content="Copy password">
+                    <button
+                      type="button"
+                      aria-label="Copy password"
+                      onClick={handleCopyPassword}
+                      className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+                    >
+                      <i className="ph ph-copy text-lg"></i>
+                    </button>
+                  </Tooltip>
                 </div>
                 <p className="text-[0.7rem] text-slate-400 mt-2.5">
                   Share this password securely. The user should change it after first login.
@@ -133,7 +139,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
             </div>
           ) : (
             /* Form */
-            <form onSubmit={handleSubmit} className="p-7">
+            <form onSubmit={handleSubmit} noValidate className="p-7">
               <div className="space-y-4">
                 {/* Name */}
                 <div>
