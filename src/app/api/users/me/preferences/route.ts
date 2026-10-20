@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/authz";
+import { parseJsonBody } from "@/lib/validations/http";
+import { userPreferencesSchema } from "@/lib/validations/users";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: auth.user.id },
       select: { emailNotifications: true, pushNotifications: true },
     });
 
@@ -24,41 +24,32 @@ export async function GET(request: Request) {
       pushNotifications: user.pushNotifications
     });
   } catch (error) {
+    console.error("Failed to fetch preferences:", error);
     return NextResponse.json({ error: "Failed to fetch preferences" }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
 
-    if (!session || !session.user || !session.user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const parsed = await parseJsonBody(request, userPreferencesSchema);
+    if (parsed.error) return parsed.error;
+    const { emailNotifications, pushNotifications } = parsed.data;
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    const body = await request.json();
-    const { emailNotifications, pushNotifications } = body;
-
-    const updateData: any = {};
-    if (typeof emailNotifications === 'boolean') updateData.emailNotifications = emailNotifications;
-    if (typeof pushNotifications === 'boolean') updateData.pushNotifications = pushNotifications;
+    const updateData: Prisma.UserUpdateInput = {};
+    if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
+    if (pushNotifications !== undefined) updateData.pushNotifications = pushNotifications;
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: auth.user.id },
       data: updateData,
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Failed to update preferences:", error);
     return NextResponse.json(
       { error: "Failed to update preferences" },
       { status: 500 }

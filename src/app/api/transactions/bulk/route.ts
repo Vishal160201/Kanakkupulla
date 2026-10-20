@@ -1,79 +1,42 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { generateNextTransactionId } from "@/lib/transactionId";
+import { requirePermission } from "@/lib/authz";
+import { generateTransactionIds } from "@/lib/transactionId";
+import { parseJsonBody } from "@/lib/validations/http";
+import { pickCustomFields } from "@/lib/validations/common";
+import { bulkTransactionSchema } from "@/lib/validations/transactions";
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const userId = (session.user as any).id as string;
+    const auth = await requirePermission("manage_transactions");
+    if (auth.error) return auth.error;
+    const userId = auth.user.id;
 
-    const body = await request.json();
-    if (!Array.isArray(body)) {
-      return NextResponse.json({ error: "Expected an array of transactions" }, { status: 400 });
-    }
-
-    if (body.length === 0) {
-      return NextResponse.json({ error: "No transactions provided" }, { status: 400 });
-    }
-
-    const types = new Set(body.map((tx: any) => tx.type));
-    if (types.size > 1) {
-      return NextResponse.json({ error: "All categories must be same type" }, { status: 422 });
-    }
+    const parsed = await parseJsonBody(request, bulkTransactionSchema);
+    if (parsed.error) return parsed.error;
+    const body = parsed.data;
 
     // Generate a unique groupId for this bulk operation
     const groupId = `grp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const transactionsData = [];
+    const transactionIds = await generateTransactionIds(body.length);
 
-    for (let i = 0; i < body.length; i++) {
-      const tx = body[i];
+    const transactionsData = body.map((tx, i) => {
       const { amount, type, date, category, paymentMode, description, status, recordDate, ...restBody } = tx;
-
-      const customData: Record<string, any> = {};
-      for (const [key, value] of Object.entries(restBody)) {
-        if (key !== 'id' && key !== 'userId' && key !== 'recordDate' && !key.startsWith('$ACTION')) {
-          customData[key] = value;
-        }
-      }
-
-      const parsedAmount = parseFloat(amount);
-      if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-        return NextResponse.json({ error: `Amount must be a positive number for category ${category}.` }, { status: 422 });
-      }
-      if (!type || !["INCOME", "EXPENSE"].includes(type)) {
-        return NextResponse.json({ error: "Type must be INCOME or EXPENSE." }, { status: 422 });
-      }
-      if (!date || isNaN(new Date(date).getTime())) {
-        return NextResponse.json({ error: "A valid date is required." }, { status: 422 });
-      }
-      if (!category) {
-        return NextResponse.json({ error: "Category is required." }, { status: 422 });
-      }
-      if (!paymentMode) {
-        return NextResponse.json({ error: "Payment mode is required." }, { status: 422 });
-      }
-
-      const transactionId = await generateNextTransactionId(); // Generating unique ID for each
-      
-      transactionsData.push({
-        transactionId,
-        amount: parsedAmount,
+      const customData = pickCustomFields(restBody);
+      return {
+        transactionId: transactionIds[i],
+        amount,
         type,
-        date: recordDate ? new Date(recordDate) : new Date(date),
+        date: recordDate ?? date,
         category,
         paymentMode,
         description: description?.trim() || null,
         status: status || "SETTLED",
         customData: Object.keys(customData).length > 0 ? customData : undefined,
-        ...(userId ? { user: { connect: { id: userId } } } : {}),
-        groupId: groupId
-      });
-    }
+        user: { connect: { id: userId } },
+        groupId,
+      };
+    });
 
     // Insert all transactions atomically
     const newTransactions = await prisma.$transaction(
@@ -84,7 +47,8 @@ export async function POST(request: Request) {
       status: 201,
       headers: { "Cache-Control": "private, no-store" },
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to bulk create transactions.", details: String(error) }, { status: 500 });
+  } catch (error) {
+    console.error("Failed to bulk create transactions:", error);
+    return NextResponse.json({ error: "Failed to bulk create transactions." }, { status: 500 });
   }
 }

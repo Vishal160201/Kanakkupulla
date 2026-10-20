@@ -12,6 +12,17 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Project-specific ignores:
+    "node_modules/**",
+    "public/**",
+    "legacy/**",
+    "personal-backup/**",
+    "whatsapp-bot-server/**",
+    "src/generated/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "*.config.{js,cjs,mjs}",
   ]),
 ]);
 

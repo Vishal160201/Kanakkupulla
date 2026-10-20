@@ -1,13 +1,19 @@
 import prisma from "@/lib/prisma";
 
-export async function getGoogleDriveToken(session: any): Promise<string> {
-  if (!session?.user?.email) {
+/** The part of a NextAuth session the Drive helpers need. */
+export type DriveSession = { user?: { id?: string | null; email?: string | null } | null } | null | undefined;
+
+type TokenResponse = { access_token?: string; expires_in?: number; refresh_token?: string; error?: string };
+
+export async function getGoogleDriveToken(session: DriveSession): Promise<string> {
+  const userId = session?.user?.id;
+  if (!session?.user?.email || !userId) {
     throw new Error("Unauthorized");
   }
 
   const account = await prisma.account.findFirst({
     where: {
-      userId: (session.user as any).id,
+      userId,
       provider: "google-drive"
     }
   });
@@ -37,9 +43,9 @@ export async function getGoogleDriveToken(session: any): Promise<string> {
       })
     });
 
-    const tokens = await response.json();
+    const tokens = (await response.json()) as TokenResponse;
 
-    if (!response.ok) {
+    if (!response.ok || !tokens.access_token) {
       if (tokens.error === 'invalid_grant') {
          throw new Error("reauth_required");
       }
@@ -50,7 +56,7 @@ export async function getGoogleDriveToken(session: any): Promise<string> {
       where: { id: account.id },
       data: {
         access_token: tokens.access_token,
-        expires_at: Math.floor(Date.now() / 1000 + tokens.expires_in),
+        expires_at: Math.floor(Date.now() / 1000 + (tokens.expires_in ?? 3600)),
         refresh_token: tokens.refresh_token ?? account.refresh_token
       }
     });
@@ -99,6 +105,7 @@ export async function getOrCreateFolder(name: string, parentId: string | null, a
       await prisma.systemSetting.delete({ where: { key: cacheKey } });
     }
   } catch (err) {
+    console.error("Drive folder cache lookup failed:", err);
   }
 
   let folderId: string | null = null;
@@ -117,7 +124,7 @@ export async function getOrCreateFolder(name: string, parentId: string | null, a
   }
 
   if (!folderId) {
-    const createBody: any = {
+    const createBody: { name: string; mimeType: string; parents?: string[] } = {
       name: name,
       mimeType: "application/vnd.google-apps.folder"
     };
@@ -150,8 +157,20 @@ export async function getOrCreateFolder(name: string, parentId: string | null, a
         create: { key: cacheKey, value: folderId }
       });
     } catch (err) {
+      console.error("Failed to cache Drive folder id:", err);
     }
   }
 
   return folderId as string;
+}
+
+const DRIVE_FILE_ID = /^[a-zA-Z0-9_-]+$/;
+
+/** Downloads a Drive file's bytes with the session user's token. */
+export async function fetchDriveFile(session: DriveSession, fileId: string) {
+  if (!DRIVE_FILE_ID.test(fileId)) throw new Error("Invalid fileId");
+  const accessToken = await getGoogleDriveToken(session);
+  return fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }

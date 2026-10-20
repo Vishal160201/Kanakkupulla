@@ -3,43 +3,19 @@
 import React, { useState } from "react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
-import { Loader2, Image as ImageIcon, Edit2, Trash2, Filter, Search } from "lucide-react";
+import { Loader2, Image as ImageIcon, Edit2, Trash2, Search } from "lucide-react";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getProductIcon } from "@/lib/productIcons";
-
-interface Order {
-  id: string;
-  product: {
-    id: string;
-    name: string;
-    iconName?: string;
-  };
-  quantity: number;
-  status: string;
-  clientName: string;
-  clientPhone: string | null;
-  createdAt: string;
-  transactions: any[];
-  orderNumber?: string | null;
-  customData?: any;
-}
+import type { GiftOrder } from "@/types/gifts";
+import { STATUS_STYLE_MAP as STATUS_MAP } from "./giftOrderStatus";
 
 interface OrdersTableProps {
-  orders: Order[];
+  orders: GiftOrder[];
   onOrderUpdated: () => void;
 }
 
-const STATUS_MAP: Record<string, { label: string; dot: string; bg: string; text: string; border: string }> = {
-  PENDING: { label: "PENDING", dot: "bg-orange-500", bg: "bg-orange-100", text: "text-orange-800", border: "border-orange-200" },
-  PROCESSING: { label: "IN PRODUCTION", dot: "bg-slate-500", bg: "bg-slate-200", text: "text-slate-700", border: "border-slate-300" },
-  READY: { label: "READY FOR PICKUP", dot: "bg-amber-600", bg: "bg-amber-100", text: "text-amber-800", border: "border-amber-200" },
-  DELIVERED: { label: "DELIVERED", dot: "bg-blue-300", bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200" },
-};
-
 export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps) {
-  const router = useRouter();
   const { openGiftOrderDetails } = useGlobalForm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -63,7 +39,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
       if (!res.ok) throw new Error("Failed to delete");
       toast.success("Order deleted successfully");
       onOrderUpdated();
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete order");
     } finally {
       setDeletingId(null);
@@ -188,6 +164,8 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                         <div className="flex items-center justify-end sm:justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }}
+                            type="button"
+                            aria-label="View / Edit"
                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="View / Edit"
                           >
@@ -195,6 +173,8 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                           </button>
                           <button 
                             onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }}
+                            type="button"
+                            aria-label="Delete"
                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete"
                           >
@@ -222,7 +202,16 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
               return (
                 <div 
                   key={order.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => openGiftOrderDetails(order.id)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openGiftOrderDetails(order.id);
+                    }
+                  }}
                   className="p-4 hover:bg-slate-50/80 transition-all duration-300 cursor-pointer flex flex-col gap-3"
                 >
                   <div className="flex items-start justify-between">
@@ -301,10 +290,10 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
             Showing <span className="font-bold text-slate-700">1-{orders.length}</span> of <span className="font-bold text-slate-700">{orders.length}</span> active orders
           </div>
           <div className="flex items-center gap-2">
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+            <button type="button" aria-label="Previous page" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
               {"<"}
             </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+            <button type="button" aria-label="Next page" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
               {">"}
             </button>
           </div>

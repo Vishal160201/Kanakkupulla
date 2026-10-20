@@ -32,7 +32,7 @@ export default async function UpcomingBookingsPage() {
     package: b.order?.package?.toString() || '',
     advance: b.order?.advance?.toString() || '',
     due: b.order?.due?.toString() || '',
-    status: b.status as any
+    status: b.status
   }));
 
   return (

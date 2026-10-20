@@ -1,27 +1,26 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import prisma, { toNumber } from '@/lib/prisma';
+import type { Prisma } from "@prisma/client";
+import { requirePermission } from "@/lib/authz";
+import { parseSearchParams } from "@/lib/validations/http";
+import { transactionOverviewQuerySchema } from "@/lib/validations/transactions";
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requirePermission("view_transactions", "manage_transactions");
+    if (auth.error) return auth.error;
 
-    const { searchParams } = new URL(req.url);
-    const startDateParam = searchParams.get('startDate');
-    const endDateParam = searchParams.get('endDate');
+    const query = parseSearchParams(req, transactionOverviewQuerySchema);
+    if (query.error) return query.error;
+    const { startDate, endDate } = query.data;
 
-    const userId = (session.user as any).id as string;
+    const whereClause: Prisma.TransactionWhereInput = { deletedAt: null };
 
-    const whereClause: any = { deletedAt: null };
-
-    if (startDateParam || endDateParam) {
-      whereClause.date = {};
-      if (startDateParam) whereClause.date.gte = new Date(startDateParam);
-      if (endDateParam) whereClause.date.lte = new Date(endDateParam);
+    if (startDate || endDate) {
+      whereClause.date = {
+        ...(startDate && { gte: startDate }),
+        ...(endDate && { lte: endDate }),
+      };
     }
 
     const today = new Date();
@@ -60,7 +59,8 @@ export async function GET(req: Request) {
       // Today's Transactions
       prisma.transaction.findMany({
         where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null },
-        orderBy: { date: 'desc' }
+        orderBy: { date: 'desc' },
+        take: 500
       }),
       // Today's Income + Expense combined
       prisma.transaction.groupBy({
@@ -72,16 +72,16 @@ export async function GET(req: Request) {
 
     const incomeItem = typeAgg.find(t => t.type === 'INCOME');
     const expenseItem = typeAgg.find(t => t.type === 'EXPENSE');
-    const totalIncome = incomeItem?._sum.amount || 0;
-    const totalExpenses = expenseItem?._sum.amount || 0;
+    const totalIncome = toNumber(incomeItem?._sum.amount);
+    const totalExpenses = toNumber(expenseItem?._sum.amount);
     
     const todayIncomeItem = todayTypeAgg.find(t => t.type === 'INCOME');
     const todayExpenseItem = todayTypeAgg.find(t => t.type === 'EXPENSE');
-    const todayIncome = todayIncomeItem?._sum.amount || 0;
-    const todayExpense = todayExpenseItem?._sum.amount || 0;
+    const todayIncome = toNumber(todayIncomeItem?._sum.amount);
+    const todayExpense = toNumber(todayExpenseItem?._sum.amount);
 
     const expensesByCategory = categoryExpenses.reduce((acc, curr) => {
-      acc[curr.category] = curr._sum.amount || 0;
+      acc[curr.category] = toNumber(curr._sum.amount);
       return acc;
     }, {} as Record<string, number>);
 
@@ -97,6 +97,7 @@ export async function GET(req: Request) {
     });
 
   } catch (error) {
+    console.error("Failed to fetch transactions overview:", error);
     return NextResponse.json({ error: "Failed to fetch transactions overview" }, { status: 500 });
   }
 }

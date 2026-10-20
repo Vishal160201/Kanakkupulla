@@ -5,17 +5,14 @@ import { useSession } from "next-auth/react";
 import InviteUserModal from "./InviteUserModal";
 import EditUserModal from "./EditUserModal";
 import { toast } from "sonner";
+import type { TeamMember } from "@/types/settings";
 
-interface User {
-  id: string;
-  idNumber: number;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  role: "ADMIN" | "STAFF" | "PHOTOGRAPHER";
-  status: "ACTIVE" | "PENDING" | "INACTIVE";
-  invitedAt: string | null;
-  tempPassword?: string;
+const PERSONAL_TRACKER_EMAIL = process.env.NEXT_PUBLIC_PERSONAL_TRACKER_EMAIL;
+
+async function getUsers(): Promise<TeamMember[]> {
+  const res = await fetch("/api/users");
+  if (!res.ok) throw new Error("Failed to fetch");
+  return res.json();
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -55,25 +52,21 @@ const STATUS_STYLES: Record<string, { dot: string; text: string; bg: string }> =
 
 export default function UserManagement() {
   const { data: session } = useSession();
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [editTarget, setEditTarget] = useState<User | null>(null);
+  const [editTarget, setEditTarget] = useState<TeamMember | null>(null);
 
-  const currentUserId = (session?.user as any)?.id;
+  const currentUserId = session?.user?.id;
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const res = await fetch("/api/users");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setUsers(data);
-    } catch {
-      toast.error("Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchUsers = useCallback(
+    () =>
+      getUsers()
+        .then(setUsers)
+        .catch(() => toast.error("Failed to load users"))
+        .finally(() => setLoading(false)),
+    []
+  );
 
   useEffect(() => {
     fetchUsers();
@@ -108,7 +101,7 @@ export default function UserManagement() {
           <div>
             <h2 className="text-[1.75rem] font-bold text-slate-900 tracking-tight">Studio Access</h2>
             <p className="text-slate-500 text-sm mt-1">
-              Control who has access to your studio's financial and settings.
+              Control who has access to your studio&apos;s financial and settings.
             </p>
           </div>
           <button
@@ -132,7 +125,8 @@ export default function UserManagement() {
             users.map((user) => {
               const isCurrentUser = user.id === currentUserId;
               const statusStyle = STATUS_STYLES[user.status] || STATUS_STYLES.ACTIVE;
-              const isSuperAdmin = user.email === "nithyavishalr@gmail.com";
+              // Master admin = the personal-tracker owner (unset env => nobody).
+              const isSuperAdmin = !!PERSONAL_TRACKER_EMAIL && user.email === PERSONAL_TRACKER_EMAIL;
               const isEditable = isCurrentUser || !isSuperAdmin;
 
               return (
@@ -198,7 +192,9 @@ export default function UserManagement() {
                         <span className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider">Reset Code:</span>
                         <div className="flex items-center gap-1 bg-orange-50 border border-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[0.65rem] font-mono font-bold">
                           {user.tempPassword}
-                          <button 
+                          <button
+                            type="button"
+                            aria-label="Copy reset code"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigator.clipboard.writeText(user.tempPassword!);

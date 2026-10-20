@@ -2,10 +2,9 @@
 
 import { Booking } from "@/types";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
-import { useRouter } from "next/navigation";
+import { clickableProps } from "@/components/bookings/clickableProps";
 
 export default function UpcomingShootFeed({ bookings }: { bookings: Booking[] }) {
-  const router = useRouter();
   const { openBookingDetails } = useGlobalForm();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -126,8 +125,8 @@ function ShootCard({ booking, openBookingDetails, group }: { booking: Booking, o
 
   return (
     <div 
+      {...clickableProps(() => openBookingDetails(booking.id))}
       className={`rounded-2xl p-5 border shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md cursor-pointer flex flex-col gap-4 relative overflow-hidden group ${tierClasses} ${bgClass}`}
-      onClick={() => openBookingDetails(booking.id)}
     >
       {/* Accent Bar indicating tier or Today */}
       {(isToday || isPremium || isMid || isStandard) && (
@@ -201,12 +200,14 @@ function ShootCard({ booking, openBookingDetails, group }: { booking: Booking, o
       {/* Client Contact Details */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-2 ml-0 sm:ml-2 pt-3 border-t border-slate-100/60 gap-3 sm:gap-0">
         <div className="flex flex-wrap items-center gap-2">
-          <div 
+          <button
+            type="button"
+            aria-label={`Call ${booking.phone}`}
             className="flex items-center gap-1.5 text-[0.75rem] font-semibold text-slate-600 bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-lg hover:border-orange-200 hover:text-orange-600 transition-colors cursor-pointer whitespace-nowrap"
             onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${booking.phone}`; }}
           >
             <i className="ph-fill ph-phone text-slate-400 group-hover:text-orange-500 transition-colors"></i> {booking.phone}
-          </div>
+          </button>
           {booking.email && (
             <div className="flex items-center gap-1.5 text-[0.75rem] font-semibold text-slate-600 bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-lg truncate max-w-full sm:max-w-[160px] whitespace-nowrap">
               <i className="ph-fill ph-envelope text-slate-400"></i> {booking.email}

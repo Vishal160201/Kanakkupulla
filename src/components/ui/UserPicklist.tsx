@@ -75,9 +75,11 @@ export default function UserPicklist({ users, value, onChange, placeholder = "Se
             users.map(u => {
               const isSelected = value === u.id;
               return (
-                <div 
+                <button
+                  type="button"
                   key={u.id}
-                  className={`px-4 py-2.5 cursor-pointer flex items-center justify-between transition-colors hover:bg-orange-50/80 ${isSelected ? 'bg-orange-50/50' : ''}`}
+                  aria-pressed={isSelected}
+                  className={`w-full text-left px-4 py-2.5 cursor-pointer flex items-center justify-between transition-colors hover:bg-orange-50/80 ${isSelected ? 'bg-orange-50/50' : ''}`}
                   onClick={() => {
                     onChange(isSelected ? "" : u.id);
                     setIsOpen(false);
@@ -112,7 +114,7 @@ export default function UserPicklist({ users, value, onChange, placeholder = "Se
                       <i className="ph-bold ph-check text-[0.7rem]"></i>
                     </div>
                   )}
-                </div>
+                </button>
               );
             })
           )}

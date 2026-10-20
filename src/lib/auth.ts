@@ -1,32 +1,22 @@
 import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/prisma";
+import prisma, { basePrisma } from "@/lib/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
+import type { JWT } from "next-auth/jwt";
+
+const ROLE_REFRESH_MS = 60 * 1000;
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(basePrisma),
   secret: process.env.NEXTAUTH_SECRET as string,
   session: {
     strategy: "jwt",
   },
   pages: {
     signIn: "/login",
-  },
-  debug: true,
-  logger: {
-    error(code, metadata) {
-      try {
-        require("fs").appendFileSync("nextauth-error.log", JSON.stringify({ code, metadata }) + "\\n");
-      } catch (e) {}
-    },
-    debug(code, metadata) {
-      try {
-        require("fs").appendFileSync("nextauth-debug.log", JSON.stringify({ code, metadata }) + "\\n");
-      } catch (e) {}
-    }
   },
   providers: [
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -110,7 +100,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ account, profile }) {
       if (account?.provider === "google-drive") {
         try {
           if (!account.providerAccountId) return false;
@@ -179,11 +169,10 @@ export const authOptions: NextAuthOptions = {
 
           // 5. Return a URL to bypass NextAuth's fragile account linking and redirect immediately
           return '/settings?section=google-drive&success=DriveConnected';
-        } catch (error: any) {
-          try {
-            require("fs").writeFileSync("last-auth-error.txt", String(error.stack || error));
-          } catch (e) {}
-          return `/settings?error=DriveIntegrationFailed&details=${encodeURIComponent(error.message || "Unknown error")}`;
+        } catch (error) {
+          console.error("[auth] Google Drive linking failed", error);
+          const message = error instanceof Error ? error.message : "Unknown error";
+          return `/settings?error=DriveIntegrationFailed&details=${encodeURIComponent(message)}`;
         }
       }
       return true;
@@ -191,8 +180,9 @@ export const authOptions: NextAuthOptions = {
 
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as any).id = token.sub as string;
-        (session.user as any).role = token.role as string;
+        session.user.id = token.sub as string;
+        session.user.role = token.role ?? "STAFF";
+        session.user.status = token.status;
       }
       return session;
     },
@@ -205,7 +195,24 @@ export const authOptions: NextAuthOptions = {
 
       if (user) {
         token.sub = user.id;
-        token.role = (user as any).role || "STAFF";
+        // `user` is the Prisma User row returned by authorize() / the adapter
+        const dbUser = user as typeof user & { role?: JWT["role"]; status?: JWT["status"] };
+        token.role = dbUser.role || "STAFF";
+        token.status = dbUser.status;
+        token.refreshedAt = Date.now();
+        return token;
+      }
+
+      // Re-read role/status periodically so demotions and deactivations take effect
+      // without waiting for the JWT to expire.
+      if (token.sub && Date.now() - (token.refreshedAt ?? 0) > ROLE_REFRESH_MS) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { role: true, status: true },
+        });
+        token.role = dbUser?.role;
+        token.status = dbUser ? dbUser.status : "INACTIVE";
+        token.refreshedAt = Date.now();
       }
       return token;
     },

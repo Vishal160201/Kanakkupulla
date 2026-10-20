@@ -39,17 +39,16 @@ export default function CustomDateRangePicker({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
-  // Sync temp state when opening
-  useEffect(() => {
-    if (isOpen) {
-      setTempSelection({ start: value.start, end: value.end });
-      if (value.start) {
-        setLeftMonth(startOfMonth(new Date(value.start)));
-      } else {
-        setLeftMonth(startOfMonth(new Date()));
-      }
+  // Opening seeds the temp selection and visible month from the current value
+  const openPicker = () => {
+    setTempSelection({ start: value.start, end: value.end });
+    if (value.start) {
+      setLeftMonth(startOfMonth(new Date(value.start)));
+    } else {
+      setLeftMonth(startOfMonth(new Date()));
     }
-  }, [isOpen, value]);
+    setIsOpen(true);
+  };
 
   const updateDropdownPosition = useCallback(() => {
     if (isOpen && buttonRef.current) {
@@ -286,7 +285,8 @@ export default function CustomDateRangePicker({
       <button 
         ref={buttonRef}
         type="button" 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => (isOpen ? setIsOpen(false) : openPicker())}
+        aria-expanded={isOpen}
         className={cn(
           "flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500",
           "border-slate-200 hover:border-slate-300",

@@ -1,43 +1,34 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { requireAdmin, requireUser } from "@/lib/authz";
+import { parseJsonBody } from "@/lib/validations/http";
+import { layoutUpsertSchema } from "@/lib/validations/settings";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
 
   try {
     const layouts = await prisma.formLayout.findMany({
-      orderBy: { name: "asc" }
+      orderBy: { name: "asc" },
+      take: 100,
     });
     return NextResponse.json(layouts);
   } catch (error) {
+    console.error("Failed to fetch form layouts:", error);
     return NextResponse.json({ error: "Failed to fetch form layouts" }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const userRole = (session.user as any).role;
-  if (userRole !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
 
   try {
-    const body = await request.json();
-    const { formKey, name, description, schema } = body;
-
-    if (!formKey || !name || !schema) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 422 });
-    }
+    const parsed = await parseJsonBody(request, layoutUpsertSchema);
+    if (parsed.error) return parsed.error;
+    const { formKey, name, description, schema } = parsed.data;
 
     const updated = await prisma.formLayout.upsert({
       where: { formKey },
@@ -51,6 +42,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updated);
   } catch (error) {
+    console.error("Failed to update form layout:", error);
     return NextResponse.json({ error: "Failed to update form layout" }, { status: 500 });
   }
 }

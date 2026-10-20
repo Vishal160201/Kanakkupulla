@@ -1,10 +1,18 @@
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  // Colour classes built at runtime (`bg-${color}-50`) in GlobalSearch and booking field icons
+  safelist: [
+    {
+      pattern: /^(bg|text)-(amber|blue|emerald|green|indigo|orange|purple|red|rose|slate|violet|yellow)-(50|500)$/,
+      variants: ["group-hover"],
+    },
   ],
   theme: {
     extend: {
@@ -18,11 +26,24 @@ const config: Config = {
         },
         shimmer: {
           '100%': { transform: 'translateX(100%)' },
-        }
+        },
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'slide-down': {
+          '0%': { opacity: '0', transform: 'translateY(-4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         heartbeat: 'heartbeat 1.5s ease-in-out infinite',
         shimmer: 'shimmer 1.5s infinite',
+        'fade-in-up': 'fade-in-up 0.3s ease-out both',
+        'slide-down': 'slide-down 0.2s ease-out both',
+      },
+      fontSize: {
+        md: ['1rem', { lineHeight: '1.5rem' }],
       },
       colors: {
         border: "#e5e7eb",
@@ -61,6 +82,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [animate],
 };
 export default config;

@@ -3,19 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-
-interface User {
-  id: string;
-  idNumber: number;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  role: "ADMIN" | "STAFF" | "PHOTOGRAPHER";
-  status: "ACTIVE" | "PENDING" | "INACTIVE";
-}
+import type { TeamMember } from "@/types/settings";
 
 interface EditUserModalProps {
-  user: User;
+  user: TeamMember;
   onClose: () => void;
   onSuccess: () => void;
   isCurrentUser: boolean;
@@ -72,8 +63,8 @@ export default function EditUserModal({ user, onClose, onSuccess, isCurrentUser 
       }
       toast.success("User updated successfully");
       onSuccess();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error((err as Error).message);
     } finally {
       setIsSaving(false);
     }
@@ -90,8 +81,8 @@ export default function EditUserModal({ user, onClose, onSuccess, isCurrentUser 
       }
       toast.success("User deleted successfully");
       onSuccess();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error((err as Error).message);
       setIsDeleting(false);
     }
   };
@@ -123,6 +114,8 @@ export default function EditUserModal({ user, onClose, onSuccess, isCurrentUser 
                   className="w-full px-4 py-3 bg-slate-100 border border-gray-200 rounded-xl text-xs font-mono text-slate-900 font-bold cursor-not-allowed"
                 />
                 <button
+                  type="button"
+                  aria-label="Copy user ID"
                   onClick={() => {
                     navigator.clipboard.writeText(`#MDuser-${String(user.idNumber).padStart(3, '0')}`);
                     toast.success("User ID copied!");
@@ -182,24 +175,29 @@ export default function EditUserModal({ user, onClose, onSuccess, isCurrentUser 
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Role
                 </label>
-                <div 
+                <button
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={roleDropdownOpen && !isCurrentUser}
+                  aria-disabled={isCurrentUser}
                   onClick={() => !isCurrentUser && setRoleDropdownOpen(!roleDropdownOpen)}
                   className={`w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm transition-all shadow-sm flex items-center justify-between ${isCurrentUser ? "bg-slate-100 cursor-not-allowed text-slate-500" : "cursor-pointer hover:border-orange-200"}`}
                 >
                   <span className="font-medium">{ROLE_LABELS[role]}</span>
                   <i className={`ph ph-caret-down text-slate-400 transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`}></i>
-                </div>
+                </button>
                 {roleDropdownOpen && !isCurrentUser && (
                   <div className="absolute z-50 mt-2 w-full bg-white border border-gray-100 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] py-1.5 animate-in fade-in zoom-in-95 duration-100">
                     {(Object.keys(ROLE_LABELS) as Array<keyof typeof ROLE_LABELS>).map((r) => (
-                      <div 
-                        key={r} 
+                      <button
+                        type="button"
+                        key={r}
                         onClick={() => { setRole(r); setRoleDropdownOpen(false); }}
-                        className={`px-4 py-2.5 text-sm cursor-pointer transition-colors flex items-center justify-between ${role === r ? "bg-orange-50 text-orange-700 font-bold" : "hover:bg-slate-50 text-slate-700 font-medium"}`}
+                        className={`w-full text-left px-4 py-2.5 text-sm cursor-pointer transition-colors flex items-center justify-between ${role === r ? "bg-orange-50 text-orange-700 font-bold" : "hover:bg-slate-50 text-slate-700 font-medium"}`}
                       >
                         {ROLE_LABELS[r]}
                         {role === r && <i className="ph-fill ph-check text-orange-500"></i>}
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -210,24 +208,29 @@ export default function EditUserModal({ user, onClose, onSuccess, isCurrentUser 
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Status
                 </label>
-                <div 
+                <button
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={statusDropdownOpen && !isCurrentUser}
+                  aria-disabled={isCurrentUser}
                   onClick={() => !isCurrentUser && setStatusDropdownOpen(!statusDropdownOpen)}
                   className={`w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm transition-all shadow-sm flex items-center justify-between ${isCurrentUser ? "bg-slate-100 cursor-not-allowed text-slate-500" : "cursor-pointer hover:border-orange-200"}`}
                 >
                   <span className="font-medium">{STATUS_LABELS[status]}</span>
                   <i className={`ph ph-caret-down text-slate-400 transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`}></i>
-                </div>
+                </button>
                 {statusDropdownOpen && !isCurrentUser && (
                   <div className="absolute z-50 mt-2 w-full bg-white border border-gray-100 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] py-1.5 animate-in fade-in zoom-in-95 duration-100">
                     {(Object.keys(STATUS_LABELS) as Array<keyof typeof STATUS_LABELS>).map((s) => (
-                      <div 
-                        key={s} 
+                      <button
+                        type="button"
+                        key={s}
                         onClick={() => { setStatus(s); setStatusDropdownOpen(false); }}
-                        className={`px-4 py-2.5 text-sm cursor-pointer transition-colors flex items-center justify-between ${status === s ? "bg-orange-50 text-orange-700 font-bold" : "hover:bg-slate-50 text-slate-700 font-medium"}`}
+                        className={`w-full text-left px-4 py-2.5 text-sm cursor-pointer transition-colors flex items-center justify-between ${status === s ? "bg-orange-50 text-orange-700 font-bold" : "hover:bg-slate-50 text-slate-700 font-medium"}`}
                       >
                         {STATUS_LABELS[s]}
                         {status === s && <i className="ph-fill ph-check text-orange-500"></i>}
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}

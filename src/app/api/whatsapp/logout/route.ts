@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAdmin } from "@/lib/authz";
+import { botFetch } from "@/lib/whatsappBot";
 
 export async function POST() {
-  const BOT_URL = process.env.WHATSAPP_BOT_URL || "http://localhost:3001";
-  const session = await getServerSession(authOptions);
-  const userRole = (session?.user as any)?.role;
-  if (!session || (userRole !== "SUPER_ADMIN" && userRole !== "STUDIO_OWNER" && userRole !== "ADMIN")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
 
   try {
-    await fetch(`${BOT_URL}/api/logout`, { method: 'POST' });
+    const res = await botFetch("/api/logout", { method: "POST" });
+    if (!res.ok) {
+      return NextResponse.json({ error: "Bot server rejected the logout request." }, { status: 502 });
+    }
   } catch (error) {
+    console.error("WhatsApp bot logout failed:", error);
+    return NextResponse.json({ error: "Could not connect to the WhatsApp Bot Server." }, { status: 502 });
   }
 
   return NextResponse.json({ success: true });

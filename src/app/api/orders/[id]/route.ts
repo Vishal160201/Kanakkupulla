@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireAdmin, requirePermission, requireUser } from "@/lib/authz";
+import { parseJsonBody } from "@/lib/validations/http";
+import { orderUpdateSchema } from "@/lib/validations/orders";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
 
   try {
     const id = (await params).id;
@@ -33,6 +32,7 @@ export async function GET(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to fetch order:", error);
     return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
   }
 }
@@ -41,29 +41,25 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requirePermission("manage_bookings");
+  if (auth.error) return auth.error;
 
   try {
     const id = (await params).id;
-    const body = await request.json();
-    const { packageAmount, advanceAmount, dueAmount } = body;
+    const parsed = await parseJsonBody(request, orderUpdateSchema);
+    if (parsed.error) return parsed.error;
+    const { packageAmount, advanceAmount, dueAmount } = parsed.data;
 
     const updated = await prisma.order.update({
       where: { id },
-      data: {
-        package: packageAmount !== undefined ? parseFloat(packageAmount) : undefined,
-        advance: advanceAmount !== undefined ? parseFloat(advanceAmount) : undefined,
-        due: dueAmount !== undefined ? parseFloat(dueAmount) : undefined,
-      },
+      data: { package: packageAmount, advance: advanceAmount, due: dueAmount },
     });
 
     return NextResponse.json(updated, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to update order:", error);
     return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
   }
 }
@@ -72,10 +68,8 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
 
   try {
     const id = (await params).id;
@@ -87,6 +81,7 @@ export async function DELETE(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to delete order:", error);
     return NextResponse.json({ error: "Failed to delete order" }, { status: 500 });
   }
 }

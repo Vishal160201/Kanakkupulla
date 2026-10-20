@@ -1,54 +1,35 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireAdmin } from "@/lib/authz";
+import { PRIVATE_ITEM_TYPES, purgeEntry } from "@/lib/recycleBin";
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userRole = (session.user as any).role;
-  if (userRole !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden. Admin only." }, { status: 403 });
-  }
+export async function POST() {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+  // Drive deletes run as the acting admin
+  const session = { user: auth.user };
 
   try {
-    const entries = await prisma.recycleBin.findMany({});
+    // Other users' private entries are left alone
+    const entries = await prisma.recycleBin.findMany({
+      where: { OR: [{ itemType: { notIn: PRIVATE_ITEM_TYPES } }, { trashedById: auth.user.id }] },
+    });
 
     for (const entry of entries) {
-      if (entry.itemType === "booking") {
-        try {
-          await prisma.transaction.deleteMany({ where: { bookingId: entry.itemId } });
-          await prisma.order.deleteMany({ where: { bookingId: entry.itemId } });
-          await prisma.booking.delete({ where: { id: entry.itemId } });
-        } catch (e) {
-        }
-      }
-      if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
-        try {
-          await prisma.productOrder.delete({ where: { id: entry.itemId } });
-        } catch (e) {}
-      }
-      if (entry.itemType === "TRANSACTION_GROUP") {
-        try {
-          await prisma.transaction.deleteMany({ where: { groupId: entry.itemId } });
-        } catch (e) {}
-      }
+      await purgeEntry(entry, session);
     }
-
-    await prisma.recycleBin.deleteMany({});
 
     await prisma.systemLog.create({
       data: {
         action: "RECYCLE_BIN_EMPTY",
         details: `Emptied recycle bin containing ${entries.length} items`,
-        userId: (session.user as any).id,
+        userId: auth.user.id,
       }
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Failed to empty recycle bin:", error);
     return NextResponse.json({ error: "Failed to empty recycle bin" }, { status: 500 });
   }
 }

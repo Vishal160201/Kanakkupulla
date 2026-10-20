@@ -1,18 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import MonthYearPicker from "../ui/MonthYearPicker";
 import WeekPicker from "../ui/WeekPicker";
 import DayPicker from "../ui/DayPicker";
-import { Booking } from "@/types";
+import type { Booking } from "@/types";
 import { useSystem } from "@/components/providers/SystemProvider";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import useSWR from "swr";
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
-
+import { fetcher } from "@/lib/fetcher";
 import { Suspense } from "react";
+
+/** Booking row as returned by GET /api/bookings (only the fields used here). */
+interface ApiBooking {
+  id: string;
+  bookingNumber?: string | null;
+  client?: { name?: string | null } | null;
+  category: string;
+  date: string;
+  time: string;
+  location: string;
+  order?: { package?: number | null } | null;
+  status: string;
+}
+
+type CalendarBooking = Pick<Booking, 'id' | 'bookingNumber' | 'title' | 'category' | 'date' | 'time' | 'location' | 'package' | 'status'>;
+
+const parseDateParam = (d: string) => {
+  const [y, m, day] = d.split('-').map(Number);
+  return new Date(y, m - 1, day);
+};
+
+const toDateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 8 AM – 7 PM hour labels for the week/day schedule views. */
+function TimeAxis() {
+  return (
+    <div className="time-axis">
+      {Array.from({ length: 12 }).map((_, i) => {
+        const h = i + 8;
+        const displayH = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        return <div key={h} className="time-slot-label">{displayH} {ampm}</div>;
+      })}
+    </div>
+  );
+}
 
 function CalendarWidgetInner() {
   const router = useRouter();
@@ -22,20 +57,16 @@ function CalendarWidgetInner() {
   
   const [currentDate, setCurrentDate] = useState(() => {
     const d = searchParams.get('date');
-    if (d) {
-      const [y, m, day] = d.split('-').map(Number);
-      return new Date(y, m - 1, day);
-    }
-    return new Date();
+    return d ? parseDateParam(d) : new Date();
   });
 
-  useEffect(() => {
+  // Jump to ?date= whenever the URL changes (adjusted during render rather than in an effect).
+  const [syncedSearchParams, setSyncedSearchParams] = useState(searchParams);
+  if (syncedSearchParams !== searchParams) {
+    setSyncedSearchParams(searchParams);
     const d = searchParams.get('date');
-    if (d) {
-      const [y, m, day] = d.split('-').map(Number);
-      setCurrentDate(new Date(y, m - 1, day));
-    }
-  }, [searchParams]);
+    if (d) setCurrentDate(parseDateParam(d));
+  }
 
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -60,9 +91,9 @@ function CalendarWidgetInner() {
   const startDateStr = startDate.toISOString().split('T')[0];
   const endDateStr = endDate.toISOString().split('T')[0];
 
-  const { data: dbBookings, isLoading } = useSWR(`/api/bookings?startDate=${startDateStr}&endDate=${endDateStr}`, fetcher);
+  const { data: dbBookings, isLoading } = useSWR<{ items?: ApiBooking[] }>(`/api/bookings?startDate=${startDateStr}&endDate=${endDateStr}`, fetcher);
 
-  const bookings: Booking[] = (dbBookings?.items || []).map((b: any) => ({
+  const bookings: CalendarBooking[] = (dbBookings?.items || []).map((b) => ({
     id: b.id,
     bookingNumber: b.bookingNumber,
     title: b.client?.name || 'Unknown',
@@ -74,20 +105,12 @@ function CalendarWidgetInner() {
     status: b.status
   }));
 
-
-  const nextRange = () => {
+  // Step the visible month / week / day forwards (1) or backwards (-1).
+  const shiftRange = (dir: 1 | -1) => {
     const d = new Date(currentDate);
-    if (view === 'month') d.setMonth(d.getMonth() + 1);
-    else if (view === 'week') d.setDate(d.getDate() + 7);
-    else if (view === 'day') d.setDate(d.getDate() + 1);
-    setCurrentDate(d);
-  };
-
-  const prevRange = () => {
-    const d = new Date(currentDate);
-    if (view === 'month') d.setMonth(d.getMonth() - 1);
-    else if (view === 'week') d.setDate(d.getDate() - 7);
-    else if (view === 'day') d.setDate(d.getDate() - 1);
+    if (view === 'month') d.setMonth(d.getMonth() + dir);
+    else if (view === 'week') d.setDate(d.getDate() + 7 * dir);
+    else if (view === 'day') d.setDate(d.getDate() + dir);
     setCurrentDate(d);
   };
 
@@ -129,7 +152,7 @@ function CalendarWidgetInner() {
       const paddedDay = String(i).padStart(2, '0');
       const dateString = `${year}-${paddedMonth}-${paddedDay}`;
       
-      const dayBookings = bookings.filter((b: Booking) => b.date === dateString);
+      const dayBookings = bookings.filter((b: CalendarBooking) => b.date === dateString);
       const isToday = i === today.getDate() && month === today.getMonth() && year === today.getFullYear();
       
       const handleCellClick = () => {
@@ -144,46 +167,51 @@ function CalendarWidgetInner() {
             <div className="calendar-date" style={{ fontWeight: dayBookings.length > 0 ? 800 : 400 }}>{i}</div>
           )}
           
-          {dayBookings.slice(0, 2).map((b: Booking) => {
+          {dayBookings.slice(0, 2).map((b: CalendarBooking) => {
             const styles = getTierStyles(b.package);
             return (
-              <div key={b.id} className="calendar-event" style={{ backgroundColor: styles.bg, color: styles.color, border: 'none', marginBottom: '2px', padding: '3px 6px', fontSize: '0.65rem', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); }}>
+              <button type="button" key={b.id} className="calendar-event w-full text-left" style={{ backgroundColor: styles.bg, color: styles.color, border: 'none', marginBottom: '2px', padding: '3px 6px', fontSize: '0.65rem', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); }}>
                 <i className="ph-fill ph-calendar-star"></i> {b.title.substring(0, 10)}...
-              </div>
+              </button>
             );
           })}
 
           {dayBookings.length > 2 && (
-            <div 
-              className="calendar-event-more" 
+            <button
+              type="button"
+              className="calendar-event-more w-full"
+              aria-expanded={popupDate === dateString}
               style={{ fontSize: '0.6rem', color: '#94a3b8', textAlign: 'center', cursor: 'pointer', fontWeight: 800, padding: '2px', borderRadius: '4px', background: 'transparent', margin: '2px 0 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}
               onClick={(e) => { e.stopPropagation(); setPopupDate(popupDate === dateString ? null : dateString); }}
             >
               +{dayBookings.length - 2} more <i className="ph-bold ph-caret-down text-[0.5rem]"></i>
-            </div>
+            </button>
           )}
 
           {popupDate === dateString && (
             <div className="absolute z-[100] bg-white shadow-2xl border border-gray-200 rounded-xl p-2.5 top-[70%] left-1/2 -translate-x-1/2 min-w-[160px]" style={{ width: 'max-content' }}>
               <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider mb-2 pl-1 border-b border-gray-100 pb-1 flex justify-between items-center">
                 <span>{new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</span>
-                <div 
+                <button
+                  type="button"
+                  aria-label="Close"
                   className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-slate-200 text-slate-500"
                   onClick={(e) => { e.stopPropagation(); setPopupDate(null); }}
                 >
                   <i className="ph-bold ph-x text-[0.6rem]"></i>
-                </div>
+                </button>
               </div>
               <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto no-scrollbar">
-                {dayBookings.map((b: Booking) => {
+                {dayBookings.map((b: CalendarBooking) => {
                   return (
-                    <div 
-                      key={b.id} 
-                      className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden" 
+                    <button
+                      type="button"
+                      key={b.id}
+                      className="block w-full text-left p-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden"
                       onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); setPopupDate(null); }}
                     >
                       <i className="ph-fill ph-calendar-star mr-1"></i> {b.title}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -198,8 +226,8 @@ function CalendarWidgetInner() {
 
   // Vertical layout logic
   const getVerticalEvents = (dateString: string) => {
-    const dayBookings = bookings.filter((b: Booking) => b.date === dateString);
-    return dayBookings.map((b: Booking) => {
+    const dayBookings = bookings.filter((b: CalendarBooking) => b.date === dateString);
+    return dayBookings.map((b: CalendarBooking) => {
       let startHour = 10;
       if (b.time) {
         const match = b.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -215,7 +243,7 @@ function CalendarWidgetInner() {
         const styles = getTierStyles(b.package);
 
         return (
-          <div key={b.id} className="event-block" style={{ top: topOffset, height: 50, backgroundColor: styles.bg, color: styles.color, border: 'none', borderLeft: '3px solid rgba(0,0,0,0.1)' }} onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); }}>
+          <div key={b.id} role="button" tabIndex={0} className="event-block" style={{ top: topOffset, height: 50, backgroundColor: styles.bg, color: styles.color, border: 'none', borderLeft: '3px solid rgba(0,0,0,0.1)' }} onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); }} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBookingDetails(b.id); } }}>
             <div className="event-title"><i className="ph-fill ph-calendar-star mr-1"></i> {b.title}</div>
             <div className="event-block-time" style={{ opacity: 0.9 }}>{b.time}</div>
           </div>
@@ -230,18 +258,11 @@ function CalendarWidgetInner() {
     const dayOfWeek = firstDateOfWeek.getDay();
     firstDateOfWeek.setDate(firstDateOfWeek.getDate() - dayOfWeek);
 
-    const timeAxis = Array.from({ length: 12 }).map((_, i) => {
-      const h = i + 8;
-      const displayH = h > 12 ? h - 12 : (h === 0 ? 12 : h);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      return <div key={h} className="time-slot-label">{displayH} {ampm}</div>;
-    });
-
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const columns = days.map((d, i) => {
       const loopDate = new Date(firstDateOfWeek);
       loopDate.setDate(loopDate.getDate() + i);
-      const dateString = `${loopDate.getFullYear()}-${String(loopDate.getMonth() + 1).padStart(2, '0')}-${String(loopDate.getDate()).padStart(2, '0')}`;
+      const dateString = toDateKey(loopDate);
       const isToday = loopDate.toDateString() === new Date().toDateString();
 
       const handleColClick = () => {
@@ -256,7 +277,7 @@ function CalendarWidgetInner() {
 
     return (
       <>
-        <div className="time-axis">{timeAxis}</div>
+        <TimeAxis />
         <div className="schedule-container">
           <div className="schedule-header week-columns">{columns.map(c => c.header)}</div>
           <div className="schedule-body week-columns">{columns.map(c => c.column)}</div>
@@ -266,15 +287,7 @@ function CalendarWidgetInner() {
   };
 
   const renderDayGrid = () => {
-    const timeAxis = Array.from({ length: 12 }).map((_, i) => {
-      const h = i + 8;
-      const displayH = h > 12 ? h - 12 : (h === 0 ? 12 : h);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      return <div key={h} className="time-slot-label">{displayH} {ampm}</div>;
-    });
-
-    const loopDate = currentDate;
-    const dateString = `${loopDate.getFullYear()}-${String(loopDate.getMonth() + 1).padStart(2, '0')}-${String(loopDate.getDate()).padStart(2, '0')}`;
+    const dateString = toDateKey(currentDate);
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const dayName = days[currentDate.getDay()];
     const isToday = currentDate.toDateString() === new Date().toDateString();
@@ -285,7 +298,7 @@ function CalendarWidgetInner() {
 
     return (
       <>
-        <div className="time-axis">{timeAxis}</div>
+        <TimeAxis />
         <div className="schedule-container">
           <div className="schedule-header">
             <div className="schedule-header-cell" style={{ color: isToday ? "var(--brand-orange)" : "" }}>{dayName}, {currentDate.toLocaleString('default', { month: 'short' })} {currentDate.getDate()}, {currentDate.getFullYear()}</div>
@@ -312,45 +325,33 @@ function CalendarWidgetInner() {
     headerText = `${firstDateOfWeek.toLocaleString('default', { month: 'short', day: 'numeric' })} – ${lastDateOfWeek.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   }
 
+  const pickerProps = {
+    currentDate,
+    onChange: (d: Date) => { setCurrentDate(d); setIsPickerOpen(false); },
+    onClose: () => setIsPickerOpen(false),
+  };
+
   return (
     <div className="calendar-wrapper overflow-x-auto no-scrollbar">
       <div className="calendar-header flex-col sm:flex-row gap-4 sm:gap-0">
         <div className="calendar-title">
           <div style={{ position: "relative" }}>
-            <div style={{ cursor: "pointer", display: "flex", alignItems: "center" }} title="Select Month & Year" onClick={() => setIsPickerOpen(!isPickerOpen)}>
+            <button type="button" style={{ cursor: "pointer", display: "flex", alignItems: "center" }} title="Select Month & Year" aria-expanded={isPickerOpen} onClick={() => setIsPickerOpen(!isPickerOpen)}>
               <span id="calendar-month-year-text">{headerText}</span>
-            </div>
-            {isPickerOpen && view === 'week' && (
-              <WeekPicker 
-                currentDate={currentDate} 
-                onChange={(d) => { setCurrentDate(d); setIsPickerOpen(false); }} 
-                onClose={() => setIsPickerOpen(false)} 
-              />
-            )}
-            {isPickerOpen && view === 'day' && (
-              <DayPicker 
-                currentDate={currentDate} 
-                onChange={(d) => { setCurrentDate(d); setIsPickerOpen(false); }} 
-                onClose={() => setIsPickerOpen(false)} 
-              />
-            )}
-            {isPickerOpen && view === 'month' && (
-              <MonthYearPicker 
-                currentDate={currentDate} 
-                onChange={(d) => { setCurrentDate(d); setIsPickerOpen(false); }} 
-                onClose={() => setIsPickerOpen(false)} 
-              />
-            )}
+            </button>
+            {isPickerOpen && view === 'week' && <WeekPicker {...pickerProps} />}
+            {isPickerOpen && view === 'day' && <DayPicker {...pickerProps} />}
+            {isPickerOpen && view === 'month' && <MonthYearPicker {...pickerProps} />}
           </div>
           <div className="calendar-nav">
-            <button onClick={prevRange}><i className="ph-bold ph-caret-left"></i></button>
-            <button onClick={nextRange}><i className="ph-bold ph-caret-right"></i></button>
+            <button type="button" aria-label="Previous" onClick={() => shiftRange(-1)}><i className="ph-bold ph-caret-left"></i></button>
+            <button type="button" aria-label="Next" onClick={() => shiftRange(1)}><i className="ph-bold ph-caret-right"></i></button>
           </div>
         </div>
         <div className="view-toggle">
-          <button className={`calendar-view-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>Month</button>
-          <button className={`calendar-view-btn ${view === 'week' ? 'active' : ''}`} onClick={() => setView('week')}>Week</button>
-          <button className={`calendar-view-btn ${view === 'day' ? 'active' : ''}`} onClick={() => setView('day')}>Day</button>
+          <button type="button" className={`calendar-view-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>Month</button>
+          <button type="button" className={`calendar-view-btn ${view === 'week' ? 'active' : ''}`} onClick={() => setView('week')}>Week</button>
+          <button type="button" className={`calendar-view-btn ${view === 'day' ? 'active' : ''}`} onClick={() => setView('day')}>Day</button>
         </div>
       </div>
       
@@ -367,7 +368,7 @@ function CalendarWidgetInner() {
 
       <div className="flex justify-start sm:justify-end flex-wrap items-center gap-2 sm:gap-4 pt-4 px-2 mt-auto border-t border-gray-100">
         <div className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mr-0 sm:mr-2 w-full sm:w-auto">Package Value:</div>
-        {preferences?.calendarTiers?.map((tier: any, index: number) => {
+        {preferences?.calendarTiers?.map((tier, index) => {
           const prevMax = index > 0 ? preferences.calendarTiers[index - 1].max : 0;
           let label = "";
           if (index === 0) label = `< ${tier.max / 1000}k`;

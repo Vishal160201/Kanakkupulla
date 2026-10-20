@@ -1,10 +1,41 @@
 import { useState, useEffect } from "react";
 import Script from "next/script";
+import { toast } from "sonner";
+
+// Minimal typings for the parts of the Google API loader / Picker used here.
+interface PickerDocument {
+  id: string;
+  url: string;
+  name: string;
+  iconUrl: string;
+}
+
+type PickerResponse = Record<string, unknown>;
+
+interface PickerBuilder {
+  enableFeature(feature: string): PickerBuilder;
+  setAppId(appId: string): PickerBuilder;
+  setOAuthToken(token: string): PickerBuilder;
+  addView(view: unknown): PickerBuilder;
+  setDeveloperKey(key: string): PickerBuilder;
+  setCallback(callback: (data: PickerResponse) => void): PickerBuilder;
+  build(): { setVisible(visible: boolean): void };
+}
+
+interface GooglePickerApi {
+  DocsView: new (viewId: string) => { setIncludeFolders(include: boolean): void };
+  DocsUploadView: new () => unknown;
+  PickerBuilder: new () => PickerBuilder;
+  ViewId: { DOCS: string };
+  Feature: { NAV_HIDDEN: string; MULTISELECT_ENABLED: string };
+  Response: { ACTION: string; DOCUMENTS: string };
+  Action: { PICKED: string; CANCEL: string };
+}
 
 declare global {
   interface Window {
-    gapi: any;
-    google: any;
+    gapi?: { load(api: string, options: { callback: () => void }): void };
+    google?: { picker: GooglePickerApi };
   }
 }
 
@@ -38,14 +69,15 @@ export default function GooglePicker({ onPick, className = "" }: GooglePickerPro
       const data = await res.json();
       setToken(data.accessToken);
       return data.accessToken;
-    } catch (e) {
-      alert("Please connect Google Drive in Settings first.");
+    } catch {
+      toast.error("Please connect Google Drive in Settings first.");
       return null;
     }
   };
 
   const createPicker = async () => {
-    if (!isReady || !window.google) return;
+    const google = window.google;
+    if (!isReady || !google) return;
     setIsPickerOpen(true);
 
     let accessToken = token;
@@ -57,20 +89,21 @@ export default function GooglePicker({ onPick, className = "" }: GooglePickerPro
       }
     }
 
-    const view = new window.google.picker.DocsView(window.google.picker.ViewId.DOCS);
+    const { picker: pickerApi } = google;
+    const view = new pickerApi.DocsView(pickerApi.ViewId.DOCS);
     view.setIncludeFolders(true);
     
-    const picker = new window.google.picker.PickerBuilder()
-      .enableFeature(window.google.picker.Feature.NAV_HIDDEN)
-      .enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED)
+    const picker = new pickerApi.PickerBuilder()
+      .enableFeature(pickerApi.Feature.NAV_HIDDEN)
+      .enableFeature(pickerApi.Feature.MULTISELECT_ENABLED)
       .setAppId(APP_ID)
       .setOAuthToken(accessToken)
       .addView(view)
-      .addView(new window.google.picker.DocsUploadView())
+      .addView(new pickerApi.DocsUploadView())
       .setDeveloperKey(API_KEY)
-      .setCallback(async (data: any) => {
-        if (data[window.google.picker.Response.ACTION] === window.google.picker.Action.PICKED) {
-          const doc = data[window.google.picker.Response.DOCUMENTS][0];
+      .setCallback(async (data) => {
+        if (data[pickerApi.Response.ACTION] === pickerApi.Action.PICKED) {
+          const doc = (data[pickerApi.Response.DOCUMENTS] as PickerDocument[])[0];
           
           // Set file to anyone with link can view (so other users in the system can see the thumbnail)
           fetch("/api/integrations/google/share", {
@@ -86,8 +119,8 @@ export default function GooglePicker({ onPick, className = "" }: GooglePickerPro
             iconUrl: doc.iconUrl,
           });
         }
-        if (data[window.google.picker.Response.ACTION] === window.google.picker.Action.CANCEL || 
-            data[window.google.picker.Response.ACTION] === window.google.picker.Action.PICKED) {
+        if (data[pickerApi.Response.ACTION] === pickerApi.Action.CANCEL || 
+            data[pickerApi.Response.ACTION] === pickerApi.Action.PICKED) {
           setIsPickerOpen(false);
         }
       })

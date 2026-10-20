@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { createNotification } from "@/lib/notifications";
+import { createNotificationsForUsers } from "@/lib/notifications";
+import { verifyCronRequest } from "@/lib/authz";
+
+/** Assigned photographers are stored as ids or `{ id }` objects. */
+function photographerIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((p: unknown) => {
+    if (typeof p === "string") return [p];
+    if (p && typeof p === "object" && "id" in p && typeof p.id === "string") return [p.id];
+    return [];
+  });
+}
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    
-    // In production, require CRON_SECRET. In development, allow bypass for testing if secret isn't set.
-    const cronSecret = process.env.CRON_SECRET;
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = verifyCronRequest(request);
+    if (denied) return denied;
 
     // Calculate exactly tomorrow's date range (start of day to end of day)
     const now = new Date();
@@ -23,12 +29,17 @@ export async function GET(request: Request) {
           gte: tomorrowStart,
           lt: tomorrowEnd,
         },
+        deletedAt: null,
         status: {
           not: "Cancelled", // Don't remind about cancelled shoots
         },
       },
-      include: {
-        client: true,
+      select: {
+        id: true,
+        category: true,
+        location: true,
+        photographers: true,
+        client: { select: { name: true } },
       },
     });
 
@@ -45,43 +56,29 @@ export async function GET(request: Request) {
     let notificationsSent = 0;
 
     for (const booking of upcomingBookings) {
-      const photographers = Array.isArray(booking.photographers) ? booking.photographers : [];
-      let recipients: string[] = [];
-
       // If photographers are assigned, notify them. Otherwise, notify admins.
-      if (photographers.length > 0) {
-        recipients = photographers.map((p: any) => p.id || p);
-      } else {
-        recipients = admins.map((admin) => admin.id);
-      }
+      const assigned = photographerIds(booking.photographers);
+      const recipients = assigned.length > 0 ? assigned : admins.map((admin) => admin.id);
 
-      const bNo = booking.bookingNumber || booking.id.substring(0, 8);
-      const title = `Shoot Tomorrow!`;
-      const message = `Reminder: ${booking.category} shoot for ${booking.client.name} is scheduled for tomorrow at ${booking.location || 'TBD'}.`;
-
-      for (const userId of recipients) {
-        if (typeof userId === "string") {
-          await createNotification({
-            userId,
-            title,
-            message,
-            type: "HOT_DATE_ALERT",
-            actionUrl: `/bookings/details/${booking.id}`,
-            entityId: booking.id,
-            entityType: "booking",
-            priority: "HIGH"
-          });
-          notificationsSent++;
-        }
-      }
+      const created = await createNotificationsForUsers(recipients, {
+        title: `Shoot Tomorrow!`,
+        message: `Reminder: ${booking.category} shoot for ${booking.client.name} is scheduled for tomorrow at ${booking.location || 'TBD'}.`,
+        type: "HOT_DATE_ALERT",
+        actionUrl: `/bookings/details/${booking.id}`,
+        entityId: booking.id,
+        entityType: "booking",
+        priority: "HIGH",
+      });
+      notificationsSent += created.length;
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Sent ${notificationsSent} reminders for ${upcomingBookings.length} bookings.` 
+    return NextResponse.json({
+      success: true,
+      message: `Sent ${notificationsSent} reminders for ${upcomingBookings.length} bookings.`
     });
 
   } catch (error) {
+    console.error("Daily reminders cron failed:", error);
     return NextResponse.json(
       { error: "Failed to run cron job" },
       { status: 500 }

@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import prisma, { toNumber } from "@/lib/prisma";
+import { requirePermission } from "@/lib/authz";
 
-export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET() {
+  const auth = await requirePermission("view_transactions", "manage_transactions");
+  if (auth.error) return auth.error;
 
   try {
     const today = new Date();
@@ -19,7 +16,9 @@ export async function GET(request: Request) {
       where: {
         month: currentMonth,
         year: currentYear
-      }
+      },
+      select: { category: true, monthlyLimit: true },
+      take: 500
     });
 
     if (budgets.length === 0) {
@@ -48,9 +47,9 @@ export async function GET(request: Request) {
       }
     });
 
-    const expenseMap = new Map();
+    const expenseMap = new Map<string, number>();
     expenses.forEach(exp => {
-      expenseMap.set(exp.category, exp._sum.amount || 0);
+      expenseMap.set(exp.category, toNumber(exp._sum.amount));
     });
 
     const overview = budgets.map(budget => {
@@ -79,7 +78,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ overview, alerts });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Budget Overview Error:", error);
     return NextResponse.json({ error: "Failed to fetch budget overview" }, { status: 500 });
   }

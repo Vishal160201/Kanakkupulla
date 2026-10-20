@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-// Force rebuild
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { requireAdmin, requireUser } from "@/lib/authz";
+import { parseJsonBody } from "@/lib/validations/http";
+import { systemSettingSchema } from "@/lib/validations/settings";
 
 export const dynamic = "force-dynamic";
 
 // Default settings if none exist in the database
-const DEFAULT_SETTINGS = {
+const DEFAULT_SETTINGS: Record<string, Prisma.InputJsonObject> = {
   UI_PREFERENCES: {
     currencySymbol: "₹",
     hotDateThreshold: 50000,
@@ -32,55 +33,51 @@ const DEFAULT_SETTINGS = {
   }
 };
 
-export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET() {
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
 
   try {
-    const settings = await prisma.systemSetting.findMany();
-    
+    const settings = await prisma.systemSetting.findMany({
+      where: { key: { in: Object.keys(DEFAULT_SETTINGS) } },
+      select: { key: true, value: true },
+    });
+
     // Convert array of settings into a key-value map
-    const settingsMap: Record<string, any> = {};
-    
-    // Seed defaults if missing
+    const settingsMap: Record<string, Prisma.JsonValue | Prisma.InputJsonObject> = {};
+    const missing: { key: string; value: Prisma.InputJsonObject }[] = [];
+
     for (const [key, defaultValue] of Object.entries(DEFAULT_SETTINGS)) {
       const existing = settings.find(s => s.key === key);
       if (existing) {
         settingsMap[key] = existing.value;
       } else {
-        // Create the default in DB
-        const created = await prisma.systemSetting.create({
-          data: { key, value: defaultValue }
-        });
-        settingsMap[key] = created.value;
+        missing.push({ key, value: defaultValue });
+        settingsMap[key] = defaultValue;
       }
+    }
+
+    // Seed defaults if missing
+    if (missing.length > 0) {
+      await prisma.systemSetting.createMany({ data: missing, skipDuplicates: true });
     }
 
     return NextResponse.json(settingsMap);
   } catch (error) {
+    console.error("Failed to fetch settings:", error);
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  
-  if ((session.user as any).role !== "ADMIN") {
-     return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
 
   try {
-    const body = await request.json();
-    const { key, value } = body;
-
-    if (!key || value === undefined) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 422 });
-    }
+    const parsed = await parseJsonBody(request, systemSettingSchema);
+    if (parsed.error) return parsed.error;
+    const { key } = parsed.data;
+    const value = parsed.data.value as Prisma.InputJsonValue; // null is rejected by the schema
 
     const updatedSetting = await prisma.systemSetting.upsert({
       where: { key },
@@ -90,6 +87,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updatedSetting);
   } catch (error) {
+    console.error("Failed to update setting:", error);
     return NextResponse.json({ error: "Failed to update setting" }, { status: 500 });
   }
 }

@@ -1,8 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-
 @tailwind base;
-@tailwind components;
-@tailwind utilities;
 @tailwind components;
 @tailwind utilities;
 
@@ -53,7 +49,8 @@
 }
 
 body {
-  font-family: 'Outfit', sans-serif;
+  /* Outfit is self-hosted via next/font (src/lib/fonts.ts) and exposed as --font-outfit on <html> */
+  font-family: var(--font-outfit), sans-serif;
   background-color: var(--bg-main);
   color: var(--text-primary);
   display: flex;

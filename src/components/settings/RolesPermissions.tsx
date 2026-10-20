@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 interface RolePermission {
@@ -33,22 +33,21 @@ export default function RolesPermissions() {
   const [loading, setLoading] = useState(true);
   const [updatingKeys, setUpdatingKeys] = useState<Set<string>>(new Set());
 
-  const fetchPermissions = useCallback(async () => {
-    try {
-      const res = await fetch("/api/permissions");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setPermissions(data);
-    } catch {
-      toast.error("Failed to load permissions");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        const res = await fetch("/api/permissions");
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data: RolePermission[] = await res.json();
+        setPermissions(data);
+      } catch {
+        toast.error("Failed to load permissions");
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchPermissions();
-  }, [fetchPermissions]);
+  }, []);
 
   const isEnabled = (role: string, permission: string): boolean => {
     const perm = permissions.find((p) => p.role === role && p.permission === permission);
@@ -166,6 +165,10 @@ export default function RolesPermissions() {
                     return (
                       <td key={role} className="px-4 py-4 text-center">
                         <button
+                          type="button"
+                          role="switch"
+                          aria-checked={enabled}
+                          aria-label={`${ROLE_DISPLAY[role].label}: ${perm.label}`}
                           onClick={() => handleToggle(role, permKey)}
                           disabled={isAdmin || isUpdating}
                           className={`relative w-11 h-6 rounded-full transition-all duration-200 ${

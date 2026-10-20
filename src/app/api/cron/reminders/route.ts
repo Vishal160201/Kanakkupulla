@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import type { NotificationType, Prisma } from '@prisma/client';
+import { verifyCronRequest } from '@/lib/authz';
+import { asJsonRecord } from '@/lib/validations/common';
+
+type ReminderType = Extract<NotificationType,
+  'ORDER_STATUS_STALE' | 'BOOKING_STATUS_STALE' | 'PAYMENT_DUE_REMINDER' | 'ADVANCE_NOT_COLLECTED' | 'GALLERY_NOT_DELIVERED' | 'ALBUM_PENDING_REMINDER'>;
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    // Basic auth check for cron jobs (Vercel uses a header)
-    const authHeader = request.headers.get('authorization');
-    if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return new NextResponse('Forbidden', { status: 403 });
-    }
+    const denied = verifyCronRequest(request);
+    if (denied) return denied;
 
     // 1. Fetch thresholds
     const settings = await prisma.systemSetting.findMany({
@@ -29,8 +32,9 @@ export async function GET(request: Request) {
 
     const getThreshold = (key: string, defaultValue: number) => {
       const setting = settings.find(s => s.key === key);
-      if (setting && typeof setting.value === 'object' && setting.value !== null && 'days' in setting.value) {
-        return Number((setting.value as any).days);
+      const value = asJsonRecord(setting?.value);
+      if ('days' in value) {
+        return Number(value.days);
       }
       return defaultValue;
     };
@@ -45,7 +49,6 @@ export async function GET(request: Request) {
     };
 
     const now = new Date();
-    let notificationsCreated = 0;
 
     // Duplicate reminder check: skip if same entityId + type notification exists with createdAt > now() - 24h OR snoozedUntil > now()
     const cutoffDate = new Date();
@@ -71,7 +74,7 @@ export async function GET(request: Request) {
       select: { entityId: true, type: true }
     });
 
-    const activeReminderSet = new Set();
+    const activeReminderSet = new Set<string>();
     for (const r of existingReminders) {
       activeReminderSet.add(`${r.type}_${r.entityId}`);
     }
@@ -79,23 +82,24 @@ export async function GET(request: Request) {
     const admins = await prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });
     const adminIds = admins.map(a => a.id);
 
-    const createReminders = async (type: any, entityId: string, title: string, message: string, actionUrl: string) => {
-      if (activeReminderSet.has(`${type}_${entityId}`)) return; // Already have an active/snoozed reminder
-      
-      const newNotifs = adminIds.map(userId => ({
-        userId,
-        type,
-        title,
-        message,
-        actionUrl,
-        entityId,
-        entityType: type.startsWith('ORDER') ? 'order' : 'booking',
-        priority: 'HIGH',
-      }));
+    // Reminders are collected here and inserted with a single createMany at the end
+    const pendingNotifications: Prisma.NotificationCreateManyInput[] = [];
+    const createReminders = (type: ReminderType, entityId: string, title: string, message: string, actionUrl: string) => {
+      const key = `${type}_${entityId}`;
+      if (activeReminderSet.has(key)) return; // Already have an active/snoozed reminder
+      activeReminderSet.add(key);
 
-      if (newNotifs.length > 0) {
-        await prisma.notification.createMany({ data: newNotifs });
-        notificationsCreated += newNotifs.length;
+      for (const userId of adminIds) {
+        pendingNotifications.push({
+          userId,
+          type,
+          title,
+          message,
+          actionUrl,
+          entityId,
+          entityType: type.startsWith('ORDER') ? 'order' : 'booking',
+          priority: 'HIGH',
+        });
       }
     };
 
@@ -107,11 +111,12 @@ export async function GET(request: Request) {
       where: {
         status: { in: ['PENDING', 'PROCESSING'] },
         updatedAt: { lt: staleOrderDate }
-      }
+      },
+      select: { id: true, orderNumber: true, clientName: true, status: true }
     });
 
     for (const order of staleOrders) {
-      await createReminders(
+      createReminders(
         'ORDER_STATUS_STALE',
         order.id,
         `Stale Order: ${order.orderNumber || 'Unknown'}`,
@@ -128,11 +133,12 @@ export async function GET(request: Request) {
       where: {
         status: 'READY',
         updatedAt: { lt: readyOrderDate }
-      }
+      },
+      select: { id: true, clientName: true }
     });
 
     for (const order of readyOrders) {
-      await createReminders(
+      createReminders(
         'ORDER_STATUS_STALE',
         order.id,
         `Order Ready for Pickup`,
@@ -154,11 +160,11 @@ export async function GET(request: Request) {
           advance: 0
         }
       },
-      include: { client: true }
+      select: { id: true, date: true, client: { select: { name: true } } }
     });
 
     for (const booking of advanceMissingBookings) {
-      await createReminders(
+      createReminders(
         'ADVANCE_NOT_COLLECTED',
         booking.id,
         `Advance Missing`,
@@ -175,18 +181,17 @@ export async function GET(request: Request) {
       where: {
         date: { lt: galleryDate },
         deletedAt: null,
+        galleryDelivered: false,
       },
-      include: { client: true }
+      select: { id: true, customData: true, client: { select: { name: true } } }
     });
 
-    const galleryPendingBookings = galleryPendingBookingsRaw.filter(b => {
-      let cd: any = {};
-      try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
-      return cd.fld_b_album_status !== 'Delivered';
-    });
+    const galleryPendingBookings = galleryPendingBookingsRaw.filter(b =>
+      asJsonRecord(b.customData).fld_b_album_status !== 'Delivered'
+    );
 
     for (const booking of galleryPendingBookings) {
-      await createReminders(
+      createReminders(
         'GALLERY_NOT_DELIVERED',
         booking.id,
         `Gallery Pending`,
@@ -204,17 +209,15 @@ export async function GET(request: Request) {
         date: { lt: albumDate },
         deletedAt: null,
       },
-      include: { client: true }
+      select: { id: true, customData: true, client: { select: { name: true } } }
     });
 
-    const albumPendingBookings = albumPendingBookingsRaw.filter(b => {
-      let cd: any = {};
-      try { cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : (b.customData || {}); } catch(e) {}
-      return cd.fld_b_album_status === 'Pending';
-    });
+    const albumPendingBookings = albumPendingBookingsRaw.filter(b =>
+      asJsonRecord(b.customData).fld_b_album_status === 'Pending'
+    );
 
     for (const booking of albumPendingBookings) {
-      await createReminders(
+      createReminders(
         'ALBUM_PENDING_REMINDER',
         booking.id,
         `Album Pending`,
@@ -236,11 +239,11 @@ export async function GET(request: Request) {
           due: { gt: 0 }
         }
       },
-      include: { client: true, order: true }
+      select: { id: true, date: true, client: { select: { name: true } }, order: { select: { due: true } } }
     });
 
     for (const booking of dueBookings) {
-      await createReminders(
+      createReminders(
         'PAYMENT_DUE_REMINDER',
         booking.id,
         `Payment Due Soon`,
@@ -256,19 +259,24 @@ export async function GET(request: Request) {
         // assuming ProductOrder doesn't have `dueAmount` field easily queriable?
         // Let's just alert if they have a dueDate in that range and status isn't DELIVERED
         status: { not: 'DELIVERED' }
+      },
+      select: {
+        id: true,
+        clientName: true,
+        dueDate: true,
+        customData: true,
+        discountAmount: true,
+        transactions: { where: { deletedAt: null, type: 'INCOME' }, select: { amount: true } }
       }
     });
 
     for (const order of dueOrders) {
-      // calculate due amount from transactions if possible, or just alert generally
-      const txs = await prisma.transaction.findMany({ where: { productOrderId: order.id } });
-      let paid = 0;
-      txs.forEach(t => paid += t.amount);
-      
-      // If we don't know total amount, we just remind. 
-      // ProductOrder currently doesn't store total amount directly as a float? 
-      // Let's just remind generally.
-      await createReminders(
+      // Skip orders that are already fully paid (total lives in customData.amount)
+      const total = parseFloat(String(asJsonRecord(order.customData).amount || '0')) || 0;
+      const paid = order.transactions.reduce((sum, t) => sum + t.amount, 0);
+      if (total > 0 && paid + (order.discountAmount || 0) >= total) continue;
+
+      createReminders(
         'PAYMENT_DUE_REMINDER',
         order.id,
         `Order Payment Due`,
@@ -277,9 +285,13 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, notificationsCreated });
-  } catch (error: any) {
+    if (pendingNotifications.length > 0) {
+      await prisma.notification.createMany({ data: pendingNotifications });
+    }
+
+    return NextResponse.json({ success: true, notificationsCreated: pendingNotifications.length });
+  } catch (error) {
     console.error('Reminder Cron Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to run reminders' }, { status: 500 });
   }
 }

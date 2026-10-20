@@ -2,18 +2,21 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import type { WhatsAppStatus } from "@/types/settings";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 const WHATSAPP_ENABLED = false;
 
 export default function WhatsAppIntegration() {
   const { data: session } = useSession();
-  const isAdminOrOwner = (session?.user as any)?.role === "ADMIN" || (session?.user as any)?.role === "OWNER";
+  // "OWNER" is not a current role value but is kept for legacy sessions.
+  const role: string | undefined = session?.user?.role;
+  const isAdminOrOwner = role === "ADMIN" || role === "OWNER";
   
-  const { data: waStatusData, mutate: mutateWA } = useSWR(
+  const { data: waStatusData, error: waStatusError, mutate: mutateWA } = useSWR<WhatsAppStatus>(
     isAdminOrOwner ? "/api/whatsapp/status" : null,
     fetcher
   );
@@ -35,7 +38,7 @@ export default function WhatsAppIntegration() {
         toast.error("Failed to get pairing code: " + (data.error || "Please try again or check your server logs. WhatsApp may have rate-limited this number."));
       }
       mutateWA();
-    } catch (e) {
+    } catch {
       toast.error("Failed to get pairing code. Please try again.");
     } finally {
       setIsPairingLoading(false);
@@ -77,15 +80,15 @@ export default function WhatsAppIntegration() {
             <div>
               <h3 className="font-bold text-slate-800">Connection Status</h3>
               <div className="flex items-center gap-1.5 mt-1">
-                {!waStatusData ? (
+                {!waStatusData && !waStatusError ? (
                   <>
                     <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
                     <span className="text-[0.75rem] font-bold text-blue-500">Connecting...</span>
                   </>
                 ) : (
                   <>
-                    <div className={`w-2 h-2 rounded-full ${waStatusData.status === 'READY' ? 'bg-green-500' : waStatusData.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : waStatusData.status === 'ERROR' ? 'bg-red-600' : 'bg-red-500'}`}></div>
-                    <span className="text-[0.75rem] font-bold text-slate-500">{waStatusData.status === 'READY' ? 'Connected' : waStatusData.status === 'AWAITING_QR' ? 'Login Required' : waStatusData.status === 'ERROR' ? 'Error' : 'Disconnected'}</span>
+                    <div className={`w-2 h-2 rounded-full ${waStatusData?.status === 'READY' ? 'bg-green-500' : waStatusData?.status === 'AWAITING_QR' ? 'bg-yellow-500 animate-pulse' : waStatusData?.status === 'ERROR' ? 'bg-red-600' : 'bg-red-500'}`}></div>
+                    <span className="text-[0.75rem] font-bold text-slate-500">{waStatusData?.status === 'READY' ? 'Connected' : waStatusData?.status === 'AWAITING_QR' ? 'Login Required' : waStatusData?.status === 'ERROR' ? 'Error' : 'Disconnected'}</span>
                   </>
                 )}
               </div>
@@ -93,22 +96,22 @@ export default function WhatsAppIntegration() {
           </div>
         </div>
 
-        {!waStatusData ? (
+        {!waStatusData && !waStatusError ? (
           <div className="flex flex-col items-center p-6 bg-blue-50 rounded-xl border border-blue-100 gap-3">
             <i className="ph-fill ph-spinner-gap text-blue-500 text-3xl animate-spin"></i>
             <span className="text-sm text-blue-600 text-center font-semibold">Waking up bot server...</span>
             <span className="text-xs text-blue-400 text-center">This can take up to 60 seconds on Render.</span>
           </div>
-        ) : waStatusData.status === 'ERROR' ? (
+        ) : waStatusError || waStatusData?.status === 'ERROR' ? (
           <div className="flex flex-col items-center p-6 bg-red-50 rounded-xl border border-red-100 gap-3">
             <i className="ph-fill ph-warning-circle text-red-500 text-3xl"></i>
             <span className="text-sm text-red-600 text-center font-semibold">Failed to start WhatsApp Bot in this environment.</span>
-            <span className="text-xs text-red-400 text-center break-all">{waStatusData.error || "Unknown Error"}</span>
+            <span className="text-xs text-red-400 text-center break-all">{waStatusError?.message || waStatusData?.error || "Unknown Error"}</span>
             <button onClick={() => { fetch('/api/whatsapp/status'); mutateWA(); }} className="mt-2 px-4 py-2 bg-red-100 text-red-600 text-sm font-bold rounded hover:bg-red-200 transition-colors">
               Retry Connection
             </button>
           </div>
-        ) : waStatusData.status === 'READY' ? (
+        ) : waStatusData?.status === 'READY' ? (
           <div className="flex flex-col gap-4">
             <div className="p-4 bg-green-50 rounded-xl border border-green-100">
               <p className="text-sm text-green-700 text-center">
@@ -125,14 +128,15 @@ export default function WhatsAppIntegration() {
               Disconnect Bot
             </button>
           </div>
-        ) : waStatusData.pairingCode ? (
+        ) : waStatusData?.pairingCode ? (
           <div className="flex flex-col items-center p-6 bg-slate-50 rounded-xl border border-gray-200">
-            <span className="text-[2rem] font-mono font-bold tracking-[0.2em] text-slate-800">{waStatusData.pairingCode.match(/.{1,4}/g)?.join('-') || waStatusData.pairingCode}</span>
+            <span className="text-[2rem] font-mono font-bold tracking-[0.2em] text-slate-800">{waStatusData?.pairingCode.match(/.{1,4}/g)?.join('-') || waStatusData?.pairingCode}</span>
             <span className="text-sm text-slate-500 mt-4 text-center">Open WhatsApp &gt; Linked Devices &gt; Link with Phone Number</span>
           </div>
-        ) : waStatusData.qrCode ? (
+        ) : waStatusData?.qrCode ? (
           <div className="flex flex-col items-center p-6 bg-slate-50 rounded-xl border border-gray-200">
-            <img src={waStatusData.qrCode} alt="WhatsApp Login QR" className="w-full max-w-[200px] rounded-xl shadow-sm border border-gray-100" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- QR is a data: URL from the bot; next/image adds nothing here. */}
+            <img src={waStatusData?.qrCode} alt="WhatsApp Login QR" className="w-full max-w-[200px] rounded-xl shadow-sm border border-gray-100" />
             <span className="text-sm text-slate-500 mt-4 text-center font-medium">Open WhatsApp &gt; Linked Devices &gt; Scan QR</span>
             
             <div className="w-full mt-6 pt-6 border-t border-gray-200 flex flex-col gap-3">

@@ -1,4 +1,6 @@
 import prisma from "../lib/prisma";
+import type { Prisma } from "@prisma/client";
+import { asJsonRecord } from "../lib/validations/common";
 
 async function main() {
   const orders = await prisma.productOrder.findMany();
@@ -6,9 +8,9 @@ async function main() {
   let migratedCount = 0;
 
   for (const order of orders) {
-    const existingCustomData = (order.customData as any) || {};
+    const existingCustomData = asJsonRecord(order.customData);
 
-    const newCustomData = {
+    const newCustomData: Record<string, unknown> = {
       ...existingCustomData,
       clientName: order.clientName,
       clientPhone: order.clientPhone || null,
@@ -31,7 +33,7 @@ async function main() {
     await prisma.productOrder.update({
       where: { id: order.id },
       data: {
-        customData: newCustomData,
+        customData: newCustomData as Prisma.InputJsonObject,
         // We ensure we don't touch orderNumber, thereby preserving it.
       },
     });
@@ -39,10 +41,12 @@ async function main() {
     migratedCount++;
   }
 
+  console.log(`Migrated ${migratedCount} gift orders.`);
 }
 
 main()
   .catch((e) => {
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

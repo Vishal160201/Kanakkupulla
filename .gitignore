@@ -45,3 +45,42 @@ next-env.d.ts
 # whatsapp session data
 .wwebjs_auth/
 nextauth-*.log
+
+# editors / IDE
+.idea/
+.idx/
+.vscode/
+.kilo/
+
+# whatsapp / baileys session data
+.wwebjs_cache/
+.baileys_auth/
+
+# logs, patches, scratch
+*.log
+*.rej
+*.orig
+diff.txt
+*.zip
+invoice_rebuild_prompt.pdf
+test_invoice.pdf
+
+# test & load-test output
+*-results.json
+playwright-report/
+test-results/
+
+# local databases
+prisma/*.db
+
+# typescript build info
+tsconfig.tsbuildinfo
+
+# personal / legacy material (kept locally, not part of the app)
+personal-backup/
+legacy/
+personal bucket.txt
+personal expense tracker.txt
+
+# allow the env template
+!.env.example

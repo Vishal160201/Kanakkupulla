@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requirePermission, requireUser } from "@/lib/authz";
+import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
+import { productCreateSchema, productListQuerySchema } from "@/lib/validations/products";
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
+
+  const query = parseSearchParams(request, productListQuerySchema);
+  if (query.error) return query.error;
+  const { limit, offset } = query.data;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get("limit") || "200", 10), 500);
-    const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
-
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         orderBy: { createdAt: "desc" },
@@ -28,30 +27,26 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to fetch products:", error);
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requirePermission("manage_bookings");
+  if (auth.error) return auth.error;
 
   try {
-    const body = await request.json();
-    const { name, description, price, stock } = body;
-
-    if (!name || price === undefined) {
-      return NextResponse.json({ error: "Name and price are required" }, { status: 422 });
-    }
+    const parsed = await parseJsonBody(request, productCreateSchema);
+    if (parsed.error) return parsed.error;
+    const { name, description, price, stock } = parsed.data;
 
     const newProduct = await prisma.product.create({
       data: {
-        name: name.trim(),
+        name,
         description: description?.trim(),
-        price: parseFloat(price),
-        stock: parseInt(stock || "0", 10),
+        price,
+        stock: typeof stock === "number" ? stock : 0,
       },
     });
 
@@ -60,6 +55,7 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to create product:", error);
     return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
   }
 }

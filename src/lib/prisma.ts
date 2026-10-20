@@ -1,36 +1,67 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const connectionString = process.env.DATABASE_URL || '';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-
-let prisma: PrismaClient;
-
-if (process.env.NODE_ENV === 'production') {
-  const pool = new Pool({ 
+function createBaseClient() {
+  const pool = new Pool({
     connectionString,
     max: 10,
     connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 10000 
+    idleTimeoutMillis: 10000
   });
-  const adapter = new PrismaPg(pool);
-  prisma = new PrismaClient({ adapter });
-} else {
-  if (!globalForPrisma.prisma) {
-    const pool = new Pool({ 
-      connectionString,
-      max: 10,
-      connectionTimeoutMillis: 10000,
-      idleTimeoutMillis: 10000 
-    });
-    const adapter = new PrismaPg(pool);
-    globalForPrisma.prisma = new PrismaClient({ adapter });
-  }
-  prisma = globalForPrisma.prisma;
+  return new PrismaClient({ adapter: new PrismaPg(pool) });
+}
+
+// Money columns are stored as numeric(12,2) for exact storage, but the app (and every JSON
+// response) works with plain numbers, so they are converted on read. Aggregates (_sum etc.)
+// are not covered by result extensions: wrap those with toNumber().
+const money = <Field extends string>(field: Field) => ({
+  needs: { [field]: true } as Record<Field, true>,
+  compute: (row: Record<Field, Prisma.Decimal>) => Number(row[field]),
+});
+
+function extend(client: PrismaClient) {
+  return client.$extends({
+    result: {
+      order: { package: money('package'), advance: money('advance'), due: money('due') },
+      transaction: { amount: money('amount') },
+      product: { price: money('price') },
+      productOrder: { discountAmount: money('discountAmount') },
+      categoryBudget: { monthlyLimit: money('monthlyLimit') },
+      invoice: { discount: money('discount') },
+      invoiceLineItem: { rate: money('rate'), amount: money('amount') },
+    },
+  });
+}
+
+export type AppPrismaClient = ReturnType<typeof extend>;
+
+const globalForPrisma = global as unknown as { basePrisma?: PrismaClient; prisma?: AppPrismaClient };
+
+/** Unextended client, for libraries that need a plain PrismaClient (e.g. the NextAuth adapter). */
+export const basePrisma = globalForPrisma.basePrisma ?? createBaseClient();
+const prisma = globalForPrisma.prisma ?? extend(basePrisma);
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.basePrisma = basePrisma;
+  globalForPrisma.prisma = prisma;
+}
+
+/** Converts a Decimal (or null from an empty aggregate) to a number. */
+export function toNumber(value: Prisma.Decimal | number | null | undefined): number {
+  return value == null ? 0 : Number(value);
 }
 
 export default prisma;
+
+type Row<M extends keyof AppPrismaClient> = AppPrismaClient[M] extends { findFirstOrThrow: (...args: never[]) => infer R }
+  ? Awaited<R>
+  : never;
+
+/** Model rows as the app sees them (money fields already converted to numbers). */
+export type TransactionRow = Row<"transaction">;
+export type InvoiceRow = Row<"invoice">;
+export type InvoiceLineItemRow = Row<"invoiceLineItem">;

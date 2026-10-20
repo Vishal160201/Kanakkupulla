@@ -1,44 +1,37 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAdmin } from "@/lib/authz";
+import { botFetch } from "@/lib/whatsappBot";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const BOT_URL = process.env.WHATSAPP_BOT_URL;
-  if (!BOT_URL) {
+  if (!process.env.WHATSAPP_BOT_URL) {
     return NextResponse.json({ error: "WHATSAPP_BOT_URL is not configured" }, { status: 500 });
   }
 
-  const session = await getServerSession(authOptions);
-  const userRole = (session?.user as any)?.role;
-  if (!session || (userRole !== "SUPER_ADMIN" && userRole !== "STUDIO_OWNER" && userRole !== "ADMIN")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
 
   try {
-    const res = await fetch(`${BOT_URL}/`, { 
-      cache: 'no-store',
+    const res = await botFetch("/api/status", {
       signal: AbortSignal.timeout(60000)
     });
-    
-    if (!res.ok) {
-    }
 
-    try {
-      const data = await res.json();
-      return NextResponse.json(data);
-    } catch (parseError) {
-      return NextResponse.json({ 
-        connected: false, 
+    if (!res.ok) {
+      return NextResponse.json({
+        connected: false,
         status: 'ERROR',
-        error: 'Bot returned HTML — wrong endpoint or server error' 
+        error: res.status === 401 || res.status === 503
+          ? 'Bot server rejected the request. Check WHATSAPP_BOT_SECRET on both servers.'
+          : `Bot server responded with ${res.status}`
       });
     }
-  } catch (error: any) {
-    
+
+    return NextResponse.json(await res.json());
+  } catch (error) {
+    console.error("WhatsApp bot status check failed:", error);
     // If it was a timeout, it might be Render cold starting
-    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
       return NextResponse.json({
         status: 'ERROR',
         error: "Connection timed out. The bot server might be waking up from sleep (can take up to 60s)."

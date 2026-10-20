@@ -3,6 +3,12 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
+/** Prefill for a new transaction (e.g. quick actions pass the type and/or category). */
+export interface TransactionInitialData {
+  type?: string;
+  category?: string;
+}
+
 interface GlobalFormContextType {
   isBookingFormOpen: boolean;
   bookingToEditId: string | null;
@@ -17,8 +23,8 @@ interface GlobalFormContextType {
   
   isTransactionFormOpen: boolean;
   transactionToEditId: string | null;
-  transactionInitialData?: Record<string, any>;
-  openTransactionForm: (transactionId?: string, initialData?: Record<string, any>) => void;
+  transactionInitialData?: TransactionInitialData;
+  openTransactionForm: (transactionId?: string, initialData?: TransactionInitialData) => void;
   closeTransactionForm: () => void;
 
   isTransactionDetailsOpen: boolean;
@@ -40,12 +46,13 @@ export function GlobalFormProvider({ children }: { children: ReactNode }) {
   const [bookingToEditId, setBookingToEditId] = useState<string | null>(null);
   const [bookingInitialDate, setBookingInitialDate] = useState<string | null>(null);
 
-  const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
-  const [bookingDetailsId, setBookingDetailsId] = useState<string | null>(null);
+  // Booking details open as a route (see openBookingDetails); these stay at their defaults.
+  const [isBookingDetailsOpen] = useState(false);
+  const [bookingDetailsId] = useState<string | null>(null);
 
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [transactionToEditId, setTransactionToEditId] = useState<string | null>(null);
-  const [transactionInitialData, setTransactionInitialData] = useState<Record<string, any> | undefined>(undefined);
+  const [transactionInitialData, setTransactionInitialData] = useState<TransactionInitialData | undefined>(undefined);
 
   const [isTransactionDetailsOpen, setIsTransactionDetailsOpen] = useState(false);
   const [transactionDetailsId, setTransactionDetailsId] = useState<string | null>(null);
@@ -75,7 +82,7 @@ export function GlobalFormProvider({ children }: { children: ReactNode }) {
     router.back();
   };
 
-  const openTransactionForm = (transactionId?: string, initialData?: Record<string, any>) => {
+  const openTransactionForm = (transactionId?: string, initialData?: TransactionInitialData) => {
     setTransactionToEditId(transactionId || null);
     if (initialData) setTransactionInitialData(initialData);
     setIsTransactionFormOpen(true);

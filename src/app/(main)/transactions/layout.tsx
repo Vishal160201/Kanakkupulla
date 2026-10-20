@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
 function TransactionsLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "";
-  const router = useRouter();
   const { openTransactionForm } = useGlobalForm();
 
   const isOverview = pathname === "/transactions/overview";
@@ -42,6 +41,7 @@ function TransactionsLayoutContent({ children }: { children: React.ReactNode }) 
 
         <div className="sm:ml-auto w-full sm:w-auto">
           <button
+            type="button"
             onClick={() => openTransactionForm()}
             className="bg-orange-500 hover:bg-orange-600 text-white w-full sm:w-auto px-6 h-[44px] rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 hover:shadow-orange-500/40 active:scale-95 whitespace-nowrap"
           >

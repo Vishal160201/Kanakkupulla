@@ -10,19 +10,37 @@ export interface VerticalStatusStepperProps {
   updatedAt?: string;
 }
 
-const eventStepMap: Record<string, any> = {
+interface StepStyle {
+  icon: string;
+  colorClass: string;
+  ringClass: string;
+  bgClass: string;
+  lineClass: string;
+}
+
+const eventStepMap: Record<string, StepStyle> = {
   'pending': { icon: 'ph-clock', colorClass: 'text-indigo-600', ringClass: 'ring-indigo-100', bgClass: 'bg-indigo-50', lineClass: 'bg-indigo-500' },
   'confirmed': { icon: 'ph-check-circle', colorClass: 'text-emerald-600', ringClass: 'ring-emerald-100', bgClass: 'bg-emerald-50', lineClass: 'bg-emerald-500' },
   'shoot completed': { icon: 'ph-camera', colorClass: 'text-red-500', ringClass: 'ring-red-100', bgClass: 'bg-red-50', lineClass: 'bg-red-500' }
 };
 
-const albumStepMap: Record<string, any> = {
+const albumStepMap: Record<string, StepStyle> = {
   'pending': { icon: 'ph-clock', colorClass: 'text-emerald-500', ringClass: 'ring-emerald-100', bgClass: 'bg-emerald-50', lineClass: 'bg-emerald-500' },
   'designing': { icon: 'ph-pencil-simple', colorClass: 'text-blue-500', ringClass: 'ring-blue-100', bgClass: 'bg-blue-50', lineClass: 'bg-blue-500' },
   'sent for printing': { icon: 'ph-paper-plane-tilt', colorClass: 'text-purple-500', ringClass: 'ring-purple-100', bgClass: 'bg-purple-50', lineClass: 'bg-purple-500' },
   'ready for delivery': { icon: 'ph-package', colorClass: 'text-orange-500', ringClass: 'ring-orange-100', bgClass: 'bg-orange-50', lineClass: 'bg-orange-500' },
   'delivered': { icon: 'ph-check-circle', colorClass: 'text-teal-500', ringClass: 'ring-teal-100', bgClass: 'bg-teal-50', lineClass: 'bg-teal-500' }
 };
+
+/** A clickable step is a real button (styled like the plain row); a read-only step stays a div. */
+function StepTrigger({ className, onClick, children }: { className: string; onClick?: () => void; children: React.ReactNode }) {
+  if (!onClick) return <div className={className}>{children}</div>;
+  return (
+    <button type="button" className={cn(className, "w-full text-left")} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
 
 export default function VerticalStatusStepper({ steps, currentStatus, sectionTitle, onStatusChange, isUpdating, updatedAt }: VerticalStatusStepperProps) {
   const isAlbum = sectionTitle?.toLowerCase().includes('album');
@@ -45,9 +63,9 @@ export default function VerticalStatusStepper({ steps, currentStatus, sectionTit
         return (
           <div key={step} className={cn("flex flex-col group w-full", idx < steps.length - 1 ? "flex-1" : "")}>
             {/* The Step Item */}
-            <div 
+            <StepTrigger
               className={cn("flex items-start", onStatusChange ? "cursor-pointer" : "", isUpdating ? "opacity-50 pointer-events-none" : "")}
-              onClick={() => onStatusChange && !isUpdating && onStatusChange(step)}
+              onClick={onStatusChange ? () => { if (!isUpdating) onStatusChange(step); } : undefined}
             >
               {/* Icon Container */}
               <div className="relative flex items-center justify-center w-8 h-8 shrink-0">
@@ -80,7 +98,7 @@ export default function VerticalStatusStepper({ steps, currentStatus, sectionTit
                   </div>
                 )}
               </div>
-            </div>
+            </StepTrigger>
             
             {/* Connecting Line (except for last item) */}
             {idx < steps.length - 1 && (

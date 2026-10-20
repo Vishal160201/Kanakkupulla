@@ -2,11 +2,37 @@
 import React from 'react';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { usePathname } from 'next/navigation';
 import Modals from '@/components/dashboard/Modals';
 import { useBookings } from '@/components/providers/BookingProvider';
 import { useGlobalForm } from '@/components/providers/GlobalFormProvider';
-import OverdueBookingBanners from '@/components/bookings/OverdueBookingBanners';
+
+/** Row of the /api/bookings list as used by the schedule export. */
+interface ExportBooking {
+  id: string;
+  bookingNumber?: string | null;
+  category: string;
+  date: string;
+  time: string;
+  location?: string | null;
+  status: string;
+  packageName?: string | null;
+  photographers?: unknown;
+  inclusions?: unknown;
+  notes?: string | null;
+  galleryUrl?: string | null;
+  contractUrl?: string | null;
+  customData?: unknown;
+  client?: { name?: string; phone?: string; email?: string | null } | null;
+  order?: { package?: number; advance?: number; due?: number; installments?: unknown } | null;
+}
+
+const escapeCsv = (val: unknown) => {
+  if (val === null || val === undefined || val === '') return '""';
+  const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+  return `"${str.replace(/"/g, '""')}"`;
+};
 
 export default function BookingsLayout({
   children,
@@ -14,7 +40,6 @@ export default function BookingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { setIsFilterModalOpen, filters, setFilters, hasData } = useBookings();
   const { openBookingForm } = useGlobalForm();
 
@@ -33,9 +58,9 @@ export default function BookingsLayout({
     try {
       const res = await fetch('/api/bookings');
       const data = await res.json();
-      const allBookings = Array.isArray(data) ? data : (data?.items || []);
+      const allBookings: ExportBooking[] = Array.isArray(data) ? data : (data?.items || []);
       
-      const filtered = allBookings.filter((b: any) => {
+      const filtered = allBookings.filter(b => {
         if (filters.categories.length > 0 && !filters.categories.includes(b.category)) return false;
         if (filters.statuses.length > 0 && !filters.statuses.includes(b.status)) return false;
         if (filters.clientName && !b.client?.name?.toLowerCase().includes(filters.clientName.toLowerCase())) return false;
@@ -45,21 +70,15 @@ export default function BookingsLayout({
         return true;
       });
 
-      const sorted = [...filtered].sort((a: any, b: any) => a.date.localeCompare(b.date));
+      const sorted = [...filtered].sort((a, b) => a.date.localeCompare(b.date));
 
       if (sorted.length === 0) {
-        alert("No data available to export with current filters.");
+        toast.info("No data available to export with current filters.");
         setIsExporting(false);
         return;
       }
 
       if (format === 'csv') {
-        const escapeCsv = (val: any) => {
-          if (val === null || val === undefined || val === '') return '""';
-          const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
-          return `"${str.replace(/"/g, '""')}"`;
-        };
-
         const headers = [
           "ID", "Client Name", "Client Phone", "Client Email", "Category", 
           "Date", "Time", "Location", "Status", "Package Name", 
@@ -67,7 +86,7 @@ export default function BookingsLayout({
           "Inclusions", "Notes", "Gallery URL", "Contract URL", "Custom Data"
         ];
         
-        const rows = sorted.map((b: any) => [
+        const rows = sorted.map(b => [
           escapeCsv(b.bookingNumber || b.id.substring(b.id.length - 6).toUpperCase()),
           escapeCsv(b.client?.name),
           escapeCsv(b.client?.phone),
@@ -89,7 +108,7 @@ export default function BookingsLayout({
           escapeCsv(b.contractUrl),
           escapeCsv(b.customData)
         ]);
-        const csvContent = [headers.join(","), ...rows.map((r: any) => r.join(","))].join("\n");
+        const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -104,7 +123,7 @@ export default function BookingsLayout({
         const autoTable = (await import("jspdf-autotable")).default;
         const doc = new jsPDF();
         doc.text("Bookings Schedule", 14, 15);
-        const tableData = sorted.map((b: any) => [
+        const tableData = sorted.map(b => [
           b.bookingNumber || b.id.substring(b.id.length - 6).toUpperCase(),
           b.client?.name || '',
           b.category,
@@ -121,8 +140,8 @@ export default function BookingsLayout({
         });
         doc.save(`bookings_export_${new Date().toISOString().split('T')[0]}.pdf`);
       }
-    } catch (error) {
-      alert("Failed to export schedule.");
+    } catch {
+      toast.error("Failed to export schedule.");
     } finally {
       setIsExporting(false);
     }
@@ -173,7 +192,7 @@ export default function BookingsLayout({
                 {filters.clientName && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#c2410c" }}>{filters.clientName}</span>}
                 {filters.location && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#c2410c" }}>{filters.location}</span>}
                 {(filters.dateStart || filters.dateEnd) && <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#c2410c" }}>{filters.dateStart || 'Any'} to {filters.dateEnd || 'Any'}</span>}
-                <button onClick={() => setFilters({ categories: [], statuses: [], clientName: '', location: '', dateStart: '', dateEnd: '', amountMin: '', amountMax: '' })} style={{ background: "none", border: "none", color: "#ea580c", cursor: "pointer", display: "flex", alignItems: "center", marginLeft: "4px" }} title="Clear Filters">
+                <button aria-label="Clear filters" onClick={() => setFilters({ categories: [], statuses: [], clientName: '', location: '', dateStart: '', dateEnd: '', amountMin: '', amountMax: '' })} style={{ background: "none", border: "none", color: "#ea580c", cursor: "pointer", display: "flex", alignItems: "center", marginLeft: "4px" }} title="Clear Filters">
                   <i className="ph-bold ph-x"></i>
                 </button>
               </div>

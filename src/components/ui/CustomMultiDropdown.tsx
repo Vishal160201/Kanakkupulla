@@ -14,9 +14,11 @@ interface CustomMultiDropdownProps {
   error?: boolean;
 }
 
+const NO_VALUES: string[] = [];
+
 export default function CustomMultiDropdown({
   options,
-  value = [],
+  value = NO_VALUES,
   onChange,
   placeholder = "Select...",
   className,
@@ -33,9 +35,20 @@ export default function CustomMultiDropdown({
   // Local state so we don't apply immediately until "Done" is clicked
   const [localValue, setLocalValue] = useState<string[]>(value);
 
-  useEffect(() => {
+  // Re-sync the draft selection whenever the committed value changes
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setLocalValue(value || []);
-  }, [value, isOpen]);
+  }
+
+  // Opening starts from the committed value with the first option focused
+  // (the draft is discarded on close, so it is only re-seeded here)
+  const openDropdown = () => {
+    setLocalValue(value || []);
+    setFocusedIndex(0);
+    setIsOpen(true);
+  };
 
   const updateDropdownPosition = useCallback(() => {
     if (isOpen && buttonRef.current) {
@@ -92,13 +105,6 @@ export default function CustomMultiDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Reset focus when opened
-  useEffect(() => {
-    if (isOpen) {
-      setFocusedIndex(0);
-    }
-  }, [isOpen]);
-
   const handleToggle = (val: string) => {
     setLocalValue(prev => 
       prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
@@ -120,7 +126,7 @@ export default function CustomMultiDropdown({
     if (!isOpen) {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setIsOpen(true);
+        openDropdown();
       }
       return;
     }
@@ -237,7 +243,8 @@ export default function CustomMultiDropdown({
       <button 
         ref={buttonRef}
         type="button" 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => (isOpen ? setIsOpen(false) : openDropdown())}
+        aria-expanded={isOpen}
         onKeyDown={handleKeyDown}
         className={cn(
           "flex h-[44px] w-full items-center justify-between rounded-lg border bg-white px-3 py-2 text-[14px] font-semibold text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500",

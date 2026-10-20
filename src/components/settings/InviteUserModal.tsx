@@ -43,8 +43,8 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
 
       setResult({ tempPassword: data.tempPassword, userName: data.user.name });
       toast.success("User invited successfully!");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error((err as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -79,7 +79,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
               </p>
             </div>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={result ? onSuccess : onClose}
             className="text-slate-400 hover:text-slate-600 transition-colors p-1"
           >
@@ -110,6 +110,8 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
                     {result.tempPassword}
                   </code>
                   <button
+                    type="button"
+                    aria-label="Copy password"
                     onClick={handleCopyPassword}
                     className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                     title="Copy password"

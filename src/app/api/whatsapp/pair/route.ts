@@ -1,27 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/authz";
 
-export async function POST(request: Request) {
-  const BOT_URL = process.env.WHATSAPP_BOT_URL || "http://localhost:3001";
-  try {
-    const { phoneNumber } = await request.json();
+export async function POST() {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
 
-    if (!phoneNumber) {
-      return NextResponse.json({ error: "Phone number is required" }, { status: 400 });
-    }
-
-    const res = await fetch(`${BOT_URL}/api/pair`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber })
-    });
-    
-    const data = await res.json();
-    if (!res.ok) {
-      return NextResponse.json(data, { status: res.status });
-    }
-
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to request pairing code" }, { status: 500 });
-  }
+  // The bot server only supports QR login; it has no pairing-code endpoint.
+  return NextResponse.json({ error: "Pairing codes are not supported. Scan the QR code instead." }, { status: 501 });
 }

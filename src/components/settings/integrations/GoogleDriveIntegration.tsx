@@ -20,6 +20,21 @@ export default function GoogleDriveIntegration() {
   const [disconnectInput, setDisconnectInput] = useState("");
 
   useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch("/api/integrations/google");
+        if (res.ok) {
+          const data: { connected: boolean; email?: string | null; reauthRequired?: boolean } = await res.json();
+          setIsConnected(data.connected);
+          setEmail(data.email || null);
+          setNeedsReauth(!!data.reauthRequired);
+        }
+      } catch {
+        // Leave the "not connected" state on network errors.
+      } finally {
+        setIsLoading(false);
+      }
+    };
     fetchStatus();
     
     // Check for inline error from NextAuth signin callback
@@ -33,21 +48,6 @@ export default function GoogleDriveIntegration() {
     }
   }, [searchParams, router]);
 
-  const fetchStatus = async () => {
-    try {
-      const res = await fetch("/api/integrations/google");
-      if (res.ok) {
-        const data = await res.json();
-        setIsConnected(data.connected);
-        setEmail(data.email || null);
-        setNeedsReauth(!!data.reauthRequired);
-      }
-    } catch (e) {
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleConnect = async () => {
     try {
       const providers = await getProviders();
@@ -60,7 +60,7 @@ export default function GoogleDriveIntegration() {
         callbackUrl: "/settings",
         login_hint: session?.user?.email ?? "",
       });
-    } catch (e) {
+    } catch {
       toast.error("Failed to initiate connection. Please try again.");
     }
   };
@@ -79,14 +79,14 @@ export default function GoogleDriveIntegration() {
       setShowDisconnectConfirm(false);
       setDisconnectInput("");
       toast.success("Google Drive disconnected successfully");
-    } catch (e) {
+    } catch {
       toast.error("Failed to disconnect Google Drive");
     } finally {
       setIsDisconnecting(false);
     }
   };
 
-  const isAdmin = (session?.user as any)?.role === "ADMIN";
+  const isAdmin = session?.user?.role === "ADMIN";
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 overflow-hidden">

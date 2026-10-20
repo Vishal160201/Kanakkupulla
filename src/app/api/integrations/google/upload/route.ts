@@ -1,34 +1,34 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/authz";
 import { getGoogleDriveToken, getOrCreateFolder } from "@/lib/googleDriveAuth";
 import prisma from "@/lib/prisma";
+import { parseWith } from "@/lib/validations/http";
+import { MAX_UPLOAD_BYTES, driveUploadSchema, uploadFormToObject } from "@/lib/validations/integrations";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
+    const userId = auth.user.id;
 
-    const userId = (session.user as any).id;
-    const accessToken = await getGoogleDriveToken(session);
-
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const moduleName = formData.get("module") as string || "Uncategorized";
-    const categoryName = formData.get("category") as string || "Uncategorized";
-    let dateStr = formData.get("date") as string;
-    if (!dateStr) {
-      dateStr = new Intl.DateTimeFormat('en-GB', { 
-        timeZone: 'Asia/Kolkata', 
-        day: '2-digit', month: '2-digit', year: 'numeric' 
-      }).format(new Date()).replace(/\//g, '-');
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return NextResponse.json({ error: "Expected multipart form data" }, { status: 400 });
     }
-
-    if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    const parsed = parseWith(driveUploadSchema, uploadFormToObject(formData));
+    if (parsed.error) return parsed.error;
+    const { file, module: moduleName, category: categoryName } = parsed.data;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: "File is too large (max 25 MB)" }, { status: 413 });
     }
+    const dateStr = parsed.data.date || new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    }).format(new Date()).replace(/\//g, '-');
+
+    const accessToken = await getGoogleDriveToken({ user: auth.user });
 
     // --- FOLDER MANAGEMENT ---
     const getFolders = async () => {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     const boundary = "314159265358979323846";
 
     const buildBody = (fid: string) => {
-      const metadata: any = { name: file.name, mimeType: file.type };
+      const metadata: { name: string; mimeType: string; parents?: string[] } = { name: file.name, mimeType: file.type };
       if (fid) metadata.parents = [fid];
       
       const metadataPart = 
@@ -68,18 +68,7 @@ export async function POST(req: Request) {
 
     let body = buildBody(folderId);
 
-    // --- DEBUG LOGGING ---
-    try {
-      const tokenInfoRes = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessToken}`);
-      const tokenInfo = await tokenInfoRes.text();
-    } catch (tokenErr: any) {
-    }
-
     const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
-    console.log("Request Headers:", {
-      "Authorization": `Bearer [REDACTED]`,
-      "Content-Type": `multipart/related; boundary=${boundary}`
-    });
 
     const doUpload = () => fetch(uploadUrl, {
       method: "POST",
@@ -103,7 +92,7 @@ export async function POST(req: Request) {
     }
 
     if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
+      console.error("Drive upload failed:", uploadRes.status, await uploadRes.text());
       return NextResponse.json({ error: "Failed to upload file to Google Drive" }, { status: uploadRes.status });
     }
 
@@ -142,10 +131,12 @@ export async function POST(req: Request) {
       iconUrl: finalFile.iconLink
     });
 
-  } catch (err: any) {
-    if (err.message === "reauth_required" || err.message === "No Google Drive account connected") {
-      return NextResponse.json({ error: err.message }, { status: 401 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "reauth_required" || message === "No Google Drive account connected") {
+      return NextResponse.json({ error: message }, { status: 401 });
     }
-    return NextResponse.json({ error: err.message, details: err.response?.data }, { status: 500 });
+    console.error("Drive upload error:", err);
+    return NextResponse.json({ error: message || "Failed to upload file to Google Drive" }, { status: 500 });
   }
 }

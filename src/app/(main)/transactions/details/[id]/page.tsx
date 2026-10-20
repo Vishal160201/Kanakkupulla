@@ -1,4 +1,4 @@
-import TransactionDetailsModal from "@/components/dashboard/TransactionDetailsModal";
+import TransactionDetailsRoute from "./TransactionDetailsRoute";
 
 export default async function TransactionDetailsPage({
   params,
@@ -6,5 +6,5 @@ export default async function TransactionDetailsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <TransactionDetailsModal />;
+  return <TransactionDetailsRoute id={id} />;
 }

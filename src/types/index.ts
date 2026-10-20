@@ -12,12 +12,12 @@ export interface Booking {
   advance: string;
   due: string;
   status: string;
-  customData?: Record<string, any> | null;
+  customData?: Record<string, unknown> | null;
   packageName?: string | null;
-  inclusions?: any | null;
+  inclusions?: unknown;
   notes?: string | null;
-  attachments?: any | null;
-  photographers?: any | null;
+  attachments?: unknown;
+  photographers?: unknown;
 }
 
 export interface FilterState {

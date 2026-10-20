@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/authz";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
 
   try {
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: auth.user.id },
       select: {
         id: true,
         name: true,
@@ -28,6 +24,7 @@ export async function GET() {
 
     return NextResponse.json(user);
   } catch (error) {
+    console.error("Failed to fetch user:", error);
     return NextResponse.json({ error: "Failed to fetch user" }, { status: 500 });
   }
 }

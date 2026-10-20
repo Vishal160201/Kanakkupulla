@@ -11,7 +11,8 @@ export default function QuickActions() {
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-      <button 
+      <button
+        type="button"
         onClick={() => openBookingForm()}
         className={`flex items-center gap-3 bg-[#1e2338] hover:bg-[#2a3048] text-white px-5 py-3 rounded-2xl shadow-lg shadow-slate-900/10 transition-all hover:-translate-y-0.5 shrink-0 ${!canManageBookings ? 'hidden' : ''}`}
       >
@@ -24,7 +25,8 @@ export default function QuickActions() {
         </div>
       </button>
 
-      <button 
+      <button
+        type="button"
         onClick={() => openTransactionForm(undefined, { type: 'EXPENSE' })}
         className={`flex items-center gap-3 bg-red-50 hover:bg-red-100 text-red-500 px-5 py-3 rounded-2xl border border-red-100 transition-all hover:-translate-y-0.5 hover:shadow-sm shrink-0 ${!canManageTransactions ? 'hidden' : ''}`}
       >
@@ -37,7 +39,8 @@ export default function QuickActions() {
         </div>
       </button>
 
-      <button 
+      <button
+        type="button"
         onClick={() => openTransactionForm(undefined, { type: 'INCOME' })}
         className={`flex items-center gap-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-500 px-5 py-3 rounded-2xl border border-emerald-100 transition-all hover:-translate-y-0.5 hover:shadow-sm shrink-0 ${!canManageTransactions ? 'hidden' : ''}`}
       >

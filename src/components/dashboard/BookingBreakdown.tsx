@@ -78,7 +78,7 @@ export default function BookingBreakdown({ data = [] }: BookingBreakdownProps) {
           data.slice(0, 5).map((album, index) => {
             return (
               <React.Fragment key={album.id}>
-                <div onClick={() => openBookingDetails(album.id)} className="flex items-center justify-between group py-2 px-3 -mx-3 rounded-2xl hover:bg-white cursor-pointer transition-all duration-300 hover:shadow-[0_8px_20px_rgb(0,0,0,0.06)] hover:-translate-y-0.5 hover:scale-[1.01] relative z-10 border border-transparent hover:border-slate-50">
+                <button type="button" onClick={() => openBookingDetails(album.id)} className="text-left flex items-center justify-between group py-2 px-3 -mx-3 rounded-2xl hover:bg-white cursor-pointer transition-all duration-300 hover:shadow-[0_8px_20px_rgb(0,0,0,0.06)] hover:-translate-y-0.5 hover:scale-[1.01] relative z-10 border border-transparent hover:border-slate-50">
                   <div className="flex items-center gap-3">
                     
                     {/* Icon Container */}
@@ -101,7 +101,7 @@ export default function BookingBreakdown({ data = [] }: BookingBreakdownProps) {
                     {getStatusBadge(album.status)}
                     <i className="ph-bold ph-caret-right text-slate-300 group-hover:text-slate-500 transition-colors text-base"></i>
                   </div>
-                </div>
+                </button>
                 
                 {/* Separator */}
                 {index !== Math.min(data.length, 5) - 1 && (

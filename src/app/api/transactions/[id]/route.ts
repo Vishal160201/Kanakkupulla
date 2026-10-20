@@ -1,12 +1,28 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import prisma, { toNumber } from "@/lib/prisma";
+import { canWriteTransaction, forbiddenResponse, requirePermission, requireUser } from "@/lib/authz";
 import { DEFAULT_LAYOUTS } from "@/lib/defaultLayouts";
+import { parseJsonBody } from "@/lib/validations/http";
+import { asJsonRecord, pickCustomFields } from "@/lib/validations/common";
+import { transactionPatchSchema, transactionUpdateSchema } from "@/lib/validations/transactions";
 
-const legacyOwnerFilter = (userId: string) => ({
-  OR: [{ userId }, { userId: null }],
-});
+type LayoutField = { id: string; name: string; type: string };
+
+/** Flattens a form layout schema (`{ sections: [{ fields: [...] }] }`) into its field definitions. */
+function layoutFields(schema: unknown): LayoutField[] {
+  if (!schema || typeof schema !== "object" || !("sections" in schema) || !Array.isArray(schema.sections)) return [];
+  const fields: LayoutField[] = [];
+  for (const section of schema.sections as unknown[]) {
+    if (!section || typeof section !== "object" || !("fields" in section) || !Array.isArray(section.fields)) continue;
+    for (const field of section.fields as unknown[]) {
+      if (!field || typeof field !== "object" || !("id" in field) || typeof field.id !== "string") continue;
+      const name = "name" in field && typeof field.name === "string" && field.name ? field.name : field.id;
+      const type = "type" in field && typeof field.type === "string" && field.type ? field.type : "SINGLE_LINE";
+      fields.push({ id: field.id, name, type });
+    }
+  }
+  return fields;
+}
 
 const startOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
@@ -15,11 +31,8 @@ const endOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
+  const auth = await requirePermission("view_transactions", "manage_transactions", "manage_bookings");
+  if (auth.error) return auth.error;
 
   try {
     const { id } = await params;
@@ -40,9 +53,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: "Booking not found for legacy transaction" }, { status: 404 });
       }
       
-      const customData = booking.customData as any;
-      const advanceAmount = Number(booking.order?.advance || customData?.fld_b_advance || 0);
-      const paymentMode = customData?.paymentMode || customData?.fld_b_payment_mode || "Cash";
+      const customData = asJsonRecord(booking.customData);
+      const advanceAmount = Number(booking.order?.advance || customData.fld_b_advance || 0);
+      const paymentMode = customData.paymentMode || customData.fld_b_payment_mode || "Cash";
       const txDate = booking.date || new Date();
       
       const legacyTransaction = {
@@ -103,6 +116,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     };
     const scopedDayWhere = {
       date: dateRange,
+      deletedAt: null,
     };
 
     const [incomeAggregate, expenseAggregate, categoryAggregate, layout] = await Promise.all([
@@ -125,9 +139,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       prisma.formLayout.findUnique({ where: { formKey: "TRANSACTION_FORM" } }),
     ]);
 
-    const dayIncome = incomeAggregate._sum.amount || 0;
-    const dayExpenses = expenseAggregate._sum.amount || 0;
-    const categoryTotal = categoryAggregate._sum.amount || 0;
+    const dayIncome = toNumber(incomeAggregate._sum.amount);
+    const dayExpenses = toNumber(expenseAggregate._sum.amount);
+    const categoryTotal = toNumber(categoryAggregate._sum.amount);
     const typeTotal = transaction.type === "INCOME" ? dayIncome : dayExpenses;
     const customData =
       transaction.customData && typeof transaction.customData === "object"
@@ -136,13 +150,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const fallbackLayout = DEFAULT_LAYOUTS.find((item) => item.formKey === "TRANSACTION_FORM");
     const layoutSchema = layout?.schema || fallbackLayout?.schema;
-    const fields = ((layoutSchema as any)?.sections || [])
-      .flatMap((section: any) => section.fields || [])
-      .map((field: any) => ({
-        id: field.id,
-        name: field.name || field.id,
-        type: field.type || "SINGLE_LINE",
-      }));
+    const fields = layoutFields(layoutSchema);
 
     const standardFieldIds = new Set([
       "fld_tx_amount",
@@ -155,7 +163,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const customAttachment = Object.entries(customData).find(([key, value]) => {
       if (typeof value !== "string" || !value) return false;
-      const definition = fields.find((field: any) => field.id === key);
+      const definition = fields.find((field) => field.id === key);
       const searchable = `${key} ${definition?.name || ""} ${definition?.type || ""}`.toLowerCase();
       return /(attachment|receipt|invoice|bill|document|file|upload)/.test(searchable);
     });
@@ -171,7 +179,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         value !== ""
       )
       .map(([key, value]) => {
-        const definition = fields.find((field: any) => field.id === key);
+        const definition = fields.find((field) => field.id === key);
         return {
           id: key,
           label: definition?.name || key.replace(/^fld_tx_/, "").replace(/_/g, " "),
@@ -205,56 +213,39 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (error) {
+    console.error("Failed to fetch transaction:", error);
     return NextResponse.json({ error: "Failed to fetch transaction" }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
 
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { amount, type, date, category, paymentMode, description, status, ...restBody } = body;
+    const parsed = await parseJsonBody(request, transactionUpdateSchema);
+    if (parsed.error) return parsed.error;
+    const { amount, type, date, category, paymentMode, description, status, ...restBody } = parsed.data;
 
     const existing = await prisma.transaction.findUnique({
       where: { id },
     });
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
-
-    // Validate updated fields
-    const errors: Record<string, string> = {};
-    const parsedAmount = parseFloat(amount);
-    if (amount !== undefined && (isNaN(parsedAmount) || parsedAmount <= 0)) {
-      errors.amount = "Amount must be a positive number.";
-    }
-    if (type && !["INCOME", "EXPENSE"].includes(type)) errors.type = "Invalid type.";
-    if (date && isNaN(new Date(date).getTime())) errors.date = "Invalid date.";
-
-
-    if (Object.keys(errors).length > 0) {
-      return NextResponse.json({ error: "Validation failed", errors }, { status: 422 });
+    if (!(await canWriteTransaction(auth.user, existing))) {
+      return forbiddenResponse();
     }
 
-    const customData: Record<string, any> = existing.customData && typeof existing.customData === 'object' ? { ...(existing.customData as any) } : {};
-    for (const [key, value] of Object.entries(restBody)) {
-      if (key !== 'userId' && !key.startsWith('$ACTION')) {
-        customData[key] = value;
-      }
-    }
+    const customData = { ...asJsonRecord(existing.customData), ...pickCustomFields(restBody) };
 
     const updatedTransaction = await prisma.transaction.update({
       where: { id },
       data: {
-        ...(amount !== undefined && { amount: parsedAmount }),
+        ...(amount !== undefined && { amount }),
         ...(type && { type }),
-        ...(date && { date: new Date(date) }),
+        ...(date && { date }),
         ...(category && { category }),
         ...(paymentMode && { paymentMode }),
         ...(description !== undefined && { description: description?.trim() || null }),
@@ -267,43 +258,49 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to update transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
 
   try {
     const { id } = await params;
-    const body = await request.json();
-    
+    const parsed = await parseJsonBody(request, transactionPatchSchema);
+    if (parsed.error) return parsed.error;
+    const body = parsed.data;
+
+    const existing = await prisma.transaction.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
+    }
+    if (!(await canWriteTransaction(auth.user, existing))) {
+      return forbiddenResponse();
+    }
+
     // Only support patching deletedAt for soft-deletion right now
     if (body.deletedAt !== undefined) {
       const updated = await prisma.transaction.update({
         where: { id },
-        data: {
-          deletedAt: body.deletedAt ? new Date(body.deletedAt) : null
-        }
+        data: { deletedAt: body.deletedAt },
       });
       return NextResponse.json({ message: "Transaction updated successfully", transaction: updated });
     }
     
     return NextResponse.json({ error: "Invalid patch request" }, { status: 400 });
   } catch (error) {
+    console.error("Failed to patch transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
+  const userId = auth.user.id;
 
   try {
     const { id } = await params;
@@ -311,23 +308,27 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const existing = await prisma.transaction.findUnique({
       where: { id },
     });
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
+    if (!(await canWriteTransaction(auth.user, existing))) {
+      return forbiddenResponse();
+    }
 
-    await prisma.recycleBin.create({
-      data: {
-        itemType: "transaction",
-        itemId: id,
-        originalData: JSON.parse(JSON.stringify(existing)),
-        trashedById: userId,
-      }
-    });
-
-    await prisma.transaction.update({
-      where: { id },
-      data: { deletedAt: new Date() }
-    });
+    await prisma.$transaction([
+      prisma.recycleBin.create({
+        data: {
+          itemType: "transaction",
+          itemId: id,
+          originalData: JSON.parse(JSON.stringify(existing)),
+          trashedById: userId,
+        }
+      }),
+      prisma.transaction.update({
+        where: { id },
+        data: { deletedAt: new Date() }
+      }),
+    ]);
 
     if (existing.productOrderId) {
       const order = await prisma.productOrder.findUnique({
@@ -335,7 +336,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       });
       if (order) {
         if (existing.description?.startsWith("Advance") || existing.description?.startsWith("Full Payment")) {
-          const cData: any = order.customData || {};
+          const cData = asJsonRecord(order.customData);
           const oldAdvance = Number(cData.advanceAmount) || 0;
           const newAdvance = Math.max(0, oldAdvance - existing.amount);
           await prisma.productOrder.update({
@@ -360,6 +361,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to delete transaction: " + (error as any).message }, { status: 500 });
+    console.error("Failed to delete transaction:", error);
+    return NextResponse.json({ error: "Failed to delete transaction" }, { status: 500 });
   }
 }

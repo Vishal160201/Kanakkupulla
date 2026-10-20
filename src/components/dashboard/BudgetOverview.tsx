@@ -1,14 +1,21 @@
 "use client";
-import React, { useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+interface BudgetOverviewItem {
+  category: string;
+  spent: number;
+  limit: number;
+  percentage: number;
+  status: string;
+}
 
 export default function BudgetOverview() {
-  const { data, isLoading } = useSWR('/api/budget/overview', fetcher);
+  const { data, isLoading } = useSWR<{ overview?: BudgetOverviewItem[] }>('/api/budget/overview', fetcher);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const overview = data?.overview || [];
+  const overview: BudgetOverviewItem[] = data?.overview || [];
 
   if (isLoading) {
     return (
@@ -23,7 +30,9 @@ export default function BudgetOverview() {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
-      <button 
+      <button
+        type="button"
+        aria-expanded={isExpanded}
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
       >
@@ -38,11 +47,10 @@ export default function BudgetOverview() {
 
       {isExpanded && (
         <div className="px-6 pb-6 pt-2 border-t border-gray-50 flex flex-col gap-4">
-          {overview.map((item: any, idx: number) => {
+          {overview.map((item, idx) => {
             const isRed = item.status === "exceeded";
             const isOrange = item.status === "warning";
             const barColor = isRed ? "bg-red-500" : isOrange ? "bg-orange-500" : "bg-emerald-500";
-            const bgColor = isRed ? "bg-red-50" : isOrange ? "bg-orange-50" : "bg-emerald-50";
 
             return (
               <div key={idx} className="flex flex-col gap-1.5">

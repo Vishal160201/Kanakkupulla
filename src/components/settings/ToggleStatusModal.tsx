@@ -24,7 +24,6 @@ export default function ToggleStatusModal({ user, onClose, onConfirm }: ToggleSt
 
   const isDisabling = user.status === "ACTIVE";
   const actionText = isDisabling ? "Disable" : "Enable";
-  const newStatus = isDisabling ? "INACTIVE" : "ACTIVE";
 
   const initials = user.name
     ? user.name

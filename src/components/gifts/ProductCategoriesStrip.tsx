@@ -56,6 +56,8 @@ export default function ProductCategoriesStrip({ onCategorySelect, selectedCateg
           return (
             <div key={cat.id} className="relative flex flex-col items-center shrink-0 snap-center group w-[56px] sm:w-[72px] cat-wrapper">
               <button
+                type="button"
+                aria-label={`New ${cat.name} order`}
                 onClick={() => onCategorySelect?.(cat.id)}
                 className="w-[48px] h-[48px] cat-btn flex items-center justify-center transition-all duration-300 rounded-2xl cursor-pointer active:scale-95"
               >

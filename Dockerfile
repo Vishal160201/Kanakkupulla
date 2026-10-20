@@ -12,6 +12,7 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 
 # Copy package files to leverage Docker caching
 COPY package.json package-lock.json* ./
+COPY prisma.config.ts ./
 COPY prisma ./prisma/
 
 # Install all dependencies (including devDependencies for build)
@@ -36,8 +37,9 @@ COPY . .
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Generate Prisma client and build Next.js
-RUN npx prisma generate
+# Generate Prisma client and build Next.js (`npm run build` = prisma generate && next build).
+# The build never touches the database; apply migrations separately with
+# `npm run db:migrate` (prisma migrate deploy) as a release step.
 RUN npm run build
 
 # ============================================
@@ -70,4 +72,6 @@ USER node
 
 EXPOSE 3000
 
+# No HEALTHCHECK: the only lightweight endpoint (/api/ping) also pings the
+# WhatsApp bot server, so it is not a reliable liveness probe for this container.
 CMD ["node", "server.js"]

@@ -3,22 +3,23 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { ColorPicker } from "../ui/color-picker";
+import type { CalendarTier, UiPreferences } from "@/types/settings";
 
 export default function SystemPreferences() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [prefs, setPrefs] = useState<any>(null);
+  const [prefs, setPrefs] = useState<UiPreferences | null>(null);
 
   useEffect(() => {
     fetch("/api/settings/system")
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: { UI_PREFERENCES?: UiPreferences }) => {
         if (data.UI_PREFERENCES) {
           setPrefs(data.UI_PREFERENCES);
         }
         setLoading(false);
       })
-      .catch((err) => {
+      .catch(() => {
         toast.error("Failed to load settings");
         setLoading(false);
       });
@@ -35,16 +36,17 @@ export default function SystemPreferences() {
       });
       if (!res.ok) throw new Error("Failed to save settings");
       toast.success("System preferences saved successfully!");
-    } catch (err) {
+    } catch {
       toast.error("Failed to save settings");
     } finally {
       setSaving(false);
     }
   };
 
-  const updateTiers = (index: number, field: string, value: any) => {
+  const updateTiers = <K extends keyof CalendarTier>(index: number, field: K, value: CalendarTier[K]) => {
+    if (!prefs) return;
     const newTiers = [...prefs.calendarTiers];
-    newTiers[index][field] = value;
+    newTiers[index] = { ...newTiers[index], [field]: value };
     setPrefs({ ...prefs, calendarTiers: newTiers });
   };
 
@@ -98,7 +100,7 @@ export default function SystemPreferences() {
                 onChange={(e) => setPrefs({ ...prefs, hotDateBenchmark: Number(e.target.value) })}
                 className="w-full text-sm font-semibold text-slate-800 border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-orange-500"
               />
-              <p className="text-[0.65rem] text-slate-500 mt-1">Bookings with packages above this value will mark the day as "Hot" on the dashboard.</p>
+              <p className="text-[0.65rem] text-slate-500 mt-1">Bookings with packages above this value will mark the day as &quot;Hot&quot; on the dashboard.</p>
             </div>
           </div>
         </section>
@@ -117,7 +119,7 @@ export default function SystemPreferences() {
               <div className="col-span-3">Background Color</div>
               <div className="col-span-3">Text Color</div>
             </div>
-            {prefs.calendarTiers.map((tier: any, index: number) => (
+            {prefs.calendarTiers.map((tier, index) => (
               <div key={index} className="grid grid-cols-12 gap-4 items-center bg-slate-50 border border-gray-100 rounded-xl p-3">
                 <div className="col-span-1 text-center font-bold text-slate-500">{index + 1}</div>
                 <div className="col-span-5">

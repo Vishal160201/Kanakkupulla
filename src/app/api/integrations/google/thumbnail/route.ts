@@ -1,29 +1,18 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getGoogleDriveToken } from "@/lib/googleDriveAuth";
+import { requireUser } from "@/lib/authz";
+import { fetchDriveFile } from "@/lib/googleDriveAuth";
+import { parseSearchParams } from "@/lib/validations/http";
+import { driveThumbnailQuerySchema } from "@/lib/validations/integrations";
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
 
-    const { searchParams } = new URL(req.url);
-    const fileId = searchParams.get("fileId");
+    const query = parseSearchParams(req, driveThumbnailQuerySchema);
+    if (query.error) return query.error;
 
-    if (!fileId) {
-      return NextResponse.json({ error: "No fileId provided" }, { status: 400 });
-    }
-
-    const accessToken = await getGoogleDriveToken(session);
-
-    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
+    const response = await fetchDriveFile({ user: auth.user }, query.data.fileId);
 
     if (!response.ok) {
       return NextResponse.json({ error: "Failed to fetch thumbnail" }, { status: response.status });
@@ -36,13 +25,15 @@ export async function GET(req: Request) {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=3600" // Cache for 1 hour
+        "Cache-Control": "private, max-age=3600" // Private Drive content: never cache in shared caches
       }
     });
-  } catch (err: any) {
-    if (err.message === "reauth_required" || err.message === "No Google Drive account connected") {
-      return NextResponse.json({ error: err.message }, { status: 401 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "reauth_required" || message === "No Google Drive account connected") {
+      return NextResponse.json({ error: message }, { status: 401 });
     }
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Failed to fetch Drive thumbnail:", err);
+    return NextResponse.json({ error: "Failed to fetch thumbnail" }, { status: 500 });
   }
 }

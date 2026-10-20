@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { asJsonRecord } from '../lib/validations/common';
 
 async function main() {
   
@@ -10,7 +11,7 @@ async function main() {
   let migratedCount = 0;
   
   for (const order of orders) {
-    const customData = order.customData as any || {};
+    const customData = asJsonRecord(order.customData);
     
     const advance = Number(customData.advanceAmount) || 0;
     const due = Number(customData.dueAmount) || 0;
@@ -40,11 +41,13 @@ async function main() {
       migratedCount++;
     }
   }
-  
+
+  console.log(`Migrated ${migratedCount} of ${orders.length} orders.`);
 }
 
 main()
   .catch(e => {
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

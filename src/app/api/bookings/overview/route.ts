@@ -1,27 +1,30 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import prisma, { toNumber } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
+import { requireUser } from "@/lib/authz";
+import { asJsonRecord } from "@/lib/validations/common";
 
-let uiPreferencesCache: { value: any; timestamp: number } | null = null;
+let uiPreferencesCache: { value: Prisma.JsonObject; timestamp: number } | null = null;
 const CACHE_TTL = 60000; // 1 minute
 
-async function getUiPreferences() {
+async function getUiPreferences(): Promise<Prisma.JsonObject> {
   if (uiPreferencesCache && Date.now() - uiPreferencesCache.timestamp < CACHE_TTL) {
     return uiPreferencesCache.value;
   }
   const setting = await prisma.systemSetting.findUnique({ where: { key: "UI_PREFERENCES" } });
-  const value = (setting?.value as any) || { currencySymbol: "₹", hotDateBenchmark: 50000 };
+  const stored = setting?.value;
+  const value: Prisma.JsonObject =
+    stored && typeof stored === "object" && !Array.isArray(stored)
+      ? (stored as Prisma.JsonObject)
+      : { currencySymbol: "₹", hotDateBenchmark: 50000 };
   uiPreferencesCache = { value, timestamp: Date.now() };
   return value;
 }
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -64,9 +67,9 @@ export async function GET() {
       title: b.client.name,
       category: b.category,
       date: b.date.toISOString().split('T')[0],
-      time: (b as any).time,
-      status: b.status as any,
-      customData: (b as any).customData || {}
+      time: b.time,
+      status: b.status,
+      customData: b.customData || {}
     }));
 
     // Use SQL aggregates instead of JS computation
@@ -104,7 +107,7 @@ export async function GET() {
     }
     // Find all hot dates
     const hotDates: { date: string; totalAmount: number; count: number }[] = [];
-    const benchmark = prefs.hotDateBenchmark || 50000;
+    const benchmark = Number(prefs.hotDateBenchmark) || 50000;
     for (const [dStr, stats] of dateStats) {
       if (stats.totalPackage >= benchmark) {
         hotDates.push({ date: dStr, totalAmount: stats.totalPackage, count: stats.count });
@@ -116,12 +119,14 @@ export async function GET() {
     let albumInProgressCount = 0;
     let pendingAlbumWorksCount = 0;
     for (const b of dbBookings) {
+      const customData = asJsonRecord(b.customData);
+      const inclusions = customData.fld_b_inclusions;
       const isAlbum = b.category === 'Album' ||
-        (b.customData as any)?.fld_b_inclusions?.includes('Album') ||
-        (b.customData as any)?.album_status ||
-        (b as any).albumStatus;
+        ((typeof inclusions === 'string' || Array.isArray(inclusions)) && inclusions.includes('Album')) ||
+        customData.album_status ||
+        b.albumStatus;
       const bStatus = (b.status || '').trim().toLowerCase();
-      const aStatus = ((b as any).albumStatus || '').trim().toLowerCase();
+      const aStatus = (b.albumStatus || '').trim().toLowerCase();
       
       if (bStatus === 'shoot completed' || (isAlbum && bStatus === 'pending') || aStatus === 'pending') {
         pendingAlbumWorksCount++;
@@ -138,7 +143,7 @@ export async function GET() {
       metrics: {
         immediateShoots,
         thisWeekShoots,
-        pendingDueAmount: pendingDueAgg._sum.due || 0,
+        pendingDueAmount: toNumber(pendingDueAgg._sum.due),
         unconfirmedShoots,
         hotDates,
         albumInProgressCount,
@@ -147,6 +152,7 @@ export async function GET() {
     });
 
   } catch (error) {
+    console.error("Failed to fetch bookings overview:", error);
     return NextResponse.json({ error: "Failed to fetch bookings overview" }, { status: 500 });
   }
 }

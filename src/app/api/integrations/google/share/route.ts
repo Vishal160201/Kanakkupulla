@@ -1,29 +1,23 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/authz";
+import { getGoogleDriveToken } from "@/lib/googleDriveAuth";
+import { parseJsonBody } from "@/lib/validations/http";
+import { driveShareSchema } from "@/lib/validations/integrations";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
 
-    const { fileId } = await req.json();
-    if (!fileId) {
-      return NextResponse.json({ error: "Missing fileId" }, { status: 400 });
-    }
+    const parsed = await parseJsonBody(req, driveShareSchema);
+    if (parsed.error) return parsed.error;
+    const { fileId } = parsed.data;
 
-    const account = await prisma.account.findFirst({
-      where: {
-        userId: (session.user as any).id,
-        provider: "google-drive"
-      }
-    });
-
-    if (!account || !account.access_token) {
-      return NextResponse.json({ error: "No Google Drive account connected" }, { status: 404 });
+    let accessToken: string;
+    try {
+      accessToken = await getGoogleDriveToken({ user: auth.user });
+    } catch (e) {
+      return NextResponse.json({ error: (e instanceof Error && e.message) || "No Google Drive account connected" }, { status: 401 });
     }
 
     // Call Google Drive API to add "anyone with link can view" permission
@@ -31,7 +25,7 @@ export async function POST(req: Request) {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${account.access_token}`,
+        "Authorization": `Bearer ${accessToken}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -41,12 +35,12 @@ export async function POST(req: Request) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
       return NextResponse.json({ error: "Failed to share file" }, { status: response.status });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Failed to share Drive file:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

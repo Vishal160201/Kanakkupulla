@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/authz";
+import { asJsonRecord } from "@/lib/validations/common";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.json({ show: false });
   }
 
@@ -17,15 +17,12 @@ export async function GET() {
       where: { key: "BANNER_SETTINGS" }
     });
 
-    let settings = {
+    const settings = {
       bannerEnabled: true,
       bannerTime1: "09:00",
-      bannerTime2: "17:00"
+      bannerTime2: "17:00",
+      ...asJsonRecord(bannerSetting?.value),
     };
-
-    if (bannerSetting && bannerSetting.value) {
-      settings = { ...settings, ...(bannerSetting.value as any) };
-    }
 
     if (!settings.bannerEnabled) {
       return NextResponse.json({ show: false });
@@ -80,7 +77,8 @@ export async function GET() {
       },
       orderBy: {
         date: 'asc'
-      }
+      },
+      take: 200
     });
 
     if (bookings.length === 0) {
@@ -88,8 +86,8 @@ export async function GET() {
     }
 
     // 4. Group bookings
-    const day1: any[] = [];
-    const day2: any[] = [];
+    const day1: typeof bookings = [];
+    const day2: typeof bookings = [];
 
     const tomorrowUTCStart = toUTC(tomorrowLocalStart);
     const tomorrowUTCEnd = toUTC(tomorrowLocalEnd);

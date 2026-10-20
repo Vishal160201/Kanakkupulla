@@ -5,6 +5,7 @@ import { Booking } from '@/types';
 import { useRouter } from 'next/navigation';
 import { useSystem } from '@/components/providers/SystemProvider';
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { clickableProps } from "@/components/bookings/clickableProps";
 
 interface BookingTableProps {
   bookings: Booking[];
@@ -36,7 +37,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
     setHasData(sorted.length > 0);
   }, [sorted.length, setHasData]);
 
-  const getAvatarColor = (name: string) => {
+  const getAvatarColor = () => {
     // Return a consistent black/slate theme
     return 'bg-slate-900 text-white';
   };
@@ -81,10 +82,10 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
           }
 
           const displayId = b.bookingNumber || `#${b.id.substring(b.id.length - 6).toUpperCase()}`;
-          const avatarColor = getAvatarColor(b.title);
+          const avatarColor = getAvatarColor();
           
           return (
-            <div key={b.id} className="p-4 border border-slate-100 rounded-xl bg-slate-50 flex flex-col gap-3 shadow-sm cursor-pointer" onClick={() => openBookingDetails(b.id)}>
+            <div key={b.id} className="p-4 border border-slate-100 rounded-xl bg-slate-50 flex flex-col gap-3 shadow-sm cursor-pointer" {...clickableProps(() => openBookingDetails(b.id))}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-[40px] h-[40px] rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-[0.9rem] shrink-0`}>{(b.title || 'U').charAt(0).toUpperCase()}</div>
@@ -152,7 +153,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
             }
 
             const displayId = b.bookingNumber || `#${b.id.substring(b.id.length - 6).toUpperCase()}`;
-            const avatarColor = getAvatarColor(b.title);
+            const avatarColor = getAvatarColor();
             
             // Simple hash function for locations to get consistent colors
             const locName = (b.location || 'TBD').toLowerCase().trim();
@@ -164,7 +165,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
             const locColor = locColors[Math.abs(locHash) % locColors.length];
 
             return (
-              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" onClick={() => openBookingDetails(b.id)}>
+              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" {...clickableProps(() => openBookingDetails(b.id))}>
                 <div className="flex-[2] flex items-center gap-3">
                   <div className={`w-[35px] h-[35px] rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-[0.85rem] shrink-0`}>{(b.title || 'U').charAt(0).toUpperCase()}</div>
                   <div className="flex flex-col justify-center">
@@ -215,8 +216,8 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
               if (totalPages <= 2) {
                 return (
                   <div className="flex gap-2">
-                    <button onClick={() => navigateTo(currentPage - 1)} disabled={currentPage <= 1} className={baseBtnClass}>Previous</button>
-                    <button onClick={() => navigateTo(currentPage + 1)} disabled={currentPage >= totalPages} className={baseBtnClass}>Next</button>
+                    <button type="button" onClick={() => navigateTo(currentPage - 1)} disabled={currentPage <= 1} className={baseBtnClass}>Previous</button>
+                    <button type="button" onClick={() => navigateTo(currentPage + 1)} disabled={currentPage >= totalPages} className={baseBtnClass}>Next</button>
                   </div>
                 );
               }
@@ -230,7 +231,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
               const pages = [];
               for (let i = startPage; i <= endPage; i++) {
                 pages.push(
-                  <button key={i} onClick={() => navigateTo(i)} className={i === currentPage ? activeBtnClass : baseBtnClass}>
+                  <button type="button" key={i} onClick={() => navigateTo(i)} className={i === currentPage ? activeBtnClass : baseBtnClass}>
                     {i}
                   </button>
                 );
@@ -238,10 +239,10 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
 
               return (
                 <div className="flex gap-1.5 items-center">
-                  <button onClick={() => navigateTo(1)} disabled={currentPage === 1} className={baseBtnClass} title="First Page">
+                  <button type="button" onClick={() => navigateTo(1)} disabled={currentPage === 1} className={baseBtnClass} title="First Page">
                     First
                   </button>
-                  <button onClick={() => navigateTo(currentPage - 1)} disabled={currentPage <= 1} className={baseBtnClass}>
+                  <button type="button" onClick={() => navigateTo(currentPage - 1)} disabled={currentPage <= 1} className={baseBtnClass}>
                     Prev
                   </button>
                   
@@ -249,10 +250,10 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
                   {pages}
                   {endPage < totalPages && <span className="px-1 text-slate-400 font-bold">...</span>}
                   
-                  <button onClick={() => navigateTo(currentPage + 1)} disabled={currentPage >= totalPages} className={baseBtnClass}>
+                  <button type="button" onClick={() => navigateTo(currentPage + 1)} disabled={currentPage >= totalPages} className={baseBtnClass}>
                     Next
                   </button>
-                  <button onClick={() => navigateTo(totalPages)} disabled={currentPage === totalPages} className={baseBtnClass} title="Last Page">
+                  <button type="button" onClick={() => navigateTo(totalPages)} disabled={currentPage === totalPages} className={baseBtnClass} title="Last Page">
                     Last
                   </button>
                 </div>

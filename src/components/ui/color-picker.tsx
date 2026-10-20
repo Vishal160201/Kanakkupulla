@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Wheel, ShadeSlider, hexToHsva, hsvaToHex } from "@uiw/react-color";
+import React, { useState } from "react";
+import { Wheel, ShadeSlider, hexToHsva, hsvaToHex, type HsvaColor } from "@uiw/react-color";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { cn } from "@/lib/utils";
 
@@ -48,23 +48,17 @@ export function ColorPicker({ color, onChange, className }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
 
-  const [internalColor, setInternalColor] = useState(() => normalizeColor(color));
-  
-  useEffect(() => {
-    const normalized = normalizeColor(color);
-    if (normalized !== internalColor) setInternalColor(normalized);
-  }, [color, internalColor]);
+  // The swatch/inputs always reflect the (normalized) color prop: the previous local copy
+  // was re-synced from the prop after every change, so it is derived directly instead.
+  const internalColor = normalizeColor(color);
 
-
-  const handleColorChange = (colorResult: any) => {
+  const handleColorChange = (colorResult: { hsva: HsvaColor }) => {
     const newHex = hsvaToHex(colorResult.hsva);
-    setInternalColor(newHex);
     onChange(newHex);
   };
 
   const handleHexInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    setInternalColor(val);
     if (/^#[0-9A-Fa-f]{6}$/i.test(val)) {
       onChange(val);
     }

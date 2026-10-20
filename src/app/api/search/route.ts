@@ -1,23 +1,33 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireUser, roleHasPermission } from "@/lib/authz";
+import { parseSearchParams } from "@/lib/validations/http";
+import { searchQuerySchema } from "@/lib/validations/admin";
+
+type SearchResult = {
+  id: string;
+  type: "BOOKING" | "TRANSACTION";
+  title: string;
+  subtitle: string;
+  link: string;
+  icon: string;
+  color: string;
+};
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
+
+  const parsed = parseSearchParams(request, searchQuerySchema);
+  if (parsed.error) return parsed.error;
+  const query = parsed.data.q;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get("q") || "";
-
-    if (!query || query.length < 2) {
+    if (query.length < 2) {
       return NextResponse.json({ results: [] });
     }
 
-    const results: any[] = [];
+    const results: SearchResult[] = [];
 
     // Search Bookings (and associated Client)
     const bookings = await prisma.booking.findMany({
@@ -31,8 +41,12 @@ export async function GET(request: Request) {
           { client: { phone: { contains: query, mode: "insensitive" } } },
         ]
       },
-      include: {
-        client: true
+      select: {
+        id: true,
+        category: true,
+        bookingNumber: true,
+        date: true,
+        client: { select: { name: true } }
       },
       take: 5
     });
@@ -50,14 +64,18 @@ export async function GET(request: Request) {
     });
 
     // Search Transactions
-    const transactions = await prisma.transaction.findMany({
+    const canSeeTransactions = await roleHasPermission(auth.user.role, "view_transactions")
+      || await roleHasPermission(auth.user.role, "manage_transactions");
+    const transactions = !canSeeTransactions ? [] : await prisma.transaction.findMany({
       where: {
+        deletedAt: null,
         OR: [
           { description: { contains: query, mode: "insensitive" } },
           { category: { contains: query, mode: "insensitive" } },
           { transactionId: { contains: query, mode: "insensitive" } },
         ]
       },
+      select: { id: true, description: true, category: true, transactionId: true, type: true, amount: true, date: true },
       take: 5
     });
 
@@ -75,6 +93,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ results });
   } catch (error) {
+    console.error("Search failed:", error);
     return NextResponse.json({ error: "Failed to search" }, { status: 500 });
   }
 }

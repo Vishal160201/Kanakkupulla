@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { asJsonRecord } from '../lib/validations/common';
 
 function convertTo24Hour(time12h: string): string | null {
   if (!time12h) return null;
@@ -22,9 +23,9 @@ function convertTo24Hour(time12h: string): string | null {
     return null;
   }
   
-  let [, hours, minutes, modifier] = match;
+  const [, hours, minutes, modifier] = match;
   let h = parseInt(hours, 10);
-  let m = minutes || '00';
+  const m = minutes || '00';
   
   if (h < 1 || h > 12) return null;
   
@@ -48,16 +49,7 @@ async function main() {
   let skipped = 0;
   
   for (const booking of bookings) {
-    let customData: any = {};
-    if (typeof booking.customData === 'string') {
-      try {
-        customData = JSON.parse(booking.customData);
-      } catch (e) {
-        customData = {};
-      }
-    } else if (booking.customData && typeof booking.customData === 'object') {
-      customData = booking.customData;
-    }
+    const customData = asJsonRecord(booking.customData);
     
     if (customData.fld_b_time) {
       console.log(`Skipped ${booking.id}: already has fld_b_time (${customData.fld_b_time})`);

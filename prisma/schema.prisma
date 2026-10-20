@@ -21,13 +21,13 @@ model Client {
 model Order {
   id           String   @id @default(cuid())
   bookingId    String   @unique
-  package      Float    @default(0)
-  advance      Float    @default(0)
-  due          Float    @default(0)
+  package      Decimal  @default(0) @db.Decimal(12, 2)
+  advance      Decimal  @default(0) @db.Decimal(12, 2)
+  due          Decimal  @default(0) @db.Decimal(12, 2)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   installments Json?
-  booking      Booking  @relation(fields: [bookingId], references: [id])
+  booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
 }
@@ -60,6 +60,7 @@ model Booking {
   createdBy        User?         @relation("BookingCreatedBy", fields: [createdById], references: [id])
   updatedBy        User?         @relation("BookingUpdatedBy", fields: [updatedById], references: [id])
   order            Order?
+  invoice          Invoice?
   transactions     Transaction[]
 
   @@index([date])
@@ -68,6 +69,8 @@ model Booking {
   @@index([status])
   @@index([deletedAt, date])
   @@index([clientId, date])
+  @@index([createdById])
+  @@index([updatedById])
 }
 
 model SystemLog {
@@ -81,9 +84,24 @@ model SystemLog {
   @@index([createdAt])
 }
 
+model Shop {
+  id           String        @id @default(cuid())
+  name         String
+  icon         String?
+  color        String        @default("#6366f1")
+  isDefault    Boolean       @default(false)
+  isArchived   Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@index([isDefault])
+  @@index([isArchived])
+}
+
 model Transaction {
   id             String        @id @default(cuid())
-  amount         Float
+  amount         Decimal       @db.Decimal(12, 2)
   type           String
   date           DateTime
   category       String
@@ -100,9 +118,11 @@ model Transaction {
   productOrderId String?
   deletedAt      DateTime?
   groupId        String?
+  shopId         String?
   booking        Booking?      @relation(fields: [bookingId], references: [id])
   productOrder   ProductOrder? @relation(fields: [productOrderId], references: [id])
   user           User?         @relation(fields: [userId], references: [id])
+  shop           Shop?         @relation(fields: [shopId], references: [id], onDelete: Restrict)
 
   @@index([date])
   @@index([category])
@@ -111,9 +131,11 @@ model Transaction {
   @@index([userId])
   @@index([date, type])
   @@index([userId, date])
-  @@index([transactionId])
   @@index([productOrderId])
   @@index([groupId])
+  @@index([bookingId])
+  @@index([deletedAt])
+  @@index([shopId, date])
 }
 
 model Account {
@@ -218,7 +240,7 @@ model Product {
   id          String         @id @default(cuid())
   name        String
   description String?
-  price       Float
+  price       Decimal        @db.Decimal(12, 2)
   stock       Int            @default(0)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
@@ -228,21 +250,21 @@ model Product {
 }
 
 model ProductOrder {
-  id           String        @id @default(cuid())
-  productId    String
-  quantity     Int           @default(1)
-  status       String        @default("PENDING")
-  clientName   String
-  clientPhone  String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  customData   Json?
-  orderNumber  String?       @unique
-  dueDate      DateTime?
-  discountAmount Float         @default(0)
-  date         DateTime      @default(now())
-  product      Product       @relation(fields: [productId], references: [id])
-  transactions Transaction[]
+  id             String        @id @default(cuid())
+  productId      String
+  quantity       Int           @default(1)
+  status         String        @default("PENDING")
+  clientName     String
+  clientPhone    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  customData     Json?
+  orderNumber    String?       @unique
+  dueDate        DateTime?
+  discountAmount Decimal       @default(0) @db.Decimal(12, 2)
+  date           DateTime      @default(now())
+  product        Product       @relation(fields: [productId], references: [id])
+  transactions   Transaction[]
 
   @@index([productId])
   @@index([status])
@@ -269,25 +291,26 @@ model SystemSetting {
 }
 
 model Notification {
-  id           String           @id @default(cuid())
+  id           String               @id @default(cuid())
   userId       String
   title        String
   message      String
-  isRead       Boolean          @default(false)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  isRead       Boolean              @default(false)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
   actionUrl    String?
   entityId     String?
   entityType   String?
   type         NotificationType
   link         String?
-  priority     String           @default("NORMAL")
+  priority     NotificationPriority @default(NORMAL)
   snoozedUntil DateTime?
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([userId, isRead, createdAt])
 }
 
 model PushSubscription {
@@ -312,12 +335,13 @@ model RecycleBin {
 
   @@index([itemType])
   @@index([trashedAt])
+  @@index([itemType, itemId])
 }
 
 model CategoryBudget {
   id           String   @id @default(cuid())
   category     String
-  monthlyLimit Float
+  monthlyLimit Decimal  @db.Decimal(12, 2)
   month        Int
   year         Int
   userId       String
@@ -371,4 +395,35 @@ enum NotificationPriority {
   HIGH
   NORMAL
   LOW
+}
+
+model Invoice {
+  id            String    @id @default(cuid())
+  invoiceNumber String    @unique
+  bookingId     String    @unique
+  discount      Decimal   @default(0) @db.Decimal(12, 2)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  booking   Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  lineItems InvoiceLineItem[]
+
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Int      @default(1)
+  rate        Decimal  @db.Decimal(12, 2)
+  amount      Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
 }

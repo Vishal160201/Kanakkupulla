@@ -1,21 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireAdmin } from "@/lib/authz";
+import { parseJsonBody } from "@/lib/validations/http";
+import { layoutCheckUsageSchema } from "@/lib/validations/settings";
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session || !session.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
 
   try {
-    const body = await req.json();
-    const { formKey, fieldId, value } = body;
-
-    if (!formKey || !fieldId || !value) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    const parsed = await parseJsonBody(req, layoutCheckUsageSchema);
+    if (parsed.error) return parsed.error;
+    const { formKey, fieldId, value } = parsed.data;
 
     let count = 0;
 
@@ -37,6 +33,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ inUse: count > 0, count });
   } catch (error) {
+    console.error("Failed to check usage:", error);
     return NextResponse.json({ error: "Failed to check usage" }, { status: 500 });
   }
 }

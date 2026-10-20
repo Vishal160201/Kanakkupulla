@@ -1,4 +1,8 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
+
+type LayoutSection = { id?: string; title?: string; visibilityRule?: unknown; [key: string]: unknown };
+type LayoutSchema = { sections?: LayoutSection[]; [key: string]: unknown };
 
 async function main() {
   const layout = await prisma.formLayout.findUnique({
@@ -9,12 +13,12 @@ async function main() {
     return;
   }
 
-  const schema = layout.schema as any;
+  const schema = layout.schema as LayoutSchema;
   let albumSectionExists = false;
 
   if (schema.sections) {
     for (const section of schema.sections) {
-      if (section.title.toLowerCase().includes('album') || section.id === 'sec_booking_album') {
+      if ((section.title ?? '').toLowerCase().includes('album') || section.id === 'sec_booking_album') {
         albumSectionExists = true;
         // Remove visibility rule
         if (section.visibilityRule) {
@@ -41,7 +45,7 @@ async function main() {
         ]
       };
       
-      const finIndex = schema.sections.findIndex((s: any) => s.id === 'sec_booking_financial' || s.title === 'Financials');
+      const finIndex = schema.sections.findIndex((s) => s.id === 'sec_booking_financial' || s.title === 'Financials');
       if (finIndex !== -1) {
         schema.sections.splice(finIndex, 0, albumSection);
       } else {
@@ -51,7 +55,7 @@ async function main() {
 
     await prisma.formLayout.update({
       where: { formKey: 'BOOKING_FORM' },
-      data: { schema }
+      data: { schema: schema as Prisma.InputJsonObject }
     });
 
   }

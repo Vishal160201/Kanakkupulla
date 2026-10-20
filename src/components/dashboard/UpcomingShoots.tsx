@@ -1,12 +1,37 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter } from "next/navigation";
-import { Booking } from '@/types';
+import type { Booking } from '@/types';
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 
-export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
-  const router = useRouter();
+/** Bookings may carry the raw client relation when title is missing. */
+type UpcomingBooking = Booking & { client?: { name?: string | null } | null };
+
+/** Start time from the booking, else from a time-like custom field. */
+function getShootTime(b: UpcomingBooking): string | undefined {
+  let t: unknown = b.time;
+  if (!t && b.customData) {
+    try {
+      const raw: unknown = typeof b.customData === 'string' ? JSON.parse(b.customData) : b.customData;
+      const parsed = (raw ?? {}) as Record<string, unknown>;
+      t = parsed.fld_b_time || parsed.fld_b_start_time || parsed.startTime || parsed.time;
+
+      if (!t) {
+        // Fallback: search for any key containing 'time' that has a time-like value
+        for (const key of Object.keys(parsed)) {
+          const value = parsed[key];
+          if (key.toLowerCase().includes('time') && typeof value === 'string' && value.includes(':')) {
+            t = value;
+            break;
+          }
+        }
+      }
+    } catch {}
+  }
+  return t ? (t as string) : undefined;
+}
+
+export default function UpcomingShoots({ bookings }: { bookings: UpcomingBooking[] }) {
   const { openBookingDetails } = useGlobalForm();
 
   // Parse dates carefully to avoid timezone issues
@@ -36,31 +61,22 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
       acc.nextWeek.push(booking);
     }
     return acc;
-  }, { today: [] as Booking[], tomorrow: [] as Booking[], nextWeek: [] as Booking[] });
+  }, { today: [] as UpcomingBooking[], tomorrow: [] as UpcomingBooking[], nextWeek: [] as UpcomingBooking[] });
 
   // Sort ascending chronologically
   grouped.today.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   grouped.tomorrow.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   grouped.nextWeek.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  let totalShown = 0;
+  // Show at most 5 shoots in total, filling Today first, then Tomorrow, then Next 7 Days.
   const maxToShow = 5;
-
-  const truncateGroup = (group: Booking[]) => {
-    if (totalShown >= maxToShow) return [];
-    const allowed = maxToShow - totalShown;
-    const toShow = group.slice(0, allowed);
-    totalShown += toShow.length;
-    return toShow;
-  };
-
-  const todayToShow = truncateGroup(grouped.today);
-  const tomorrowToShow = truncateGroup(grouped.tomorrow);
-  const nextWeekToShow = truncateGroup(grouped.nextWeek);
+  const todayToShow = grouped.today.slice(0, maxToShow);
+  const tomorrowToShow = grouped.tomorrow.slice(0, maxToShow - todayToShow.length);
+  const nextWeekToShow = grouped.nextWeek.slice(0, maxToShow - todayToShow.length - tomorrowToShow.length);
 
   const hasMore = (grouped.today.length + grouped.tomorrow.length + grouped.nextWeek.length) > 0;
 
-  const renderGroup = (title: string, groupBookings: Booking[], emptyMessage: string) => {
+  const renderGroup = (title: string, groupBookings: UpcomingBooking[]) => {
     if (groupBookings.length === 0) return null;
 
     return (
@@ -76,9 +92,10 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
         
         <div className="flex flex-col gap-3">
           {groupBookings.map(b => (
-              <div 
-                key={b.id} 
-                className="group relative flex items-center justify-between bg-white/70 backdrop-blur-md border border-white/80 rounded-2xl p-4 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:bg-white"
+              <button
+                type="button"
+                key={b.id}
+                className="group relative w-full text-left flex items-center justify-between bg-white/70 backdrop-blur-md border border-white/80 rounded-2xl p-4 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:bg-white"
                 onClick={() => openBookingDetails(b.id)}
               >
                 {/* Modern subtle background glow on hover */}
@@ -95,24 +112,8 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
                       : 'bg-gradient-to-br from-slate-100 to-slate-50 text-slate-600 group-hover:from-orange-50 group-hover:to-orange-100 group-hover:text-orange-600'
                   }`}>
                     {(() => {
-                      let t = b.time;
-                      if (!t && b.customData) {
-                        try {
-                          const parsed = typeof b.customData === 'string' ? JSON.parse(b.customData) : b.customData;
-                          t = parsed.fld_b_time || parsed.fld_b_start_time || parsed.startTime || parsed.time;
-                          
-                          if (!t) {
-                            // Fallback: search for any key containing 'time' that has a time-like value
-                            for (const key of Object.keys(parsed)) {
-                              if (key.toLowerCase().includes('time') && typeof parsed[key] === 'string' && parsed[key].includes(':')) {
-                                t = parsed[key];
-                                break;
-                              }
-                            }
-                          }
-                        } catch (e) {}
-                      }
-                      
+                      const t = getShootTime(b);
+
                       return t ? (
                         <>
                           <span className="text-[0.8rem] font-black leading-none">{t.split(' ')[0]}</span>
@@ -122,14 +123,14 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
                         </>
                       ) : (
                         <span className="text-[1.1rem] font-black">
-                          {(b.title || (b as any).client?.name || 'U').charAt(0).toUpperCase()}
+                          {(b.title || b.client?.name || 'U').charAt(0).toUpperCase()}
                         </span>
                       );
                     })()}
                   </div>
                   
                   <div className="flex flex-col overflow-hidden">
-                    <h4 className="font-extrabold text-[0.95rem] text-slate-800 leading-tight group-hover:text-orange-600 transition-colors truncate">{b.title || (b as any).client?.name || 'Untitled'}</h4>
+                    <h4 className="font-extrabold text-[0.95rem] text-slate-800 leading-tight group-hover:text-orange-600 transition-colors truncate">{b.title || b.client?.name || 'Untitled'}</h4>
                     <span className="font-semibold text-[0.65rem] text-slate-400 uppercase tracking-widest mt-0.5 group-hover:text-slate-500 transition-colors">
                       {b.bookingNumber || b.id.substring(0, 8)}
                     </span>
@@ -151,7 +152,7 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
                     {new Date(b.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}
                   </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
       </div>
@@ -170,9 +171,9 @@ export default function UpcomingShoots({ bookings }: { bookings: Booking[] }) {
       </div>
       
       <div className="relative z-10 flex-1">
-        {renderGroup("Today", todayToShow, "No shoots scheduled for today")}
-        {renderGroup("Tomorrow", tomorrowToShow, "No shoots scheduled for tomorrow")}
-        {renderGroup("Next 7 Days", nextWeekToShow, "No shoots scheduled for next week")}
+        {renderGroup("Today", todayToShow)}
+        {renderGroup("Tomorrow", tomorrowToShow)}
+        {renderGroup("Next 7 Days", nextWeekToShow)}
         
         {!hasMore && (
           <div className="bg-white/40 border border-dashed border-slate-200 rounded-2xl p-6 text-center backdrop-blur-sm">

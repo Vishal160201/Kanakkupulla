@@ -1,0 +1,102 @@
+Implement multi-shop support in this app. Daily kanakku (transaction) entries must be stored per-shop. Shops are managed in Settings, the Daily Kanakku page gets a shop switcher, and analytics are filtered per shop.
+
+Before writing code, explore the codebase:
+- Read prisma/schema.prisma and every file that queries prisma.transaction (grep for it).
+- List every place that reads or aggregates transactions: transactions route, overview route, analytics, dashboard/home, exports, imports/backup, opening/closing balances, recurring entries, credit ledgers, etc.
+- Check whether the app has users/auth. If yes, shops must be scoped to the user.
+- Check how data is fetched on the frontend (SWR, React Query, plain fetch) and where layouts live.
+Show me that list and a short plan before making changes.
+
+## 1. Schema + migration
+Add a Shop model:
+- id (cuid), name (unique, or unique per user if auth exists), icon (optional emoji), color (default "#6366f1"), isDefault (bool), isArchived (bool, default false), createdAt, updatedAt, transactions relation
+- If auth exists, add userId with relation and index.
+
+On Transaction:
+- Add shopId with relation to Shop, onDelete: Restrict
+- Add @@index([shopId, date]) (use the actual date field name)
+
+Migration requirements:
+- Create a default shop ("Main Shop", isDefault = true) inside the migration SQL.
+- Backfill ALL existing transactions to that default shop.
+- After backfill, shopId must be NOT NULL (required in Prisma).
+- Do NOT seed shops lazily inside a GET handler.
+
+## 2. Shops API
+- GET /api/shops: list non-archived shops (support ?includeArchived=true), default first.
+- POST /api/shops: create. Validate name (non-empty, trimmed, unique) and color (hex). If isDefault = true, unset others in the same prisma.$transaction.
+- PUT /api/shops/[id]: update name/icon/color/isDefault/isArchived with the same validation and single-default rule.
+- DELETE /api/shops/[id]:
+  - Reject (409) if the shop has transactions; tell the user to archive instead.
+  - Reject deleting or archiving the last active shop.
+  - If deleting or archiving the default shop, promote another active shop to default.
+- Exactly one default shop must exist at all times. Enforce in code; on Postgres also add a partial unique index on isDefault WHERE isDefault = true.
+- If auth exists, enforce ownership on every route.
+
+## 3. Transaction and related APIs
+- GET transactions, overview, analytics, dashboard summaries, and exports accept an optional shopId query param. No shopId = all shops (backwards compatible).
+- POST/PUT transactions require shopId. Server-side, validate the shop exists, is not archived, and belongs to the user.
+- PUT allows changing shopId (moving an entry between shops).
+- Opening/closing/carried-forward balances must be computed per shop when shopId is given, and across all shops when it isn't.
+- Include shop { id, name, color, icon } in transaction list responses so the UI can show it.
+- Ask me whether categories should be shared or per-shop before changing them. Default: shared.
+
+## 4. ShopProvider (frontend)
+- Context exposing: shops, activeShopId ("all" or a shop id), setActiveShopId, refreshShops, isLoading.
+- Place it in a layout that wraps BOTH the transactions pages and analytics.
+- Persist the selection in localStorage, read it inside useEffect (avoid SSR hydration mismatch).
+- If the stored id no longer exists or is archived, fall back to the default shop.
+- Default selection on first visit: the default shop.
+
+## 5. Shop switcher
+- Prominent pill/tab bar at the top of the Daily Kanakku page: colored dot + icon + name per shop, plus an "All Shops" pill.
+- Horizontally scrollable on mobile.
+- Hide the switcher entirely when only one active shop exists.
+
+## 6. Transactions UI
+- Pass activeShopId to all transaction/overview API calls (omit the param when "all").
+- Include shopId in all SWR/React Query keys (or refetch on change) so no stale data shows after switching.
+- TransactionModal:
+  - Shop picker field, pre-filled with the active shop.
+  - When the active view is "All Shops", the picker is required with no preselection.
+  - Editing an entry allows changing its shop.
+- In the "All Shops" view, show the shop's colored dot/name on each transaction row.
+
+## 7. Settings: Shops section
+- List shops with name, icon, color, default badge, archived state.
+- Add/edit form: name, emoji icon, color picker (offer ~8 preset colors).
+- Actions: Set as default, Archive/Unarchive, Delete (show the API's 409 message clearly).
+- After any change, call refreshShops() from the provider.
+
+## 8. Analytics
+- Analytics pages read activeShopId from the provider and pass it to the API.
+- Show which shop is being viewed in the page header.
+
+## Constraints
+- Match existing code style, component library, and folder conventions.
+- Keep changes incremental; do not refactor unrelated code.
+- Use TypeScript types for Shop and update existing Transaction types.
+
+## Order of work
+1. Schema + migration + backfill
+2. Shops API
+3. shopId support in transactions, overview, analytics, dashboard, export APIs
+4. ShopProvider
+5. Settings > Shops UI
+6. Shop switcher + transactions page + modal wiring
+7. Analytics wiring
+8. Verification
+
+Pause after step 1 and show me the migration SQL before applying it.
+
+## Verification checklist (run through at the end and report results)
+- Existing transactions all appear under the default shop after migration.
+- Creating a second shop and switching shows only that shop's entries.
+- Creating an entry from "All Shops" requires picking a shop.
+- Moving an entry between shops via edit works and both views update.
+- Per-shop balances/overview totals are correct; "All" equals the sum of shops.
+- Deleting a shop with transactions is blocked; archiving works.
+- Cannot remove the last shop; archiving the default promotes another.
+- A stale localStorage shopId falls back to the default without errors.
+- Switcher is hidden with one shop, visible with two or more.
+- Analytics numbers change correctly when switching shops.

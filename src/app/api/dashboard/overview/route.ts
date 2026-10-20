@@ -1,25 +1,28 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { Prisma } from '@prisma/client';
+import prisma, { toNumber } from '@/lib/prisma';
+import { requireUser } from "@/lib/authz";
+import { parseSearchParams } from "@/lib/validations/http";
+import { asJsonRecord } from "@/lib/validations/common";
+import { dashboardOverviewQuerySchema } from "@/lib/validations/dashboard";
+
+type PendingAlbum = { id: string; clientName: string; status: string; date: Date };
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    
-    const { searchParams } = new URL(req.url);
-    const startDateParam = searchParams.get('startDate');
-    const endDateParam = searchParams.get('endDate');
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
+
+    const query = parseSearchParams(req, dashboardOverviewQuerySchema);
+    if (query.error) return query.error;
+    const { startDate: startDateParam, endDate: endDateParam } = query.data;
 
     const today = new Date();
-    
-    let startDate, endDate;
+
+    let startDate: Date, endDate: Date;
     if (startDateParam && endDateParam) {
-      startDate = new Date(startDateParam);
-      endDate = new Date(endDateParam);
+      startDate = startDateParam;
+      endDate = endDateParam;
     } else {
       startDate = new Date(today.getFullYear(), today.getMonth(), 1);
       endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -82,17 +85,20 @@ export async function GET(req: Request) {
       })
     ]);
 
-    const [transactions, allPeriodTransactions, typeAgg, bookingsForChart] = await Promise.all([
+    const [transactions, dailyTotals, typeAgg, bookingsForChart] = await Promise.all([
       prisma.transaction.findMany({
         where: { date: { gte: startOfDay, lte: endOfDay }, deletedAt: null },
         orderBy: { date: 'desc' },
         take: 10,
         select: { id: true, transactionId: true, amount: true, type: true, category: true, paymentMode: true, description: true, date: true },
       }),
-      prisma.transaction.findMany({
-        where: { date: { gte: startOfDay, lte: endOfDay }, deletedAt: null },
-        select: { amount: true, type: true, date: true }
-      }),
+      // Per-day income/expense totals (UTC day, matching toISOString below), aggregated in SQL
+      prisma.$queryRaw<{ day: string; type: string; total: Prisma.Decimal | null }[]>`
+        SELECT to_char("date", 'YYYY-MM-DD') AS day, "type", SUM("amount") AS total
+        FROM "Transaction"
+        WHERE "date" >= ${startOfDay} AND "date" <= ${endOfDay} AND "deletedAt" IS NULL
+        GROUP BY 1, 2
+      `,
       prisma.transaction.groupBy({
         by: ['type'],
         _sum: { amount: true },
@@ -106,48 +112,46 @@ export async function GET(req: Request) {
 
     const incomeItem = typeAgg.find(t => t.type === 'INCOME');
     const expenseItem = typeAgg.find(t => t.type === 'EXPENSE');
-    const periodIncome = incomeItem?._sum.amount || 0;
-    const periodExpense = expenseItem?._sum.amount || 0;
+    const periodIncome = toNumber(incomeItem?._sum.amount);
+    const periodExpense = toNumber(expenseItem?._sum.amount);
 
     const dailyDataMap: Record<string, { date: string, income: number, expense: number }> = {};
-    let curr = new Date(startOfDay);
+    const curr = new Date(startOfDay);
     while (curr <= endOfDay) {
       const dateStr = curr.toISOString().split('T')[0];
       dailyDataMap[dateStr] = { date: dateStr, income: 0, expense: 0 };
       curr.setDate(curr.getDate() + 1);
     }
 
-    allPeriodTransactions.forEach(tx => {
-      const dateStr = tx.date.toISOString().split('T')[0];
-      if (dailyDataMap[dateStr]) {
-        if (tx.type === 'INCOME') dailyDataMap[dateStr].income += tx.amount;
-        if (tx.type === 'EXPENSE') dailyDataMap[dateStr].expense += tx.amount;
+    dailyTotals.forEach(row => {
+      const day = dailyDataMap[row.day];
+      if (day) {
+        if (row.type === 'INCOME') day.income += toNumber(row.total);
+        if (row.type === 'EXPENSE') day.expense += toNumber(row.total);
       }
     });
 
     const revenueChartData = Object.values(dailyDataMap).sort((a, b) => a.date.localeCompare(b.date));
 
-    const pendingAlbumsRaw: any[] = [];
+    const pendingAlbumsRaw: PendingAlbum[] = [];
     bookingsForChart.forEach(b => {
-      let cd: any = {};
-      if (b.customData) {
-        cd = typeof b.customData === 'string' ? JSON.parse(b.customData) : b.customData;
-      }
-      
-      const isAlbum = b.category === 'Album' || 
-                     cd?.fld_b_inclusions?.includes('Album') || 
-                     cd?.album_status ||
-                     cd?.fld_b_album_status;
+      const cd = asJsonRecord(b.customData);
+      const inclusions = cd.fld_b_inclusions;
+
+      const isAlbum = b.category === 'Album' ||
+                     ((typeof inclusions === 'string' || Array.isArray(inclusions)) && inclusions.includes('Album')) ||
+                     cd.album_status ||
+                     cd.fld_b_album_status;
       const bStatus = (b.status || '').trim().toLowerCase();
       
       const qualifiesAsAlbum = isAlbum || ['shoot completed', 'designing', 'printing', 'album work in progress'].includes(bStatus);
       
       if (qualifiesAsAlbum) {
-        const albumStatus = cd?.fld_b_album_status || 'Pending';
+        const albumStatus = typeof cd.fld_b_album_status === 'string' && cd.fld_b_album_status ? cd.fld_b_album_status : 'Pending';
         if (albumStatus !== 'Delivered') {
           pendingAlbumsRaw.push({
             id: b.id,
-            clientName: (b.client as any)?.name || 'Unknown',
+            clientName: b.client?.name || 'Unknown',
             status: albumStatus,
             date: b.date
           });
@@ -155,19 +159,18 @@ export async function GET(req: Request) {
       }
     });
 
-    pendingAlbumsRaw.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    pendingAlbumsRaw.sort((a, b) => a.date.getTime() - b.date.getTime());
     const bookingBreakdownData = pendingAlbumsRaw.slice(0, 5);
 
-    const prefsDoc = await prisma.systemSetting.findUnique({
-      where: { key: 'UI_PREFERENCES' }
-    });
-    const prefs = prefsDoc?.value as any || {};
-    const hotDateBenchmark = prefs.hotDateBenchmark ?? prefs.hotDateThreshold ?? 50000;
-
-    const upcomingAllBookings = await prisma.booking.findMany({
-      where: { deletedAt: null, date: { gte: today } },
-      select: { date: true, order: { select: { package: true } } }
-    });
+    const [prefsDoc, upcomingAllBookings] = await Promise.all([
+      prisma.systemSetting.findUnique({ where: { key: 'UI_PREFERENCES' }, select: { value: true } }),
+      prisma.booking.findMany({
+        where: { deletedAt: null, date: { gte: today } },
+        select: { date: true, order: { select: { package: true } } }
+      }),
+    ]);
+    const prefs = asJsonRecord(prefsDoc?.value);
+    const hotDateBenchmark = Number(prefs.hotDateBenchmark ?? prefs.hotDateThreshold ?? 50000);
 
     const dateSums: Record<string, number> = {};
     for (const b of upcomingAllBookings) {

@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { verifyCronRequest } from "@/lib/authz";
+import { purgeEntry } from "@/lib/recycleBin";
 
 export async function GET(request: Request) {
-  try {
-    // Optional: protect cron route with a secret key if needed
-    // const authHeader = request.headers.get('authorization');
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    //   return new Response('Unauthorized', { status: 401 });
-    // }
+  const denied = verifyCronRequest(request);
+  if (denied) return denied;
 
+  try {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -23,18 +22,12 @@ export async function GET(request: Request) {
     let purgedCount = 0;
 
     for (const entry of entriesToPurge) {
-      if (entry.itemType === "booking") {
-        try {
-          await prisma.booking.delete({ where: { id: entry.itemId } });
-        } catch (e) {}
-      } else if (entry.itemType === "product-order" || entry.itemType === "gift" || entry.itemType === "frame") {
-        try {
-          await prisma.productOrder.delete({ where: { id: entry.itemId } });
-        } catch (e) {}
+      try {
+        await purgeEntry(entry);
+        purgedCount++;
+      } catch (e) {
+        console.error("Failed to purge recycle bin entry:", entry.id, e);
       }
-
-      await prisma.recycleBin.delete({ where: { id: entry.id } });
-      purgedCount++;
     }
 
     if (purgedCount > 0) {
@@ -49,6 +42,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, purgedCount });
   } catch (error) {
+    console.error("Failed to purge recycle bin:", error);
     return NextResponse.json({ error: "Failed to purge recycle bin" }, { status: 500 });
   }
 }

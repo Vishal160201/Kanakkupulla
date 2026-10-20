@@ -5,35 +5,38 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useMobileNav } from "../providers/MobileNavProvider";
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
+
+// Collapsed state is persisted in localStorage; read through useSyncExternalStore so the
+// server render (and hydration) uses the expanded default and the client then picks up
+// the saved value.
+const COLLAPSE_KEY = 'sidebar_collapsed';
+const collapseListeners = new Set<() => void>();
+const subscribeCollapsed = (listener: () => void) => {
+  collapseListeners.add(listener);
+  return () => { collapseListeners.delete(listener); };
+};
+const getCollapsedSnapshot = () => localStorage.getItem(COLLAPSE_KEY) === 'true';
+const getCollapsedServerSnapshot = () => false;
+const setCollapsed = (next: boolean) => {
+  localStorage.setItem(COLLAPSE_KEY, String(next));
+  collapseListeners.forEach((listener) => listener());
+};
 
 export default function Sidebar() {
   const pathname = usePathname() || "";
   const { data: session } = useSession();
   const { isSidebarOpen, closeSidebar } = useMobileNav();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('sidebar_collapsed');
-    if (saved === 'true') {
-      setIsCollapsed(true);
-    }
-  }, []);
+  const isCollapsed = useSyncExternalStore(subscribeCollapsed, getCollapsedSnapshot, getCollapsedServerSnapshot);
 
   if (pathname.startsWith('/settings')) {
     return null;
   }
 
-  const toggleCollapse = () => {
-    setIsCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('sidebar_collapsed', String(next));
-      return next;
-    });
-  };
+  const toggleCollapse = () => setCollapsed(!isCollapsed);
   
   // Default to STAFF if role is undefined, or handle safely
-  const userRole = (session?.user as any)?.role || "STAFF";
+  const userRole = session?.user?.role || "STAFF";
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard/overview", icon: "ph-house", roles: ["ADMIN", "STAFF", "PHOTOGRAPHER"] },
@@ -54,6 +57,7 @@ export default function Sidebar() {
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[90] lg:hidden animate-[fadeIn_0.2s_ease-out]"
+          aria-hidden="true"
           onClick={closeSidebar}
         />
       )}
@@ -67,8 +71,11 @@ export default function Sidebar() {
       `}>
       
       {/* Collapse Button */}
-      <button 
+      <button
+        type="button"
         onClick={toggleCollapse}
+        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!isCollapsed}
         className="hidden lg:flex absolute -right-3.5 top-10 w-7 h-7 bg-white border border-gray-200 rounded-full items-center justify-center text-slate-400 hover:text-slate-600 shadow-sm z-10 transition-colors"
       >
         <i className={`ph-bold ${isCollapsed ? 'ph-caret-right' : 'ph-caret-left'}`}></i>
@@ -93,6 +100,8 @@ export default function Sidebar() {
                 href={item.path} 
                 prefetch={true}
                 title={isCollapsed ? item.name : undefined}
+                aria-label={item.name}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex items-center gap-3 py-3 rounded-xl no-underline font-bold text-[0.9rem] transition-all duration-150 ${
                   isCollapsed ? 'px-4 lg:px-0 lg:justify-center' : 'px-4'
                 } ${
@@ -101,7 +110,7 @@ export default function Sidebar() {
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
                 }`}
               >
-                <i className={`ph-fill ${item.icon} text-xl ${isActive ? 'text-white' : 'text-slate-400'}`}></i> 
+                <i aria-hidden="true" className={`ph-fill ${item.icon} text-xl ${isActive ? 'text-white' : 'text-slate-400'}`}></i> 
                 <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:hidden' : 'block'}`}>{item.name}</span>
               </Link>
             </li>
@@ -115,6 +124,8 @@ export default function Sidebar() {
             href="/settings" 
             prefetch={true}
             title={isCollapsed ? "Settings" : undefined}
+            aria-label="Settings"
+            aria-current={pathname.startsWith('/settings') ? "page" : undefined}
             className={`flex items-center gap-3 py-3 rounded-xl no-underline font-bold text-[0.9rem] transition-all duration-150 ${
               isCollapsed ? 'px-4 lg:px-0 lg:justify-center' : 'px-4'
             } ${
@@ -123,7 +134,7 @@ export default function Sidebar() {
                 : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
             }`}
           >
-            <i className={`ph-fill ph-gear text-xl ${pathname.startsWith('/settings') ? 'text-white' : 'text-slate-400'}`}></i> 
+            <i aria-hidden="true" className={`ph-fill ph-gear text-xl ${pathname.startsWith('/settings') ? 'text-white' : 'text-slate-400'}`}></i> 
             <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:hidden' : 'block'}`}>Settings</span>
           </Link>
         )}

@@ -1,12 +1,52 @@
+# dependencies / build output
 node_modules
 .next
+out
+build
+*.tsbuildinfo
+
+# VCS / editors / OS
 .git
 .gitignore
-*.md
+.DS_Store
+.idea
+.idx
+.vscode
+.kilo
+
+# env & secrets
 .env
 .env.local
 .env*.local
+.env.*
+!.env.example
+
+# docs (README etc.)
+*.md
+
+# logs & scratch
+*.log
 npm-debug.log*
-.DS_Store
-.vscode
-.idea
+*.rej
+*.orig
+diff.txt
+*.pdf
+*.zip
+personal bucket.txt
+personal expense tracker.txt
+
+# test artefacts
+tests
+test-results
+playwright-report
+*-results.json
+coverage
+
+# legacy / unrelated code
+legacy
+personal-backup
+whatsapp-bot-server
+.wwebjs_auth
+.wwebjs_cache
+.baileys_auth
+prisma/*.db

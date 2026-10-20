@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { generateNextTransactionId } from "@/lib/transactionId";
+import { requirePermission } from "@/lib/authz";
+import { generateTransactionIds } from "@/lib/transactionId";
+import { parseJsonBody } from "@/lib/validations/http";
+import { pickCustomFields } from "@/lib/validations/common";
+import { bulkTransactionSchema } from "@/lib/validations/transactions";
 
 export async function GET(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requirePermission("view_transactions", "manage_transactions");
+  if (auth.error) return auth.error;
 
   try {
     const { groupId } = await params;
@@ -38,64 +38,45 @@ export async function GET(request: Request, { params }: { params: Promise<{ grou
     };
 
     return NextResponse.json({ transaction: combinedTransaction }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to fetch group", details: String(error) }, { status: 500 });
+  } catch (error) {
+    console.error("Failed to fetch transaction group:", error);
+    return NextResponse.json({ error: "Failed to fetch group" }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
+  const auth = await requirePermission("manage_transactions");
+  if (auth.error) return auth.error;
+  const userId = auth.user.id;
 
   try {
     const { groupId } = await params;
-    const body = await request.json();
-    
-    if (!Array.isArray(body)) {
-      return NextResponse.json({ error: "Expected an array of transactions for bulk update" }, { status: 400 });
-    }
-
-    if (body.length === 0) {
-      return NextResponse.json({ error: "No transactions provided" }, { status: 400 });
-    }
-
-    const types = new Set(body.map(tx => tx.type));
-    if (types.size > 1) {
-      return NextResponse.json({ error: "All categories must be same type" }, { status: 422 });
-    }
+    const parsed = await parseJsonBody(request, bulkTransactionSchema);
+    if (parsed.error) return parsed.error;
+    const body = parsed.data;
 
     const existingTransactions = await prisma.transaction.findMany({
-      where: { groupId, deletedAt: null }
+      where: { groupId, deletedAt: null },
+      select: { id: true, category: true },
     });
 
     const existingByCategory = new Map(existingTransactions.map(tx => [tx.category, tx]));
-    
+    // Mirrors the loop below: the first entry per existing category updates it, the rest are created.
+    const unmatched = new Set(existingByCategory.keys());
+    const newCount = body.filter(tx => !unmatched.delete(tx.category)).length;
+    const newIds = await generateTransactionIds(newCount);
+
     const transactionsToUpdate = [];
     const transactionsToCreate = [];
-    
-    for (let i = 0; i < body.length; i++) {
-      const tx = body[i];
+
+    for (const tx of body) {
       const { amount, type, date, category, paymentMode, description, status, recordDate, ...restBody } = tx;
+      const customData = pickCustomFields(restBody);
 
-      const customData: Record<string, any> = {};
-      for (const [key, value] of Object.entries(restBody)) {
-        if (key !== 'id' && key !== 'userId' && key !== 'recordDate' && !key.startsWith('$ACTION')) {
-          customData[key] = value;
-        }
-      }
-
-      const parsedAmount = parseFloat(amount);
-      if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-        return NextResponse.json({ error: `Amount must be a positive number for category ${category}.` }, { status: 422 });
-      }
-      
       const payload = {
-        amount: parsedAmount,
+        amount,
         type,
-        date: recordDate ? new Date(recordDate) : new Date(date),
+        date: recordDate ?? date,
         category,
         paymentMode,
         description: description?.trim() || null,
@@ -103,20 +84,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
         customData: Object.keys(customData).length > 0 ? customData : undefined,
       };
 
-      if (existingByCategory.has(category)) {
-        const existingId = existingByCategory.get(category)!.id;
+      const existing = existingByCategory.get(category);
+      if (existing) {
         transactionsToUpdate.push(prisma.transaction.update({
-          where: { id: existingId },
+          where: { id: existing.id },
           data: payload
         }));
         existingByCategory.delete(category);
       } else {
-        const transactionId = await generateNextTransactionId();
         transactionsToCreate.push(prisma.transaction.create({
           data: {
             ...payload,
-            transactionId,
-            ...(userId ? { user: { connect: { id: userId } } } : {}),
+            transactionId: newIds[transactionsToCreate.length],
+            user: { connect: { id: userId } },
             groupId
           }
         }));
@@ -124,31 +104,28 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
     }
 
     // Soft delete any removed categories
-    const transactionsToDelete = Array.from(existingByCategory.values()).map(tx => 
-      prisma.transaction.update({
-        where: { id: tx.id },
-        data: { deletedAt: new Date() }
-      })
-    );
+    const removedIds = Array.from(existingByCategory.values()).map(tx => tx.id);
 
     await prisma.$transaction([
       ...transactionsToUpdate,
       ...transactionsToCreate,
-      ...transactionsToDelete
+      prisma.transaction.updateMany({
+        where: { id: { in: removedIds } },
+        data: { deletedAt: new Date() }
+      })
     ]);
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to update bulk transactions.", details: String(error) }, { status: 500 });
+  } catch (error) {
+    console.error("Failed to update bulk transactions:", error);
+    return NextResponse.json({ error: "Failed to update bulk transactions." }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
+  const auth = await requirePermission("manage_transactions");
+  if (auth.error) return auth.error;
+  const userId = auth.user.id;
 
   try {
     const { groupId } = await params;
@@ -161,13 +138,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ g
       return NextResponse.json({ error: "Group not found" }, { status: 404 });
     }
 
-    const now = new Date();
-    await prisma.$transaction(
-      transactions.map(tx => prisma.transaction.update({
-        where: { id: tx.id },
-        data: { deletedAt: now }
-      }))
-    );
+    await prisma.transaction.updateMany({
+      where: { id: { in: transactions.map(tx => tx.id) } },
+      data: { deletedAt: new Date() },
+    });
 
     // Create a single recycle bin entry for the group
     const totalAmount = transactions.reduce((sum, tx) => sum + tx.amount, 0);
@@ -188,7 +162,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ g
     });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to delete group", details: String(error) }, { status: 500 });
+  } catch (error) {
+    console.error("Failed to delete transaction group:", error);
+    return NextResponse.json({ error: "Failed to delete group" }, { status: 500 });
   }
 }

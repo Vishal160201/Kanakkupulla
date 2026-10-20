@@ -53,7 +53,7 @@ function ResetPasswordForm() {
       } else {
         setError(data.error || "Failed to reset password.");
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred.");
     } finally {
       setLoading(false);
@@ -101,12 +101,15 @@ function ResetPasswordForm() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <div 
+          <button
+            type="button"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-slate-600"
             onClick={() => setShowPassword(!showPassword)}
           >
             <i className={`ph ${showPassword ? 'ph-eye' : 'ph-eye-slash'} text-[1.1rem]`}></i>
-          </div>
+          </button>
         </div>
 
         <div className="relative">

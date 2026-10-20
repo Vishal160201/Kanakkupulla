@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useCallback, useMemo } from "react";
+import { useState, Suspense, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import UserManagement from "@/components/settings/UserManagement";
 import RolesPermissions from "@/components/settings/RolesPermissions";
@@ -48,6 +48,25 @@ const GROUPS = [
 ] as const;
 
 type SectionId = typeof GROUPS[number]["items"][number]["id"];
+
+// Sidebar collapsed preference, persisted in localStorage and read via
+// useSyncExternalStore (server/hydration snapshot = expanded).
+const COLLAPSED_KEY = "settingsPanelCollapsed";
+const collapsedListeners = new Set<() => void>();
+
+const subscribeCollapsed = (listener: () => void) => {
+  collapsedListeners.add(listener);
+  return () => {
+    collapsedListeners.delete(listener);
+  };
+};
+const getCollapsedSnapshot = () => localStorage.getItem(COLLAPSED_KEY) === "true";
+const getCollapsedServerSnapshot = () => false;
+
+const setCollapsedPreference = (next: boolean) => {
+  localStorage.setItem(COLLAPSED_KEY, String(next));
+  collapsedListeners.forEach((listener) => listener());
+};
 
 interface SidebarContentProps {
   groups: typeof GROUPS;
@@ -107,20 +126,9 @@ function SettingsPage() {
 
   const activeSection = (searchParams.get("section") as SectionId) ?? "system";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  
-  useEffect(() => {
-    const saved = localStorage.getItem('settingsPanelCollapsed');
-    if (saved === 'true') setIsCollapsed(true);
-  }, []);
+  const isCollapsed = useSyncExternalStore(subscribeCollapsed, getCollapsedSnapshot, getCollapsedServerSnapshot);
 
-  const toggleCollapse = () => {
-    setIsCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('settingsPanelCollapsed', String(next));
-      return next;
-    });
-  };
+  const toggleCollapse = () => setCollapsedPreference(!isCollapsed);
   
   // For transition animations
   const [displayedSection, setDisplayedSection] = useState<SectionId>(activeSection);
@@ -159,7 +167,9 @@ function SettingsPage() {
           isCollapsed={isCollapsed}
         />
         {/* Toggle Button */}
-        <button 
+        <button
+          type="button"
+          aria-label={isCollapsed ? "Expand settings menu" : "Collapse settings menu"}
           onClick={toggleCollapse}
           className="absolute -right-3 top-10 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-orange-500 hover:text-orange-600 shadow-sm z-10 transition-colors"
         >
@@ -180,7 +190,7 @@ function SettingsPage() {
             </div>
             <div className="flex justify-between items-center px-6 pb-2 border-b border-gray-100">
               <h3 className="font-bold text-slate-800">Settings Menu</h3>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+              <button aria-label="Close settings menu" onClick={() => setIsMobileMenuOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
                 <i className="ph-bold ph-x"></i>
               </button>
             </div>

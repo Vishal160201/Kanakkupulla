@@ -1,24 +1,23 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireUser } from "@/lib/authz";
 import { getGoogleDriveToken } from "@/lib/googleDriveAuth";
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
 
-    const accessToken = await getGoogleDriveToken(session);
+    const accessToken = await getGoogleDriveToken({ user: auth.user });
     return NextResponse.json({ accessToken });
-  } catch (error: any) {
-    if (error.message === "reauth_required") {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "reauth_required") {
       return NextResponse.json({ error: 'reauth_required' }, { status: 401 });
     }
-    if (error.message === "No Google Drive account connected") {
+    if (message === "No Google Drive account connected") {
       return NextResponse.json({ error: "No Google Drive account connected" }, { status: 404 });
     }
+    console.error("Failed to get Google access token:", error);
     return NextResponse.json({ error: "Failed to get access token" }, { status: 500 });
   }
 }

@@ -1,24 +1,19 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAdmin } from "@/lib/authz";
+import { botFetch } from "@/lib/whatsappBot";
 
 export async function POST() {
-  const BOT_URL = process.env.WHATSAPP_BOT_URL;
-  if (!BOT_URL) {
+  if (!process.env.WHATSAPP_BOT_URL) {
     return NextResponse.json({ error: "WHATSAPP_BOT_URL is not configured" }, { status: 500 });
   }
 
-  const session = await getServerSession(authOptions);
-  const userRole = (session?.user as any)?.role;
-  if (!session || (userRole !== "SUPER_ADMIN" && userRole !== "STUDIO_OWNER" && userRole !== "ADMIN")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
 
   try {
     // Render apps are always-on once deployed, or they wake up on the first request.
     // We just hit the root endpoint to trigger a wake-up if it's sleeping.
-    const res = await fetch(`${BOT_URL}/`, { 
-      cache: 'no-store',
+    const res = await botFetch("/", {
       signal: AbortSignal.timeout(60000)
     });
     
@@ -27,9 +22,9 @@ export async function POST() {
     } else {
       return NextResponse.json({ error: "Bot server responded with an error." }, { status: res.status });
     }
-  } catch (error: any) {
-    
-    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+  } catch (error) {
+    console.error("WhatsApp bot wake-up failed:", error);
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
       return NextResponse.json({
         error: "Connection timed out. The bot server is taking too long to wake up."
       }, { status: 504 });

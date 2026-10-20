@@ -1,50 +1,29 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/authz";
+import { parseJsonBody } from "@/lib/validations/http";
+import { pushSubscriptionSchema } from "@/lib/validations/notifications";
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
+    const userId = auth.user.id;
 
-    if (!session || !session.user || !session.user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    const body = await request.json();
-    const { endpoint, keys } = body;
-
-    if (!endpoint || !keys || !keys.auth || !keys.p256dh) {
-      return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
-    }
+    const parsed = await parseJsonBody(request, pushSubscriptionSchema);
+    if (parsed.error) return parsed.error;
+    const { endpoint, keys } = parsed.data;
 
     // Save or update subscription
     await prisma.pushSubscription.upsert({
       where: { endpoint },
-      update: {
-        auth: keys.auth,
-        p256dh: keys.p256dh,
-        userId: user.id
-      },
-      create: {
-        endpoint,
-        auth: keys.auth,
-        p256dh: keys.p256dh,
-        userId: user.id
-      }
+      update: { auth: keys.auth, p256dh: keys.p256dh, userId },
+      create: { endpoint, auth: keys.auth, p256dh: keys.p256dh, userId },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Failed to save push subscription:", error);
     return NextResponse.json(
       { error: "Failed to save push subscription" },
       { status: 500 }

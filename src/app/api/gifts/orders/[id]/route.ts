@@ -1,20 +1,26 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requirePermission, requireUser } from "@/lib/authz";
 import { broadcastNotification } from "@/lib/notifications";
+import type { Prisma } from "@prisma/client";
+import { parseJsonBody } from "@/lib/validations/http";
+import { asJsonRecord, type JsonRecord } from "@/lib/validations/common";
+import { giftOrderPatchSchema } from "@/lib/validations/gifts";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
+
   try {
     const { id } = await params;
     const order = await prisma.productOrder.findUnique({
       where: { id },
       include: {
         product: true,
-        transactions: true,
+        transactions: { where: { deletedAt: null } },
       }
     });
 
@@ -24,6 +30,7 @@ export async function GET(
 
     return NextResponse.json({ order });
   } catch (error) {
+    console.error("Failed to fetch gift order:", error);
     return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
   }
 }
@@ -32,17 +39,23 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requirePermission("manage_bookings");
+  if (auth.error) return auth.error;
+
   try {
     const { id } = await params;
-    const data = await request.json();
-    
+    const parsed = await parseJsonBody(request, giftOrderPatchSchema);
+    if (parsed.error) return parsed.error;
+    const data = parsed.data;
+
     // Only allow specific fields to be updated via PATCH for safety
-    const allowedUpdates: any = {};
+    const allowedUpdates: Prisma.ProductOrderUpdateInput = {};
+    let mergedCustomData: JsonRecord | undefined;
     if (data.status) allowedUpdates.status = data.status;
     if (data.quantity !== undefined) allowedUpdates.quantity = data.quantity;
     if (data.clientName) allowedUpdates.clientName = data.clientName;
     if (data.clientPhone !== undefined) allowedUpdates.clientPhone = data.clientPhone;
-    if (data.dueDate !== undefined) allowedUpdates.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+    if (data.dueDate !== undefined) allowedUpdates.dueDate = data.dueDate;
     if (data.discountAmount !== undefined) allowedUpdates.discountAmount = data.discountAmount;
     if (data.customData) {
       // Fetch existing order to merge customData
@@ -50,8 +63,8 @@ export async function PATCH(
         where: { id },
         select: { customData: true }
       });
-      const currentCustomData = (existingOrder?.customData as any) || {};
-      allowedUpdates.customData = { ...currentCustomData, ...data.customData };
+      mergedCustomData = { ...asJsonRecord(existingOrder?.customData), ...data.customData };
+      allowedUpdates.customData = mergedCustomData;
     }
 
     const order = await prisma.productOrder.update({
@@ -61,13 +74,14 @@ export async function PATCH(
     });
 
     // 2) Sync advance transaction if needed
-    if (allowedUpdates.customData?.advanceAmount !== undefined || allowedUpdates.clientName) {
-      const advanceTxUpdateData: any = {};
-      if (allowedUpdates.customData?.advanceAmount !== undefined) {
-        advanceTxUpdateData.amount = parseFloat(allowedUpdates.customData.advanceAmount) || 0;
+    const newAdvance = mergedCustomData?.advanceAmount;
+    if (newAdvance !== undefined || data.clientName) {
+      const advanceTxUpdateData: Prisma.TransactionUpdateManyMutationInput = {};
+      if (newAdvance !== undefined) {
+        advanceTxUpdateData.amount = parseFloat(String(newAdvance)) || 0;
       }
-      if (allowedUpdates.clientName) {
-        advanceTxUpdateData.description = `Advance Payment for Order ${order.orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} - ${allowedUpdates.clientName}`;
+      if (data.clientName) {
+        advanceTxUpdateData.description = `Advance Payment for Order ${order.orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} - ${data.clientName}`;
       }
 
       if (Object.keys(advanceTxUpdateData).length > 0) {
@@ -82,9 +96,6 @@ export async function PATCH(
           data: advanceTxUpdateData
         });
         
-        const updatedTx = await prisma.transaction.findFirst({
-           where: { productOrderId: order.id, OR: [{ description: { startsWith: 'Advance' } }, { description: { startsWith: 'Full Payment' } }] }
-        });
       }
     }
 
@@ -93,7 +104,7 @@ export async function PATCH(
       broadcastNotification({
         title: "Order Status Updated",
         message: `Order ${order.orderNumber || `#MDorder-${order.id.slice(-6).toUpperCase()}`} is now ${data.status}.`,
-        type: typeStr as any,
+        type: typeStr,
         actionUrl: `/gifts`,
         entityId: order.id,
         entityType: "order"
@@ -101,8 +112,9 @@ export async function PATCH(
     }
 
     return NextResponse.json({ order });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to update order" }, { status: 500 });
+  } catch (error) {
+    console.error("Failed to update product order:", error);
+    return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
   }
 }
 
@@ -110,11 +122,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
+  const auth = await requirePermission("manage_bookings");
+  if (auth.error) return auth.error;
+  const userId = auth.user.id;
 
   try {
     const { id } = await params;
@@ -128,26 +138,27 @@ export async function DELETE(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    await prisma.recycleBin.create({
-      data: {
-        itemType: "product-order",
-        itemId: id,
-        originalData: JSON.parse(JSON.stringify(existing)),
-        trashedById: userId,
-      }
-    });
-
-    // Delete associated transactions first to prevent foreign key constraint failures
-    const txDeleteResult = await prisma.transaction.deleteMany({
-      where: { productOrderId: id }
-    });
-
-    await prisma.productOrder.delete({
-      where: { id }
-    });
+    // Product orders have no deletedAt column: snapshot the order with its transactions, then remove both.
+    await prisma.$transaction([
+      prisma.recycleBin.create({
+        data: {
+          itemType: "product-order",
+          itemId: id,
+          originalData: JSON.parse(JSON.stringify(existing)),
+          trashedById: userId,
+        }
+      }),
+      prisma.transaction.deleteMany({
+        where: { productOrderId: id }
+      }),
+      prisma.productOrder.delete({
+        where: { id }
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Failed to delete gift order:", error);
     return NextResponse.json({ error: "Failed to delete order" }, { status: 500 });
   }
 }

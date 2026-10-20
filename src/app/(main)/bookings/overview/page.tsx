@@ -3,12 +3,13 @@
 import CalendarWidget from '@/components/dashboard/CalendarWidget';
 import UpcomingShoots from '@/components/dashboard/UpcomingShoots';
 import useSWR from 'swr';
+import { fetcher } from "@/lib/fetcher";
 
 
 import { useRouter } from 'next/navigation';
 import OverdueBookingBanners from '@/components/bookings/OverdueBookingBanners';
+import { clickableProps } from '@/components/bookings/clickableProps';
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 function BookingsDataView() {
   const router = useRouter();
@@ -17,12 +18,10 @@ function BookingsDataView() {
   if (isLoading) return <BookingsSkeleton />;
   if (error || !data || data.error) return <div>Failed to load bookings data</div>;
 
-  const { bookings, prefs, metrics } = data;
+  const { bookings, metrics } = data;
   const {
     immediateShoots,
     thisWeekShoots,
-    pendingDueAmount,
-    unconfirmedShoots,
     hotDates,
     albumInProgressCount,
     pendingAlbumWorksCount
@@ -34,7 +33,7 @@ function BookingsDataView() {
       
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
-        <div onClick={() => router.push('/bookings/allBookings?filter=today_tomorrow')} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-red-200 cursor-pointer group">
+        <div {...clickableProps(() => router.push('/bookings/allBookings?filter=today_tomorrow'))} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-red-200 cursor-pointer group">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-red-50 text-red-500 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors">
               <i className="ph-fill ph-fire text-[1.1rem]"></i>
@@ -47,7 +46,7 @@ function BookingsDataView() {
           </div>
         </div>
         
-        <div onClick={() => router.push('/bookings/allBookings?filter=next_7_days')} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-blue-200 cursor-pointer group">
+        <div {...clickableProps(() => router.push('/bookings/allBookings?filter=next_7_days'))} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-blue-200 cursor-pointer group">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors">
               <i className="ph-fill ph-calendar-blank text-[1.1rem]"></i>
@@ -60,7 +59,7 @@ function BookingsDataView() {
           </div>
         </div>
 
-        <div onClick={() => router.push('/bookings/allBookings?filter=hot_dates')} className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-2xl p-5 border border-orange-200 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-300 cursor-pointer group">
+        <div {...clickableProps(() => router.push('/bookings/allBookings?filter=hot_dates'))} className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-2xl p-5 border border-orange-200 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-orange-300 cursor-pointer group">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 text-white flex items-center justify-center shadow-sm group-hover:shadow-orange-500/30 transition-all">
               <i className="ph-fill ph-fire text-[1.1rem] animate-pulse origin-bottom" style={{ animationDuration: '1.5s' }}></i>
@@ -79,7 +78,7 @@ function BookingsDataView() {
           </div>
         </div>
 
-        <div onClick={() => router.push('/bookings/album-status?tab=Work+in+Progress')} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-purple-200 cursor-pointer group">
+        <div {...clickableProps(() => router.push('/bookings/album-status?tab=Work+in+Progress'))} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-purple-200 cursor-pointer group">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
               <i className="ph-fill ph-book-open text-[1.1rem]"></i>
@@ -92,7 +91,7 @@ function BookingsDataView() {
           </div>
         </div>
 
-        <div onClick={() => router.push('/bookings/album-status?tab=Pending')} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-pink-200 cursor-pointer group">
+        <div {...clickableProps(() => router.push('/bookings/album-status?tab=Pending'))} className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-[120px] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-pink-200 cursor-pointer group">
           <div className="flex justify-between items-start">
             <div className="w-[32px] h-[32px] rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center group-hover:bg-pink-600 group-hover:text-white transition-colors">
               <i className="ph-fill ph-clock-countdown text-[1.1rem]"></i>

@@ -117,9 +117,19 @@ export default function WeekPicker({ currentDate, onChange, onClose }: WeekPicke
           return (
             <div 
               key={wIndex} 
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelectedWeek}
+              aria-label={`Week of ${week[0].date.toDateString()}`}
               className={`flex cursor-pointer rounded-md transition-colors hover:bg-teal-50 ${isSelectedWeek ? 'bg-teal-100/50' : ''}`}
               onClick={() => {
                 onChange(week[0].date);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onChange(week[0].date);
+                }
               }}
             >
               {/* Days */}

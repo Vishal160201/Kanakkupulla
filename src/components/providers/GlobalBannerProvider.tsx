@@ -1,26 +1,45 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { X, Calendar, ArrowRight, Clock, MapPin, User } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import useSWR from "swr";
+import { useSession } from "next-auth/react";
+import { fetcher } from "@/lib/fetcher";
 
-const fetcher = (url: string) => fetch(url).then(res => res.json()).catch(() => ({ show: false }));
+interface BannerBooking {
+  id: string;
+  category: string;
+  time: string;
+  location?: string | null;
+  client?: { name?: string | null } | null;
+}
+
+interface BannerResponse {
+  show?: boolean;
+  settings?: { bannerTime1: string; bannerTime2: string };
+  day1?: BannerBooking[];
+  day2?: BannerBooking[];
+}
+
+const getTomorrowISO = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString('en-CA');
+};
 
 export default function GlobalBannerProvider({ children }: { children: React.ReactNode }) {
   const [isDismissed, setIsDismissed] = useState(true);
   const [todayKey, setTodayKey] = useState("");
-  const [isWithinTimeWindow, setIsWithinTimeWindow] = useState(false);
 
-  // Calculate tomorrow's date for the CTA link
-  const tomorrowISO = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toLocaleDateString('en-CA');
-  }, []);
+  // Tomorrow's date for the CTA link. Computed on the client only (in checkTime, when
+  // the banner becomes eligible to show) so server and client renders don't disagree.
+  const [tomorrowISO, setTomorrowISO] = useState("");
+  const { status } = useSession();
 
-  const { data, isLoading } = useSWR('/api/banner', fetcher, {
+  // Only poll the banner endpoint for signed-in users
+  const { data, isLoading } = useSWR<BannerResponse>(status === "authenticated" ? '/api/banner' : null, fetcher, {
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
     refreshInterval: 10000, // Poll every 10 seconds to detect setting changes automatically
@@ -28,7 +47,8 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
   });
 
   useEffect(() => {
-    if (!data?.settings) return;
+    const settings = data?.settings;
+    if (!settings) return;
 
     const checkTime = () => {
       const now = new Date();
@@ -38,7 +58,7 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
 
       let slot = 0;
       // Sort times to ensure we check correctly even if time1 > time2 in settings
-      const times = [data.settings.bannerTime1, data.settings.bannerTime2].sort();
+      const times = [settings.bannerTime1, settings.bannerTime2].sort();
       const t1 = times[0];
       const t2 = times[1];
 
@@ -53,7 +73,8 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
         const key = `bannerDismissed:${new Date().toLocaleDateString('en-CA')}_slot${slot}_time${activeTime}`;
         
         setTodayKey((prev) => (prev !== key ? key : prev));
-        setIsWithinTimeWindow(true);
+        const tomorrow = getTomorrowISO();
+        setTomorrowISO((prev) => (prev !== tomorrow ? tomorrow : prev));
 
         const dismissed = sessionStorage.getItem(key);
         
@@ -62,8 +83,6 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
         } else {
           setIsDismissed((prev) => (prev !== true ? true : prev));
         }
-      } else {
-        setIsWithinTimeWindow(false);
       }
     };
 
@@ -81,6 +100,8 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
   };
 
   const showBanner = !isLoading && data?.show && !isDismissed;
+  const day1 = data?.day1 ?? [];
+  const day2 = data?.day2 ?? [];
 
   return (
     <>
@@ -91,7 +112,7 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
           onClick={handleDismiss}
         />
         <div
-          className={`relative w-full max-w-[960px] min-h-[480px] bg-transparent rounded-[24px] shadow-2xl overflow-hidden flex flex-col md:flex-row transition-all duration-400 ease-out ${showBanner ? 'scale-100 translate-y-0 opacity-100' : 'scale-95 -translate-y-2 opacity-0'}`}
+          className={`relative w-full max-w-[960px] min-h-[480px] bg-transparent rounded-[24px] shadow-2xl overflow-hidden flex flex-col md:flex-row transition-all [transition-duration:400ms] ease-out ${showBanner ? 'scale-100 translate-y-0 opacity-100' : 'scale-95 -translate-y-2 opacity-0'}`}
         >
           <Image
             src="/banner-bg.png"
@@ -102,7 +123,9 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
 
           {/* Close Button */}
           <button
+            type="button"
             onClick={handleDismiss}
+            aria-label="Close banner"
             className="absolute top-4 right-4 z-40 w-8 h-8 flex items-center justify-center rounded-full bg-slate-900/50 hover:bg-slate-900 text-white transition-colors border border-white/10"
           >
             <X size={18} strokeWidth={2.5} />
@@ -123,11 +146,11 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
             </h2>
 
             <p className="text-slate-300 text-lg mb-8 max-w-sm">
-              Here's your shoot plan for the <span className="text-pink-400 font-semibold">next 2 days</span>.
+              Here&apos;s your shoot plan for the <span className="text-pink-400 font-semibold">next 2 days</span>.
             </p>
 
             <Link
-              href={`/bookings/upcoming?date=${tomorrowISO}`}
+              href={tomorrowISO ? `/bookings/upcoming?date=${tomorrowISO}` : "/bookings/upcoming"}
               onClick={handleDismiss}
               className="group relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-8 py-3.5 rounded-full font-bold text-[15px] transition-all hover:-translate-y-0.5 w-fit"
             >
@@ -150,8 +173,8 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
             </div>
 
             {/* Booking Cards */}
-            <div className={`relative z-30 w-full grid ${data?.day1?.length > 0 && data?.day2?.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
-            {data?.day1?.length > 0 && (
+            <div className={`relative z-30 w-full grid ${day1.length > 0 && day2.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            {day1.length > 0 && (
               <div className="flex-1 w-full bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-lg hover:bg-white/[0.15] transition-colors">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-purple-500 text-white flex items-center justify-center shadow-sm">
@@ -163,7 +186,7 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {data.day1.slice(0, 2).map((b: any) => (
+                  {day1.slice(0, 2).map((b) => (
                     <Link 
                       href={`/bookings/details/${b.id}`} 
                       onClick={handleDismiss}
@@ -193,12 +216,12 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
                       </div>
                     </Link>
                   ))}
-                  {data.day1.length > 2 && <div className="text-xs text-purple-300 font-medium">+{data.day1.length - 2} more</div>}
+                  {day1.length > 2 && <div className="text-xs text-purple-300 font-medium">+{day1.length - 2} more</div>}
                 </div>
               </div>
             )}
 
-            {data?.day2?.length > 0 && (
+            {day2.length > 0 && (
               <div className="flex-1 w-full bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-lg hover:bg-white/[0.15] transition-colors">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-pink-500 text-white flex items-center justify-center shadow-sm">
@@ -210,7 +233,7 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {data.day2.slice(0, 2).map((b: any) => (
+                  {day2.slice(0, 2).map((b) => (
                     <Link 
                       href={`/bookings/details/${b.id}`}
                       onClick={handleDismiss}
@@ -240,7 +263,7 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
                       </div>
                     </Link>
                   ))}
-                  {data.day2.length > 2 && <div className="text-xs text-pink-300 font-medium">+{data.day2.length - 2} more</div>}
+                  {day2.length > 2 && <div className="text-xs text-pink-300 font-medium">+{day2.length - 2} more</div>}
                 </div>
               </div>
             )}

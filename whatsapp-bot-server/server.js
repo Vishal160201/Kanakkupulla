@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
@@ -9,8 +10,42 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.use(cors());
+// CORS: the Next.js app calls this server server-to-server, so CORS is disabled
+// unless ALLOWED_ORIGIN is explicitly set (comma-separated list allowed).
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+if (allowedOrigins.length > 0) {
+  app.use(cors({ origin: allowedOrigins }));
+}
+
 app.use(express.json());
+
+// Shared-secret auth for every /api/* route. Fails closed when
+// WHATSAPP_BOT_SECRET is not configured.
+const BOT_SECRET = process.env.WHATSAPP_BOT_SECRET || '';
+if (!BOT_SECRET) {
+  console.warn('WHATSAPP_BOT_SECRET is not set: all /api/* requests will be rejected.');
+}
+
+const secretsMatch = (provided, expected) => {
+  // Hash both sides so timingSafeEqual always compares equal-length buffers.
+  const a = crypto.createHash('sha256').update(String(provided)).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+};
+
+app.use('/api', (req, res, next) => {
+  if (!BOT_SECRET) {
+    return res.status(503).json({ error: 'Bot server is not configured (WHATSAPP_BOT_SECRET missing)' });
+  }
+  const provided = req.get('x-bot-secret');
+  if (!provided || !secretsMatch(provided, BOT_SECRET)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+});
 
 // Global state
 let waSocket = null;

@@ -5,8 +5,10 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type DropdownOption = string | { label: string, value: string, color?: string };
+
 interface CustomDropdownProps {
-  options: (string | { label: string, value: string, color?: string })[];
+  options: DropdownOption[];
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
@@ -72,18 +74,17 @@ export default function CustomDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Reset focus when opened
-  useEffect(() => {
-    if (isOpen) {
-      const selectedIdx = options.findIndex(opt => {
-        const val = typeof opt === 'string' ? opt : opt.value;
-        return val === value;
-      });
-      setFocusedIndex(selectedIdx >= 0 ? selectedIdx : 0);
-    }
-  }, [isOpen, options, value]);
+  // Opening focuses the selected option (or the first one)
+  const openDropdown = () => {
+    const selectedIdx = options.findIndex(opt => {
+      const val = typeof opt === 'string' ? opt : opt.value;
+      return val === value;
+    });
+    setFocusedIndex(selectedIdx >= 0 ? selectedIdx : 0);
+    setIsOpen(true);
+  };
 
-  const handleSelect = (opt: any) => {
+  const handleSelect = (opt: DropdownOption) => {
     const val = typeof opt === 'string' ? opt : opt.value;
     onChange(val);
     setIsOpen(false);
@@ -94,7 +95,7 @@ export default function CustomDropdown({
     if (!isOpen) {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setIsOpen(true);
+        openDropdown();
       }
       return;
     }
@@ -193,8 +194,9 @@ export default function CustomDropdown({
       <button 
         ref={buttonRef}
         type="button" 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => (isOpen ? setIsOpen(false) : openDropdown())}
         onKeyDown={handleKeyDown}
+        aria-expanded={isOpen}
         className={cn(
           "flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500",
           error ? "border-red-500" : "border-slate-200 hover:border-slate-300",

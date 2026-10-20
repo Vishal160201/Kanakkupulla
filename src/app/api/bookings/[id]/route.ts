@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/notifications";
+import { requirePermission, requireUser } from "@/lib/authz";
+import { trashBooking } from "@/lib/recycleBin";
+import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
+import { bookingDeleteQuerySchema, bookingUpdateApiSchema } from "@/lib/validations/booking";
+
+/** undefined = leave unchanged, null = clear the Json column. */
+const jsonInput = (value: Prisma.InputJsonValue | null | undefined) =>
+  value === null ? Prisma.DbNull : value;
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
 
   try {
     const id = (await params).id;
@@ -20,7 +25,7 @@ export async function GET(
       include: {
         client: true,
         order: true,
-        transactions: true,
+        transactions: { where: { deletedAt: null } },
         createdBy: { select: { name: true, email: true } },
         updatedBy: { select: { name: true, email: true } },
       },
@@ -34,6 +39,7 @@ export async function GET(
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to fetch booking:", error);
     return NextResponse.json({ error: "Failed to fetch booking" }, { status: 500 });
   }
 }
@@ -42,15 +48,15 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requirePermission("manage_bookings");
+  if (auth.error) return auth.error;
+  const userId = auth.user.id;
 
   try {
     const id = (await params).id;
-    const body = await request.json();
-    const { category, date, time, location, status, galleryUrl, contractUrl, customData, packageName, inclusions, notes, attachments, photographers } = body;
+    const parsed = await parseJsonBody(request, bookingUpdateApiSchema);
+    if (parsed.error) return parsed.error;
+    const { category, date, time, location, status, galleryUrl, contractUrl, customData, packageName, inclusions, notes, attachments, photographers } = parsed.data;
 
     const updated = await prisma.booking.update({
       where: { id },
@@ -62,13 +68,13 @@ export async function PUT(
         status,
         galleryUrl,
         contractUrl,
-        customData,
+        customData: customData ?? undefined,
         packageName,
-        inclusions,
+        inclusions: jsonInput(inclusions),
         notes,
-        attachments,
-        photographers,
-        ...( (session?.user as any)?.id ? { updatedBy: { connect: { id: (session?.user as any)?.id } } } : {} ),
+        attachments: jsonInput(attachments),
+        photographers: jsonInput(photographers),
+        updatedBy: { connect: { id: userId } },
       },
     });
 
@@ -76,26 +82,29 @@ export async function PUT(
       data: {
         action: "BOOKING_UPDATED",
         details: `Updated booking ID: ${updated.id} via API`,
-        userId: (session.user as any).id,
+        userId,
       }
     });
 
     // Notify admins about the update
       // Fire and forget
       broadcastNotification({
-        title: "Booking Status Update",
-        message: `Booking ${updated.bookingNumber || `#${updated.id.substring(0, 8)}`} status changed to ${status}.`,
+        title: "Booking Updated",
+        message: status
+          ? `Booking ${updated.bookingNumber || `#${updated.id.substring(0, 8)}`} status changed to ${status}.`
+          : `Booking ${updated.bookingNumber || `#${updated.id.substring(0, 8)}`} has been updated.`,
         type: "BOOKING_UPDATED",
         actionUrl: `/bookings/details/${updated.id}`,
         entityId: updated.id,
         entityType: "booking",
-        skipUserId: (session?.user as any)?.id
+        skipUserId: userId
       }).catch(console.error);
 
     return NextResponse.json(updated, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to update booking:", error);
     return NextResponse.json({ error: "Failed to update booking" }, { status: 500 });
   }
 }
@@ -104,61 +113,43 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requirePermission("manage_bookings");
+  if (auth.error) return auth.error;
+  const userId = auth.user.id;
 
   try {
     const id = (await params).id;
-    const { searchParams } = new URL(request.url);
-    const hardDelete = searchParams.get("hard") === "true";
+    const query = parseSearchParams(request, bookingDeleteQuerySchema);
+    if (query.error) return query.error;
+    const hardDelete = query.data.hard;
 
     if (hardDelete) {
-      await prisma.booking.delete({
-        where: { id },
-      });
-      await prisma.systemLog.create({
-        data: {
-          action: "BOOKING_HARD_DELETED",
-          details: `Hard deleted booking ID: ${id} via API`,
-          userId: (session.user as any).id,
-        }
-      });
-    } else {
-      const existing = await prisma.booking.findUnique({ where: { id } });
-      if (existing) {
-        await prisma.booking.update({
-          where: { id },
-          data: { deletedAt: new Date() },
-        });
-
-        // Delete associated transactions first to prevent foreign key constraint failures
-        const txDeleteResult = await prisma.transaction.deleteMany({
-          where: { bookingId: id }
-        });
-        await prisma.recycleBin.create({
-          data: {
-            itemType: "booking",
-            itemId: id,
-            originalData: existing as any,
-            trashedById: (session.user as any).id,
-          }
-        });
+      if (auth.user.role !== "ADMIN") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      await prisma.systemLog.create({
-        data: {
-          action: "BOOKING_SOFT_DELETED",
-          details: `Soft deleted booking ID: ${id} via API`,
-          userId: (session.user as any).id,
-        }
-      });
+      await prisma.$transaction([
+        prisma.transaction.deleteMany({ where: { bookingId: id } }),
+        prisma.order.deleteMany({ where: { bookingId: id } }),
+        prisma.invoice.deleteMany({ where: { bookingId: id } }),
+        prisma.recycleBin.deleteMany({ where: { itemType: "booking", itemId: id } }),
+        prisma.booking.delete({ where: { id } }),
+        prisma.systemLog.create({
+          data: {
+            action: "BOOKING_HARD_DELETED",
+            details: `Hard deleted booking ID: ${id} via API`,
+            userId,
+          }
+        }),
+      ]);
+    } else {
+      await trashBooking(id, userId);
     }
 
     return NextResponse.json({ success: true }, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to delete booking:", error);
     return NextResponse.json({ error: "Failed to delete booking" }, { status: 500 });
   }
 }

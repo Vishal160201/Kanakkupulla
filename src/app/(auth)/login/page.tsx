@@ -93,12 +93,15 @@ export default function LoginPage() {
             onChange={(e) => setData({ ...data, password: e.target.value })}
             required
           />
-          <div 
+          <button
+            type="button"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-slate-600"
             onClick={() => setShowPassword(!showPassword)}
           >
             <i className={`ph ${showPassword ? 'ph-eye' : 'ph-eye-slash'} text-[1.1rem]`}></i>
-          </div>
+          </button>
         </div>
 
         <div className="flex justify-between items-center px-1 mt-1 mb-2">
@@ -124,7 +127,7 @@ export default function LoginPage() {
                 } else {
                   setError(resData.error || "Failed to send reset instructions.");
                 }
-              } catch (err) {
+              } catch {
                 setError("An error occurred. Please try again.");
               }
             }
@@ -143,7 +146,7 @@ export default function LoginPage() {
 
       {showPendingPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowPendingPopup(false)}></div>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" onClick={() => setShowPendingPopup(false)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-[400px] mx-4 overflow-hidden animate-fade-in p-8 text-center">
             <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center text-orange-500 mx-auto mb-5 border border-orange-100">
               <i className="ph-fill ph-hourglass-high text-3xl"></i>

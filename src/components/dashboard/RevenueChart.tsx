@@ -1,5 +1,5 @@
 import React, { Component, ReactNode } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, type TooltipContentProps } from 'recharts';
 
 interface RevenueChartProps {
   data: { date: string; income: number; expense: number }[];
@@ -27,39 +27,43 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-export default function RevenueChart({ data, periodIncome = 0, periodExpense = 0 }: RevenueChartProps) {
-  const formatYAxis = (tickItem: number) => {
-    if (tickItem === 0) return '0';
-    if (tickItem >= 100000) return `₹${(tickItem / 100000).toFixed(1)}L`;
-    if (tickItem >= 1000) return `₹${(tickItem / 1000).toFixed(1)}k`;
-    return `₹${tickItem}`;
-  };
+const formatYAxis = (tickItem: number) => {
+  if (tickItem === 0) return '0';
+  if (tickItem >= 100000) return `₹${(tickItem / 100000).toFixed(1)}L`;
+  if (tickItem >= 1000) return `₹${(tickItem / 1000).toFixed(1)}k`;
+  return `₹${tickItem}`;
+};
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-  };
+const formatDate = (dateStr: string | number) => {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+};
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white border border-gray-100 p-4 rounded-2xl shadow-xl shadow-gray-200/50 min-w-[140px]">
-          <p className="text-slate-800 text-[0.8rem] font-bold mb-3">{formatDate(label)}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center justify-between gap-4 mb-1.5 last:mb-0">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                <span className="text-slate-500 text-[0.75rem] font-semibold">{entry.name}:</span>
-              </div>
-              <span className="text-slate-900 font-bold text-[0.85rem]">₹{entry.value.toLocaleString('en-IN')}</span>
+const formatTooltipValue = (value: unknown) =>
+  typeof value === 'number' ? value.toLocaleString('en-IN') : String(value);
+
+// Recharts clones this element and injects the tooltip props, so they are all optional here.
+function CustomTooltip({ active, payload, label }: Partial<TooltipContentProps<number, string>>) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-gray-100 p-4 rounded-2xl shadow-xl shadow-gray-200/50 min-w-[140px]">
+        <p className="text-slate-800 text-[0.8rem] font-bold mb-3">{formatDate(label ?? '')}</p>
+        {payload.map((entry, index) => (
+          <div key={index} className="flex items-center justify-between gap-4 mb-1.5 last:mb-0">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className="text-slate-500 text-[0.75rem] font-semibold">{entry.name}:</span>
             </div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
+            <span className="text-slate-900 font-bold text-[0.85rem]">₹{formatTooltipValue(entry.value)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
 
+export default function RevenueChart({ data, periodIncome = 0, periodExpense = 0 }: RevenueChartProps) {
   return (
     <div className="bg-white rounded-[24px] p-5 md:p-6 border border-gray-100 shadow-sm flex flex-col flex-1">
       <div className="flex justify-between items-start mb-6">

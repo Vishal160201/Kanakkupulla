@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useBookings } from "../providers/BookingProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Autocomplete from "../ui/Autocomplete";
+import type { FilterState } from "@/types";
 import DatePickerInput from "../ui/DatePickerInput";
 
 export default function BookingFilterModal() {
@@ -17,11 +18,12 @@ export default function BookingFilterModal() {
 
   const [filterState, setFilterState] = useState(filters);
 
-  useEffect(() => {
-    if (isFilterModalOpen) {
-      setFilterState(filters);
-    }
-  }, [isFilterModalOpen, filters]);
+  // Re-sync the draft from the applied filters whenever the modal is (re)opened or they change while open.
+  const [synced, setSynced] = useState({ open: isFilterModalOpen, filters });
+  if (synced.open !== isFilterModalOpen || synced.filters !== filters) {
+    setSynced({ open: isFilterModalOpen, filters });
+    if (isFilterModalOpen) setFilterState(filters);
+  }
 
   const toggleFilterCategory = (cat: string) => {
     setFilterState(prev => ({
@@ -47,7 +49,7 @@ export default function BookingFilterModal() {
   };
 
   const resetFilters = () => {
-    const emptyFilters = { categories: [], statuses: [], clientName: '', location: '', dateStart: '', dateEnd: '', amountMin: '', amountMax: '' };
+    const emptyFilters: FilterState = { categories: [], statuses: [], clientName: '', location: '', dateStart: '', dateEnd: '', amountMin: '', amountMax: '' };
     setFilterState(emptyFilters);
     setFilters(emptyFilters);
     setIsFilterModalOpen(false);
@@ -107,8 +109,8 @@ export default function BookingFilterModal() {
           </div>
         </div>
         <div className="bg-slate-50 border-t border-gray-100 px-8 py-5 flex justify-end gap-3 rounded-b-3xl">
-          <button className="px-5 py-2.5 rounded-full font-bold text-[0.95rem] text-slate-700 bg-white border border-gray-200 hover:bg-slate-50 transition-colors" onClick={resetFilters}>Reset</button>
-          <button className="px-6 py-2.5 rounded-full font-bold text-[0.95rem] text-white bg-slate-900 hover:bg-slate-800 shadow-md transition-all" onClick={applyFilters}>Apply Filters</button>
+          <button type="button" className="px-5 py-2.5 rounded-full font-bold text-[0.95rem] text-slate-700 bg-white border border-gray-200 hover:bg-slate-50 transition-colors" onClick={resetFilters}>Reset</button>
+          <button type="button" className="px-6 py-2.5 rounded-full font-bold text-[0.95rem] text-white bg-slate-900 hover:bg-slate-800 shadow-md transition-all" onClick={applyFilters}>Apply Filters</button>
         </div>
       </DialogContent>
     </Dialog>

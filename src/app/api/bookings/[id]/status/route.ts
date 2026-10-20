@@ -1,52 +1,42 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requirePermission } from "@/lib/authz";
+import { parseJsonBody } from "@/lib/validations/http";
+import { asJsonRecord } from "@/lib/validations/common";
+import { bookingStatusApiSchema } from "@/lib/validations/booking";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requirePermission("manage_bookings", "manage_galleries");
+    if (auth.error) return auth.error;
 
     const { id } = await params;
-    const body = await request.json();
+    const parsed = await parseJsonBody(request, bookingStatusApiSchema);
+    if (parsed.error) return parsed.error;
+    const body = parsed.data;
     const { status, albumStatus } = body;
 
-    if (!status) {
-      return NextResponse.json({ error: "Status is required" }, { status: 400 });
-    }
-
     const existing = await prisma.booking.findUnique({ where: { id } });
-    const dataToUpdate: any = { status, updatedById: (session.user as any)?.id };
-    
+    if (!existing || existing.deletedAt) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+    const dataToUpdate: Prisma.BookingUncheckedUpdateInput = { status, updatedById: auth.user.id };
+    const existingCustomData = asJsonRecord(existing.customData);
+
     if (status === 'Shoot Completed' || status === 'Completed') {
-      let customData = existing?.customData as Record<string, any> || {};
-      if (typeof customData === 'string') {
-        try { customData = JSON.parse(customData); } catch(e) { customData = {}; }
-      }
-      
-      if (!customData.fld_b_album_status || customData.fld_b_album_status === 'Pending') {
-         dataToUpdate.customData = { ...customData, fld_b_album_status: 'Pending' };
+      if (!existingCustomData.fld_b_album_status || existingCustomData.fld_b_album_status === 'Pending') {
+        dataToUpdate.customData = { ...existingCustomData, fld_b_album_status: 'Pending' };
       }
     } else if (albumStatus) {
       dataToUpdate.albumStatus = albumStatus;
     }
 
-    if (body.customData?.fld_b_album_status === 'Delivered') {
-      dataToUpdate.galleryDelivered = true;
-      let customData = existing?.customData as Record<string, any> || {};
-      if (typeof customData === 'string') {
-        try { customData = JSON.parse(customData); } catch(e) { customData = {}; }
+    if (body.customData) {
+      if (body.customData.fld_b_album_status === 'Delivered') {
+        dataToUpdate.galleryDelivered = true;
       }
-      dataToUpdate.customData = { ...customData, ...body.customData };
-    } else if (body.customData) {
-      let customData = existing?.customData as Record<string, any> || {};
-      if (typeof customData === 'string') {
-        try { customData = JSON.parse(customData); } catch(e) { customData = {}; }
-      }
-      dataToUpdate.customData = { ...customData, ...body.customData };
+      dataToUpdate.customData = { ...existingCustomData, ...body.customData };
     }
 
     const updatedBooking = await prisma.booking.update({

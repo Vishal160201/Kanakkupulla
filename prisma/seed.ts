@@ -4,7 +4,10 @@ import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { initialBookings } from '../src/data/mockData';
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://neondb_owner:***REMOVED***@ep-lucky-wildflower-aoouw89k.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require';
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error('DATABASE_URL is not set. Add it to .env or export it before running this script.');
+}
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });

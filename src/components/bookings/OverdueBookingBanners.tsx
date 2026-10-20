@@ -2,12 +2,24 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { format } from "date-fns";
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+interface OverdueBooking {
+  id: string;
+  date: string;
+  client?: { name?: string } | null;
+}
+
+type OverdueResponse = OverdueBooking[] | { bookings?: OverdueBooking[]; data?: OverdueBooking[] };
+
+// Kept outside the component: the timestamp is taken when the user clicks Dismiss, not during render.
+function withDismissed(current: Record<string, number>, id: string): Record<string, number> {
+  return { ...current, [id]: Date.now() };
+}
 
 export default function OverdueBookingBanners() {
-  const { data: bookings, mutate } = useSWR("/api/bookings/overdue", fetcher, {
+  const { data: bookings, mutate } = useSWR<OverdueResponse>("/api/bookings/overdue", fetcher, {
     refreshInterval: 60000,
   });
 
@@ -44,7 +56,7 @@ export default function OverdueBookingBanners() {
   }, []);
 
   const handleDismiss = (id: string) => {
-    const newDismissed = { ...dismissed, [id]: Date.now() };
+    const newDismissed = withDismissed(dismissed, id);
     setDismissed(newDismissed);
     if (typeof window !== 'undefined') {
       window.localStorage.setItem("dismissed_bookings", JSON.stringify(newDismissed));
@@ -69,10 +81,10 @@ export default function OverdueBookingBanners() {
     }
   };
 
-  const bookingsArray = Array.isArray(bookings) ? bookings : (bookings?.bookings ?? bookings?.data ?? []);
+  const bookingsArray: OverdueBooking[] = Array.isArray(bookings) ? bookings : (bookings?.bookings ?? bookings?.data ?? []);
   if (bookingsArray.length === 0) return null;
 
-  const visibleBookings = bookingsArray.filter((b: any) => !dismissed[b.id]);
+  const visibleBookings = bookingsArray.filter(b => !dismissed[b.id]);
 
   if (visibleBookings.length === 0) return null;
 
@@ -80,7 +92,7 @@ export default function OverdueBookingBanners() {
 
   return (
     <div className="flex flex-col gap-2 mb-6">
-      {displayBookings.map((booking: any) => (
+      {displayBookings.map(booking => (
         <div 
           key={booking.id}
           className="bg-white border border-slate-100 border-l-[3px] border-l-orange-400 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-fade-in-up relative overflow-hidden"
@@ -98,13 +110,14 @@ export default function OverdueBookingBanners() {
             </div>
             <div>
               <p className="text-[15px] font-bold text-slate-800">
-                📸 {booking.client?.name}'s shoot on {format(new Date(booking.date), "MMM d, yyyy")}
+                📸 {booking.client?.name}&apos;s shoot on {format(new Date(booking.date), "MMM d, yyyy")}
               </p>
             </div>
           </div>
           
           <div className="flex items-center gap-3 shrink-0 self-end md:self-auto relative z-10">
             <button 
+              type="button"
               onClick={() => handleDismiss(booking.id)}
               className="px-4 py-2 text-[13px] font-bold text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-all shadow-sm flex items-center gap-2"
             >
@@ -114,6 +127,7 @@ export default function OverdueBookingBanners() {
               Dismiss
             </button>
             <button 
+              type="button"
               onClick={() => handleComplete(booking.id)}
               className="px-5 py-2 text-[13px] font-bold text-white bg-[#F97316] hover:bg-orange-600 rounded-lg transition-all shadow-sm shadow-orange-500/20 flex items-center gap-2"
             >
@@ -126,6 +140,7 @@ export default function OverdueBookingBanners() {
 
       {visibleBookings.length > 5 && !isExpanded && (
         <button 
+          type="button"
           onClick={() => setIsExpanded(true)} 
           className="flex items-center justify-center gap-2 text-[#D95F24] hover:text-orange-700 font-extrabold text-[13px] tracking-[0.15em] mt-2 py-4 w-full transition-colors uppercase animate-fade-in"
         >

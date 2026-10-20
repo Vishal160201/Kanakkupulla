@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import TimePickerInput from "@/components/ui/TimePickerInput";
+import type { SystemSettingEntry } from "@/types/settings";
 
 type ThresholdSettings = {
   orderStale: number;
@@ -15,67 +16,67 @@ type ThresholdSettings = {
   bannerTime2: string;
 };
 
-const timeOptions = Array.from({ length: 48 }, (_, i) => {
-  const h = Math.floor(i / 2);
-  const m = (i % 2) * 30;
-  const hh = h.toString().padStart(2, '0');
-  const mm = m.toString().padStart(2, '0');
-  const value = `${hh}:${mm}`;
-  const suffix = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  const label = `${h12.toString().padStart(2, '0')}:${mm} ${suffix}`;
-  return { value, label };
-});
+const DEFAULT_SETTINGS: ThresholdSettings = {
+  orderStale: 3,
+  orderReady: 2,
+  advance: 7,
+  gallery: 14,
+  album: 30,
+  paymentDue: 3,
+  bannerEnabled: true,
+  bannerTime1: "09:00",
+  bannerTime2: "17:00",
+};
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+
+/** Normalise the /api/settings/system payload (array, `{ settings }`, or key→value map) to entries. */
+function toSettingEntries(data: unknown): SystemSettingEntry[] {
+  if (Array.isArray(data)) return data;
+  if (!isRecord(data)) throw new Error("Unexpected settings payload");
+  return (data.settings as SystemSettingEntry[] | undefined) ?? Object.entries(data).map(([key, value]) => ({ key, value }));
+}
+
+function parseSettings(data: unknown): ThresholdSettings {
+  const newSettings = { ...DEFAULT_SETTINGS };
+  toSettingEntries(data).forEach((s) => {
+    const value = isRecord(s.value) ? s.value : undefined;
+    if (s.key === "reminder_threshold_order_stale" && value?.days) newSettings.orderStale = Number(value.days);
+    if (s.key === "reminder_threshold_order_ready" && value?.days) newSettings.orderReady = Number(value.days);
+    if (s.key === "reminder_threshold_advance" && value?.days) newSettings.advance = Number(value.days);
+    if (s.key === "reminder_threshold_gallery" && value?.days) newSettings.gallery = Number(value.days);
+    if (s.key === "reminder_threshold_album" && value?.days) newSettings.album = Number(value.days);
+    if (s.key === "reminder_threshold_payment_due" && value?.days) newSettings.paymentDue = Number(value.days);
+    if (s.key === "BANNER_SETTINGS" && s.value) {
+      newSettings.bannerEnabled = Boolean(value?.bannerEnabled ?? true);
+      newSettings.bannerTime1 = (value?.bannerTime1 as string) || "09:00";
+      newSettings.bannerTime2 = (value?.bannerTime2 as string) || "17:00";
+    }
+  });
+  return newSettings;
+}
 
 export default function ReminderPreferences() {
-  const [settings, setSettings] = useState<ThresholdSettings>({
-    orderStale: 3,
-    orderReady: 2,
-    advance: 7,
-    gallery: 14,
-    album: 30,
-    paymentDue: 3,
-    bannerEnabled: true,
-    bannerTime1: "09:00",
-    bannerTime2: "17:00",
-  });
+  const [settings, setSettings] = useState<ThresholdSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/api/settings/system");
+        if (!res.ok) throw new Error("Failed to fetch settings");
+        const data: unknown = await res.json();
+        setSettings(parseSettings(data));
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     fetchSettings();
   }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch("/api/settings/system");
-      if (!res.ok) throw new Error("Failed to fetch settings");
-      const data = await res.json();
-      
-      const newSettings = { ...settings };
-      const arr = Array.isArray(data) ? data : data.settings ?? Object.entries(data).map(([key, value]) => ({ key, value }));
-      
-      arr.forEach((s: any) => {
-        if (s.key === "reminder_threshold_order_stale" && s.value?.days) newSettings.orderStale = Number(s.value.days);
-        if (s.key === "reminder_threshold_order_ready" && s.value?.days) newSettings.orderReady = Number(s.value.days);
-        if (s.key === "reminder_threshold_advance" && s.value?.days) newSettings.advance = Number(s.value.days);
-        if (s.key === "reminder_threshold_gallery" && s.value?.days) newSettings.gallery = Number(s.value.days);
-        if (s.key === "reminder_threshold_album" && s.value?.days) newSettings.album = Number(s.value.days);
-        if (s.key === "reminder_threshold_payment_due" && s.value?.days) newSettings.paymentDue = Number(s.value.days);
-        if (s.key === "BANNER_SETTINGS" && s.value) {
-          newSettings.bannerEnabled = Boolean(s.value.bannerEnabled ?? true);
-          newSettings.bannerTime1 = s.value.bannerTime1 || "09:00";
-          newSettings.bannerTime2 = s.value.bannerTime2 || "17:00";
-        }
-      });
-      setSettings(newSettings);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -248,6 +249,9 @@ export default function ReminderPreferences() {
               </div>
               <button
                 type="button"
+                role="switch"
+                aria-checked={settings.bannerEnabled}
+                aria-label="Upcoming shoot banner"
                 onClick={() => setSettings({ ...settings, bannerEnabled: !settings.bannerEnabled })}
                 className={`w-11 h-6 rounded-full transition-colors relative ${settings.bannerEnabled ? 'bg-orange-500' : 'bg-slate-300'}`}
               >

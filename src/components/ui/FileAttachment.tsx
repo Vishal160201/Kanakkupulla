@@ -2,12 +2,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Upload, Paperclip, X, CheckCircle2 } from "lucide-react";
 import GooglePicker from "@/components/shared/GooglePicker";
+import { isDriveAttachment, type DriveAttachment } from "@/types/gifts";
+
+/** One attached value: a local File/Blob (Drive connected), a data URL (FileReader result), or a Drive reference. */
+export type AttachmentValue = File | Blob | string | ArrayBuffer | null | DriveAttachment;
 
 export interface FileAttachmentProps {
   id: string;
   type: 'IMAGE' | 'FILE';
-  value: any;
-  onChange: (values: any[]) => void;
+  /** A single value or an array of values (anything else is treated as empty). */
+  value: unknown;
+  onChange: (values: AttachmentValue[]) => void;
   driveStatus?: { connected: boolean };
   moduleName: string;
   categoryName?: string;
@@ -20,14 +25,12 @@ export default function FileAttachment({
   value,
   onChange,
   driveStatus,
-  moduleName,
-  categoryName = "Uncategorized",
   buttonText,
 }: FileAttachmentProps) {
   const [expanded, setExpanded] = useState(false);
   const [uploadProgresses, setUploadProgresses] = useState<Record<string, number>>({});
 
-  const valuesArray = Array.isArray(value) ? value : (value ? [value] : []);
+  const valuesArray = (Array.isArray(value) ? value : (value ? [value] : [])) as AttachmentValue[];
 
   const handleRemove = (index: number) => {
     const newValues = [...valuesArray];
@@ -95,7 +98,8 @@ export default function FileAttachment({
             img.onerror = () => resolve(file);
             img.src = URL.createObjectURL(file);
           });
-        } catch (err) {
+        } catch {
+          // Fall back to uploading the original file
         }
       }
 
@@ -137,17 +141,17 @@ export default function FileAttachment({
       {valuesArray.length > 0 && (
         <div className="flex flex-col gap-2 mb-2">
           {valuesArray.map((val, idx) => {
-            const isDriveFile = val?.driveFile;
+            const driveFile = isDriveAttachment(val) ? val.driveFile : null;
             const isLocalFile = typeof window !== 'undefined' && (val instanceof File || val instanceof Blob);
-            const fileName = isDriveFile ? val.driveFile.name : (isLocalFile ? (val as File).name || "Local File" : "Uploaded File");
-            const fileSize = isDriveFile && val.driveFile.sizeBytes ? Number(val.driveFile.sizeBytes) : (isLocalFile ? val.size : null);
-            const progress = uploadProgresses[fileName];
+            const fileName = driveFile ? driveFile.name : (isLocalFile ? (val as File).name || "Local File" : "Uploaded File");
+            const fileSize = driveFile && driveFile.sizeBytes ? Number(driveFile.sizeBytes) : (isLocalFile ? (val as Blob).size : null);
+            const progress = fileName ? uploadProgresses[fileName] : undefined;
 
             return (
               <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 shadow-sm">
                 <div className="flex items-center gap-3 overflow-hidden flex-1">
-                  {isDriveFile ? (
-                    <img src={val.driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
+                  {driveFile ? (
+                    <img src={driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
                   ) : (
                     type === 'IMAGE' ? (
                       <i className="ph-fill ph-image text-2xl text-blue-500"></i>
@@ -179,7 +183,7 @@ export default function FileAttachment({
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={() => handleRemove(idx)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white hover:bg-red-50 text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-colors shadow-sm shrink-0">
+                <button aria-label="Remove attachment" type="button" onClick={() => handleRemove(idx)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white hover:bg-red-50 text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-colors shadow-sm shrink-0">
                   <X className="w-4 h-4 font-bold" />
                 </button>
               </div>

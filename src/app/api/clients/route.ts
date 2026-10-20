@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
+import { requirePermission, requireUser } from "@/lib/authz";
+import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
+import { clientCreateSchema, clientListQuerySchema } from "@/lib/validations/clients";
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
+
+  const query = parseSearchParams(request, clientListQuerySchema);
+  if (query.error) return query.error;
+  const { search, limit, offset } = query.data;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "200", 10), 500);
-    const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
-
-    const where: any = {};
+    const where: Prisma.ClientWhereInput = {};
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -39,30 +38,22 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to fetch clients:", error);
     return NextResponse.json({ error: "Failed to fetch clients" }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requirePermission("manage_bookings");
+  if (auth.error) return auth.error;
 
   try {
-    const body = await request.json();
-    const { name, phone, email } = body;
-
-    if (!name || !phone) {
-      return NextResponse.json({ error: "Name and phone are required" }, { status: 422 });
-    }
+    const parsed = await parseJsonBody(request, clientCreateSchema);
+    if (parsed.error) return parsed.error;
+    const { name, phone, email } = parsed.data;
 
     const newClient = await prisma.client.create({
-      data: {
-        name: name.trim(),
-        phone: phone.trim(),
-        email: email ? email.trim() : null,
-      },
+      data: { name, phone, email: email || null },
     });
 
     return NextResponse.json(newClient, {
@@ -70,6 +61,7 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to create client:", error);
     return NextResponse.json({ error: "Failed to create client" }, { status: 500 });
   }
 }

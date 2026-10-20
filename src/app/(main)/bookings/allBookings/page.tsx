@@ -1,4 +1,5 @@
 import BookingTable from '@/components/dashboard/BookingTable';
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { Booking } from "@/types";
 
@@ -15,7 +16,7 @@ export default async function AllBookingsPage({
   const limit = 10;
   const skip = (page - 1) * limit;
 
-  const whereClause: any = { deletedAt: null };
+  const whereClause: Prisma.BookingWhereInput = { deletedAt: null };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -54,8 +55,8 @@ export default async function AllBookingsPage({
     package: b.order?.package.toString() || '',
     advance: b.order?.advance.toString() || '',
     due: b.order?.due.toString() || '',
-    status: b.status as any,
-    customData: b.customData as Record<string, any> | null
+    status: b.status,
+    customData: b.customData as Booking['customData']
   }));
 
   const totalPages = Math.ceil(totalCount / limit);

@@ -1,47 +1,74 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
-import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+interface DashboardAlert {
+  id: string;
+  title: string;
+  message: string;
+}
 
-export default function TaskAlerts() {
-  const { data: rawAlerts } = useSWR('/api/dashboard/alerts', fetcher);
-  const { data: overviewData } = useSWR('/api/dashboard/overview', fetcher);
+const DISMISS_PREFIX = 'dismissed_alert_';
+const DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
 
-  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    const dismissed: string[] = [];
-    const now = Date.now();
-    
-    // Clean up and collect active dismissals (24h TTL)
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('dismissed_alert_')) {
-        const val = localStorage.getItem(key);
-        if (val) {
-          const timestamp = parseInt(val, 10);
-          if (now - timestamp < 24 * 60 * 60 * 1000) {
-            dismissed.push(key.replace('dismissed_alert_', ''));
-          } else {
-            localStorage.removeItem(key);
-          }
-        }
+/** Alert ids dismissed within the last 24h (localStorage is client-only). */
+function readActiveDismissals(): string[] {
+  if (typeof window === 'undefined') return [];
+  const dismissed: string[] = [];
+  const now = Date.now();
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(DISMISS_PREFIX)) {
+      const val = localStorage.getItem(key);
+      if (val && now - parseInt(val, 10) < DISMISS_TTL_MS) {
+        dismissed.push(key.replace(DISMISS_PREFIX, ''));
       }
     }
-    setDismissedAlerts(dismissed);
+  }
+  return dismissed;
+}
+
+/** Removes dismissals older than the 24h TTL. */
+function pruneExpiredDismissals() {
+  const now = Date.now();
+  const expired: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(DISMISS_PREFIX)) {
+      const val = localStorage.getItem(key);
+      if (val && !(now - parseInt(val, 10) < DISMISS_TTL_MS)) expired.push(key);
+    }
+  }
+  expired.forEach((key) => localStorage.removeItem(key));
+}
+
+function markDismissed(id: string) {
+  localStorage.setItem(`${DISMISS_PREFIX}${id}`, Date.now().toString());
+}
+
+const subscribeNoop = () => () => {};
+
+export default function TaskAlerts() {
+  const { data: rawAlerts } = useSWR<DashboardAlert[]>('/api/dashboard/alerts', fetcher);
+  const { data: overviewData } = useSWR<{ unconfirmedBookingsCount?: number; pendingRetouch?: number }>('/api/dashboard/overview', fetcher);
+
+  // false during SSR and hydration, true afterwards (dismissals live in localStorage).
+  const isMounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>(readActiveDismissals);
+
+  // Clean up expired dismissals (24h TTL)
+  useEffect(() => {
+    pruneExpiredDismissals();
   }, []);
 
-  const alerts = (rawAlerts || []).filter((a: any) => !dismissedAlerts.includes(a.id));
+  const alerts = (rawAlerts || []).filter((a) => !dismissedAlerts.includes(a.id));
   const unconfirmedCount = overviewData?.unconfirmedBookingsCount || 0;
   const pendingRetouch = overviewData?.pendingRetouch || 0;
 
   const handleDismiss = (id: string) => {
-    localStorage.setItem(`dismissed_alert_${id}`, Date.now().toString());
+    markDismissed(id);
     setDismissedAlerts(prev => [...prev, id]);
   };
 
@@ -91,7 +118,7 @@ export default function TaskAlerts() {
           </div>
         )}
 
-        {alerts.map((alert: any) => (
+        {alerts.map((alert) => (
           <div key={alert.id} className="bg-red-50/50 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm border border-red-100/50 transition-all hover:bg-red-50">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md shadow-red-500/20 shrink-0">
@@ -102,7 +129,8 @@ export default function TaskAlerts() {
                 <p className="text-[0.8rem] font-medium text-slate-500 mt-0.5">{alert.message}</p>
               </div>
             </div>
-            <button 
+            <button
+              type="button"
               onClick={() => handleDismiss(alert.id)}
               className="shrink-0 px-4 py-1.5 rounded-lg border border-red-200 text-red-500 text-[0.75rem] font-bold hover:bg-red-50 transition-colors"
             >

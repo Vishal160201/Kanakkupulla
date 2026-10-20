@@ -1,39 +1,36 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import prisma, { toNumber } from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/notifications";
 import { generateNextTransactionId } from "@/lib/transactionId";
+import { canWriteTransaction, forbiddenResponse, requirePermission, requireUser } from "@/lib/authz";
+import type { Prisma } from "@prisma/client";
+import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
+import { asJsonRecord, pickCustomFields } from "@/lib/validations/common";
+import {
+  transactionCreateSchema,
+  transactionListQuerySchema,
+  transactionReplaceSchema,
+} from "@/lib/validations/transactions";
+
 
 const PAGE_SIZE = 25;
 
 export async function GET(request: Request) {
-  // F6: User-scope all queries
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
+  const auth = await requirePermission("view_transactions", "manage_transactions");
+  if (auth.error) return auth.error;
+
+  const query = parseSearchParams(request, transactionListQuerySchema);
+  if (query.error) return query.error;
+  const { month, categories: category, view, dateFrom, dateTo, amountMin, amountMax, category: legacyCategory, type, paymentMode, page } = query.data;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const month = searchParams.get("month"); // format: 'YYYY-MM'
-    const category = searchParams.get("categories");
-    const view = searchParams.get("view"); // 'day', 'week', 'month'
-    const dateFrom = searchParams.get("dateFrom");
-    const dateTo = searchParams.get("dateTo");
-    const amountMin = searchParams.get("amountMin");
-    const amountMax = searchParams.get("amountMax");
-    const legacyCategory = searchParams.get("category");
-    const type = searchParams.get("type");
-    const paymentMode = searchParams.get("paymentMode");
-
-    const whereClause: any = { deletedAt: null };
+    const whereClause: Prisma.TransactionWhereInput = { deletedAt: null };
     // 1. Date Logic — F4: Fixed date mutation bug by NOT reusing the same `now` object
     if (dateFrom || dateTo) {
-      whereClause.date = {};
-      if (dateFrom) whereClause.date.gte = new Date(`${dateFrom}T00:00:00.000`);
-      if (dateTo) whereClause.date.lte = new Date(`${dateTo}T23:59:59.999`);
+      whereClause.date = {
+        ...(dateFrom && { gte: new Date(`${dateFrom}T00:00:00.000`) }),
+        ...(dateTo && { lte: new Date(`${dateTo}T23:59:59.999`) }),
+      };
     } else if (month) {
       const [year, mon] = month.split("-").map(Number);
       whereClause.date = {
@@ -70,10 +67,11 @@ export async function GET(request: Request) {
     }
 
     // 3. Amount Logic
-    if (amountMin || amountMax) {
-      whereClause.amount = {};
-      if (amountMin) whereClause.amount.gte = parseFloat(amountMin);
-      if (amountMax) whereClause.amount.lte = parseFloat(amountMax);
+    if (amountMin !== undefined || amountMax !== undefined) {
+      whereClause.amount = {
+        ...(amountMin !== undefined && { gte: amountMin }),
+        ...(amountMax !== undefined && { lte: amountMax }),
+      };
     }
 
     // 4. Type and PaymentMode Logic
@@ -81,36 +79,28 @@ export async function GET(request: Request) {
     if (paymentMode && paymentMode !== "ALL") whereClause.paymentMode = paymentMode;
 
     // P2: Offset-based pagination (cursor on non-unique sort leads to duplicates)
-    const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
-    
-    
-    const transactions = await prisma.transaction.findMany({
-      where: { 
-        ...whereClause
-      },
-      orderBy: [
-        { date: "desc" },
-        { createdAt: "desc" }
-      ],
-      take: PAGE_SIZE,
-      skip: (page - 1) * PAGE_SIZE,
-    });
-
-    const total = await prisma.transaction.count({
-      where: { ...whereClause },
-    });
+    const [transactions, total] = await Promise.all([
+      prisma.transaction.findMany({
+        where: whereClause,
+        orderBy: [
+          { date: "desc" },
+          { createdAt: "desc" }
+        ],
+        take: PAGE_SIZE,
+        skip: (page - 1) * PAGE_SIZE,
+      }),
+      prisma.transaction.count({ where: whereClause }),
+    ]);
 
     return NextResponse.json({ items: transactions, total, page, pageSize: PAGE_SIZE }, {
       headers: {
         "Cache-Control": "private, no-store",
       },
     });
-  } catch (error: any) {
-
-    if (
-      error.message?.toLowerCase().includes("timeout") ||
-      error.message?.toLowerCase().includes("connection")
-    ) {
+  } catch (error) {
+    console.error("Failed to fetch transactions:", error);
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (message.includes("timeout") || message.includes("connection")) {
       return NextResponse.json(
         { error: "Service temporarily overloaded. Please try again." },
         { status: 503, headers: { "Retry-After": "5" } }
@@ -123,45 +113,20 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    // F6: User-scope writes
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const userId = (session.user as any).id as string;
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
+    const userId = auth.user.id;
 
-    const body = await request.json();
-    const { amount, type, date, category, paymentMode, description, status, productOrderId, bookingId, recordDate, ...restBody } = body;
+    const parsed = await parseJsonBody(request, transactionCreateSchema);
+    if (parsed.error) return parsed.error;
+    const { amount: parsedAmount, type, date, category, paymentMode, description, status, productOrderId, bookingId, recordDate, ...restBody } = parsed.data;
 
-    const customData: Record<string, any> = {};
-    for (const [key, value] of Object.entries(restBody)) {
-      if (key !== 'id' && key !== 'userId' && key !== 'recordDate' && !key.startsWith('$ACTION')) {
-        customData[key] = value;
-      }
+    if (!(await canWriteTransaction(auth.user, { bookingId, productOrderId }))) {
+      return forbiddenResponse();
     }
 
-    // F2: Server-side validation
-    const errors: Record<string, string> = {};
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      errors.amount = "Amount must be a positive number.";
-    }
-    if (!type || !["INCOME", "EXPENSE"].includes(type)) {
-      errors.type = "Type must be INCOME or EXPENSE.";
-    }
-    if (!date || isNaN(new Date(date).getTime())) {
-      errors.date = "A valid date is required.";
-    }
-    if (!category) {
-      errors.category = `Category is required.`;
-    }
-    if (!paymentMode) {
-      errors.paymentMode = `Payment mode is required.`;
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return NextResponse.json({ error: "Validation failed", errors }, { status: 422 });
-    }
+    const customData = pickCustomFields(restBody);
+    const txDate = recordDate ?? date;
 
     const transactionId = await generateNextTransactionId();
 
@@ -170,15 +135,15 @@ export async function POST(request: Request) {
         transactionId,
         amount: parsedAmount,
         type,
-        date: recordDate ? new Date(recordDate) : new Date(date),
+        date: txDate,
         category,
         paymentMode,
         description: description?.trim() || null,
         status: status || "SETTLED",
         ...(productOrderId ? { productOrder: { connect: { id: productOrderId } } } : {}),
-        bookingId: bookingId || undefined,
+        ...(bookingId ? { booking: { connect: { id: bookingId } } } : {}),
         customData: Object.keys(customData).length > 0 ? customData : undefined,
-        ...(userId ? { user: { connect: { id: userId } } } : {}),
+        user: { connect: { id: userId } },
       },
     });
 
@@ -195,7 +160,6 @@ export async function POST(request: Request) {
       }).catch(console.error);
     } else if (type === "EXPENSE") {
       // Check Budget limits
-      const txDate = recordDate ? new Date(recordDate) : new Date(date);
       const month = txDate.getMonth() + 1;
       const year = txDate.getFullYear();
       
@@ -212,12 +176,13 @@ export async function POST(request: Request) {
             type: "EXPENSE",
             category,
             date: { gte: startDate, lte: endDate },
-            status: "SETTLED"
+            status: "SETTLED",
+            deletedAt: null
           },
           _sum: { amount: true }
         });
         
-        const totalSpent = categoryExpenses._sum.amount || 0;
+        const totalSpent = toNumber(categoryExpenses._sum.amount);
         
         if (totalSpent > budget.monthlyLimit) {
            broadcastNotification({
@@ -237,53 +202,37 @@ export async function POST(request: Request) {
       status: 201,
       headers: { "Cache-Control": "private, no-store" },
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to create transaction.", details: String(error) }, { status: 500 });
+  } catch (error) {
+    console.error("Failed to create transaction:", error);
+    return NextResponse.json({ error: "Failed to create transaction." }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as any).id as string;
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
 
   try {
-    const body = await request.json();
-    const { id, amount, type, date, category, paymentMode, description, status, ...restBody } = body;
+    const parsed = await parseJsonBody(request, transactionReplaceSchema);
+    if (parsed.error) return parsed.error;
+    const { id, amount: parsedAmount, type, date, category, paymentMode, description, status, ...restBody } = parsed.data;
 
-    if (!id) return NextResponse.json({ error: "Transaction ID required" }, { status: 400 });
-
-    // Confirm the transaction belongs to this user
-    const existing = await prisma.transaction.findFirst({ where: { id, userId } });
+    const existing = await prisma.transaction.findFirst({ where: { id, deletedAt: null } });
     if (!existing) {
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
-
-    const errors: Record<string, string> = {};
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) errors.amount = "Amount must be a positive number.";
-    if (!type || !["INCOME", "EXPENSE"].includes(type)) errors.type = "Invalid type.";
-    if (!date || isNaN(new Date(date).getTime())) errors.date = "A valid date is required.";
-
-    if (Object.keys(errors).length > 0) {
-      return NextResponse.json({ error: "Validation failed", errors }, { status: 422 });
+    if (!(await canWriteTransaction(auth.user, existing))) {
+      return forbiddenResponse();
     }
 
-    const customData: Record<string, any> = existing.customData && typeof existing.customData === 'object' ? { ...(existing.customData as any) } : {};
-    for (const [key, value] of Object.entries(restBody)) {
-      if (key !== 'userId' && !key.startsWith('$ACTION')) {
-        customData[key] = value;
-      }
-    }
+    const customData = { ...asJsonRecord(existing.customData), ...pickCustomFields(restBody) };
 
     const updated = await prisma.transaction.update({
       where: { id },
       data: {
         amount: parsedAmount,
         type,
-        date: new Date(date),
+        date,
         category: category || existing.category,
         paymentMode: paymentMode || existing.paymentMode,
         description: description?.trim() || null,
@@ -294,6 +243,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(updated, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
+    console.error("Failed to update transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
 }

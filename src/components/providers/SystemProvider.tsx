@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 interface SystemPreferences {
   currencySymbol: string;
@@ -21,28 +21,36 @@ const SystemContext = createContext<SystemContextType>({
   refreshPreferences: () => {},
 });
 
+/** Loads UI_PREFERENCES from system settings; null when absent or the request fails. */
+async function loadPreferences(): Promise<SystemPreferences | null> {
+  try {
+    const res = await fetch("/api/settings/system");
+    if (res.ok) {
+      const data: { UI_PREFERENCES?: SystemPreferences } = await res.json();
+      return data.UI_PREFERENCES || null;
+    }
+  } catch {
+    // Keep defaults (preferences stay null)
+  }
+  return null;
+}
+
 export function SystemProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<SystemPreferences | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchPreferences = async () => {
-    try {
-      const res = await fetch("/api/settings/system");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.UI_PREFERENCES) {
-          setPreferences(data.UI_PREFERENCES);
-        }
-      }
-    } catch (e) {
-    } finally {
-      setLoading(false);
-    }
-  };
+  const applyPreferences = useCallback((prefs: SystemPreferences | null) => {
+    if (prefs) setPreferences(prefs);
+    setLoading(false);
+  }, []);
+
+  const fetchPreferences = useCallback(() => {
+    loadPreferences().then(applyPreferences);
+  }, [applyPreferences]);
 
   useEffect(() => {
-    fetchPreferences();
-  }, []);
+    loadPreferences().then(applyPreferences);
+  }, [applyPreferences]);
 
   return (
     <SystemContext.Provider value={{ preferences, loading, refreshPreferences: fetchPreferences }}>

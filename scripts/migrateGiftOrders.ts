@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../src/lib/prisma';
 
 async function main() {
@@ -23,17 +24,17 @@ async function main() {
   let migratedCount = 0;
 
   for (const order of orders) {
-    let customData: any = {};
+    let customData: Record<string, unknown> = {};
     
     if (order.customData) {
       if (typeof order.customData === 'string') {
         try {
           customData = JSON.parse(order.customData);
-        } catch (e) {
+        } catch {
           customData = {};
         }
       } else {
-        customData = { ...(order.customData as any) };
+        customData = { ...(order.customData as Record<string, unknown>) };
       }
     }
     
@@ -47,7 +48,7 @@ async function main() {
     await prisma.productOrder.update({
       where: { id: order.id },
       data: {
-        customData
+        customData: customData as Prisma.InputJsonObject
       }
     });
     

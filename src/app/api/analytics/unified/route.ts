@@ -1,20 +1,23 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, sub, format } from 'date-fns';
+import { requirePermission } from "@/lib/authz";
+import { parseSearchParams } from "@/lib/validations/http";
+import { analyticsQuerySchema } from "@/lib/validations/dashboard";
+
+type RevenueDay = { date: string; Bookings: number; Gifts: number; 'Xerox/PP': number; Other: number; total: number; isPeak?: boolean };
+type TrendDay = { date: string; income: number; expense: number };
+type CollectionDay = { date: string; billed: number; collected: number; overdue: number };
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requirePermission("view_analytics");
+    if (auth.error) return auth.error;
 
-    const { searchParams } = new URL(req.url);
-    const range = searchParams.get('range') || 'this-month';
-    const startDateParam = searchParams.get('startDate');
-    const endDateParam = searchParams.get('endDate');
+    const query = parseSearchParams(req, analyticsQuerySchema);
+    if (query.error) return query.error;
+    const { startDate: startDateParam, endDate: endDateParam } = query.data;
+    const range = query.data.range ?? 'this-month';
 
     const today = new Date();
     let startDate = startOfMonth(today);
@@ -43,22 +46,23 @@ export async function GET(req: Request) {
       prevStartDate = sub(startDate, { years: 1 });
       prevEndDate = sub(endDate, { years: 1 });
     } else if (range === 'custom' && startDateParam && endDateParam) {
-      startDate = startOfDay(new Date(startDateParam));
-      endDate = endOfDay(new Date(endDateParam));
+      startDate = startOfDay(startDateParam);
+      endDate = endOfDay(endDateParam);
       const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
       prevStartDate = new Date(startDate.getTime() - diffTime);
       prevEndDate = new Date(endDate.getTime() - diffTime);
     }
 
     // Fetch transactions
+    // Only the fields the aggregations below need
     const [currentTx, prevTx] = await Promise.all([
       prisma.transaction.findMany({
         where: { date: { gte: startDate, lte: endDate }, deletedAt: null },
-        include: { booking: true }
+        select: { id: true, amount: true, type: true, category: true, date: true, booking: { select: { clientId: true } } }
       }),
       prisma.transaction.findMany({
         where: { date: { gte: prevStartDate, lte: prevEndDate }, deletedAt: null },
-        include: { booking: true }
+        select: { amount: true, type: true, category: true }
       })
     ]);
 
@@ -88,7 +92,14 @@ export async function GET(req: Request) {
     // Fetch Orders & Bookings for Funnel & Avg Order Value
     const orders = await prisma.order.findMany({
       where: { booking: { date: { gte: startDate, lte: endDate } } },
-      include: { booking: { include: { client: true } } }
+      select: {
+        id: true,
+        package: true,
+        advance: true,
+        due: true,
+        createdAt: true,
+        booking: { select: { date: true, client: { select: { name: true } } } }
+      }
     });
     
     const totalBilled = orders.reduce((sum, o) => sum + o.package, 0);
@@ -98,14 +109,14 @@ export async function GET(req: Request) {
     // Booking Funnel
     // Upcoming, Confirmed, Completed, Pending Retouch, Delivered
     const allBookings = await prisma.booking.findMany({
-      where: { date: { gte: startDate, lte: endDate }, deletedAt: null }
+      where: { date: { gte: startDate, lte: endDate }, deletedAt: null },
+      select: { status: true, date: true, updatedAt: true }
     });
     
     const upcoming = allBookings.filter(b => b.status === 'UPCOMING' || (b.status !== 'CONFIRMED' && b.status !== 'COMPLETED' && b.status !== 'DELIVERED' && b.date >= today)).length;
     const confirmed = allBookings.filter(b => b.status === 'CONFIRMED' || b.status === 'Confirmed').length;
     const completed = allBookings.filter(b => b.status === 'COMPLETED').length;
     
-    const fourteenDaysAgo = sub(today, { days: 14 });
     const pendingRetouch = allBookings.filter(b => 
       b.status === 'COMPLETED' && b.updatedAt < new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
     ).length;
@@ -123,7 +134,7 @@ export async function GET(req: Request) {
     // Gifts Performance
     const productOrders = await prisma.productOrder.findMany({
       where: { date: { gte: startDate, lte: endDate } },
-      include: { product: true }
+      select: { quantity: true, status: true, discountAmount: true, clientName: true, product: { select: { name: true } } }
     });
 
     const productRevenue = productOrders.reduce((acc, po) => {
@@ -146,7 +157,7 @@ export async function GET(req: Request) {
     const totalDiscountGiven = productOrders.reduce((sum, po) => sum + (po.discountAmount || 0), 0);
 
     // Revenue Intelligence (Daily/Weekly aggregation)
-    const revenueIntelligenceMap = new Map();
+    const revenueIntelligenceMap = new Map<string, RevenueDay>();
     let peakDay = { date: '', total: 0 };
     
     currentTx.filter(t => t.type === 'INCOME').forEach(t => {
@@ -154,9 +165,9 @@ export async function GET(req: Request) {
       if (!revenueIntelligenceMap.has(dateKey)) {
         revenueIntelligenceMap.set(dateKey, { date: dateKey, Bookings: 0, Gifts: 0, 'Xerox/PP': 0, Other: 0, total: 0 });
       }
-      const entry = revenueIntelligenceMap.get(dateKey);
-      
-      let cat = 'Other';
+      const entry = revenueIntelligenceMap.get(dateKey)!;
+
+      let cat: 'Bookings' | 'Gifts' | 'Xerox/PP' | 'Other' = 'Other';
       if (t.category === 'GIFTS_AND_FRAMES') cat = 'Gifts';
       else if (t.category === 'XEROX/PP') cat = 'Xerox/PP';
       else if (t.category === 'BOOKING') cat = 'Bookings';
@@ -178,26 +189,26 @@ export async function GET(req: Request) {
     revenueIntelligence.forEach(r => r.isPeak = (r.total === peakDay.total && r.total > 0));
 
     // Daily Trends
-    const dailyTrendsMap = new Map();
+    const dailyTrendsMap = new Map<string, TrendDay>();
     currentTx.forEach(t => {
       const dateKey = format(new Date(t.date), 'dd MMM');
       if (!dailyTrendsMap.has(dateKey)) {
         dailyTrendsMap.set(dateKey, { date: dateKey, income: 0, expense: 0 });
       }
-      const entry = dailyTrendsMap.get(dateKey);
+      const entry = dailyTrendsMap.get(dateKey)!;
       if (t.type === 'INCOME') entry.income += t.amount;
       if (t.type === 'EXPENSE') entry.expense += t.amount;
     });
     const dailyTrends = Array.from(dailyTrendsMap.values());
 
     // Collection Health
-    const collectionHealthMap = new Map();
+    const collectionHealthMap = new Map<string, CollectionDay>();
     orders.forEach(o => {
       const dateKey = format(new Date(o.booking?.date || o.createdAt), 'dd MMM');
       if (!collectionHealthMap.has(dateKey)) {
         collectionHealthMap.set(dateKey, { date: dateKey, billed: 0, collected: 0, overdue: 0 });
       }
-      const entry = collectionHealthMap.get(dateKey);
+      const entry = collectionHealthMap.get(dateKey)!;
       entry.billed += o.package;
       entry.collected += o.advance;
       entry.overdue += o.due;
@@ -214,17 +225,25 @@ export async function GET(req: Request) {
         clientName: o.booking?.client?.name || 'Unknown',
         amount: o.due,
         date: o.booking?.date,
-        products: productOrders.filter(po => po.clientName === o.booking?.client?.name).flatMap(po => [po.product?.name].filter(Boolean))
+        products: productOrders
+          .filter(po => po.clientName === o.booking?.client?.name)
+          .flatMap(po => (po.product?.name ? [po.product.name] : []))
       };
     }).slice(0, 10);
 
     // Client Insights
-    const clients = await prisma.client.findMany({
-      include: { bookings: true }
-    });
-    const newClients = clients.filter(c => c.createdAt >= startDate && c.createdAt <= endDate).length;
-    const returningClients = clients.length - newClients;
-    
+    // Counts in SQL; only clients with transactions in this period are loaded for the top list
+    const spendingClientIds = [...new Set(currentTx.flatMap(t => (t.booking?.clientId ? [t.booking.clientId] : [])))];
+    const [totalClients, newClients, clients] = await Promise.all([
+      prisma.client.count(),
+      prisma.client.count({ where: { createdAt: { gte: startDate, lte: endDate } } }),
+      prisma.client.findMany({
+        where: { id: { in: spendingClientIds } },
+        select: { id: true, name: true }
+      }),
+    ]);
+    const returningClients = totalClients - newClients;
+
     const topClients = clients.map(c => {
       const clientTxs = currentTx.filter(t => t.booking?.clientId === c.id);
       const spend = clientTxs.filter(t => t.type === 'INCOME').reduce((sum, t) => sum + t.amount, 0);
@@ -243,7 +262,7 @@ export async function GET(req: Request) {
     }).filter(c => c.spend > 0).sort((a, b) => b.spend - a.spend).slice(0, 5);
 
     // Smart Insights Generation
-    const insights = [];
+    const insights: string[] = [];
     const overdueAmount = overdueOrdersList.reduce((sum, o) => sum + o.amount, 0);
     if (overdueAmount > 0) {
       insights.push(`₹${overdueAmount.toLocaleString('en-IN')} overdue from ${overdueOrdersList.length} orders.`);
@@ -305,6 +324,7 @@ export async function GET(req: Request) {
     });
 
   } catch (error) {
+    console.error("Failed to fetch analytics:", error);
     return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 });
   }
 }

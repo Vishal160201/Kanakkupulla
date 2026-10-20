@@ -1,84 +1,59 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import type { NotificationType, Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/authz";
+import { parseSearchParams } from "@/lib/validations/http";
+import { notificationListQuerySchema } from "@/lib/validations/notifications";
+
+const REMINDER_TYPES: NotificationType[] = [
+  'ORDER_STATUS_STALE',
+  'BOOKING_STATUS_STALE',
+  'PAYMENT_DUE_REMINDER',
+  'ADVANCE_NOT_COLLECTED',
+  'GALLERY_NOT_DELIVERED',
+  'ALBUM_PENDING_REMINDER'
+];
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireUser();
+    if (auth.error) return auth.error;
+    const userId = auth.user.id;
 
-    if (!session || !session.user || !session.user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
-
-    const priority = searchParams.get("priority");
-    const isReadParam = searchParams.get("isRead");
-
-    const whereClause: any = { userId: user.id };
-    if (priority) {
-      whereClause.priority = priority;
-    }
-    if (isReadParam !== null) {
-      whereClause.isRead = isReadParam === 'true';
-    }
+    const query = parseSearchParams(request, notificationListQuerySchema);
+    if (query.error) return query.error;
+    const { limit, priority, isRead } = query.data;
 
     // Don't fetch notifications that are currently snoozed
     const now = new Date();
-    whereClause.OR = [
+    const notSnoozed: Prisma.NotificationWhereInput["OR"] = [
       { snoozedUntil: null },
       { snoozedUntil: { lt: now } }
     ];
 
-    const notifications = await prisma.notification.findMany({
-      where: whereClause,
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
+    const whereClause: Prisma.NotificationWhereInput = { userId, OR: notSnoozed };
+    if (priority) whereClause.priority = priority;
+    if (isRead !== undefined) whereClause.isRead = isRead === 'true';
 
-    const reminderTypes = [
-      'ORDER_STATUS_STALE',
-      'BOOKING_STATUS_STALE',
-      'PAYMENT_DUE_REMINDER',
-      'ADVANCE_NOT_COLLECTED',
-      'GALLERY_NOT_DELIVERED',
-      'ALBUM_PENDING_REMINDER'
-    ];
-
-    const unreadRegularCount = await prisma.notification.count({
-      where: { 
-        userId: user.id, 
-        isRead: false,
-        type: { notIn: reminderTypes as any[] },
-        OR: [{ snoozedUntil: null }, { snoozedUntil: { lt: now } }]
-      },
-    });
-
-    const unreadReminderCount = await prisma.notification.count({
-      where: { 
-        userId: user.id, 
-        isRead: false,
-        type: { in: reminderTypes as any[] },
-        OR: [{ snoozedUntil: null }, { snoozedUntil: { lt: now } }]
-      },
-    });
+    const [notifications, unreadRegularCount, unreadReminderCount] = await Promise.all([
+      prisma.notification.findMany({
+        where: whereClause,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      }),
+      prisma.notification.count({
+        where: { userId, isRead: false, type: { notIn: REMINDER_TYPES }, OR: notSnoozed },
+      }),
+      prisma.notification.count({
+        where: { userId, isRead: false, type: { in: REMINDER_TYPES }, OR: notSnoozed },
+      }),
+    ]);
 
     return NextResponse.json({ notifications, unreadCount: unreadRegularCount, unreadReminderCount });
-  } catch (error: any) {
+  } catch (error) {
     console.error("API Notifications Error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch notifications", details: error.message },
+      { error: "Failed to fetch notifications" },
       { status: 500 }
     );
   }

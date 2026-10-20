@@ -5,10 +5,7 @@ import { SystemProvider } from "@/components/providers/SystemProvider";
 import PageTransition from "@/components/layout/PageTransition";
 import { MobileNavProvider } from "@/components/providers/MobileNavProvider";
 import { GlobalFormProvider } from "@/components/providers/GlobalFormProvider";
-import BookingFormModal from "@/components/dashboard/BookingFormModal";
-import TransactionModal from "@/components/dashboard/TransactionModal";
-import TransactionDetailsModal from "@/components/dashboard/TransactionDetailsModal";
-import OrderDetailsPanel from "@/components/gifts/OrderDetailsPanel";
+import GlobalModals from "@/components/layout/GlobalModals";
 import React from "react";
 
 export default function MainLayout({
@@ -31,11 +28,8 @@ export default function MainLayout({
               </div>
             </main>
             
-            {/* Global Forms */}
-            <BookingFormModal />
-            <TransactionModal />
-            <TransactionDetailsModal />
-            <OrderDetailsPanel />
+            {/* Global Forms (code-split, client-only) */}
+            <GlobalModals />
           </GlobalFormProvider>
         </BookingProvider>
       </MobileNavProvider>

@@ -1,11 +1,15 @@
 import nodemailer from 'nodemailer';
 
-const domain = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
 export async function sendPasswordResetEmail(email: string, token: string) {
-  const resetLink = `${domain}/reset-password?token=${token}`;
-  
-  // If no SMTP settings are provided, log to console for development
+  const domain = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL;
+  // Without a public app URL there is no link to send.
+  if (!domain) {
+    console.error("sendPasswordResetEmail: NEXT_PUBLIC_APP_URL / NEXTAUTH_URL is not set; email not sent.");
+    return;
+  }
+  const resetLink = `${domain.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+
+  // SMTP not configured (e.g. local development): nothing to send through.
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
     return;
   }

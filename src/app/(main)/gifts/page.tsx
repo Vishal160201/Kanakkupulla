@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import OrderForm from "@/components/gifts/OrderForm";
 import OrdersTable from "@/components/gifts/OrdersTable";
 import ProductCategoriesStrip from "@/components/gifts/ProductCategoriesStrip";
@@ -10,21 +11,23 @@ import { Settings, ShoppingBag, PackageOpen, CalendarClock, CalendarDays } from 
 import { isTomorrow, isThisWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { GiftOrder, GiftOrdersResponse, GiftProductsResponse } from "@/types/gifts";
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+const NO_ORDERS: GiftOrder[] = [];
+
 
 export default function GiftsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
 
-  const { data: productsData } = useSWR("/api/gifts/products", fetcher, {
+  const { data: productsData } = useSWR<GiftProductsResponse>("/api/gifts/products", fetcher, {
     revalidateOnFocus: false
   });
 
-  const { data: ordersData, mutate } = useSWR("/api/gifts/orders?excludeStatus=DELIVERED", fetcher);
+  const { data: ordersData, mutate } = useSWR<GiftOrdersResponse>("/api/gifts/orders?excludeStatus=DELIVERED", fetcher);
 
-  const orders = ordersData?.orders || [];
+  const orders = ordersData?.orders || NO_ORDERS;
   
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
@@ -41,16 +44,16 @@ export default function GiftsPage() {
 
   const filteredOrders = useMemo(() => {
     if (!selectedCategory) return orders;
-    return orders.filter((o: any) => o.product?.id === selectedCategory);
+    return orders.filter((o) => o.product?.id === selectedCategory);
   }, [orders, selectedCategory]);
 
   // Calculate metrics
-  const pendingCount = orders.filter((o: any) => o.status === "PENDING").length;
-  const productionCount = orders.filter((o: any) => o.status === "PROCESSING").length;
-  const readyCount = orders.filter((o: any) => o.status === "READY").length;
+  const pendingCount = orders.filter((o) => o.status === "PENDING").length;
+  const productionCount = orders.filter((o) => o.status === "PROCESSING").length;
+  const readyCount = orders.filter((o) => o.status === "READY").length;
   
-  const dueTomorrowCount = orders.filter((o: any) => o.customData?.dueDate && isTomorrow(new Date(o.customData.dueDate))).length;
-  const dueThisWeekCount = orders.filter((o: any) => o.customData?.dueDate && isThisWeek(new Date(o.customData.dueDate))).length;
+  const dueTomorrowCount = orders.filter((o) => o.customData?.dueDate && isTomorrow(new Date(o.customData.dueDate))).length;
+  const dueThisWeekCount = orders.filter((o) => o.customData?.dueDate && isThisWeek(new Date(o.customData.dueDate))).length;
 
   return (
     <div className="min-h-screen bg-[#FDFBF9] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-100/40 via-[#FDFBF9] to-blue-50/40 p-4 md:p-8">

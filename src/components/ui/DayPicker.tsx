@@ -105,7 +105,9 @@ export default function DayPicker({ currentDate, onChange, onClose, mode = 'day'
               const isSelected = currentDate.getMonth() === idx && currentDate.getFullYear() === year;
               return (
                 <div key={m} className="flex justify-center">
-                  <div 
+                  <button
+                    type="button"
+                    aria-pressed={isSelected}
                     onClick={() => {
                       onChange(new Date(year, idx, 1));
                       onClose();
@@ -113,7 +115,7 @@ export default function DayPicker({ currentDate, onChange, onClose, mode = 'day'
                     className={`flex items-center justify-center w-[60px] h-[60px] rounded-full cursor-pointer text-[1rem] transition-colors ${isSelected ? 'bg-[#8abeb0] text-white font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
                   >
                     {m}
-                  </div>
+                  </button>
                 </div>
               );
             })}
@@ -187,8 +189,12 @@ export default function DayPicker({ currentDate, onChange, onClose, mode = 'day'
                   const isFuture = disableFutureDates && day.date > todayMidnight;
                   
                   return (
-                    <div 
+                    <button
+                      type="button"
                       key={dIndex}
+                      aria-label={day.date.toDateString()}
+                      aria-disabled={isFuture || undefined}
+                      aria-pressed={mode === 'day' ? isSelectedDate : undefined}
                       className={`flex-1 flex items-center justify-center py-1.5 rounded-lg transition-colors 
                         ${day.isCurrentMonth ? 'text-slate-900' : 'text-slate-400'}
                         ${isFuture ? 'opacity-30 cursor-not-allowed' : mode === 'day' ? 'cursor-pointer hover:bg-indigo-50' : ''}
@@ -207,7 +213,7 @@ export default function DayPicker({ currentDate, onChange, onClose, mode = 'day'
                       <div className={`w-[32px] h-[32px] flex items-center justify-center rounded-full ${isSelectedDate ? 'bg-indigo-500 text-white font-bold' : isWeekSelected && mode === 'week' ? 'font-bold text-indigo-700' : isToday ? 'text-orange-500 font-bold' : isWeekend ? 'text-red-400 font-bold' : 'font-bold'}`}>
                         {day.dayNum}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

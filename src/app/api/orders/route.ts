@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requirePermission, requireUser } from "@/lib/authz";
+import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
+import { orderCreateSchema, orderListQuerySchema } from "@/lib/validations/orders";
 
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
+
+  const query = parseSearchParams(request, orderListQuerySchema);
+  if (query.error) return query.error;
+  const { limit, offset } = query.data;
 
   try {
     const orders = await prisma.order.findMany({
@@ -19,36 +22,34 @@ export async function GET(request: Request) {
         }
       },
       orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: offset,
     });
 
     return NextResponse.json(orders, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to fetch orders:", error);
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requirePermission("manage_bookings");
+  if (auth.error) return auth.error;
 
   try {
-    const body = await request.json();
-    const { bookingId, packageAmount, advanceAmount, dueAmount } = body;
-
-    if (!bookingId) {
-      return NextResponse.json({ error: "Booking ID is required" }, { status: 422 });
-    }
+    const parsed = await parseJsonBody(request, orderCreateSchema);
+    if (parsed.error) return parsed.error;
+    const { bookingId, packageAmount, advanceAmount, dueAmount } = parsed.data;
 
     const newOrder = await prisma.order.create({
       data: {
         bookingId,
-        package: parseFloat(packageAmount || 0),
-        advance: parseFloat(advanceAmount || 0),
-        due: parseFloat(dueAmount || 0),
+        package: packageAmount ?? 0,
+        advance: advanceAmount ?? 0,
+        due: dueAmount ?? 0,
       },
     });
 
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    console.error("Failed to create order:", error);
     return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
   }
 }

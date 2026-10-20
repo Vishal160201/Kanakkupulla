@@ -5,6 +5,20 @@ import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { Clock } from 'lucide-react';
 
+const hours = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+const periods = ['AM', 'PM'];
+
+const itemHeight = 36; // Height of each scroll item
+const visibleItems = 5;
+const listHeight = itemHeight * visibleItems;
+
+const scrollToItem = (ref: React.RefObject<HTMLDivElement | null>, index: number) => {
+  if (ref.current) {
+    ref.current.scrollTo({ top: index * itemHeight, behavior: 'smooth' });
+  }
+};
+
 interface TimePickerInputProps {
   value: string | null; // HH:MM 24hr format
   onChange: (timeStr: string) => void;
@@ -55,17 +69,11 @@ export default function TimePickerInput({ value, onChange, placeholder = "hh:mm 
   const [selectedPeriod, setSelectedPeriod] = useState('AM');
   const [activeCol, setActiveCol] = useState<'h' | 'm' | 'p'>('h');
 
-  const hours = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
-  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
-  const periods = ['AM', 'PM'];
 
   const hourRef = useRef<HTMLDivElement>(null);
   const minuteRef = useRef<HTMLDivElement>(null);
   const periodRef = useRef<HTMLDivElement>(null);
 
-  const itemHeight = 36; // Height of each scroll item
-  const visibleItems = 5;
-  const listHeight = itemHeight * visibleItems;
 
   const getActiveItemFromScroll = (scrollTop: number, itemsCount: number) => {
     const idx = Math.round(scrollTop / itemHeight);
@@ -80,20 +88,19 @@ export default function TimePickerInput({ value, onChange, placeholder = "hh:mm 
     else if (type === 'p') setSelectedPeriod(periods[idx]);
   };
 
-  const scrollToItem = (ref: React.RefObject<any>, index: number) => {
-    if (ref.current) {
-      ref.current.scrollTo({ top: index * itemHeight, behavior: 'smooth' });
-    }
+  // When opening, seed the columns from the current value...
+  const openPicker = () => {
+    const parsed = parseTime(value);
+    setSelectedHour(parsed.h);
+    setSelectedMinute(parsed.m);
+    setSelectedPeriod(parsed.p);
+    setIsOpen(true);
   };
 
-  // When opening, parse value and scroll to selection
+  // ...and scroll each column to the selection once the popup is rendered
   useEffect(() => {
     if (isOpen) {
       const parsed = parseTime(value);
-      setSelectedHour(parsed.h);
-      setSelectedMinute(parsed.m);
-      setSelectedPeriod(parsed.p);
-
       setTimeout(() => {
         scrollToItem(hourRef, hours.indexOf(parsed.h));
         scrollToItem(minuteRef, minutes.indexOf(parsed.m));
@@ -120,7 +127,7 @@ export default function TimePickerInput({ value, onChange, placeholder = "hh:mm 
         zIndex: 9999,
       });
     }
-  }, [isOpen, listHeight]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -165,7 +172,7 @@ export default function TimePickerInput({ value, onChange, placeholder = "hh:mm 
     if (!isOpen) {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setIsOpen(true);
+        openPicker();
       }
       return;
     }
@@ -230,7 +237,7 @@ export default function TimePickerInput({ value, onChange, placeholder = "hh:mm 
   const renderColumn = (
     items: string[], 
     selectedValue: string, 
-    ref: React.RefObject<any>,
+    ref: React.RefObject<HTMLDivElement | null>,
     type: 'h' | 'm' | 'p'
   ) => {
     return (
@@ -310,7 +317,10 @@ export default function TimePickerInput({ value, onChange, placeholder = "hh:mm 
     <div ref={containerRef} className="relative w-full outline-none" onKeyDown={handleKeyDown}>
       <div 
         ref={buttonRef}
-        onClick={() => setIsOpen(!isOpen)}
+        role="button"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        onClick={() => (isOpen ? setIsOpen(false) : openPicker())}
         tabIndex={0}
         className={className || `flex h-[45px] w-full items-center justify-between rounded-xl border bg-white px-4 py-2 text-[0.95rem] transition-all duration-300 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-95 ${hasError ? 'border-red-500 ring-2 ring-red-500/20' : isOpen ? 'border-orange-300 ring-2 ring-orange-500/20' : 'border-gray-200'}`}
       >
