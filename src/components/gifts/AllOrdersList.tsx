@@ -12,6 +12,7 @@ import type { GiftOrder, GiftOrdersResponse, GiftProduct } from "@/types/gifts";
 import { downloadOrdersCSV, downloadOrdersPDF } from "./all-orders/exportOrders";
 import { ActiveFilterPills, OrdersFilterPanel, STATUS_DB_MAP, type ActiveFilters, type DateRangeValue } from "./all-orders/OrdersFilters";
 import { OrdersGridView, OrdersTableView } from "./all-orders/OrdersViews";
+import { useAccess } from "@/hooks/useAccess";
 
 interface AllOrdersListProps {
   products: GiftProduct[];
@@ -21,6 +22,7 @@ const PAGE_SIZE = 25;
 
 export default function AllOrdersList({ products }: AllOrdersListProps) {
   const { openGiftOrderDetails } = useGlobalForm();
+  const canManage = useAccess().can("gifts", "MANAGE");
 
   // Filter State (draft values in the panel; activeFilters drives the query)
   const [statusFilter, setStatusFilter] = useState("");
@@ -144,7 +146,7 @@ export default function AllOrdersList({ products }: AllOrdersListProps) {
     orders,
     confirmDeleteId,
     setConfirmDeleteId,
-    onDelete: handleDelete,
+    onDelete: canManage ? handleDelete : undefined,
     onOpen: openGiftOrderDetails,
   };
 

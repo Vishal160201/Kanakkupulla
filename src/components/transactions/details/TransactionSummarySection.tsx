@@ -1,5 +1,6 @@
 import type { TransactionDetail } from "@/types/transactions";
 import { DetailRow, LinkRow, fieldIcon, formatCustomValue, getCategoryIcon, money } from "./detailParts";
+import { sourceIcon, sourceLabel } from "../sourceLock";
 
 interface TransactionSummarySectionProps {
   transaction: TransactionDetail;
@@ -72,6 +73,13 @@ export default function TransactionSummarySection({ transaction, isIncome, onNav
             label="Gift Order"
             value={transaction.productOrder.orderNumber || transaction.productOrder.id}
             onClick={() => onNavigateToOrder(transaction.productOrder?.id)}
+          />
+        )}
+        {transaction.source && (
+          <DetailRow
+            icon={sourceIcon(transaction.source)}
+            label="Fertilizer Inventory"
+            value={sourceLabel(transaction.source)}
           />
         )}
         {transaction.customFields.map((field) => (

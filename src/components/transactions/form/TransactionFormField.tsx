@@ -6,8 +6,9 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import FileAttachment from "@/components/ui/FileAttachment";
 import type { TransactionFormField as FormFieldDef, TransactionFormState } from "@/types/transactions";
 import { FieldError, FieldLabel, type TransactionFieldProps } from "./FieldChrome";
-import { AmountField, MultiSelectField } from "./CategoryFields";
+import { AmountField, CategorySelectField, MultiSelectField } from "./CategoryFields";
 import { fieldNameOf, optionValue, textValue } from "./transactionFormUtils";
+import Checkbox from "@/components/ui/Checkbox";
 
 interface TransactionFormFieldProps {
   field: FormFieldDef;
@@ -130,7 +131,7 @@ export default function TransactionFormField({ field, form, errors, setField, dr
 
   if (field.type === "DATE") return <DateTimeField {...props} />;
 
-  if (fieldName === 'category') return <MultiSelectField {...props} withCategoryAmounts />;
+  if (fieldName === 'category') return <CategorySelectField {...props} />;
 
   if (field.type === "PICK_LIST") return <PickListField {...props} />;
 
@@ -156,15 +157,13 @@ export default function TransactionFormField({ field, form, errors, setField, dr
   if (field.type === 'CHECKBOX') {
     return (
       <div className="flex items-center h-[45px] w-full rounded-xl border bg-white px-4 transition-colors border-slate-200 mt-6">
-        <label className="flex items-center gap-3 cursor-pointer w-full h-full">
-          <input
-            type="checkbox"
-            className="w-5 h-5 accent-orange-500 rounded border-gray-300 cursor-pointer"
-            checked={form[fieldName] === true || form[fieldName] === 'true'}
-            onChange={(e) => setField(fieldName)(e.target.checked.toString())}
-          />
-          <span className="text-[0.95rem] text-slate-600 font-medium select-none">{field.name}</span>
-        </label>
+        <Checkbox
+          checked={form[fieldName] === true || form[fieldName] === 'true'}
+          onChange={(checked) => setField(fieldName)(checked.toString())}
+          label={field.name}
+          className="w-full h-full gap-3"
+          labelClassName="text-[0.95rem] text-slate-600 font-medium select-none"
+        />
       </div>
     );
   }

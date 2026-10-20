@@ -1,24 +1,32 @@
 import { NextResponse } from 'next/server';
 import prisma, { toNumber } from '@/lib/prisma';
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, sub, format } from 'date-fns';
-import { requirePermission } from "@/lib/authz";
+import { requireAccess } from "@/lib/authz";
 import { parseSearchParams } from "@/lib/validations/http";
 import { analyticsQuerySchema } from "@/lib/validations/dashboard";
-import { shopWhere } from "@/lib/shops";
+import { assertReadableShop, shopWhere, ShopError } from "@/lib/shops";
 
 type RevenueDay = { date: string; Bookings: number; Gifts: number; 'Xerox/PP': number; Other: number; total: number; isPeak?: boolean };
 type TrendDay = { date: string; income: number; expense: number };
 type CollectionDay = { date: string; billed: number; collected: number; overdue: number };
 
+// Day buckets are keyed by yyyy-MM-dd so they sort chronologically (and never merge across years);
+// only the label shown on the chart is 'dd MMM'.
+const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
+const dayLabel = (d: Date) => format(d, 'dd MMM');
+const sortedDays = <T,>(map: Map<string, T>): T[] =>
+  [...map.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, v]) => v);
+
 export async function GET(req: Request) {
   try {
-    const auth = await requirePermission("view_analytics");
+    const auth = await requireAccess("analytics", "VIEW");
     if (auth.error) return auth.error;
 
     const query = parseSearchParams(req, analyticsQuerySchema);
     if (query.error) return query.error;
     const { startDate: startDateParam, endDate: endDateParam, shopId } = query.data;
     // Only ledger-derived figures follow the shop filter; booking and gift-order figures are studio-wide
+    await assertReadableShop(auth.user, shopId, ["STUDIO"]);
     const shopFilter = shopWhere(shopId);
     const range = query.data.range ?? 'this-month';
 
@@ -111,7 +119,7 @@ export async function GET(req: Request) {
     const studioRevenue = shopId
       ? toNumber((await prisma.transaction.aggregate({
           _sum: { amount: true },
-          where: { date: { gte: startDate, lte: endDate }, deletedAt: null, type: 'INCOME' },
+          where: { date: { gte: startDate, lte: endDate }, deletedAt: null, type: 'INCOME', shop: { type: 'STUDIO' } },
         }))._sum.amount)
       : totalRevenue;
     const collectionRate = totalBilled > 0 ? Math.round((studioRevenue / totalBilled) * 100) : 0;
@@ -171,9 +179,10 @@ export async function GET(req: Request) {
     let peakDay = { date: '', total: 0 };
     
     currentTx.filter(t => t.type === 'INCOME').forEach(t => {
-      const dateKey = format(new Date(t.date), 'dd MMM');
+      const day = new Date(t.date);
+      const dateKey = dayKey(day);
       if (!revenueIntelligenceMap.has(dateKey)) {
-        revenueIntelligenceMap.set(dateKey, { date: dateKey, Bookings: 0, Gifts: 0, 'Xerox/PP': 0, Other: 0, total: 0 });
+        revenueIntelligenceMap.set(dateKey, { date: dayLabel(day), Bookings: 0, Gifts: 0, 'Xerox/PP': 0, Other: 0, total: 0 });
       }
       const entry = revenueIntelligenceMap.get(dateKey)!;
 
@@ -195,35 +204,37 @@ export async function GET(req: Request) {
       return acc;
     }, {} as Record<string, number>);
 
-    const revenueIntelligence = Array.from(revenueIntelligenceMap.values());
+    const revenueIntelligence = sortedDays(revenueIntelligenceMap);
     revenueIntelligence.forEach(r => r.isPeak = (r.total === peakDay.total && r.total > 0));
 
     // Daily Trends
     const dailyTrendsMap = new Map<string, TrendDay>();
     currentTx.forEach(t => {
-      const dateKey = format(new Date(t.date), 'dd MMM');
+      const day = new Date(t.date);
+      const dateKey = dayKey(day);
       if (!dailyTrendsMap.has(dateKey)) {
-        dailyTrendsMap.set(dateKey, { date: dateKey, income: 0, expense: 0 });
+        dailyTrendsMap.set(dateKey, { date: dayLabel(day), income: 0, expense: 0 });
       }
       const entry = dailyTrendsMap.get(dateKey)!;
       if (t.type === 'INCOME') entry.income += t.amount;
       if (t.type === 'EXPENSE') entry.expense += t.amount;
     });
-    const dailyTrends = Array.from(dailyTrendsMap.values());
+    const dailyTrends = sortedDays(dailyTrendsMap);
 
     // Collection Health
     const collectionHealthMap = new Map<string, CollectionDay>();
     orders.forEach(o => {
-      const dateKey = format(new Date(o.booking?.date || o.createdAt), 'dd MMM');
+      const day = new Date(o.booking?.date || o.createdAt);
+      const dateKey = dayKey(day);
       if (!collectionHealthMap.has(dateKey)) {
-        collectionHealthMap.set(dateKey, { date: dateKey, billed: 0, collected: 0, overdue: 0 });
+        collectionHealthMap.set(dateKey, { date: dayLabel(day), billed: 0, collected: 0, overdue: 0 });
       }
       const entry = collectionHealthMap.get(dateKey)!;
       entry.billed += o.package;
       entry.collected += o.advance;
       entry.overdue += o.due;
     });
-    const collectionHealth = Array.from(collectionHealthMap.values());
+    const collectionHealth = sortedDays(collectionHealthMap);
     
     // Add product list to overdue orders to allow filtering
     const overdueOrdersList = orders.filter(o => o.due > 0).map(o => {
@@ -335,6 +346,7 @@ export async function GET(req: Request) {
     });
 
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to fetch analytics:", error);
     return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 });
   }

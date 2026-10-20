@@ -79,7 +79,7 @@ export async function GET(request: Request) {
       activeReminderSet.add(`${r.type}_${r.entityId}`);
     }
 
-    const admins = await prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });
+    const admins = await prisma.user.findMany({ where: { role: 'OWNER', status: 'ACTIVE' }, select: { id: true } });
     const adminIds = admins.map(a => a.id);
 
     // Reminders are collected here and inserted with a single createMany at the end

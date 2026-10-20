@@ -7,6 +7,7 @@ import { useShops } from "@/components/providers/ShopProvider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { Shop, ShopInput } from "@/types/shops";
 import ShopFormDialog from "./ShopFormDialog";
+import ShopMembersDialog from "./ShopMembersDialog";
 import ShopRow from "./ShopRow";
 
 interface ApiResult {
@@ -35,7 +36,7 @@ const revalidateShopViews = () =>
     )
   );
 
-/** Settings → Shops (admin only): studio-wide shops that ledger entries belong to. */
+/** Settings → Shops (owners only): studio-wide shops that ledger entries belong to. */
 export default function ShopsSettings() {
   const { allShops, isLoading, refreshShops } = useShops();
   // `undefined` = closed, `null` = adding a new shop
@@ -44,6 +45,7 @@ export default function ShopsSettings() {
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Shop | null>(null);
+  const [membersShop, setMembersShop] = useState<Shop | null>(null);
 
   // Entry counts change as transactions are recorded; refresh when the section opens.
   useEffect(() => {
@@ -133,7 +135,7 @@ export default function ShopsSettings() {
         <div>
           <h2 className="text-lg font-extrabold text-slate-900">Shops</h2>
           <p className="text-sm font-semibold text-slate-500 mt-0.5">
-            Split the Daily Kanakku ledger by shop. Categories are shared by every shop.
+            Split the Daily Kanakku ledger by shop. Studio shops share their categories; fertilizer shops have their own.
           </p>
         </div>
         <button
@@ -164,6 +166,7 @@ export default function ShopsSettings() {
               isLastActive={!shop.isArchived && activeCount <= 1}
               onEdit={() => setEditing(shop)}
               onSetDefault={() => updateShop(shop, { isDefault: true }, `"${shop.name}" is now the default shop`)}
+              onManageMembers={() => setMembersShop(shop)}
               onToggleArchive={() =>
                 updateShop(
                   shop,
@@ -177,8 +180,9 @@ export default function ShopsSettings() {
         )}
 
         <p className="text-[11px] font-semibold text-slate-400 px-1 pt-2 leading-relaxed">
-          New entries from bookings and gift orders go to the default shop. Archived shops keep their history but
-          can&apos;t receive new entries. A shop can only be deleted when it has no ledger entries.
+          New entries from bookings and gift orders go to the default shop, which must be a studio shop. Owners can open
+          every shop; everyone else only sees the shops they&apos;re given under People. Archived shops keep their
+          history but can&apos;t receive new entries. A shop can only be deleted when it has no ledger entries.
         </p>
       </div>
 
@@ -189,6 +193,15 @@ export default function ShopsSettings() {
           serverErrors={serverErrors}
           onSubmit={handleSave}
           onClose={closeForm}
+        />
+      )}
+
+      {membersShop && (
+        <ShopMembersDialog
+          key={membersShop.id}
+          shop={membersShop}
+          onClose={() => setMembersShop(null)}
+          onSaved={refreshShops}
         />
       )}
 

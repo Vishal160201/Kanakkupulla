@@ -12,7 +12,8 @@ export interface OrdersViewProps {
   orders: GiftOrder[];
   confirmDeleteId: string | null;
   setConfirmDeleteId: (id: string | null) => void;
-  onDelete: (e: React.MouseEvent, orderId: string) => void;
+  /** Omitted without Gifts Manage: no delete buttons. */
+  onDelete?: (e: React.MouseEvent, orderId: string) => void;
   onOpen: (orderId: string) => void;
 }
 
@@ -87,13 +88,13 @@ export function OrdersTableView({ orders, confirmDeleteId, setConfirmDeleteId, o
                   <td className="px-6 py-4 text-center">
                     {confirmDeleteId === order.id ? (
                       <div className="flex items-center justify-center gap-2">
-                        <button type="button" onClick={(e) => onDelete(e, order.id)} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors">Confirm</button>
+                        <button type="button" onClick={(e) => onDelete?.(e, order.id)} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors">Confirm</button>
                         <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors">Cancel</button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button type="button" aria-label="View / edit order" onClick={(e) => { e.stopPropagation(); onOpen(order.id); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
-                        <button type="button" aria-label="Delete order" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                        {onDelete && <button type="button" aria-label="Delete order" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>}
                       </div>
                     )}
                   </td>
@@ -168,13 +169,13 @@ export function OrdersGridView({ orders, confirmDeleteId, setConfirmDeleteId, on
 
             {confirmDeleteId === order.id ? (
                 <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-slate-100 animate-[fadeIn_0.2s_ease-out]">
-                  <button type="button" onClick={(e) => onDelete(e, order.id)} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[0.65rem] font-bold hover:bg-red-700 transition-colors">Confirm</button>
+                  <button type="button" onClick={(e) => onDelete?.(e, order.id)} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[0.65rem] font-bold hover:bg-red-700 transition-colors">Confirm</button>
                   <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[0.65rem] font-bold hover:bg-slate-200 transition-colors">Cancel</button>
                 </div>
               ) : (
                 <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                    <button type="button" aria-label="View / edit order" onClick={(e) => { e.stopPropagation(); onOpen(order.id); }} className="p-1.5 bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={14}/></button>
-                   <button type="button" aria-label="Delete order" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }} className="p-1.5 bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-red-600 rounded-lg transition-colors"><Trash2 size={14}/></button>
+                   {onDelete && <button type="button" aria-label="Delete order" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }} className="p-1.5 bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-red-600 rounded-lg transition-colors"><Trash2 size={14}/></button>}
                 </div>
               )}
           </div>

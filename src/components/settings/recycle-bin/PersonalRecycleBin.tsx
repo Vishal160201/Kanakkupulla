@@ -51,11 +51,11 @@ export default function PersonalRecycleBin() {
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-slate-50 border-b border-gray-200">
-            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Title</th>
-            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
-            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
-            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+            <th className="p-2 sm:p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
+            <th className="p-2 sm:p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Title</th>
+            <th className="hidden sm:table-cell p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
+            <th className="p-2 sm:p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
+            <th className="p-2 sm:p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -68,15 +68,15 @@ export default function PersonalRecycleBin() {
               const e = item.originalData;
               return (
                 <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="p-4 text-sm text-slate-600">{new Date(e.date).toLocaleDateString()}</td>
-                  <td className="p-4 text-sm font-bold text-slate-900">{e.title}</td>
-                  <td className="p-4 text-sm text-slate-600">
+                  <td className="p-2 sm:p-4 text-sm text-slate-600">{new Date(e.date).toLocaleDateString()}</td>
+                  <td className="p-2 sm:p-4 text-sm font-bold text-slate-900">{e.title}</td>
+                  <td className="hidden sm:table-cell p-4 text-sm text-slate-600">
                     <span className="bg-slate-100 px-2 py-1 rounded-md text-xs font-bold">{e.category}</span>
                   </td>
-                  <td className={`p-4 text-sm font-bold ${e.type === "CREDIT" ? "text-emerald-600" : "text-slate-900"}`}>
+                  <td className={`p-2 sm:p-4 text-sm font-bold ${e.type === "CREDIT" ? "text-emerald-600" : "text-slate-900"}`}>
                     {e.type === "CREDIT" ? "+" : "-"}₹{e.amount?.toLocaleString()}
                   </td>
-                  <td className="p-4 text-right">
+                  <td className="p-2 sm:p-4 text-right">
                     <RowActions
                       isConfirming={confirmDeleteId === item.id}
                       isDeleting={isDeletingId === item.id}

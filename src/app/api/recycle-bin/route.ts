@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAdmin, requireUser } from "@/lib/authz";
+import { requireAccess, requireOwner } from "@/lib/authz";
 import { canAccessEntry, purgeEntry } from "@/lib/recycleBin";
 import type { Prisma } from "@prisma/client";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
@@ -15,7 +15,7 @@ const groupChildren = (value: JsonValue | undefined) =>
   Array.isArray(value) ? value.map(child => asJsonRecord(child)) : [];
 
 export async function GET(request: Request) {
-  const auth = await requireUser();
+  const auth = await requireAccess("recycle_bin", "VIEW");
   if (auth.error) return auth.error;
   const user = auth.user;
 
@@ -128,7 +128,7 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
   // Drive deletes run as the acting admin
   const session = { user: auth.user };

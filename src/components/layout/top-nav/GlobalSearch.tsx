@@ -43,7 +43,7 @@ export default function GlobalSearch() {
   return (
     <div ref={searchRef} className="relative">
       <button
-        className="md:hidden w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white border border-gray-200 text-slate-600 shadow-sm"
+        className="lg:hidden w-[45px] h-[45px] flex items-center justify-center rounded-full bg-white border border-gray-200 text-slate-600 shadow-sm"
         onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
         type="button"
         aria-label="Search"
@@ -53,7 +53,7 @@ export default function GlobalSearch() {
       </button>
 
       <div className={`
-        absolute right-0 top-14 md:top-auto md:relative md:flex bg-white border border-gray-200 rounded-2xl md:rounded-full px-4 py-2 items-center gap-2.5 w-[calc(100vw-32px)] sm:w-[300px] shadow-lg md:shadow-sm transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent z-[100]
+        absolute right-0 top-14 lg:top-auto lg:relative lg:flex bg-white border border-gray-200 rounded-2xl lg:rounded-full px-4 py-2 items-center gap-2.5 w-[calc(100vw-32px)] sm:w-[300px] shadow-lg lg:shadow-sm transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent z-[100]
         ${isMobileSearchOpen ? 'flex' : 'hidden'}
       `}>
         <input
@@ -69,14 +69,14 @@ export default function GlobalSearch() {
         {isSearchLoading ? (
           <i className="ph-bold ph-spinner animate-spin text-blue-500 text-[1.2rem]"></i>
         ) : (
-          <i className="ph-bold ph-magnifying-glass text-slate-400 text-[1.2rem] hidden md:block"></i>
+          <i className="ph-bold ph-magnifying-glass text-slate-400 text-[1.2rem] hidden lg:block"></i>
         )}
       </div>
 
       {isSearchFocused && searchQuery.length >= 2 && (
         <>
-          <div className="fixed inset-0 z-[90] md:hidden" aria-hidden="true" onClick={() => setIsSearchFocused(false)}></div>
-          <div className="fixed md:absolute top-[80px] md:top-[calc(100%+8px)] left-4 right-4 md:left-0 md:right-auto md:w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[calc(100dvh-100px)] md:max-h-[60dvh] overflow-y-auto no-scrollbar">
+          <div className="fixed inset-0 z-[90] lg:hidden" aria-hidden="true" onClick={() => setIsSearchFocused(false)}></div>
+          <div className="fixed lg:absolute top-[80px] lg:top-[calc(100%+8px)] left-4 right-4 lg:left-0 lg:right-auto lg:w-[400px] bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 py-3 z-[100] max-h-[calc(100dvh-100px)] lg:max-h-[60dvh] overflow-y-auto no-scrollbar">
             <div className="px-4 pb-2 text-[0.7rem] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">Search Results</div>
 
           {!isSearchLoading && (!searchResults?.results || searchResults.results.length === 0) ? (

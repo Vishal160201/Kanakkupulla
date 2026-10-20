@@ -3,26 +3,29 @@
 import { Trash2 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-/** Bottom sticky action bar of the details view. */
-export function BookingActionBar({ displayId, onEdit, onClose }: { displayId: string; onEdit: () => void; onClose: () => void }) {
+/** Bottom sticky action bar of the details view. Without `onEdit` (no Bookings Manage) there is no Edit button. */
+export function BookingActionBar({ displayId, onEdit, onClose }: { displayId: string; onEdit?: () => void; onClose: () => void }) {
   return (
-    <div className="shrink-0 h-20 bg-white border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] px-6 flex items-center justify-between z-40 rounded-b-[2rem]">
-      <div className="flex items-center gap-3">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Action Center</p>
-        <p className="text-sm font-bold text-slate-800 border-l border-slate-200 pl-3">Viewing: {displayId}</p>
+    <div className="shrink-0 h-20 bg-white border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] px-4 sm:px-6 flex items-center justify-between gap-4 z-40 rounded-b-[2rem]">
+      {/* Info group is dropped on phones so the buttons get the full row */}
+      <div className="hidden sm:flex items-center gap-3 min-w-0">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Action Center</p>
+        <p className="text-sm font-bold text-slate-800 border-l border-slate-200 pl-3 truncate">Viewing: {displayId}</p>
       </div>
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-sm transition-colors"
-        >
-          Edit Booking
-        </button>
+      <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto shrink-0">
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-sm whitespace-nowrap transition-colors"
+          >
+            Edit Booking
+          </button>
+        )}
         <button
           type="button"
           onClick={onClose}
-          className="px-8 py-2.5 bg-[#0B1E40] text-white hover:bg-[#152a55] rounded-xl font-bold text-sm transition-colors shadow-lg shadow-blue-900/20"
+          className="flex-1 sm:flex-none px-8 py-2.5 whitespace-nowrap bg-[#0B1E40] text-white hover:bg-[#152a55] rounded-xl font-bold text-sm transition-colors shadow-lg shadow-blue-900/20"
         >
           Close
         </button>

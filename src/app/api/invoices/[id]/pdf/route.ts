@@ -5,7 +5,7 @@ import InvoiceDocument from '@/components/invoices/InvoiceDocument';
 import QRCode from 'qrcode';
 import { initFonts } from '@/components/invoices/theme/invoiceTheme';
 import { buildInvoiceViewModel } from '@/components/invoices/utils/invoiceLogic';
-import { requirePermission } from '@/lib/authz';
+import { requireAccess } from '@/lib/authz';
 import { fetchDriveFile } from '@/lib/googleDriveAuth';
 
 /** First attachment that references a Drive file (`{ id }` or `{ fileId }`). */
@@ -24,7 +24,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requirePermission('manage_transactions');
+    const auth = await requireAccess("bookings", "VIEW");
     if (auth.error) return auth.error;
 
     const { id: invoiceId } = await params;

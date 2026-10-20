@@ -12,6 +12,7 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { Suspense } from "react";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useAccess } from "@/hooks/useAccess";
 
 /** Booking row as returned by GET /api/bookings (only the fields used here). */
 interface ApiBooking {
@@ -54,7 +55,12 @@ function CalendarWidgetInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { preferences } = useSystem();
-  const { openBookingForm, openBookingDetails } = useGlobalForm();
+  const { openBookingForm: openBookingFormRaw, openBookingDetails } = useGlobalForm();
+  // Clicking an empty day starts a booking: only for users who may create one.
+  const canCreateBooking = useAccess().can("bookings", "MANAGE");
+  const openBookingForm = (bookingId?: string, initialDate?: string) => {
+    if (canCreateBooking) openBookingFormRaw(bookingId, initialDate);
+  };
   
   const [currentDate, setCurrentDate] = useState(() => {
     const d = searchParams.get('date');
@@ -161,9 +167,9 @@ function CalendarWidgetInner() {
       };
 
       cells.push(
-        <div key={i} className="calendar-cell interactive" style={{ cursor: 'pointer', position: 'relative' }} onClick={handleCellClick}>
+        <div key={i} className="calendar-cell interactive" style={{ cursor: canCreateBooking ? 'pointer' : 'default', position: 'relative' }} onClick={handleCellClick}>
           {isToday ? (
-            <div className="calendar-date" style={{ color: "var(--brand-orange)", fontWeight: 800 }}>{i} <span style={{ fontSize: "0.7rem", marginLeft: "5px" }}>Today</span></div>
+            <div className="calendar-date" style={{ color: "var(--brand-orange)", fontWeight: 800 }}>{i} <span className="hidden sm:inline" style={{ fontSize: "0.7rem", marginLeft: "5px" }}>Today</span></div>
           ) : (
             <div className="calendar-date" style={{ fontWeight: dayBookings.length > 0 ? 800 : 400 }}>{i}</div>
           )}
@@ -171,8 +177,8 @@ function CalendarWidgetInner() {
           {dayBookings.slice(0, 2).map((b: CalendarBooking) => {
             const styles = getTierStyles(b.package);
             return (
-              <button type="button" key={b.id} className="calendar-event w-full text-left" style={{ backgroundColor: styles.bg, color: styles.color, border: 'none', marginBottom: '2px', padding: '3px 6px', fontSize: '0.65rem', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); }}>
-                <i className="ph-fill ph-calendar-star"></i> {b.title.substring(0, 10)}...
+              <button type="button" key={b.id} title={b.title} className="calendar-event w-full min-w-0 overflow-hidden text-left" style={{ backgroundColor: styles.bg, color: styles.color, border: 'none', marginBottom: '2px', padding: '3px 6px', fontSize: '0.65rem', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); openBookingDetails(b.id); }}>
+                <i className="ph-fill ph-calendar-star shrink-0"></i> <span className="truncate min-w-0">{b.title}</span>
               </button>
             );
           })}
@@ -360,7 +366,7 @@ function CalendarWidgetInner() {
       
       <div id="calendar-container" className={isLoading ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}>
         {view === 'month' && (
-          <div className="calendar-grid min-w-[500px]">
+          <div className="calendar-grid min-w-0 sm:min-w-[500px]">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="calendar-day-header">{d}</div>)}
             {renderMonthGrid()}
           </div>

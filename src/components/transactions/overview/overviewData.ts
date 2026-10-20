@@ -13,6 +13,7 @@ import {
   getRelatableIcon,
   type CategoryColorClasses,
 } from "../categoryStyles";
+import { INVENTORY_LEDGER_CATEGORIES, type ShopTypeName } from "@/lib/shopModules";
 
 /** Circumference of the r=40 donut rings used on the overview (2 * pi * 40). */
 export const DONUT_DASHARRAY = 251.2;
@@ -46,6 +47,7 @@ export interface QuickAddCategory {
 }
 
 const INCOME_CATEGORIES = ["Photography Session", "Booking Advance", "Passport Photo", "Frame Sales", "Editing Charges", "Album Payment", "PP", "Xerox", "Printout", "E-Sevai", "Others"];
+const FERTILIZER_INCOME_CATEGORIES: string[] = [INVENTORY_LEDGER_CATEGORIES.SALE, INVENTORY_LEDGER_CATEGORIES.CREDIT_PAYMENT];
 
 const toShares = (totals: Record<string, number>, total: number): CategoryShare[] =>
   Object.entries(totals)
@@ -201,8 +203,14 @@ export function groupTodayTransactions(todayTransactions: Transaction[]): TodayT
   );
 }
 
-/** Category list for the quick-add strip, from the form layout when available. */
-export function buildQuickAddCategories(layoutRes: TransactionLayoutResponse | undefined): QuickAddCategory[] {
+/**
+ * Category list for the quick-add strip, from the shop type's form layout when available.
+ * Studio shops fall back to the built-in studio categories; other types wait for their layout.
+ */
+export function buildQuickAddCategories(
+  layoutRes: TransactionLayoutResponse | undefined,
+  shopType: ShopTypeName = "STUDIO"
+): QuickAddCategory[] {
   const layoutSchema = layoutRes?.schema;
   let dynamicCategories: string[] = [];
   if (layoutSchema?.sections) {
@@ -215,10 +223,12 @@ export function buildQuickAddCategories(layoutRes: TransactionLayoutResponse | u
     }
   }
 
-  const baseCategories = dynamicCategories.length > 0 ? dynamicCategories : Object.keys(CATEGORY_ICONS);
+  const fallback = shopType === "STUDIO" ? Object.keys(CATEGORY_ICONS) : [];
+  const baseCategories = dynamicCategories.length > 0 ? dynamicCategories : fallback;
+  const incomeCategories = shopType === "STUDIO" ? INCOME_CATEGORIES : FERTILIZER_INCOME_CATEGORIES;
 
   return baseCategories.map(cat => {
-    const isIncome = INCOME_CATEGORIES.includes(cat);
+    const isIncome = incomeCategories.includes(cat);
     const classes = getCategoryColorClasses(cat);
 
     return {

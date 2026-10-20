@@ -23,6 +23,12 @@ const money = <Field extends string>(field: Field) => ({
   compute: (row: Record<Field, Prisma.Decimal>) => Number(row[field]),
 });
 
+/** Like money(), for nullable columns (null stays null). */
+const optionalNumber = <Field extends string>(field: Field) => ({
+  needs: { [field]: true } as Record<Field, true>,
+  compute: (row: Record<Field, Prisma.Decimal | null>) => (row[field] == null ? null : Number(row[field])),
+});
+
 function extend(client: PrismaClient) {
   return client.$extends({
     result: {
@@ -32,6 +38,14 @@ function extend(client: PrismaClient) {
       productOrder: { discountAmount: money('discountAmount') },
       invoice: { discount: money('discount') },
       invoiceLineItem: { rate: money('rate'), amount: money('amount') },
+      inventoryProduct: { price: money('price'), packSize: optionalNumber('packSize') },
+      inventoryBill: { totalAmount: money('totalAmount'), paidAmount: money('paidAmount') },
+      stockMovement: { quantity: money('quantity'), unitPrice: money('unitPrice'), amount: money('amount') },
+      customerPayment: { amount: money('amount') },
+      produceCollection: { quantity: money('quantity'), rate: money('rate'), amount: money('amount') },
+      producePayment: { amount: money('amount'), cashAmount: money('cashAmount'), creditDeducted: money('creditDeducted') },
+      produceSale: { quantity: money('quantity'), rate: money('rate'), totalAmount: money('totalAmount'), paidAmount: money('paidAmount') },
+      produceReceipt: { amount: money('amount') },
     },
   });
 }

@@ -4,6 +4,7 @@ import type React from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { mutate } from "swr";
+import { toast } from "sonner";
 import type { Transaction, TransactionsOverviewResponse } from "@/types/transactions";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { groupTodayTransactions } from "./overviewData";
@@ -37,6 +38,13 @@ export default function TodayTransactionsPanel({ overviewKey, today, todayIncome
       const res = await fetch(url, { method: 'DELETE' });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        if (res.status === 409 && errorData.error) {
+          // Locked entry (e.g. created by Fertilizer Inventory): explain and drop the confirm state.
+          toast.error(errorData.error);
+          setConfirmDeleteId(null);
+          setIsDeletingId(null);
+          return;
+        }
         throw new Error(errorData.error || "Failed to delete");
       }
 

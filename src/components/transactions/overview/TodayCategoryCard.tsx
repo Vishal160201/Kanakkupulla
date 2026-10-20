@@ -41,7 +41,7 @@ export default function TodayCategoryCard({
       <div className={headerClassName}>
         <h3 className="text-[#0B1E40] font-black text-[1.05rem]">{title}</h3>
       </div>
-      <div className="flex-1 p-4 sm:p-5 flex flex-row items-center justify-between gap-4">
+      <div className="flex-1 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
         {total === 0 ? (
           <div className="w-full text-center text-slate-400 py-10 text-sm">{emptyText}</div>
         ) : (
@@ -71,7 +71,7 @@ export default function TodayCategoryCard({
                 <span className="text-[#0B1E40] font-black text-[1rem] sm:text-[1.1rem]">₹{total.toLocaleString('en-IN')}</span>
               </div>
             </div>
-            <div className="flex flex-col gap-3 w-[60%] sm:w-[65%] shrink-0">
+            <div className="flex flex-col gap-3 w-full sm:w-[65%] shrink-0">
               {legend.map((seg, i) => {
                 const iconStr = getRelatableIcon(seg.category);
                 return (
@@ -94,7 +94,7 @@ export default function TodayCategoryCard({
                     </div>
                     <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                       <span className="text-[0.8rem] font-bold text-[#0B1E40]">₹{formatAmount(seg.amount)}</span>
-                      <span className="text-[0.7rem] text-slate-400 font-bold w-8 text-right">{formatPct(seg.pct)}%</span>
+                      <span className="text-[0.7rem] text-slate-400 font-bold min-w-8 whitespace-nowrap text-right">{formatPct(seg.pct)}%</span>
                     </div>
                   </div>
                 )

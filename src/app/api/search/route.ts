@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireUser, roleHasPermission } from "@/lib/authz";
+import { can, requireUser } from "@/lib/authz";
 import { parseSearchParams } from "@/lib/validations/http";
 import { searchQuerySchema } from "@/lib/validations/admin";
 
@@ -64,11 +64,11 @@ export async function GET(request: Request) {
     });
 
     // Search Transactions
-    const canSeeTransactions = await roleHasPermission(auth.user.role, "view_transactions")
-      || await roleHasPermission(auth.user.role, "manage_transactions");
+    const canSeeTransactions = await can(auth.user, "ledger", "VIEW");
     const transactions = !canSeeTransactions ? [] : await prisma.transaction.findMany({
       where: {
         deletedAt: null,
+        shop: { type: "STUDIO" }, // global search covers the studio; other shops have their own screens
         OR: [
           { description: { contains: query, mode: "insensitive" } },
           { category: { contains: query, mode: "insensitive" } },

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/notifications";
-import { requirePermission, requireUser } from "@/lib/authz";
+import { requireAccess } from "@/lib/authz";
 import { trashBooking } from "@/lib/recycleBin";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
 import { bookingDeleteQuerySchema, bookingUpdateApiSchema } from "@/lib/validations/booking";
@@ -15,7 +15,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireUser();
+  const auth = await requireAccess("bookings", "VIEW");
   if (auth.error) return auth.error;
 
   try {
@@ -48,7 +48,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requirePermission("manage_bookings");
+  const auth = await requireAccess("bookings", "MANAGE");
   if (auth.error) return auth.error;
   const userId = auth.user.id;
 
@@ -113,7 +113,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requirePermission("manage_bookings");
+  const auth = await requireAccess("bookings", "MANAGE");
   if (auth.error) return auth.error;
   const userId = auth.user.id;
 
@@ -124,8 +124,8 @@ export async function DELETE(
     const hardDelete = query.data.hard;
 
     if (hardDelete) {
-      if (auth.user.role !== "ADMIN") {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (auth.user.role !== "OWNER") {
+        return NextResponse.json({ error: "Only owners can permanently delete bookings." }, { status: 403 });
       }
       await prisma.$transaction([
         prisma.transaction.deleteMany({ where: { bookingId: id } }),

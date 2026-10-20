@@ -7,7 +7,8 @@ import { getStatusVisual } from "./fieldIcons";
 
 interface BookingDetailsHeaderProps {
   booking: BookingDetail;
-  canManageTransactions: boolean;
+  /** Bookings Manage: delete, invoice and status changes. */
+  canManage: boolean;
   isStatusPicker: boolean;
   statusOptions: StatusOption[];
   isStatusDropdownOpen: boolean;
@@ -103,7 +104,7 @@ function MetaItem({ icon, iconBg, label, value, round }: { icon: React.ReactNode
 }
 
 export default function BookingDetailsHeader(props: BookingDetailsHeaderProps) {
-  const { booking, canManageTransactions, isExporting, isGeneratingInvoice, onDelete, onExport, onGenerateInvoice } = props;
+  const { booking, canManage, isExporting, isGeneratingInvoice, onDelete, onExport, onGenerateInvoice } = props;
 
   return (
     <header className="shrink-0 sticky top-0 z-40 bg-[#F5F6F8] px-4 md:px-6 py-3 pb-2">
@@ -115,16 +116,18 @@ export default function BookingDetailsHeader(props: BookingDetailsHeaderProps) {
           </div>
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onDelete}
-              className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-red-50 hover:px-3"
-            >
-              <Trash2 className="w-5 h-5 text-red-500 group-hover:text-red-600 shrink-0 transition-colors" />
-              <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-red-600 whitespace-nowrap">
-                Delete
-              </span>
-            </button>
+            {canManage && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-red-50 hover:px-3"
+              >
+                <Trash2 className="w-5 h-5 text-red-500 group-hover:text-red-600 shrink-0 transition-colors" />
+                <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-red-600 whitespace-nowrap">
+                  Delete
+                </span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onExport}
@@ -136,7 +139,7 @@ export default function BookingDetailsHeader(props: BookingDetailsHeaderProps) {
                 Export
               </span>
             </button>
-            {canManageTransactions && (
+            {canManage && (
               <button
                 type="button"
                 onClick={onGenerateInvoice}

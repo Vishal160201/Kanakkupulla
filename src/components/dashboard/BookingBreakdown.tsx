@@ -79,7 +79,7 @@ export default function BookingBreakdown({ data = [] }: BookingBreakdownProps) {
             return (
               <React.Fragment key={album.id}>
                 <button type="button" onClick={() => openBookingDetails(album.id)} className="text-left flex items-center justify-between group py-2 px-3 -mx-3 rounded-2xl hover:bg-white cursor-pointer transition-all duration-300 hover:shadow-[0_8px_20px_rgb(0,0,0,0.06)] hover:-translate-y-0.5 hover:scale-[1.01] relative z-10 border border-transparent hover:border-slate-50">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     
                     {/* Icon Container */}
                     <div className="w-11 h-11 rounded-[14px] bg-indigo-50/80 flex items-center justify-center shrink-0 group-hover:bg-indigo-100/50 transition-colors">
@@ -88,8 +88,8 @@ export default function BookingBreakdown({ data = [] }: BookingBreakdownProps) {
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[#0f172a] font-extrabold text-[0.8rem] truncate max-w-[150px] uppercase tracking-tight">{album.clientName}</span>
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="text-[#0f172a] font-extrabold text-[0.8rem] truncate uppercase tracking-tight">{album.clientName}</span>
                       <span className="text-slate-400 text-[0.65rem] font-bold flex items-center gap-1">
                         <i className="ph-bold ph-calendar-blank text-[0.75rem]"></i>
                         {new Date(album.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/-/g, '/')}
@@ -97,7 +97,7 @@ export default function BookingBreakdown({ data = [] }: BookingBreakdownProps) {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 pl-2">
+                  <div className="flex items-center gap-4 pl-2 shrink-0">
                     {getStatusBadge(album.status)}
                     <i className="ph-bold ph-caret-right text-slate-300 group-hover:text-slate-500 transition-colors text-base"></i>
                   </div>

@@ -1,13 +1,16 @@
 import React from 'react';
 import { useGlobalForm } from '@/components/providers/GlobalFormProvider';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useActiveShopCan } from '@/hooks/useAccess';
 
 export default function QuickActions() {
   const { openBookingForm, openTransactionForm } = useGlobalForm();
-  const { checkPermission } = usePermissions();
+  const can = useActiveShopCan();
 
-  const canManageBookings = checkPermission('manage_bookings');
-  const canManageTransactions = checkPermission('manage_transactions');
+  const canManageBookings = can('bookings', 'MANAGE');
+  // Ledger entries go to the active shop, so its Daily Kanakku level decides.
+  const canManageTransactions = can('ledger', 'MANAGE');
+
+  if (!canManageBookings && !canManageTransactions) return null;
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">

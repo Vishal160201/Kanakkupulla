@@ -111,7 +111,7 @@ function FieldRow({ field, booking, teamUsers }: { field: LayoutField; booking: 
         <div className="scale-75 origin-center flex items-center justify-center">{icon}</div>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">{field.name}</p>
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate" title={field.name}>{field.name}</p>
         <p className="font-bold text-slate-800 text-sm whitespace-pre-wrap break-words">{val as ReactNode}</p>
       </div>
     </div>
@@ -124,11 +124,14 @@ interface SectionStepperProps {
   sectionStatusField: LayoutField | undefined;
   currentSectionStatus: unknown;
   isUpdatingStatus: boolean;
+  /** Without permission the timeline is read-only. */
+  canChange: { event: boolean; album: boolean };
   onSectionStatusChange: (fieldId: string, status: string) => void;
 }
 
-function SectionStepper({ section, booking, sectionStatusField, currentSectionStatus, isUpdatingStatus, onSectionStatusChange }: SectionStepperProps) {
+function SectionStepper({ section, booking, sectionStatusField, currentSectionStatus, isUpdatingStatus, canChange, onSectionStatusChange }: SectionStepperProps) {
   const isAlbum = section.title.toLowerCase().includes('album');
+  const isEditable = isAlbum ? canChange.album : canChange.event;
   if (isAlbum) {
     const s = (booking.status || 'Pending').toLowerCase();
     const isShootCompleted = s === 'shoot completed' || s === 'completed' || ALBUM_STATUSES.includes(s);
@@ -168,7 +171,7 @@ function SectionStepper({ section, booking, sectionStatusField, currentSectionSt
         steps={steps}
         currentStatus={effectiveStatus}
         sectionTitle={section.title}
-        onStatusChange={(newStatus) => onSectionStatusChange(effectiveFieldId, newStatus)}
+        onStatusChange={isEditable ? (newStatus) => onSectionStatusChange(effectiveFieldId, newStatus) : undefined}
         isUpdating={isUpdatingStatus}
         updatedAt={booking.updatedAt ? format(new Date(booking.updatedAt), "dd MMM yyyy, h:mm a") : undefined}
       />
@@ -182,11 +185,15 @@ interface LayoutSectionCardProps {
   teamUsers: TeamUser[];
   isFieldVisible: (rule: LayoutField['visibilityRule']) => boolean;
   isUpdatingStatus: boolean;
+  /** Bookings Manage: event status timeline. */
+  canChangeEventStatus: boolean;
+  /** Album status (or Bookings) Manage: album timeline. */
+  canChangeAlbumStatus: boolean;
   onSectionStatusChange: (fieldId: string, status: string) => void;
 }
 
 /** One dynamic layout section of the booking (fields + optional status timeline). */
-export default function LayoutSectionCard({ section, booking, teamUsers, isFieldVisible, isUpdatingStatus, onSectionStatusChange }: LayoutSectionCardProps) {
+export default function LayoutSectionCard({ section, booking, teamUsers, isFieldVisible, isUpdatingStatus, canChangeEventStatus, canChangeAlbumStatus, onSectionStatusChange }: LayoutSectionCardProps) {
   const visibleFields = section.fields?.filter(f => {
     const fname = (f.name || '').toLowerCase();
     if (f.id === 'fld_b_client' || f.id === 'fld_b_phone' || f.id === 'fld_b_email') return false; // Handled in client info
@@ -228,6 +235,7 @@ export default function LayoutSectionCard({ section, booking, teamUsers, isField
           sectionStatusField={sectionStatusField}
           currentSectionStatus={currentSectionStatus}
           isUpdatingStatus={isUpdatingStatus}
+          canChange={{ event: canChangeEventStatus, album: canChangeAlbumStatus }}
           onSectionStatusChange={onSectionStatusChange}
         />
       </div>

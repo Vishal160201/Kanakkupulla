@@ -134,20 +134,21 @@ function ShootCard({ booking, openBookingDetails, group }: { booking: Booking, o
       )}
       
       {/* Header */}
-      <div className="flex justify-between items-start pl-2">
-        <div className="flex gap-3">
+      {/* Phones: amount/time drop below the title block; sm+: they sit on the right */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 pl-2">
+        <div className="flex gap-3 min-w-0 flex-1">
           <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 ${dateBoxClasses}`}>
             <span className="text-[0.65rem] font-bold uppercase opacity-80">{monthStr}</span>
             <span className="text-[1.1rem] font-black leading-none mt-0.5">{dayStr}</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className={`font-bold text-[1.05rem] leading-tight transition-colors ${isPremium ? 'text-yellow-800' : 'text-slate-800 group-hover:text-orange-600'}`}>{booking.title}</h4>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
+              <h4 className={`min-w-0 break-words font-bold text-[1.05rem] leading-tight transition-colors ${isPremium ? 'text-yellow-800' : 'text-slate-800 group-hover:text-orange-600'}`}>{booking.title}</h4>
               {isPremium && (
-                <span className="bg-yellow-400 text-yellow-900 text-[0.6rem] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-sm">Premium</span>
+                <span className="shrink-0 bg-yellow-400 text-yellow-900 text-[0.6rem] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shadow-sm">Premium</span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className={`text-[0.65rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                 booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' : 
                 booking.status === 'PENDING' ? 'bg-orange-100 text-orange-700' : 
@@ -160,11 +161,11 @@ function ShootCard({ booking, openBookingDetails, group }: { booking: Booking, o
           </div>
         </div>
         
-        <div className="text-right flex flex-col items-end gap-1">
+        <div className="shrink-0 flex flex-row sm:flex-col items-center sm:items-end gap-3 sm:gap-1 pl-[3.75rem] sm:pl-0 sm:text-right">
           <div className={`text-[1.1rem] font-black leading-none ${isPremium ? 'text-yellow-600' : 'text-slate-800'}`}>
             ₹{pkgAmount.toLocaleString()}
           </div>
-          <div className="text-[0.7rem] font-bold text-slate-400 flex items-center gap-1">
+          <div className="text-[0.7rem] font-bold text-slate-400 flex items-center gap-1 whitespace-nowrap">
             <i className="ph-fill ph-clock"></i> {booking.time || 'TBD'}
           </div>
         </div>

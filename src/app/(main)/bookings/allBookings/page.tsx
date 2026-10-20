@@ -2,6 +2,7 @@ import BookingTable from '@/components/dashboard/BookingTable';
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { Booking } from "@/types";
+import { requirePageAccess } from "@/lib/pageAccess";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,7 @@ export default async function AllBookingsPage({
 }: {
   searchParams: Promise<{ page?: string; filter?: string }>;
 }) {
+  await requirePageAccess("bookings");
   const params = await searchParams;
   const page = Number(params?.page) || 1;
   const filter = params?.filter;

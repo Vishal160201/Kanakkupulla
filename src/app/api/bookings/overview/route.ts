@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma, { toNumber } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
-import { requireUser } from "@/lib/authz";
+import { requireAccess } from "@/lib/authz";
 import { asJsonRecord } from "@/lib/validations/common";
 
 let uiPreferencesCache: { value: Prisma.JsonObject; timestamp: number } | null = null;
@@ -23,7 +23,7 @@ async function getUiPreferences(): Promise<Prisma.JsonObject> {
 
 export async function GET() {
   try {
-    const auth = await requireUser();
+    const auth = await requireAccess("bookings", "VIEW");
     if (auth.error) return auth.error;
 
     const thirtyDaysAgo = new Date();

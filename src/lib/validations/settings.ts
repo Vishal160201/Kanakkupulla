@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { jsonObject, jsonValue } from "./common";
 
-export const FORM_KEYS = ["BOOKING_FORM", "TRANSACTION_FORM", "GIFT_ORDER_FORM"] as const;
+export const FORM_KEYS = ["BOOKING_FORM", "TRANSACTION_FORM", "FERTILIZER_TRANSACTION_FORM", "GIFT_ORDER_FORM"] as const;
 
 const formKey = z.string({ message: "Missing required fields" }).trim().min(1, "Missing required fields").max(100);
 const nonEmpty = z.string({ message: "Missing required fields" }).min(1, "Missing required fields").max(500);

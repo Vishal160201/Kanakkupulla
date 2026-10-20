@@ -12,6 +12,10 @@ import { isTomorrow, isThisWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { GiftOrder, GiftOrdersResponse, GiftProductsResponse } from "@/types/gifts";
+import { useAccess } from "@/hooks/useAccess";
+import PermissionTooltip from "@/components/shared/PermissionTooltip";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
 
 const NO_ORDERS: GiftOrder[] = [];
 
@@ -20,6 +24,8 @@ export default function GiftsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
+  // Creating, editing and deleting orders needs Gifts Manage.
+  const canManage = useAccess().can("gifts", "MANAGE");
 
   const { data: productsData } = useSWR<GiftProductsResponse>("/api/gifts/products", fetcher, {
     revalidateOnFocus: false
@@ -56,8 +62,8 @@ export default function GiftsPage() {
   const dueThisWeekCount = orders.filter((o) => o.customData?.dueDate && isThisWeek(new Date(o.customData.dueDate))).length;
 
   return (
-    <div className="min-h-screen bg-[#FDFBF9] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-orange-100/40 via-[#FDFBF9] to-blue-50/40 p-4 md:p-8">
-      <div className="w-full max-w-[1400px] mx-auto animate-[fadeIn_0.4s_ease-out] pb-12 flex flex-col gap-8">
+    <div>
+      <div className="w-full animate-[fadeIn_0.4s_ease-out] pb-12 flex flex-col gap-8">
         
         {/* Controls row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -78,13 +84,22 @@ export default function GiftsPage() {
           </div>
 
           <div className="relative w-full sm:w-auto order-1 sm:order-2 flex justify-end">
-            <OrderForm 
-              products={productsData?.products || []} 
-              onOrderCreated={() => mutate()} 
-              open={isOrderFormOpen}
-              onOpenChange={setIsOrderFormOpen}
-              defaultProductId={formDefaultProduct}
-            />
+            {canManage ? (
+              <OrderForm 
+                products={productsData?.products || []} 
+                onOrderCreated={() => mutate()} 
+                open={isOrderFormOpen}
+                onOpenChange={setIsOrderFormOpen}
+                defaultProductId={formDefaultProduct}
+              />
+            ) : (
+              <PermissionTooltip allowed={false} className="flex w-full sm:w-auto">
+                <Button disabled className="w-full sm:w-auto h-11 sm:h-9 gap-2 bg-[#8C5E2D] text-white rounded-xl shadow-lg">
+                  <PlusCircle size={18} />
+                  <span>New Order</span>
+                </Button>
+              </PermissionTooltip>
+            )}
           </div>
         </div>
 
@@ -94,7 +109,7 @@ export default function GiftsPage() {
         <style dangerouslySetInnerHTML={{__html: `
           .stat-cards-grid {
             display: grid;
-            grid-template-columns: repeat(1, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 1rem;
           }
           @media (min-width: 640px) {
@@ -122,52 +137,52 @@ export default function GiftsPage() {
         <div className="stat-cards-grid">
           
           {/* Pending Card */}
-          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
+          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-4 sm:p-6 border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform duration-300">
                 <PackageOpen size={20} />
               </div>
               <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-widest">New</span>
             </div>
-            <div className="mt-8">
-              <div className="text-[0.7rem] font-bold text-slate-500 uppercase tracking-widest mb-1">
+            <div className="mt-4 sm:mt-8">
+              <div className="text-[0.65rem] sm:text-[0.7rem] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">
                 PENDING
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-slate-900">{pendingCount.toString().padStart(2, '0')}</span>
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="text-3xl sm:text-4xl font-black text-slate-900">{pendingCount.toString().padStart(2, '0')}</span>
                 <span className="text-xs font-semibold text-slate-400">Needs review</span>
               </div>
             </div>
           </div>
 
           {/* In Production Card */}
-          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
+          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-4 sm:p-6 border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 group-hover:scale-110 transition-transform duration-300">
                 <Settings size={20} />
               </div>
               <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-widest">Active</span>
             </div>
-            <div className="mt-8">
-              <div className="text-[0.7rem] font-bold text-slate-500 uppercase tracking-widest mb-1">
+            <div className="mt-4 sm:mt-8">
+              <div className="text-[0.65rem] sm:text-[0.7rem] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">
                 IN PRODUCTION
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-slate-900">{productionCount.toString().padStart(2, '0')}</span>
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="text-3xl sm:text-4xl font-black text-slate-900">{productionCount.toString().padStart(2, '0')}</span>
                 <span className="text-xs font-semibold text-slate-400">+3 since yesterday</span>
               </div>
             </div>
           </div>
 
           {/* Ready Card */}
-          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
+          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-4 sm:p-6 border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="h-10 w-10 rounded-xl bg-[#F4EDE4] flex items-center justify-center text-amber-700 group-hover:scale-110 transition-transform duration-300">
                 <ShoppingBag size={20} />
               </div>
               <span className="text-[0.65rem] font-bold text-slate-500 uppercase tracking-widest hidden md:block">Ready</span>
             </div>
-            <div className="mt-8">
+            <div className="mt-4 sm:mt-8">
               <div className="text-[0.65rem] sm:text-[0.7rem] font-bold text-slate-500 uppercase tracking-widest mb-1 truncate">
                 READY FOR PICKUP
               </div>
@@ -178,14 +193,14 @@ export default function GiftsPage() {
           </div>
 
           {/* Due Tomorrow Card */}
-          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 border border-red-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
+          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-4 sm:p-6 border border-red-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform duration-300">
                 <CalendarClock size={20} />
               </div>
               <span className="text-[0.65rem] font-bold text-red-500 uppercase tracking-widest hidden md:block">Urgent</span>
             </div>
-            <div className="mt-8">
+            <div className="mt-4 sm:mt-8">
               <div className="text-[0.65rem] sm:text-[0.7rem] font-bold text-red-500 uppercase tracking-widest mb-1 truncate">
                 DUE TOMORROW
               </div>
@@ -196,14 +211,14 @@ export default function GiftsPage() {
           </div>
 
           {/* Due This Week Card */}
-          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-6 border border-blue-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
+          <div className="bg-white/60 backdrop-blur-xl rounded-3xl p-4 sm:p-6 border border-blue-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform duration-300">
                 <CalendarDays size={20} />
               </div>
               <span className="text-[0.65rem] font-bold text-blue-500 uppercase tracking-widest hidden md:block">Soon</span>
             </div>
-            <div className="mt-8">
+            <div className="mt-4 sm:mt-8">
               <div className="text-[0.65rem] sm:text-[0.7rem] font-bold text-blue-500 uppercase tracking-widest mb-1 truncate">
                 DUE THIS WEEK
               </div>
@@ -216,6 +231,7 @@ export default function GiftsPage() {
         </div>
 
         {/* Product Categories Strip */}
+        {canManage && (
         <ProductCategoriesStrip 
           selectedCategory={selectedCategory}
           onCategorySelect={(id) => {
@@ -224,6 +240,7 @@ export default function GiftsPage() {
             setIsOrderFormOpen(true);
           }}
         />
+        )}
 
         {/* Content */}
         <div className="flex flex-col mt-4">

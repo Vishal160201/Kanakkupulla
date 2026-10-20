@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAdmin } from "@/lib/authz";
+import { requireOwner } from "@/lib/authz";
 import { parseJsonBody } from "@/lib/validations/http";
 import { layoutMigrateValueSchema } from "@/lib/validations/settings";
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   try {
@@ -29,22 +29,24 @@ export async function POST(req: Request) {
         });
         updatedCount = res.count;
       }
-    } else if (formKey === "TRANSACTION_FORM") {
+    } else if (formKey === "TRANSACTION_FORM" || formKey === "FERTILIZER_TRANSACTION_FORM") {
+      // Each ledger form only owns the entries of its own shop type
+      const shopScope = { shop: { type: formKey === "FERTILIZER_TRANSACTION_FORM" ? "FERTILIZER" as const : "STUDIO" as const } };
       if (fieldId === "fld_tx_type") {
         const res = await prisma.transaction.updateMany({
-          where: { type: oldValue },
+          where: { type: oldValue, ...shopScope },
           data: { type: newValue },
         });
         updatedCount = res.count;
       } else if (fieldId === "fld_tx_category") {
         const res = await prisma.transaction.updateMany({
-          where: { category: oldValue },
+          where: { category: oldValue, ...shopScope },
           data: { category: newValue },
         });
         updatedCount = res.count;
       } else if (fieldId === "fld_tx_mode") {
         const res = await prisma.transaction.updateMany({
-          where: { paymentMode: oldValue },
+          where: { paymentMode: oldValue, ...shopScope },
           data: { paymentMode: newValue },
         });
         updatedCount = res.count;

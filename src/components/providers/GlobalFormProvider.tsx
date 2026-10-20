@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import type { BillKind } from '@/types/inventory';
 
 /** Prefill for a new transaction (e.g. quick actions pass the type and/or category). */
 export interface TransactionInitialData {
@@ -36,6 +37,11 @@ interface GlobalFormContextType {
   giftOrderDetailsId: string | null;
   openGiftOrderDetails: (orderId: string) => void;
   closeGiftOrderDetails: () => void;
+
+  /** Fertilizer Inventory sale/purchase opened from Daily Kanakku (fertilizer shops). */
+  inventoryBillKind: BillKind | null;
+  openInventoryBill: (kind: BillKind) => void;
+  closeInventoryBill: () => void;
 }
 
 const GlobalFormContext = createContext<GlobalFormContextType | undefined>(undefined);
@@ -59,6 +65,8 @@ export function GlobalFormProvider({ children }: { children: ReactNode }) {
 
   const [isGiftOrderDetailsOpen, setIsGiftOrderDetailsOpen] = useState(false);
   const [giftOrderDetailsId, setGiftOrderDetailsId] = useState<string | null>(null);
+
+  const [inventoryBillKind, setInventoryBillKind] = useState<BillKind | null>(null);
 
   const openBookingForm = (bookingId?: string, initialDate?: string) => {
     setBookingToEditId(bookingId || null);
@@ -116,13 +124,17 @@ export function GlobalFormProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setGiftOrderDetailsId(null), 300);
   };
 
+  const openInventoryBill = (kind: BillKind) => setInventoryBillKind(kind);
+  const closeInventoryBill = () => setInventoryBillKind(null);
+
   return (
     <GlobalFormContext.Provider value={{
       isBookingFormOpen, bookingToEditId, bookingInitialDate, openBookingForm, closeBookingForm,
       isBookingDetailsOpen, bookingDetailsId, openBookingDetails, closeBookingDetails,
       isTransactionFormOpen, transactionToEditId, transactionInitialData, openTransactionForm, closeTransactionForm,
       isTransactionDetailsOpen, transactionDetailsId, openTransactionDetails, closeTransactionDetails,
-      isGiftOrderDetailsOpen, giftOrderDetailsId, openGiftOrderDetails, closeGiftOrderDetails
+      isGiftOrderDetailsOpen, giftOrderDetailsId, openGiftOrderDetails, closeGiftOrderDetails,
+      inventoryBillKind, openInventoryBill, closeInventoryBill
     }}>
       {children}
     </GlobalFormContext.Provider>

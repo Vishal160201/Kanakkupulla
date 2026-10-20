@@ -2,9 +2,11 @@
 
 import type React from "react";
 import type { TodayTransactionItem } from "@/types/transactions";
-import { CATEGORY_ICONS, MODE_ICONS, getGiftsBadgeInfo } from "../categoryStyles";
+import { CATEGORY_ICONS, FERTILIZER_CATEGORY_ICONS, MODE_ICONS, getGiftsBadgeInfo } from "../categoryStyles";
 import ShopBadge from "@/components/shops/ShopBadge";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { LOCKED_ENTRY_MESSAGE, SourceBadge, isLockedEntry } from "../sourceLock";
+import { useCanWriteTransaction } from "@/hooks/useAccess";
 
 interface TodayTransactionRowProps {
   txn: TodayTransactionItem;
@@ -44,6 +46,14 @@ export default function TodayTransactionRow({
   );
   const description = single?.description;
   const hasError = deleteErrorMessage !== null;
+  // Entries posted by Fertilizer Inventory can only be changed there.
+  const isLocked = isLockedEntry(txn);
+  const ref = group?.children[0] ?? single;
+  const canWrite = useCanWriteTransaction()({
+    shopId: ref?.shopId ?? txn.shop?.id ?? null,
+    bookingId: ref?.bookingId,
+    productOrderId: ref?.productOrderId,
+  });
 
   return (
     <div
@@ -56,20 +66,20 @@ export default function TodayTransactionRow({
           onOpen(txn.id);
         }
       }}
-      className="group/item flex flex-col sm:flex-row sm:items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer gap-2 sm:gap-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+      className="group/item flex flex-col xl:flex-row xl:items-center justify-between bg-white/[0.03] hover:bg-white/[0.08] backdrop-blur-sm rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 border border-white/[0.06] hover:border-white/15 transition-all duration-200 cursor-pointer gap-2 xl:gap-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
       style={{ animationDelay: `${index * 60}ms` }}
     >
-      <div className="flex items-center gap-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-lg ${txn.type === 'INCOME'
+      <div className="flex items-center gap-4 min-w-0">
+        <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-lg shadow-lg ${txn.type === 'INCOME'
             ? 'bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 text-emerald-400 shadow-emerald-500/10'
             : 'bg-gradient-to-br from-red-400/20 to-red-600/20 text-red-400 shadow-red-500/10'
           }`}>
-          <i className={`ph-fill ${CATEGORY_ICONS[txn.category] || 'ph-dots-three-circle'}`} />
+          <i className={`ph-fill ${CATEGORY_ICONS[txn.category] || FERTILIZER_CATEGORY_ICONS[txn.category] || 'ph-dots-three-circle'}`} />
         </div>
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
-            <span className="text-white font-bold text-[0.9rem] leading-tight">{title}</span>
-            <span className={`px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] ${txn.type === 'INCOME'
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-white font-bold text-[0.9rem] leading-tight truncate">{title}</span>
+            <span className={`shrink-0 px-2 py-0.5 rounded-md text-[0.55rem] font-extrabold uppercase tracking-[0.5px] ${txn.type === 'INCOME'
                 ? 'bg-emerald-500/15 text-emerald-400'
                 : 'bg-red-500/15 text-red-400'
               }`}>{txn.type}</span>
@@ -91,32 +101,33 @@ export default function TodayTransactionRow({
               </>
             )}
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-0.5 min-w-0">
+            {single && <SourceBadge source={single.source} tone="dark" />}
             {showShop && <ShopBadge shop={txn.shop} tone="dark" />}
             {description && (
-              <span className="text-slate-500 text-[0.75rem] font-medium truncate max-w-[200px]">{description}</span>
+              <span className="text-slate-500 text-[0.75rem] font-medium truncate min-w-0 max-w-full xl:max-w-[200px]">{description}</span>
             )}
-            <span className="text-slate-600 text-[0.65rem] flex items-center gap-1">
+            <span className="text-slate-600 text-[0.65rem] flex items-center gap-1 whitespace-nowrap">
               <i className={`ph-fill ${MODE_ICONS[txn.paymentMode] || 'ph-wallet'} text-[0.6rem]`} />
               {txn.paymentMode}
             </span>
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0 border-t border-white/10 sm:border-0 pt-2 sm:pt-0">
-        <span className="text-slate-500 text-[0.7rem] font-semibold">
+      <div className="flex items-center justify-between xl:justify-end gap-2 sm:gap-4 w-full xl:w-auto mt-2 xl:mt-0 border-t border-white/10 xl:border-0 pt-2 xl:pt-0">
+        <span className="text-slate-500 text-[0.7rem] font-semibold whitespace-nowrap">
           {new Date(txn.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
         </span>
-        <span className={`min-w-[100px] text-right text-sm sm:text-base font-black ${
+        <span className={`xl:min-w-[100px] text-right whitespace-nowrap text-sm sm:text-base font-black ${
             txn.type === 'INCOME' ? 'text-emerald-400' : 'text-red-400'
           }`}>
           {txn.type === 'INCOME' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
-        <div className="flex flex-col items-end gap-1 ml-2">
-           {single && <span className="text-[0.6rem] font-mono text-slate-500 bg-white/[0.05] px-1.5 py-0.5 rounded tracking-wider">{single.transactionId}</span>}
-           {group && <span className="text-[0.6rem] font-bold text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded tracking-wider">{group.children.length} ITEMS</span>}
+        <div className="flex flex-col items-end gap-1 xl:ml-2">
+           {single && <span className="hidden sm:inline whitespace-nowrap text-[0.6rem] font-mono text-slate-500 bg-white/[0.05] px-1.5 py-0.5 rounded tracking-wider">{single.transactionId}</span>}
+           {group && <span className="whitespace-nowrap text-[0.6rem] font-bold text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded tracking-wider">{group.children.length} ITEMS</span>}
         </div>
-        <div className={`flex items-center gap-1 ${isConfirmingDelete || hasError ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'} transition-opacity ml-2`}>
+        <div className={`flex items-center gap-1 ${isConfirmingDelete || hasError ? 'opacity-100' : 'opacity-100 lg:opacity-0 lg:group-hover/item:opacity-100 lg:group-focus-within/item:opacity-100'} transition-opacity xl:ml-2`}>
           {isDeleting ? (
             <div className="flex items-center gap-2 text-slate-400 px-2">
               <i className="ph ph-circle-notch animate-spin text-lg" />
@@ -148,6 +159,23 @@ export default function TodayTransactionRow({
                 <i className="ph-bold ph-x" />
               </button>
             </div>
+          ) : isLocked ? (
+            <div className="flex items-center gap-1 w-[64px] justify-end">
+              <Tooltip content={LOCKED_ENTRY_MESSAGE}>
+                <span
+                  tabIndex={0}
+                  role="img"
+                  aria-label={LOCKED_ENTRY_MESSAGE}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded-lg text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                >
+                  <i aria-hidden="true" className="ph ph-lock-simple text-lg" />
+                </span>
+              </Tooltip>
+            </div>
+          ) : !canWrite ? (
+            <div className="hidden xl:block w-[64px]" aria-hidden="true" />
           ) : (
             <>
               <div className={`flex items-center gap-1 w-[64px] justify-end ${single?.productOrderId || single?.bookingId ? 'invisible' : 'visible'}`}>

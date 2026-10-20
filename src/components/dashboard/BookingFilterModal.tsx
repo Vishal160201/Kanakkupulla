@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import Autocomplete from "../ui/Autocomplete";
 import type { FilterState } from "@/types";
 import DatePickerInput from "../ui/DatePickerInput";
+import Checkbox from "@/components/ui/Checkbox";
 
 export default function BookingFilterModal() {
   const { 
@@ -75,10 +76,14 @@ export default function BookingFilterModal() {
           <div className="font-bold text-slate-500 text-[0.85rem] uppercase tracking-[0.5px] mb-3">Category</div>
           <div className="grid grid-cols-2 gap-4 mb-6">
             {['Wedding', 'Fashion', 'Baby & Kids', 'Corporate'].map(cat => (
-              <label key={cat} className="flex items-center gap-2.5 cursor-pointer">
-                <input type="checkbox" checked={filterState.categories.includes(cat)} onChange={() => toggleFilterCategory(cat)} className="w-4 h-4 accent-orange-500" />
-                <span className="text-[0.95rem] text-slate-700 font-medium">{cat}</span>
-              </label>
+              <Checkbox
+                key={cat}
+                size="sm"
+                checked={filterState.categories.includes(cat)}
+                onChange={() => toggleFilterCategory(cat)}
+                label={cat}
+                labelClassName="text-[0.95rem] text-slate-700 font-medium"
+              />
             ))}
           </div>
           
@@ -101,10 +106,16 @@ export default function BookingFilterModal() {
           <div className="font-bold text-slate-500 text-[0.85rem] uppercase tracking-[0.5px] mb-3">Status</div>
           <div className="grid grid-cols-3 gap-3 mb-4">
             {['Confirmed', 'Pending', 'Partial'].map(status => (
-              <label key={status} className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={filterState.statuses.includes(status)} onChange={() => toggleFilterStatus(status)} className={`w-4 h-4 ${status === 'Confirmed' ? 'accent-green-500' : status === 'Pending' ? 'accent-red-500' : 'accent-orange-500'}`} />
-                <span className="text-[0.9rem] text-slate-700 font-medium">{status}</span>
-              </label>
+              <Checkbox
+                key={status}
+                size="sm"
+                tone={status === 'Confirmed' ? 'green' : status === 'Pending' ? 'red' : 'orange'}
+                checked={filterState.statuses.includes(status)}
+                onChange={() => toggleFilterStatus(status)}
+                label={status}
+                className="gap-2"
+                labelClassName="text-[0.9rem] text-slate-700 font-medium"
+              />
             ))}
           </div>
         </div>

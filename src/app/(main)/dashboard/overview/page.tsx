@@ -10,7 +10,7 @@ import QuickActions from "@/components/dashboard/QuickActions";
 import TaskAlerts from "@/components/dashboard/TaskAlerts";
 import RevenueTarget from "@/components/dashboard/RevenueTarget";
 import StatCards from "@/components/dashboard/StatCards";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useActiveShopCan } from "@/hooks/useAccess";
 import { useShopQueryParam } from "@/components/providers/ShopProvider";
 import { GiftShopCard, RecentTransactionsCard, UpcomingShootsCard } from "./DashboardCards";
 import type { DashboardOverviewResponse } from "./types";
@@ -24,8 +24,9 @@ const fetcher = async (url: string) => {
 };
 
 function DashboardMetrics({ dateRange }: { dateRange: { startDate: Date; endDate: Date } | null }) {
-  const { checkPermission } = usePermissions();
-  const canViewAnalytics = checkPermission('view_export_analytics');
+  const can = useActiveShopCan();
+  // Revenue chart and target are analytics figures.
+  const canViewAnalytics = can('analytics', 'VIEW');
   // Ledger figures (income, expense, revenue chart, recent transactions) follow the shop switcher.
   const shopParam = useShopQueryParam();
 
@@ -90,18 +91,18 @@ function DashboardMetrics({ dateRange }: { dateRange: { startDate: Date; endDate
         <div className="w-full lg:w-[35%] shrink-0 flex flex-col gap-6">
           {canViewAnalytics && <RevenueTarget currentRevenue={periodIncome} />}
           {/* Upcoming Shoots */}
-          <UpcomingShootsCard upcomingShoots={upcomingShoots} />
+          {can('bookings', 'VIEW') && <UpcomingShootsCard upcomingShoots={upcomingShoots} />}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Transactions */}
-        <RecentTransactionsCard transactions={transactions} />
+        {can('ledger', 'VIEW') && <RecentTransactionsCard transactions={transactions} />}
 
         <BookingBreakdown data={bookingBreakdownData} />
 
         {/* Gift Shop Tracking */}
-        <GiftShopCard topOrder={topOrder} />
+        {can('gifts', 'VIEW') && <GiftShopCard topOrder={topOrder} />}
       </div>
     </>
   );

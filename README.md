@@ -112,6 +112,6 @@ docker run -p 3000:3000 --env-file .env kanakkupulla
 
 The build does not run migrations. Apply them as a separate release step with `npm run db:migrate`, from CI or from a one-off container that has the full `node_modules`, with `DATABASE_URL` set. Then start the new image.
 
-On Railway, set the service's **Pre-deploy command** to `npx prisma migrate deploy` so migrations run before each new deployment starts.
+Production runs on Vercel (https://kanakkupulla.vercel.app), deployed from `main`. Functions run in `sin1` (Singapore, `vercel.json`) next to the Neon database in `ap-southeast-1`; keep them in the same region, since every query otherwise crosses continents. Vercel only runs `npm run build`, so apply pending migrations with `npm run db:migrate` against the production database right before pushing a change that needs them.
 
 `2_money_decimal_and_indexes` converts money columns from `double precision` to `numeric(12,2)` (values are rounded to 2 decimal places) and turns `Notification.priority` into an enum. Take a database backup (Neon branch) before applying it.

@@ -12,12 +12,11 @@ const WHATSAPP_ENABLED = false;
 
 export default function WhatsAppIntegration() {
   const { data: session } = useSession();
-  // "OWNER" is not a current role value but is kept for legacy sessions.
-  const role: string | undefined = session?.user?.role;
-  const isAdminOrOwner = role === "ADMIN" || role === "OWNER";
+  // Integrations are owner-only.
+  const isOwner = session?.user?.role === "OWNER";
   
   const { data: waStatusData, error: waStatusError, mutate: mutateWA } = useSWR<WhatsAppStatus>(
-    isAdminOrOwner ? "/api/whatsapp/status" : null,
+    isOwner ? "/api/whatsapp/status" : null,
     fetcher
   );
 
@@ -45,10 +44,10 @@ export default function WhatsAppIntegration() {
     }
   };
 
-  if (!isAdminOrOwner) {
+  if (!isOwner) {
     return (
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
-        <p className="text-slate-500 text-center">Only administrators can manage the WhatsApp integration.</p>
+        <p className="text-slate-500 text-center">Only owners can manage the WhatsApp integration.</p>
       </div>
     );
   }
@@ -106,7 +105,7 @@ export default function WhatsAppIntegration() {
           <div className="flex flex-col items-center p-6 bg-red-50 rounded-xl border border-red-100 gap-3">
             <i className="ph-fill ph-warning-circle text-red-500 text-3xl"></i>
             <span className="text-sm text-red-600 text-center font-semibold">Failed to start WhatsApp Bot in this environment.</span>
-            <span className="text-xs text-red-400 text-center break-all">{waStatusError?.message || waStatusData?.error || "Unknown Error"}</span>
+            <span className="text-xs text-red-400 text-center break-words">{waStatusError?.message || waStatusData?.error || "Unknown Error"}</span>
             <button onClick={() => { fetch('/api/whatsapp/status'); mutateWA(); }} className="mt-2 px-4 py-2 bg-red-100 text-red-600 text-sm font-bold rounded hover:bg-red-200 transition-colors">
               Retry Connection
             </button>

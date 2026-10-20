@@ -66,11 +66,11 @@ function CustomTooltip({ active, payload, label }: Partial<TooltipContentProps<n
 export default function RevenueChart({ data, periodIncome = 0, periodExpense = 0 }: RevenueChartProps) {
   return (
     <div className="bg-white rounded-[24px] p-5 md:p-6 border border-gray-100 shadow-sm flex flex-col flex-1">
-      <div className="flex justify-between items-start mb-6">
-        <div>
+      <div className="flex justify-between items-start gap-3 mb-6">
+        <div className="min-w-0">
           <h3 className="text-[1.1rem] font-extrabold text-slate-900 tracking-tight">Revenue vs. Expenses</h3>
           <p className="text-slate-400 text-[0.75rem] font-medium mb-4">Trend over selected period</p>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
               <span className="text-slate-500 text-[0.75rem] font-bold">Income</span>
@@ -84,17 +84,17 @@ export default function RevenueChart({ data, periodIncome = 0, periodExpense = 0
           </div>
         </div>
         
-        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors">
+        <div className="flex shrink-0 items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors">
           <span className="text-xs font-semibold text-slate-700">Daily</span>
           <i className="ph ph-caret-down text-slate-400 text-[0.6rem]"></i>
         </div>
       </div>
       
-      <div className="w-full min-h-[280px] flex-1 mt-4">
+      <div className="w-full h-[280px] lg:h-auto lg:min-h-[280px] lg:flex-1 mt-4">
         {data && data.length > 0 ? (
           <ErrorBoundary>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={280}>
+              <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.25}/>
@@ -120,7 +120,7 @@ export default function RevenueChart({ data, periodIncome = 0, periodExpense = 0
                   axisLine={false} 
                   tickLine={false}
                   tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }}
-                  dx={-10}
+                  width={48}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }} />
                 <Area 

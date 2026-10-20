@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { GIFTS_PRODUCTS } from "@/lib/gifts-config";
-import { requireUser } from "@/lib/authz";
+import { requireAccess } from "@/lib/authz";
 
 export async function GET() {
-  const auth = await requireUser();
+  const auth = await requireAccess("gifts", "VIEW");
   if (auth.error) return auth.error;
 
   try {

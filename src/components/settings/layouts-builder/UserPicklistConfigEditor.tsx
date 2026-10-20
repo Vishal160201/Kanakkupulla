@@ -1,6 +1,7 @@
 "use client";
 
-import type { FormField, UserOption, UserPicklistConfig } from "@/types/settings";
+import type { FormField, UserOption, UserPicklistConfig, UserRole } from "@/types/settings";
+import Switch from "../common/Switch";
 
 interface UserPicklistConfigEditorProps {
   field: FormField;
@@ -8,100 +9,144 @@ interface UserPicklistConfigEditorProps {
   allUsers: UserOption[];
 }
 
-const PICKLIST_ROLES = ["ADMIN", "STAFF", "PHOTOGRAPHER"];
+/** Studio-level roles a pick-list can be limited to (shop roles aren't visible to every user). */
+const PICKLIST_ROLES: { value: UserRole; label: string; hint: string }[] = [
+  { value: "OWNER", label: "Owners", hint: "Full access to everything" },
+  { value: "MEMBER", label: "Members", hint: "Admin or Staff in one or more shops" },
+];
+
+/** Layouts saved before Owner / Member existed used the old studio roles. */
+const LEGACY_ROLE_MAP: Record<string, UserRole> = { ADMIN: "OWNER", STAFF: "MEMBER", PHOTOGRAPHER: "MEMBER" };
+const normalizeRoles = (roles: string[] | undefined): UserRole[] =>
+  [...new Set((roles ?? []).map((r) => LEGACY_ROLE_MAP[r] ?? r).filter((r): r is UserRole => r === "OWNER" || r === "MEMBER"))];
+
+const MODES: { value: UserPicklistConfig["mode"]; label: string }[] = [
+  { value: "ALL", label: "All users" },
+  { value: "ROLES", label: "Select roles" },
+  { value: "USERS", label: "Select users" },
+];
+
+function CheckRow({ checked, onToggle, children }: { checked: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onToggle}
+      className="flex w-full items-center gap-2.5 rounded-lg px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40"
+    >
+      <span
+        aria-hidden="true"
+        className={`w-4 h-4 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
+          checked ? "bg-orange-500 border-orange-500 text-white" : "border-slate-300 bg-white"
+        }`}
+      >
+        {checked && <i className="ph-bold ph-check text-[10px]" />}
+      </span>
+      {children}
+    </button>
+  );
+}
 
 /** USER_PICKLIST / MULTI_USER_PICKLIST: which users appear in the pick-list. */
 export default function UserPicklistConfigEditor({ field, update, allUsers }: UserPicklistConfigEditorProps) {
   const config = field.userPicklistConfig;
+  const mode = config?.mode ?? "ALL";
   const setConfig = (userPicklistConfig: UserPicklistConfig) => update({ userPicklistConfig });
+  const selectedRoles = normalizeRoles(config?.roles);
+
+  const setMode = (next: UserPicklistConfig["mode"]) => {
+    const showAvailability = config?.showAvailability;
+    if (next === "ALL") setConfig({ mode: "ALL", roles: [], userIds: [], showAvailability });
+    else if (next === "ROLES") setConfig({ mode: "ROLES", roles: selectedRoles, userIds: [], showAvailability });
+    else setConfig({ mode: "USERS", roles: [], userIds: config?.userIds || [], showAvailability });
+  };
 
   return (
     <div className="pt-4 border-t border-gray-100">
-      <label className="text-[0.75rem] font-bold text-slate-600 flex items-center gap-1 mb-3">
-        User Pick List Values
-      </label>
-      <div className="flex gap-4 mb-4">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="radio" name="upConfigMode" className="accent-orange-500 w-4 h-4" checked={!config || config.mode === "ALL"} onChange={() => setConfig({ mode: "ALL", roles: [], userIds: [] })} />
-          <span className="text-sm font-semibold text-slate-700">All Users</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="radio" name="upConfigMode" className="accent-orange-500 w-4 h-4" checked={config?.mode === "ROLES"} onChange={() => setConfig({ mode: "ROLES", roles: config?.roles || [], userIds: [] })} />
-          <span className="text-sm font-semibold text-slate-700">Select Roles</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="radio" name="upConfigMode" className="accent-orange-500 w-4 h-4" checked={config?.mode === "USERS"} onChange={() => setConfig({ mode: "USERS", roles: [], userIds: config?.userIds || [] })} />
-          <span className="text-sm font-semibold text-slate-700">Select Users</span>
-        </label>
+      <span className="text-[0.75rem] font-bold text-slate-600 flex items-center gap-1 mb-3">User Pick List Values</span>
+      <div role="radiogroup" aria-label="Which users to list" className="flex w-full rounded-xl bg-slate-100 p-0.5 mb-4">
+        {MODES.map((m) => {
+          const isActive = m.value === mode;
+          return (
+            <button
+              key={m.value}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              onClick={() => setMode(m.value)}
+              className={`flex-1 h-8 px-2 rounded-[10px] text-[11px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 ${
+                isActive ? "bg-white text-orange-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {m.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex items-center justify-between py-3 border-y border-gray-100 mb-4">
         <span className="text-[0.8rem] font-bold text-slate-700">Show User Availability</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={!!config?.showAvailability}
-          aria-label="Show user availability"
-          onClick={() => {
+        <Switch
+          size="sm"
+          checked={!!config?.showAvailability}
+          label="Show user availability"
+          onChange={(next) => {
             const currentConfig: UserPicklistConfig = config || { mode: "ALL", roles: [], userIds: [] };
-            setConfig({
-              ...currentConfig,
-              showAvailability: !currentConfig.showAvailability,
-            });
+            setConfig({ ...currentConfig, showAvailability: next });
           }}
-          className={`relative w-10 h-5 rounded-full transition-colors duration-200 cursor-pointer ${config?.showAvailability ? "bg-orange-500" : "bg-slate-300"}`}
-        >
-          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${config?.showAvailability ? "translate-x-5" : "translate-x-0"}`}></span>
-        </button>
+        />
       </div>
 
-      {(!config || config.mode === "ALL") && (
+      {mode === "ALL" && (
         <div className="bg-slate-50 border border-gray-200 rounded-xl p-4 text-sm font-semibold text-slate-500 text-center">
           The pick-list will include all project users.
         </div>
       )}
 
-      {config?.mode === "ROLES" && (
+      {mode === "ROLES" && config && (
         <div className="bg-slate-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
-          {PICKLIST_ROLES.map((role) => (
-            <label key={role} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="accent-orange-500 w-4 h-4 rounded"
-                checked={config.roles?.includes(role) || false}
-                onChange={(e) => {
-                  const currentRoles = config.roles || [];
-                  const newRoles = e.target.checked ? [...currentRoles, role] : currentRoles.filter((r) => r !== role);
-                  setConfig({ ...config, roles: newRoles });
-                }}
-              />
-              <span className="text-sm font-semibold text-slate-700">{role}</span>
-            </label>
-          ))}
+          {PICKLIST_ROLES.map((role) => {
+            const checked = selectedRoles.includes(role.value);
+            return (
+              <CheckRow
+                key={role.value}
+                checked={checked}
+                onToggle={() =>
+                  setConfig({ ...config, roles: checked ? selectedRoles.filter((r) => r !== role.value) : [...selectedRoles, role.value] })
+                }
+              >
+                <span className="flex flex-col">
+                  <span className="text-sm font-semibold text-slate-700">{role.label}</span>
+                  <span className="text-[0.65rem] font-semibold text-slate-400">{role.hint}</span>
+                </span>
+              </CheckRow>
+            );
+          })}
         </div>
       )}
 
-      {config?.mode === "USERS" && (
+      {mode === "USERS" && config && (
         <div className="bg-slate-50 border border-gray-200 rounded-xl p-4 max-h-[200px] overflow-y-auto flex flex-col gap-3">
           {allUsers.length === 0 && <span className="text-sm text-slate-400">Loading users...</span>}
-          {allUsers.map((user) => (
-            <label key={user.id} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="accent-orange-500 w-4 h-4 rounded"
-                checked={config.userIds?.includes(user.id) || false}
-                onChange={(e) => {
-                  const currentUserIds = config.userIds || [];
-                  const newUserIds = e.target.checked ? [...currentUserIds, user.id] : currentUserIds.filter((id) => id !== user.id);
-                  setConfig({ ...config, userIds: newUserIds });
+          {allUsers.map((user) => {
+            const checked = config.userIds?.includes(user.id) || false;
+            return (
+              <CheckRow
+                key={user.id}
+                checked={checked}
+                onToggle={() => {
+                  const current = config.userIds || [];
+                  setConfig({ ...config, userIds: checked ? current.filter((id) => id !== user.id) : [...current, user.id] });
                 }}
-              />
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-slate-700">{user.name}</span>
-                <span className="text-[0.6rem] font-bold text-slate-400 uppercase">{user.role}</span>
-              </div>
-            </label>
-          ))}
+              >
+                <span className="flex flex-col">
+                  <span className="text-sm font-semibold text-slate-700">{user.name}</span>
+                  <span className="text-[0.6rem] font-bold text-slate-400 uppercase">{user.role === "OWNER" ? "Owner" : "Member"}</span>
+                </span>
+              </CheckRow>
+            );
+          })}
         </div>
       )}
     </div>

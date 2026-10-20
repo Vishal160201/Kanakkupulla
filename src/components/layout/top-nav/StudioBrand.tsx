@@ -8,7 +8,7 @@ export default function StudioBrand() {
         .studio-brand {
           font-family: var(--font-alex-brush), cursive;
           font-weight: 400;
-          font-size: 5.8rem;
+          font-size: clamp(3rem, 5.5vw, 5.8rem);
           line-height: 1.1;
           background: linear-gradient(135deg, #0f172a 0%, #334155 50%, #020617 100%);
           -webkit-background-clip: text;

@@ -25,7 +25,7 @@ export default function ViewSelectorCard({ value, onChange }: { value: string, o
         onClick={() => setIsOpen(!isOpen)}
         className={`h-[45px] px-5 rounded-xl border border-slate-200 bg-white shadow-sm font-bold text-[0.95rem] text-slate-700 capitalize flex items-center gap-2.5 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 active:scale-95 ${isOpen ? 'ring-2 ring-orange-500/20 border-orange-300' : ''}`}
       >
-        {value}
+        {value || 'All time'}
         <i className={`ph-bold ph-caret-down text-slate-400 text-xs transition-transform duration-300 ${isOpen ? 'rotate-180 text-orange-500' : ''}`}></i>
       </button>
 

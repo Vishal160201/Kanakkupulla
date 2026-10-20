@@ -16,6 +16,9 @@ interface BookingTableProps {
 import { useEffect } from 'react';
 import { Tooltip } from "@/components/ui/Tooltip";
 
+/** Shared column template for the table header and rows: client, category, date, location, amount, status, menu. */
+const ROW_GRID = "grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(110px,1fr)_minmax(140px,1fr)_40px] items-center gap-x-4";
+
 export default function BookingTable({ bookings, currentPage = 1, totalPages = 1 }: BookingTableProps) {
   const { filters, setHasData } = useBookings();
   const { preferences } = useSystem();
@@ -59,8 +62,8 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
   return (
     <div className="bg-white border border-gray-200 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-sm overflow-hidden flex flex-col">
       
-      {/* Mobile Card List (block on mobile, hidden on tablet/desktop) */}
-      <div className="block md:hidden space-y-4">
+      {/* Card List (phones and tablets; the table needs laptop width) */}
+      <div className="block lg:hidden space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
         {sorted.map(b => {
           const d = new Date(b.date);
           const displayDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -87,21 +90,20 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
           
           return (
             <div key={b.id} className="p-4 border border-slate-100 rounded-xl bg-slate-50 flex flex-col gap-3 shadow-sm cursor-pointer" {...clickableProps(() => openBookingDetails(b.id))}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-[40px] h-[40px] rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-[0.9rem] shrink-0`}>{(b.title || 'U').charAt(0).toUpperCase()}</div>
-                  <div className="flex flex-col justify-center">
-                    <h4 className="font-extrabold text-[0.95rem] text-slate-900 leading-tight">{b.title}</h4>
-                    <p className="font-bold text-[0.65rem] text-slate-400 tracking-[0.5px] uppercase">{displayId}</p>
+              <div className="flex items-start gap-3 min-w-0">
+                <div className={`w-[40px] h-[40px] rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-[0.9rem] shrink-0`}>{(b.title || 'U').charAt(0).toUpperCase()}</div>
+                <div className="flex flex-col justify-center min-w-0 flex-1">
+                  <h4 className="font-extrabold text-[0.95rem] text-slate-900 leading-tight truncate" title={b.title}>{b.title}</h4>
+                  <p className="font-bold text-[0.65rem] text-slate-400 tracking-[0.5px] uppercase truncate">{displayId}</p>
+                  {/* Under the name, so the name gets the card's full width */}
+                  <div className="mt-1.5 flex w-fit max-w-full items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200" style={customStatusStyle}>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${statusDotClass}`} style={customStatusStyle && {'backgroundColor': 'var(--status-text)'}}></div>
+                    <span className={`text-[0.7rem] font-bold truncate ${statusTextClass}`} style={customStatusStyle && {'color': 'var(--status-text)'}}>{b.status}</span>
                   </div>
-                </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200" style={customStatusStyle}>
-                  <div className={`w-2 h-2 rounded-full ${statusDotClass}`} style={customStatusStyle && {'backgroundColor': 'var(--status-bg)'}}></div>
-                  <span className={`text-[0.7rem] font-bold ${statusTextClass}`} style={customStatusStyle && {'color': 'var(--status-text)'}}>{b.status}</span>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-y-1.5 gap-x-2">
                 <span className={`px-2.5 py-1 rounded-xl text-[0.7rem] font-extrabold tracking-[0.5px] ${badgeClass}`}>{b.category}</span>
                 <span className="text-[0.8rem] font-semibold text-slate-500 px-2 border-l border-slate-200">{displayDate}</span>
                 <span className="text-[0.8rem] font-semibold text-slate-500 px-2 border-l border-slate-200">{b.time}</span>
@@ -117,16 +119,16 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
         })}
       </div>
 
-      {/* Desktop Table Layout (hidden on mobile, block on tablet/desktop) */}
-      <div className="hidden md:block overflow-x-auto w-full no-scrollbar">
-        <div className="min-w-[900px]">
-          <div className="flex px-4 py-3 border-b border-gray-200 text-slate-500 font-extrabold text-[0.7rem] uppercase tracking-[1px] sticky top-0 z-10 bg-white">
-            <div className="flex-[2]">Client</div>
-            <div className="flex-[1.5]">Category</div>
-            <div className="flex-[1.5]">Date & Time</div>
-            <div className="flex-[1.5]">Location</div>
-            <div className="flex-[1]">Amount</div>
-            <div className="flex-[1]">Status</div>
+      {/* Table Layout (laptop and up). Header and rows share ROW_GRID so the columns line up. */}
+      <div className="hidden lg:block overflow-x-auto w-full">
+        <div className="min-w-[760px]">
+          <div className={`${ROW_GRID} px-4 py-3 border-b border-gray-200 text-slate-500 font-extrabold text-[0.7rem] uppercase tracking-[1px] sticky top-0 z-10 bg-white`}>
+            <div className="min-w-0 truncate">Client</div>
+            <div className="min-w-0 truncate">Category</div>
+            <div className="min-w-0 truncate">Date & Time</div>
+            <div className="min-w-0 truncate">Location</div>
+            <div className="min-w-0 truncate">Amount</div>
+            <div className="min-w-0 truncate">Status</div>
             <div className="w-[40px] text-center"><i className="ph-bold ph-gear text-[1.1rem]"></i></div>
           </div>
           
@@ -166,33 +168,33 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
             const locColor = locColors[Math.abs(locHash) % locColors.length];
 
             return (
-              <div key={b.id} className="flex items-center px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer" {...clickableProps(() => openBookingDetails(b.id))}>
-                <div className="flex-[2] flex items-center gap-3">
+              <div key={b.id} className={`${ROW_GRID} px-4 py-3.5 border-b border-gray-100 last:border-b-0 transition-colors hover:bg-slate-50 cursor-pointer`} {...clickableProps(() => openBookingDetails(b.id))}>
+                <div className="min-w-0 flex items-center gap-3">
                   <div className={`w-[35px] h-[35px] rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-[0.85rem] shrink-0`}>{(b.title || 'U').charAt(0).toUpperCase()}</div>
-                  <div className="flex flex-col justify-center">
-                    <h4 className="font-extrabold text-[0.95rem] text-slate-900 leading-tight">{b.title}</h4>
-                    <p className="font-bold text-[0.65rem] text-slate-400 tracking-[0.5px] uppercase">{displayId}</p>
+                  <div className="min-w-0 flex flex-col justify-center">
+                    <h4 className="font-extrabold text-[0.95rem] text-slate-900 leading-tight truncate">{b.title}</h4>
+                    <p className="font-bold text-[0.65rem] text-slate-400 tracking-[0.5px] uppercase truncate">{displayId}</p>
                   </div>
                 </div>
-                <div className="flex-[1.5] flex items-center">
-                  <span className={`px-2.5 py-1 rounded-xl text-[0.7rem] font-extrabold tracking-[0.5px] ${badgeClass}`}>{b.category}</span>
+                <div className="min-w-0 flex items-center">
+                  <span className={`px-2.5 py-1 rounded-xl text-[0.7rem] font-extrabold tracking-[0.5px] truncate ${badgeClass}`}>{b.category}</span>
                 </div>
-                <div className="flex-[1.5] flex flex-col justify-center">
-                  <h4 className="font-bold text-[0.9rem] text-slate-900 leading-tight">{displayDate}</h4>
-                  <p className="font-semibold text-[0.75rem] text-slate-500">{b.time}</p>
+                <div className="min-w-0 flex flex-col justify-center">
+                  <h4 className="font-bold text-[0.9rem] text-slate-900 leading-tight truncate">{displayDate}</h4>
+                  <p className="font-semibold text-[0.75rem] text-slate-500 truncate">{b.time}</p>
                 </div>
-                <div className="flex-[1.5] flex items-center gap-1.5 font-semibold text-[0.85rem] text-slate-600">
-                  <i className={`ph-fill ph-map-pin ${locColor}`}></i> <span className="truncate pr-4">{b.location || 'TBD'}</span>
+                <div className="min-w-0 flex items-center gap-1.5 font-semibold text-[0.85rem] text-slate-600">
+                  <i className={`ph-fill ph-map-pin shrink-0 ${locColor}`}></i> <span className="truncate">{b.location || 'TBD'}</span>
                 </div>
-                <div className="flex-[1] flex items-center">
-                  <div className={`px-2.5 py-1 rounded-lg text-[0.8rem] font-extrabold tracking-[0.5px] ${parseFloat(b.package || '0') > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' : 'text-slate-500 bg-slate-50 border border-slate-200'}`}>
+                <div className="min-w-0 flex items-center">
+                  <div className={`px-2.5 py-1 rounded-lg text-[0.8rem] font-extrabold tracking-[0.5px] truncate ${parseFloat(b.package || '0') > 0 ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' : 'text-slate-500 bg-slate-50 border border-slate-200'}`}>
                       {preferences?.currencySymbol || '₹'} {parseFloat(b.package || '0').toLocaleString('en-IN')}
                   </div>
                 </div>
-                <div className="flex-[1] flex items-center">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-100" style={customStatusStyle}>
-                    <div className={`w-2 h-2 rounded-full ${statusDotClass}`} style={customStatusStyle && {'backgroundColor': 'var(--status-bg)'}}></div>
-                    <span className={`text-[0.7rem] font-bold ${statusTextClass}`} style={customStatusStyle && {'color': 'var(--status-text)'}}>{b.status}</span>
+                <div className="min-w-0 flex items-center">
+                  <div className="min-w-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-100" style={customStatusStyle}>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${statusDotClass}`} style={customStatusStyle && {'backgroundColor': 'var(--status-text)'}}></div>
+                    <span className={`text-[0.7rem] font-bold truncate ${statusTextClass}`} title={b.status} style={customStatusStyle && {'color': 'var(--status-text)'}}>{b.status}</span>
                   </div>
                 </div>
                 <div className="w-[40px] text-center text-slate-400 flex items-center justify-center hover:text-slate-900 transition-colors">

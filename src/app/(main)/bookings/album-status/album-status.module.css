@@ -3,16 +3,32 @@
   to   { transform: translateY(0);    opacity: 1 }
 }
 
-.cardRow { 
-  display: grid; 
-  grid-auto-flow: column; 
-  grid-auto-columns: minmax(220px, 1fr); 
-  gap: 20px; 
-  overflow-x: auto; 
-  scrollbar-width: none; 
-  padding-bottom: 8px; 
+/* Sized by the width of the content area (not the viewport), since the sidebar comes and goes. */
+.cardRowWrap {
+  container-type: inline-size;
 }
-.cardRow::-webkit-scrollbar { display: none }
+
+/* Phones: 2 columns, the odd last card spans the row. */
+.cardRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.cardRow > :last-child:nth-child(odd) { grid-column: 1 / -1 }
+
+/* Tablet: 3 columns. */
+@container (min-width: 700px) {
+  .cardRow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .cardRow > :last-child:nth-child(odd) { grid-column: auto }
+}
+
+/* Laptop and up: all five in one row once each card gets ~180px. */
+@container (min-width: 980px) {
+  .cardRow { grid-template-columns: repeat(5, minmax(0, 1fr)) }
+}
 
 .cardAnim { 
   opacity: 0; 

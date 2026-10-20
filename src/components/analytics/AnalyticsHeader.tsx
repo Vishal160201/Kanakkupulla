@@ -4,6 +4,15 @@ import { useState } from "react";
 
 const RANGES = ['today', 'this-week', 'this-month', 'this-year', 'custom'];
 
+// Compact labels for phone widths so all ranges fit on one row
+const SHORT_LABELS: Record<string, string> = {
+  today: 'Today',
+  'this-week': 'Week',
+  'this-month': 'Month',
+  'this-year': 'Year',
+  custom: 'Custom',
+};
+
 // Parse DD/MM/YYYY to a Date for the backend
 const parseDate = (ddmmyyyy: string) => {
   if (!ddmmyyyy) return null;
@@ -50,19 +59,20 @@ export default function AnalyticsHeader({ dateRange, onRangeChange, onConfirmCus
         </div>
 
         <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
-          <div className="flex flex-wrap md:flex-nowrap bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200/50 w-full md:w-auto">
+          <div className="flex flex-nowrap overflow-x-auto bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200/50 w-full md:w-auto">
             {RANGES.map((range) => (
               <button
                 type="button"
                 key={range}
                 onClick={() => onRangeChange(range)}
-                className={`flex-1 md:flex-none px-3 py-1.5 rounded-lg text-[0.75rem] font-bold uppercase tracking-wider transition-all duration-300 ${
+                className={`flex-1 shrink-0 md:flex-none whitespace-nowrap px-2.5 sm:px-3 py-1.5 rounded-lg text-[0.75rem] font-bold uppercase tracking-wider transition-all duration-300 ${
                   dateRange === range
                     ? 'bg-white text-indigo-600 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                {range.replace('-', ' ')}
+                <span className="sm:hidden">{SHORT_LABELS[range] ?? range}</span>
+                <span className="hidden sm:inline">{range.replace('-', ' ')}</span>
               </button>
             ))}
           </div>

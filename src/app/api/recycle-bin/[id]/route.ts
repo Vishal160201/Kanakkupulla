@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAdmin } from "@/lib/authz";
+import { requireOwner } from "@/lib/authz";
 import { canAccessEntry, purgeEntry } from "@/lib/recycleBin";
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
   // Drive deletes run as the acting admin
   const session = { user: auth.user };

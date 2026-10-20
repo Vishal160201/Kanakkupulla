@@ -13,6 +13,7 @@ import FileAttachment from "@/components/ui/FileAttachment";
 import type { BookingFormData } from "@/lib/validations/booking";
 import type { LayoutField } from "@/types/bookings";
 import { STANDARD_FIELD_MAP } from "../layoutUtils";
+import Checkbox from "@/components/ui/Checkbox";
 
 const locationSuggestions: string[] = [];
 
@@ -127,7 +128,9 @@ export default function DynamicField({ field, form, users, driveStatus, category
     const config = field.userPicklistConfig;
     if (config) {
       if (config.mode === 'ROLES' && config.roles && config.roles.length > 0) {
-        const roles = config.roles;
+        // Layouts saved before the roles revamp still say ADMIN / STAFF / PHOTOGRAPHER
+        const LEGACY: Record<string, string> = { ADMIN: "OWNER", STAFF: "MEMBER", PHOTOGRAPHER: "MEMBER" };
+        const roles = config.roles.map(r => LEGACY[r] ?? r);
         filteredUsers = users.filter(u => roles.includes(u.role));
       } else if (config.mode === 'USERS' && config.userIds && config.userIds.length > 0) {
         const userIds = config.userIds;
@@ -147,16 +150,17 @@ export default function DynamicField({ field, form, users, driveStatus, category
   }
 
   if (field.type === 'CHECKBOX') {
+    // Custom control: register the field so its "required" rule still applies
+    register(fieldName, { required: field.mandatory });
     return (
       <div className={`flex items-center h-[45px] w-full rounded-xl border bg-white px-4 transition-colors ${isError ? 'border-red-500' : 'border-gray-200'}`}>
-        <label className="flex items-center gap-3 cursor-pointer w-full h-full">
-          <input
-            type="checkbox"
-            className="w-5 h-5 accent-orange-500 rounded border-gray-300 cursor-pointer"
-            {...register(fieldName, { required: field.mandatory })}
-          />
-          <span className="text-[0.95rem] text-slate-600 font-medium select-none">{field.name}</span>
-        </label>
+        <Checkbox
+          checked={current === true || current === "true"}
+          onChange={(checked) => setValue(fieldName, checked, { shouldValidate: true, shouldDirty: true })}
+          label={field.name}
+          className="w-full h-full gap-3"
+          labelClassName="text-[0.95rem] text-slate-600 font-medium select-none"
+        />
       </div>
     );
   }

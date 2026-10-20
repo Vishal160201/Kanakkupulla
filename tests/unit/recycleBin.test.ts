@@ -22,8 +22,9 @@ const db = vi.hoisted(() => {
 vi.mock("@/lib/prisma", () => ({ default: db }));
 vi.mock("@/lib/googleDriveAuth", () => ({ getGoogleDriveToken: vi.fn() }));
 vi.mock("@/lib/authz", () => ({
-  roleHasPermission: vi.fn(async (role: string, permission: string) =>
-    role === "ADMIN" || (role === "STAFF" && permission === "manage_bookings")),
+  // A member who can manage bookings and restore from the bin, but not touch the ledger
+  can: vi.fn(async (user: { role: string }, module: string) =>
+    user.role === "OWNER" || module === "bookings" || module === "recycle_bin"),
 }));
 
 import { canAccessEntry, canRestoreEntry, purgeEntry, restoreEntry, trashBooking } from "@/lib/recycleBin";
@@ -91,8 +92,8 @@ describe("access rules", () => {
   });
 
   it("requires the matching permission to restore", async () => {
-    const staff = { id: "u2", role: "STAFF" as const, email: null, name: null };
-    expect(await canRestoreEntry({ itemType: "booking", trashedById: "u1" }, staff)).toBe(true);
-    expect(await canRestoreEntry({ itemType: "transaction", trashedById: "u1" }, staff)).toBe(false);
+    const staff = { id: "u2", role: "MEMBER" as const, email: null, name: null };
+    expect(await canRestoreEntry({ itemType: "booking", trashedById: "u1", originalData: {} }, staff)).toBe(true);
+    expect(await canRestoreEntry({ itemType: "transaction", trashedById: "u1", originalData: { shopId: "s1" } }, staff)).toBe(false);
   });
 });

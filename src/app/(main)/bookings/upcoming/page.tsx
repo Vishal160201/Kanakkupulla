@@ -1,10 +1,12 @@
 import prisma from "@/lib/prisma";
 import { Booking } from "@/types";
 import UpcomingShootFeed from "./UpcomingShootFeed";
+import { requirePageAccess } from "@/lib/pageAccess";
 
 export const dynamic = "force-dynamic";
 
 export default async function UpcomingBookingsPage() {
+  await requirePageAccess("bookings");
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

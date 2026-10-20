@@ -19,13 +19,14 @@ export default withAuth(
       return NextResponse.redirect(new URL('/login', req.url));
     }
 
-    // Role-based Access Control
-    const isAdminRoute = req.nextUrl.pathname.startsWith('/analytics');
-    if (isAdminRoute && token?.role !== 'ADMIN') {
-      // If a non-admin tries to access admin routes, redirect to dashboard overview
+    // "/" is prerendered with the dashboard shell, so send signed-in users on before anything renders
+    if (req.nextUrl.pathname === '/') {
       return NextResponse.redirect(new URL('/dashboard/overview', req.url));
     }
-    
+
+    // Module access (analytics, inventory, …) is per shop role: enforced by the APIs and the
+    // client route guard, since it needs the database.
+
     // Personal Expense Tracker Guard
     const isPersonalRoute = req.nextUrl.pathname.startsWith('/personal') || req.nextUrl.pathname.startsWith('/api/personal');
     if (isPersonalRoute && (!process.env.PERSONAL_TRACKER_EMAIL || token?.email !== process.env.PERSONAL_TRACKER_EMAIL)) {
@@ -49,5 +50,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/bookings/:path*", "/transactions/:path*", "/analytics/:path*", "/gifts/:path*", "/settings/:path*", "/login", "/personal/:path*", "/api/personal/:path*"],
+  matcher: ["/", "/dashboard/:path*", "/inventory/:path*", "/inventory", "/bookings/:path*", "/transactions/:path*", "/analytics/:path*", "/gifts/:path*", "/settings/:path*", "/login", "/personal/:path*", "/api/personal/:path*"],
 };

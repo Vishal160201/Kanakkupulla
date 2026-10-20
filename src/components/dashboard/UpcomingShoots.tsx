@@ -105,7 +105,7 @@ export default function UpcomingShoots({ bookings }: { bookings: UpcomingBooking
                   <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-400 to-orange-600 shadow-[0_0_10px_rgba(249,115,22,0.4)]"></div>
                 )}
                 
-                <div className="flex items-center gap-4 relative z-10">
+                <div className="flex items-center gap-4 relative z-10 min-w-0 flex-1">
                   <div className={`w-[48px] h-[42px] shrink-0 rounded-xl flex flex-col items-center justify-center shadow-sm transition-all duration-300 ${
                     title === "Today" 
                       ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-orange-500/20 group-hover:shadow-orange-500/40' 
@@ -129,7 +129,7 @@ export default function UpcomingShoots({ bookings }: { bookings: UpcomingBooking
                     })()}
                   </div>
                   
-                  <div className="flex flex-col overflow-hidden">
+                  <div className="flex flex-col overflow-hidden min-w-0">
                     <h4 className="font-extrabold text-[0.95rem] text-slate-800 leading-tight group-hover:text-orange-600 transition-colors truncate">{b.title || b.client?.name || 'Untitled'}</h4>
                     <span className="font-semibold text-[0.65rem] text-slate-400 uppercase tracking-widest mt-0.5 group-hover:text-slate-500 transition-colors">
                       {b.bookingNumber || b.id.substring(0, 8)}
@@ -137,8 +137,8 @@ export default function UpcomingShoots({ bookings }: { bookings: UpcomingBooking
                   </div>
                 </div>
                 
-                <div className="flex flex-col items-end relative z-10">
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[0.65rem] font-bold uppercase tracking-wider mb-1.5 backdrop-blur-sm ${
+                <div className="flex flex-col items-end relative z-10 shrink-0 ml-3">
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg whitespace-nowrap text-[0.65rem] font-bold uppercase tracking-wider mb-1.5 backdrop-blur-sm ${
                     b.status === 'Confirmed' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 
                     b.status === 'Pending' ? 'bg-red-500/10 text-red-600 border border-red-500/20' : 'bg-orange-500/10 text-orange-600 border border-orange-500/20'
                   }`}>
@@ -162,7 +162,7 @@ export default function UpcomingShoots({ bookings }: { bookings: UpcomingBooking
   return (
     <div className="relative flex flex-col h-full">
       {/* Decorative subtle background elements */}
-      <div className="absolute -top-10 -right-10 w-40 h-40 bg-orange-500/5 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.06),transparent_60%)]"></div>
       
       <div className="flex justify-between items-center mb-8 relative z-10">
         <h3 className="text-[1.3rem] font-black text-slate-900 tracking-tight flex items-center gap-2">

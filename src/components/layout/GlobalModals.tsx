@@ -10,6 +10,7 @@ const BookingFormModal = dynamic(() => import("@/components/dashboard/BookingFor
 const TransactionModal = dynamic(() => import("@/components/dashboard/TransactionModal"), { ssr: false });
 const TransactionDetailsModal = dynamic(() => import("@/components/dashboard/TransactionDetailsModal"), { ssr: false });
 const OrderDetailsPanel = dynamic(() => import("@/components/gifts/OrderDetailsPanel"), { ssr: false });
+const InventoryBillModal = dynamic(() => import("@/components/inventory/bills/InventoryBillModal"), { ssr: false });
 
 export default function GlobalModals() {
   return (
@@ -18,6 +19,7 @@ export default function GlobalModals() {
       <TransactionModal />
       <TransactionDetailsModal />
       <OrderDetailsPanel />
+      <InventoryBillModal />
     </>
   );
 }

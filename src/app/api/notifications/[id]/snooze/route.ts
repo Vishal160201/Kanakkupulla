@@ -19,7 +19,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
     }
 
-    if (notification.userId !== auth.user.id && auth.user.role !== 'ADMIN') {
+    if (notification.userId !== auth.user.id && auth.user.role !== 'OWNER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { requirePermission, requireUser } from "@/lib/authz";
+import { requireAccess } from "@/lib/authz";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
 import { clientCreateSchema, clientListQuerySchema } from "@/lib/validations/clients";
 
 export async function GET(request: Request) {
-  const auth = await requireUser();
+  const auth = await requireAccess("bookings", "VIEW");
   if (auth.error) return auth.error;
 
   const query = parseSearchParams(request, clientListQuerySchema);
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requirePermission("manage_bookings");
+  const auth = await requireAccess("bookings", "MANAGE");
   if (auth.error) return auth.error;
 
   try {

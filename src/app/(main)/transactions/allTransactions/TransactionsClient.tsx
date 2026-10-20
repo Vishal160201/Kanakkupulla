@@ -32,9 +32,11 @@ function TransactionsList() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { openTransactionDetails, openTransactionForm } = useGlobalForm();
-  const { activeShopId, shops } = useShops();
+  const { activeShopId, activeShopType, shops } = useShops();
   // Label each row with its shop only when several shops are mixed in one list.
   const showShop = activeShopId === "all" && shops.length > 1;
+  // Priority alerts are studio notifications (bookings, gifts).
+  const isStudioMode = activeShopType === "STUDIO";
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -111,7 +113,9 @@ function TransactionsList() {
         toast.success(isGroup ? "Group deleted." : "Transaction deleted.");
         router.refresh();
       } else {
-        toast.error("Failed to delete. Please try again.");
+        // e.g. 409 for entries created by Fertilizer Inventory
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Failed to delete. Please try again.");
       }
     } catch {
       toast.error("Network error. Please try again.");
@@ -131,7 +135,7 @@ function TransactionsList() {
 
   return (
     <div className="animate-fade-in w-full">
-      <HighPriorityAlerts />
+      {isStudioMode && <HighPriorityAlerts />}
 
       {/* Transaction Activity */}
       <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 animate-slide-up" style={{ animationDelay: "100ms" }}>

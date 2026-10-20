@@ -11,6 +11,8 @@ import ShopBadge from "@/components/shops/ShopBadge";
 import type { TransactionDetailResponse } from "@/types/transactions";
 import TransactionSummarySection from "@/components/transactions/details/TransactionSummarySection";
 import TransactionImpactSection from "@/components/transactions/details/TransactionImpactSection";
+import { LOCKED_ENTRY_MESSAGE, SourceBadge } from "@/components/transactions/sourceLock";
+import { useCanWriteTransaction } from "@/hooks/useAccess";
 
 export default function TransactionDetailsModal() {
   const { isTransactionDetailsOpen, transactionDetailsId, closeTransactionDetails, openTransactionForm, openBookingDetails, openGiftOrderDetails } = useGlobalForm();
@@ -29,6 +31,14 @@ export default function TransactionDetailsModal() {
 
   const transaction = data?.transaction;
   const isIncome = transaction?.type === "INCOME";
+  // Entries posted by Fertilizer Inventory can only be changed or voided there.
+  const isLocked = !!transaction?.source;
+  const canWriteTransaction = useCanWriteTransaction();
+  const canWrite = !!transaction && canWriteTransaction({
+    shopId: transaction.shopId ?? transaction.shop?.id ?? null,
+    bookingId: transaction.bookingId,
+    productOrderId: transaction.productOrder?.id,
+  });
 
   const close = () => {
     closeTransactionDetails();
@@ -101,7 +111,7 @@ export default function TransactionDetailsModal() {
       <Dialog open={isTransactionDetailsOpen && !showDeleteConfirm} onOpenChange={(open) => !open && close()}>
         <DialogContent
           showCloseButton={false}
-          className="!fixed !left-0 !right-0 !bottom-0 !top-auto !flex !w-full !max-w-none !translate-x-0 !translate-y-0 flex-col md:!left-1/2 md:!right-auto md:!top-1/2 md:!bottom-auto md:!-translate-x-1/2 md:!-translate-y-1/2 md:!max-w-[960px] max-h-[96dvh] md:max-h-[90vh] gap-0 overflow-hidden !rounded-t-[28px] !rounded-b-none md:!rounded-[28px] border-0 bg-white p-0 shadow-2xl"
+          className="!fixed !left-0 !right-0 !bottom-0 !top-auto !flex !w-full !max-w-none !translate-x-0 !translate-y-0 flex-col md:!left-1/2 md:!right-auto md:!top-1/2 md:!bottom-auto md:!-translate-x-1/2 md:!-translate-y-1/2 md:!w-[calc(100vw-4rem)] md:!max-w-[960px] max-h-[96dvh] md:max-h-[90vh] gap-0 overflow-hidden !rounded-t-[28px] !rounded-b-none md:!rounded-[28px] border-0 bg-white p-0 shadow-2xl"
         >
           <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5 sm:px-7">
             <div>
@@ -110,6 +120,7 @@ export default function TransactionDetailsModal() {
                   Transaction Details
                 </DialogTitle>
                 {shops.length > 1 && <ShopBadge shop={transaction?.shop} className="text-[11px]" />}
+                <SourceBadge source={transaction?.source} className="text-[11px]" />
               </div>
               <p className="mt-0.5 text-[11px] font-semibold text-slate-400 sm:hidden">
                 Review the complete record
@@ -144,7 +155,7 @@ export default function TransactionDetailsModal() {
                 </div>
               </div>
             ) : (
-              <div className="grid md:grid-cols-[0.9fr_1.1fr]">
+              <div className="grid lg:grid-cols-[0.9fr_1.1fr] md:[&>section:first-child]:border-r-0 md:[&>section:first-child]:border-b lg:[&>section:first-child]:border-b-0 lg:[&>section:first-child]:border-r">
                 <TransactionSummarySection
                   transaction={transaction}
                   isIncome={isIncome}
@@ -164,6 +175,31 @@ export default function TransactionDetailsModal() {
           </div>
 
           {!isLoading && transaction && (
+            !canWrite && !isLocked ? (
+            <div className="flex shrink-0 justify-end border-t border-slate-100 bg-white p-3 sm:px-6 sm:py-4">
+              <button
+                type="button"
+                onClick={close}
+                className="h-11 w-full rounded-xl bg-orange-500 px-7 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 sm:w-auto"
+              >
+                Close
+              </button>
+            </div>
+            ) : isLocked ? (
+            <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+              <p className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-500">
+                <i aria-hidden="true" className="ph-bold ph-lock-simple text-sm text-slate-400" />
+                {LOCKED_ENTRY_MESSAGE}
+              </p>
+              <button
+                type="button"
+                onClick={close}
+                className="h-11 rounded-xl bg-orange-500 px-7 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600"
+              >
+                Close
+              </button>
+            </div>
+            ) : (
             <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-slate-100 bg-white p-3 sm:flex sm:items-center sm:justify-between sm:px-6 sm:py-4">
               <button
                 type="button"
@@ -194,6 +230,7 @@ export default function TransactionDetailsModal() {
                 </button>
               </div>
             </div>
+            )
           )}
         </DialogContent>
       </Dialog>

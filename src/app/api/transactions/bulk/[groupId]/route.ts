@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission } from "@/lib/authz";
+import { canWriteTransaction, forbiddenResponse, requireUser } from "@/lib/authz";
+import { assertLedgerReadable } from "@/lib/ledgerAccess";
 import { generateTransactionIds } from "@/lib/transactionId";
 import { resolveShopForWrite, ShopError } from "@/lib/shops";
+import { assertNotInventoryCategory } from "@/lib/ledgerSource";
 import { parseJsonBody } from "@/lib/validations/http";
 import { pickCustomFields } from "@/lib/validations/common";
 import { bulkTransactionSchema } from "@/lib/validations/transactions";
 
 export async function GET(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
-  const auth = await requirePermission("view_transactions", "manage_transactions");
+  const auth = await requireUser();
   if (auth.error) return auth.error;
 
   try {
@@ -21,6 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ grou
     if (!transactions || transactions.length === 0) {
       return NextResponse.json({ error: "Transaction group not found" }, { status: 404 });
     }
+    await assertLedgerReadable(auth.user, transactions[0].shopId);
 
     const firstTx = transactions[0];
     const categoryNames = transactions.map(tx => tx.category).join(', ');
@@ -40,13 +43,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ grou
 
     return NextResponse.json({ transaction: combinedTransaction }, { status: 200 });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to fetch transaction group:", error);
     return NextResponse.json({ error: "Failed to fetch group" }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
-  const auth = await requirePermission("manage_transactions");
+  const auth = await requireUser();
   if (auth.error) return auth.error;
   const userId = auth.user.id;
 
@@ -66,8 +70,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
     const requestedShopId = body[0]?.shopId;
     const currentShopId = existingTransactions[0]?.shopId;
     const shopId = requestedShopId && requestedShopId !== currentShopId
-      ? await resolveShopForWrite(requestedShopId)
+      ? await resolveShopForWrite(requestedShopId, undefined, auth.user)
       : currentShopId ?? (await resolveShopForWrite(undefined));
+    const writable = await Promise.all(
+      [...new Set([shopId, ...existingTransactions.map(tx => tx.shopId)])].map(id => canWriteTransaction(auth.user, { shopId: id }))
+    );
+    if (writable.includes(false)) return forbiddenResponse();
+    await assertNotInventoryCategory(shopId, body.map(tx => tx.category), shopId === currentShopId ? existingTransactions.map(tx => tx.category) : []);
 
     const existingByCategory = new Map(existingTransactions.map(tx => [tx.category, tx]));
     // Mirrors the loop below: the first entry per existing category updates it, the rest are created.
@@ -135,7 +144,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ grou
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ groupId: string }> }) {
-  const auth = await requirePermission("manage_transactions");
+  const auth = await requireUser();
   if (auth.error) return auth.error;
   const userId = auth.user.id;
 
@@ -149,6 +158,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ g
     if (transactions.length === 0) {
       return NextResponse.json({ error: "Group not found" }, { status: 404 });
     }
+    if (!(await canWriteTransaction(auth.user, { shopId: transactions[0].shopId }))) return forbiddenResponse();
 
     await prisma.transaction.updateMany({
       where: { id: { in: transactions.map(tx => tx.id) } },
@@ -175,6 +185,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ g
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to delete transaction group:", error);
     return NextResponse.json({ error: "Failed to delete group" }, { status: 500 });
   }

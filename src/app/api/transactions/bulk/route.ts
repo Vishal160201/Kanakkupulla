@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission } from "@/lib/authz";
+import { canWriteTransaction, forbiddenResponse, requireUser } from "@/lib/authz";
 import { generateTransactionIds } from "@/lib/transactionId";
 import { resolveShopForWrite, ShopError } from "@/lib/shops";
 import { parseJsonBody } from "@/lib/validations/http";
 import { pickCustomFields } from "@/lib/validations/common";
 import { bulkTransactionSchema } from "@/lib/validations/transactions";
+import { assertNotInventoryCategory } from "@/lib/ledgerSource";
 
 export async function POST(request: Request) {
   try {
-    const auth = await requirePermission("manage_transactions");
+    const auth = await requireUser();
     if (auth.error) return auth.error;
     const userId = auth.user.id;
 
@@ -21,7 +22,9 @@ export async function POST(request: Request) {
     const groupId = `grp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const transactionIds = await generateTransactionIds(body.length);
     // The schema guarantees every entry names the same shop (or none → default shop)
-    const shopId = await resolveShopForWrite(body[0]?.shopId);
+    const shopId = await resolveShopForWrite(body[0]?.shopId, undefined, auth.user);
+    if (!(await canWriteTransaction(auth.user, { shopId }))) return forbiddenResponse();
+    await assertNotInventoryCategory(shopId, body.map(tx => tx.category));
 
     const transactionsData = body.map((tx, i) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars -- shopId is resolved once for the whole group

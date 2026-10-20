@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { format } from "date-fns";
+import { useAccess } from "@/hooks/useAccess";
 
 interface OverdueBooking {
   id: string;
@@ -19,7 +20,9 @@ function withDismissed(current: Record<string, number>, id: string): Record<stri
 }
 
 export default function OverdueBookingBanners() {
-  const { data: bookings, mutate } = useSWR<OverdueResponse>("/api/bookings/overdue", fetcher, {
+  const { can } = useAccess();
+  const canManageBookings = can("bookings", "MANAGE");
+  const { data: bookings, mutate } = useSWR<OverdueResponse>(can("bookings", "VIEW") ? "/api/bookings/overdue" : null, fetcher, {
     refreshInterval: 60000,
   });
 
@@ -126,6 +129,7 @@ export default function OverdueBookingBanners() {
               </div>
               Dismiss
             </button>
+            {canManageBookings && (
             <button 
               type="button"
               onClick={() => handleComplete(booking.id)}
@@ -134,6 +138,7 @@ export default function OverdueBookingBanners() {
               <i className="ph-bold ph-check"></i>
               Shoot Completed
             </button>
+            )}
           </div>
         </div>
       ))}

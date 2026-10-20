@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import { TRANSACTION_CATEGORIES } from "@/lib/transactionConstants";
+import Checkbox from "@/components/ui/Checkbox";
 
 export interface TransactionFilters {
   dateFrom: string;
@@ -69,10 +70,14 @@ export default function TransactionFilterModal({ isOpen, onClose, activeFilters,
           <div className="font-bold text-slate-500 text-[0.85rem] uppercase tracking-[0.5px] mb-3">Category</div>
           <div className="grid grid-cols-2 gap-4 mb-6">
             {TRANSACTION_CATEGORIES.map(cat => (
-              <label key={cat} className="flex items-center gap-2.5 cursor-pointer">
-                <input type="checkbox" checked={filterState.categories.includes(cat)} onChange={() => toggleCategory(cat)} className="w-4 h-4 accent-orange-500" />
-                <span className="text-[0.95rem] text-slate-700 font-medium">{cat}</span>
-              </label>
+              <Checkbox
+                key={cat}
+                size="sm"
+                checked={filterState.categories.includes(cat)}
+                onChange={() => toggleCategory(cat)}
+                label={cat}
+                labelClassName="text-[0.95rem] text-slate-700 font-medium"
+              />
             ))}
           </div>
 

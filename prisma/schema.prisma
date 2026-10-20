@@ -87,42 +87,360 @@ model SystemLog {
 /// Studio-wide business unit for ledger entries. The default shop is the SystemSetting
 /// `default_shop_id` (one row, so there is always exactly one default).
 model Shop {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  icon         String?
-  color        String        @default("#6366f1")
-  isArchived   Boolean       @default(false)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  transactions Transaction[]
+  id                 String              @id @default(cuid())
+  name               String              @unique
+  icon               String?
+  color              String              @default("#6366f1")
+  isArchived         Boolean             @default(false)
+  /// STUDIO shops share every module; other types get their own module set (src/lib/shopModules.ts)
+  type               ShopType            @default(STUDIO)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  transactions       Transaction[]
+  members            ShopMember[]
+  inventoryProducts  InventoryProduct[]
+  inventoryBills     InventoryBill[]
+  inventoryCustomers InventoryCustomer[]
+  produceItems       ProduceItem[]
+  produceCollections ProduceCollection[]
+  producePayments    ProducePayment[]
+  produceBuyers      ProduceBuyer[]
+  produceSales       ProduceSale[]
+  produceReceipts    ProduceReceipt[]
 
   @@index([isArchived])
 }
 
-model Transaction {
-  id             String        @id @default(cuid())
-  amount         Decimal       @db.Decimal(12, 2)
-  type           String
-  date           DateTime
-  category       String
-  paymentMode    String
-  description    String?
-  status         String        @default("SETTLED")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  attachmentUrl  String?
-  bookingId      String?
-  customData     Json?
-  transactionId  String?       @unique
-  userId         String?
-  productOrderId String?
-  deletedAt      DateTime?
-  groupId        String?
+enum ShopType {
+  STUDIO
+  FERTILIZER
+}
+
+/// A member's role in one shop. Owners need no assignments; members only see their assigned shops.
+model ShopMember {
+  id        String     @id @default(cuid())
+  shopId    String
+  userId    String
+  roleId    String
+  createdAt DateTime   @default(now())
+  shop      Shop       @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AccessRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([shopId, userId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+/// Per-shop role (Admin / Staff) with a module → NONE/VIEW/MANAGE grid (src/lib/access.ts).
+model AccessRole {
+  id            String       @id @default(cuid())
+  key           String       @unique
+  name          String
+  description   String?
+  /// Record<ModuleKey, "NONE" | "VIEW" | "MANAGE">
+  permissions   Json
+  /// Record<NotificationType, boolean>
+  notifications Json         @default("{}")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  assignments   ShopMember[]
+}
+
+model InventoryProduct {
+  id         String          @id @default(cuid())
+  shopId     String
+  name       String
+  /// Pack type: Bottle, Packet, Bag, Loose or Piece (older rows may hold other strings)
+  unit       String
+  /// Size of one pack (e.g. 50 for a 50 kg bag); null for Loose / Piece or when not set
+  packSize   Decimal?        @db.Decimal(12, 3)
+  /// Unit of packSize (ml, L, g, kg), or what a Loose product is sold by (kg, L, tonne)
+  packUnit   String?
+  price      Decimal         @db.Decimal(12, 2)
+  isArchived Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  shop       Shop            @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  movements  StockMovement[]
+
+  @@unique([shopId, name])
+  @@index([shopId, isArchived])
+}
+
+enum InventoryBillKind {
+  PURCHASE
+  SALE
+}
+
+model InventoryBill {
+  id            String             @id @default(cuid())
+  shopId        String
+  kind          InventoryBillKind
+  billNumber    String
+  date          DateTime
+  customerId    String?
+  supplierName  String?
+  totalAmount   Decimal            @db.Decimal(12, 2)
+  paidAmount    Decimal            @db.Decimal(12, 2)
+  paymentMode   String
+  notes         String?
+  /// Daily Kanakku entry posted for this bill (none when nothing was paid)
+  transactionId String?            @unique
+  createdById   String?
+  voidedAt      DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  shop          Shop               @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  customer      InventoryCustomer? @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  transaction   Transaction?       @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  lines         StockMovement[]
+
+  @@unique([shopId, billNumber])
+  @@index([shopId, kind, date])
+  @@index([customerId])
+}
+
+enum StockMovementType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+}
+
+/// One stock change. `quantity` is signed: purchases add, sales subtract, adjustments either way.
+model StockMovement {
+  id          String            @id @default(cuid())
+  shopId      String
+  productId   String
+  billId      String?
+  type        StockMovementType
+  quantity    Decimal           @db.Decimal(12, 3)
+  unitPrice   Decimal           @db.Decimal(12, 2)
+  amount      Decimal           @db.Decimal(12, 2)
+  date        DateTime
+  notes       String?
+  createdById String?
+  voidedAt    DateTime?
+  createdAt   DateTime          @default(now())
+  product     InventoryProduct  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  bill        InventoryBill?    @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, date])
+  @@index([productId, voidedAt])
+  @@index([billId])
+}
+
+/// Farmer / buyer of a fertilizer shop; credit balance = unpaid sale amounts − repayments.
+model InventoryCustomer {
+  id                 String              @id @default(cuid())
+  shopId             String
+  name               String
+  phone              String?
+  place              String?
+  isArchived         Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  shop               Shop                @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  bills              InventoryBill[]
+  payments           CustomerPayment[]
+  /// Produce (crops) bought from this farmer, and what we paid them for it
+  produceCollections ProduceCollection[]
+  producePayments    ProducePayment[]
+
+  @@index([shopId, name])
+}
+
+model CustomerPayment {
+  id             String            @id @default(cuid())
   shopId         String
-  booking        Booking?      @relation(fields: [bookingId], references: [id])
-  productOrder   ProductOrder? @relation(fields: [productOrderId], references: [id])
-  user           User?         @relation(fields: [userId], references: [id])
-  shop           Shop          @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  customerId     String
+  amount         Decimal           @db.Decimal(12, 2)
+  date           DateTime
+  paymentMode    String
+  notes          String?
+  transactionId  String?           @unique
+  createdById    String?
+  voidedAt       DateTime?
+  createdAt      DateTime          @default(now())
+  customer       InventoryCustomer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  transaction    Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  /// Set when this repayment is fertilizer credit deducted from a produce payment (no cash, no ledger entry)
+  producePayment ProducePayment?
+
+  @@index([customerId, voidedAt])
+  @@index([shopId, date])
+}
+
+/// A crop / produce the shop buys from farmers and sells on; each shop manages its own list.
+model ProduceItem {
+  id          String              @id @default(cuid())
+  shopId      String
+  name        String
+  /// Unit quantities and rates are in: kg, quintal or tonne
+  unit        String              @default("kg")
+  isArchived  Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  shop        Shop                @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  collections ProduceCollection[]
+  sales       ProduceSale[]
+
+  @@unique([shopId, name])
+  @@index([shopId, isArchived])
+}
+
+/// Produce bought from a farmer at that day's rate per unit. The amount is owed to the farmer until paid.
+model ProduceCollection {
+  id          String            @id @default(cuid())
+  shopId      String
+  itemId      String
+  customerId  String
+  date        DateTime
+  /// In the item's unit
+  quantity    Decimal           @db.Decimal(12, 3)
+  /// Per item unit
+  rate        Decimal           @db.Decimal(12, 2)
+  amount      Decimal           @db.Decimal(12, 2)
+  notes       String?
+  createdById String?
+  voidedAt    DateTime?
+  createdAt   DateTime          @default(now())
+  shop        Shop              @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  item        ProduceItem       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  customer    InventoryCustomer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([shopId, date])
+  @@index([itemId, voidedAt])
+  @@index([customerId, voidedAt])
+}
+
+/// A payment to a farmer for produce (all crops): cash (posted to Daily Kanakku) plus any fertilizer credit deducted.
+model ProducePayment {
+  id              String            @id @default(cuid())
+  shopId          String
+  customerId      String
+  /// cashAmount + creditDeducted; what comes off the farmer's produce due
+  amount          Decimal           @db.Decimal(12, 2)
+  cashAmount      Decimal           @db.Decimal(12, 2)
+  creditDeducted  Decimal           @db.Decimal(12, 2)
+  date            DateTime
+  paymentMode     String
+  notes           String?
+  /// Daily Kanakku expense for the cash part (none when everything was deducted)
+  transactionId   String?           @unique
+  /// Credit repayment recorded for the deducted part
+  creditPaymentId String?           @unique
+  createdById     String?
+  voidedAt        DateTime?
+  createdAt       DateTime          @default(now())
+  shop            Shop              @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  customer        InventoryCustomer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  transaction     Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  creditPayment   CustomerPayment?  @relation(fields: [creditPaymentId], references: [id], onDelete: Restrict)
+
+  @@index([customerId, voidedAt])
+  @@index([shopId, date])
+}
+
+/// Marketer / trader the shop sells produce to.
+model ProduceBuyer {
+  id         String           @id @default(cuid())
+  shopId     String
+  name       String
+  phone      String?
+  place      String?
+  isArchived Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  shop       Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  sales      ProduceSale[]
+  receipts   ProduceReceipt[]
+
+  @@index([shopId, name])
+}
+
+/// Produce sold to a buyer (PS-0001…): quantity × rate; the unpaid part is the buyer's due.
+model ProduceSale {
+  id            String       @id @default(cuid())
+  shopId        String
+  itemId        String
+  buyerId       String
+  saleNumber    String
+  date          DateTime
+  /// In the item's unit
+  quantity      Decimal      @db.Decimal(12, 3)
+  rate          Decimal      @db.Decimal(12, 2)
+  totalAmount   Decimal      @db.Decimal(12, 2)
+  paidAmount    Decimal      @db.Decimal(12, 2)
+  paymentMode   String
+  notes         String?
+  /// Daily Kanakku income for what was received now (none when nothing was paid)
+  transactionId String?      @unique
+  createdById   String?
+  voidedAt      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  shop          Shop         @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  item          ProduceItem  @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  buyer         ProduceBuyer @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@unique([shopId, saleNumber])
+  @@index([shopId, date])
+  @@index([itemId, voidedAt])
+  @@index([buyerId])
+}
+
+/// Money received later from a buyer against their produce dues.
+model ProduceReceipt {
+  id            String       @id @default(cuid())
+  shopId        String
+  buyerId       String
+  amount        Decimal      @db.Decimal(12, 2)
+  date          DateTime
+  paymentMode   String
+  notes         String?
+  transactionId String?      @unique
+  createdById   String?
+  voidedAt      DateTime?
+  createdAt     DateTime     @default(now())
+  shop          Shop         @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  buyer         ProduceBuyer @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([buyerId, voidedAt])
+  @@index([shopId, date])
+}
+
+model Transaction {
+  id              String           @id @default(cuid())
+  amount          Decimal          @db.Decimal(12, 2)
+  type            String
+  date            DateTime
+  category        String
+  paymentMode     String
+  description     String?
+  status          String           @default("SETTLED")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  attachmentUrl   String?
+  bookingId       String?
+  customData      Json?
+  transactionId   String?          @unique
+  userId          String?
+  productOrderId  String?
+  deletedAt       DateTime?
+  groupId         String?
+  shopId          String
+  booking         Booking?         @relation(fields: [bookingId], references: [id])
+  productOrder    ProductOrder?    @relation(fields: [productOrderId], references: [id])
+  user            User?            @relation(fields: [userId], references: [id])
+  shop            Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  inventoryBill   InventoryBill?
+  customerPayment CustomerPayment?
+  producePayment  ProducePayment?
+  produceSale     ProduceSale?
+  produceReceipt  ProduceReceipt?
 
   @@index([date])
   @@index([category])
@@ -179,7 +497,7 @@ model User {
   invitedAt          DateTime?
   phone              String?
   pushNotifications  Boolean            @default(true)
-  role               Role               @default(STAFF)
+  role               Role               @default(MEMBER)
   status             UserStatus         @default(ACTIVE)
   whatsappNotifs     Boolean            @default(false)
   notificationPrefs  Json?
@@ -191,6 +509,7 @@ model User {
   sessions           Session[]
   transactions       Transaction[]
   integrations       UserIntegration[]
+  shopMemberships    ShopMember[]
 
   @@index([status])
 }
@@ -206,16 +525,6 @@ model UserIntegration {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
-}
-
-model RolePermission {
-  id         String  @id @default(cuid())
-  role       Role
-  permission String
-  enabled    Boolean @default(false)
-
-  @@unique([role, permission])
-  @@index([role])
 }
 
 model VerificationToken {
@@ -337,10 +646,10 @@ model RecycleBin {
   @@index([itemType, itemId])
 }
 
+/// OWNER: full access everywhere. MEMBER: access only through per-shop role assignments.
 enum Role {
-  ADMIN
-  STAFF
-  PHOTOGRAPHER
+  OWNER
+  MEMBER
 }
 
 enum UserStatus {

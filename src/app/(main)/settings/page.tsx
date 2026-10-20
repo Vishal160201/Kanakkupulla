@@ -2,7 +2,6 @@
 
 import { useState, Suspense, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import UserManagement from "@/components/settings/UserManagement";
 import RolesPermissions from "@/components/settings/RolesPermissions";
 import LayoutsFieldsBuilder from "@/components/settings/LayoutsFieldsBuilder";
@@ -13,43 +12,51 @@ import GoogleDriveIntegration from "@/components/settings/integrations/GoogleDri
 import WhatsAppIntegration from "@/components/settings/integrations/WhatsAppIntegration";
 import ShopsSettings from "@/components/settings/shops/ShopsSettings";
 import { Tooltip } from "@/components/ui/Tooltip";
+import OwnersOnlyState from "@/components/settings/common/OwnersOnlyState";
+import { useIsOwner, useRecycleBinAccess } from "@/components/settings/common/useIsOwner";
+
+/**
+ * Who sees a section: "owner" = owners only, "recycle" = owners and members whose access
+ * includes the Recycle Bin, "all" = everyone.
+ */
+type SectionAccess = "owner" | "recycle" | "all";
 
 const GROUPS = [
   {
     label: "General",
     items: [
-      { id: "system", label: "System Preferences", icon: "ph-gear-fine" },
-      { id: "notifications", label: "Notification Preferences", icon: "ph-bell" },
-      { id: "shops", label: "Shops", icon: "ph-storefront" },
+      { id: "system", label: "System Preferences", icon: "ph-gear-fine", access: "owner" },
+      { id: "notifications", label: "Notification Preferences", icon: "ph-bell", access: "owner" },
+      { id: "shops", label: "Shops", icon: "ph-storefront", access: "owner" },
     ]
   },
   {
     label: "Team",
     items: [
-      { id: "users", label: "Users & Team", icon: "ph-users-three" },
-      { id: "permissions", label: "Roles & Permissions", icon: "ph-shield-check" },
+      { id: "users", label: "Users & Team", icon: "ph-users-three", access: "owner" },
+      { id: "permissions", label: "Roles & Permissions", icon: "ph-shield-check", access: "owner" },
     ]
   },
   {
     label: "Customization",
     items: [
-      { id: "layouts", label: "Layouts & Fields", icon: "ph-layout" },
+      { id: "layouts", label: "Layouts & Fields", icon: "ph-layout", access: "owner" },
     ]
   },
   {
     label: "Integrations",
     items: [
-      { id: "google-drive", label: "Google Drive", icon: "ph-google-logo" },
-      { id: "whatsapp-bot", label: "WhatsApp Bot", icon: "ph-whatsapp-logo" },
+      { id: "google-drive", label: "Google Drive", icon: "ph-google-logo", access: "owner" },
+      { id: "whatsapp-bot", label: "WhatsApp Bot", icon: "ph-whatsapp-logo", access: "owner" },
     ]
   },
   {
     label: "Data",
     items: [
-      { id: "recycle-bin", label: "Recycle Bin", icon: "ph-trash" },
+      { id: "recycle-bin", label: "Recycle Bin", icon: "ph-trash", access: "recycle" },
     ]
   }
-] as const;
+] as const satisfies readonly { label: string; items: readonly { id: string; label: string; icon: string; access: SectionAccess }[] }[];
 
 type SectionId = typeof GROUPS[number]["items"][number]["id"];
 
@@ -58,8 +65,7 @@ interface SettingsGroup {
   items: readonly { id: SectionId; label: string; icon: string }[];
 }
 
-/** Sections only admins can see / open. */
-const ADMIN_ONLY_SECTIONS: ReadonlySet<SectionId> = new Set<SectionId>(["shops"]);
+const SECTION_ACCESS = new Map<string, SectionAccess>(GROUPS.flatMap((g) => g.items.map((i) => [i.id, i.access] as const)));
 
 // Sidebar collapsed preference, persisted in localStorage and read via
 // useSyncExternalStore (server/hydration snapshot = expanded).
@@ -90,13 +96,13 @@ interface SidebarContentProps {
 const SidebarContent = ({ groups, activeSection, onSectionSwitch, isCollapsed = false }: SidebarContentProps) => {
   const router = useRouter();
   return (
-  <div className="flex flex-col h-full py-4 px-3 overflow-y-auto no-scrollbar overflow-x-hidden">
+  <div className="flex flex-col h-full py-4 px-3 overflow-y-auto overflow-x-hidden">
     <Tooltip content={isCollapsed ? "Back" : undefined} side="right">
       <button
         type="button"
         onClick={() => router.push('/')}
         aria-label={isCollapsed ? "Back" : undefined}
-        className={`flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-800 transition-colors mb-4 ${isCollapsed ? 'justify-center px-0' : ''}`}
+        className={`flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-slate-800 transition-colors mb-4 [@media(max-height:820px)]:mb-2 ${isCollapsed ? 'justify-center px-0' : ''}`}
       >
         <i className="ph-bold ph-arrow-left text-lg shrink-0"></i>
         {!isCollapsed && <span className="text-[0.85rem] font-bold">Back</span>}
@@ -104,7 +110,7 @@ const SidebarContent = ({ groups, activeSection, onSectionSwitch, isCollapsed = 
     </Tooltip>
 
     {groups.map((group, groupIdx) => (
-      <div key={group.label} className={groupIdx > 0 ? "mt-6" : ""}>
+      <div key={group.label} className={groupIdx > 0 ? "mt-6 [@media(max-height:820px)]:mt-2.5" : ""}>
         <div className={`mb-2 text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest ${isCollapsed ? 'hidden' : 'px-3'}`}>
           {group.label}
         </div>
@@ -117,7 +123,7 @@ const SidebarContent = ({ groups, activeSection, onSectionSwitch, isCollapsed = 
                   type="button"
                   onClick={() => onSectionSwitch(item.id)}
                   aria-label={isCollapsed ? item.label : undefined}
-                  className={`flex items-center gap-3 py-2.5 rounded-xl transition-all duration-200 text-[0.85rem] font-semibold outline-none ${
+                  className={`flex items-center gap-3 py-2.5 [@media(max-height:820px)]:py-1.5 rounded-xl transition-all duration-200 text-[0.85rem] font-semibold outline-none ${
                     isCollapsed ? 'justify-center px-0' : 'px-3'
                   } ${
                     isActive
@@ -126,7 +132,7 @@ const SidebarContent = ({ groups, activeSection, onSectionSwitch, isCollapsed = 
                   }`}
                 >
                   <i className={`${isActive ? "ph-fill" : "ph"} ${item.icon} text-lg shrink-0 ${isActive ? "text-orange-500" : "text-slate-400"}`}></i>
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                  {!isCollapsed && <span className="min-w-0 truncate whitespace-nowrap text-left leading-tight">{item.label}</span>}
                 </button>
               </Tooltip>
             );
@@ -141,7 +147,27 @@ function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const activeSection = (searchParams.get("section") as SectionId) ?? "system";
+  const { isOwner, isLoading: isAccessLoading } = useIsOwner();
+  // Members see the Recycle Bin when their access includes it (View or more in any shop).
+  const { canView: canSeeRecycleBin } = useRecycleBinAccess();
+  const canSee = useCallback(
+    (id: string) => {
+      const access = SECTION_ACCESS.get(id);
+      if (!access) return false;
+      if (access === "all") return true;
+      if (access === "recycle") return isOwner || canSeeRecycleBin;
+      return isOwner;
+    },
+    [isOwner, canSeeRecycleBin]
+  );
+
+  // A missing, unknown or (for members) owner-only section falls back to a section they can open.
+  const requestedSection = searchParams.get("section");
+  const defaultSection: SectionId = isOwner || isAccessLoading ? "system" : canSeeRecycleBin ? "recycle-bin" : "notifications";
+  const activeSection: SectionId =
+    requestedSection && SECTION_ACCESS.has(requestedSection) && (isAccessLoading || canSee(requestedSection))
+      ? (requestedSection as SectionId)
+      : defaultSection;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isCollapsed = useSyncExternalStore(subscribeCollapsed, getCollapsedSnapshot, getCollapsedServerSnapshot);
 
@@ -170,23 +196,21 @@ function SettingsPage() {
     }, 150); // Delay half the transition duration to swap components
   }, [activeSection, router]);
 
-  const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
-
   const groupsMemo = useMemo<readonly SettingsGroup[]>(
-    () => isAdmin
-      ? GROUPS
-      : GROUPS
-          .map((group) => ({ ...group, items: group.items.filter((item) => !ADMIN_ONLY_SECTIONS.has(item.id)) }))
-          .filter((group) => group.items.length > 0),
-    [isAdmin]
+    () =>
+      isAccessLoading
+        ? []
+        : GROUPS.map((group) => ({ ...group, items: group.items.filter((item) => canSee(item.id)) })).filter(
+            (group) => group.items.length > 0
+          ),
+    [isAccessLoading, canSee]
   );
 
   return (
-    <div className="w-full h-full flex flex-col md:flex-row gap-6 lg:gap-8 relative">
+    <div className="w-full h-full flex flex-col lg:flex-row gap-6 lg:gap-8 relative">
       
       {/* Desktop Sidebar */}
-      <aside className={`hidden md:block shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm h-[calc(100vh-140px)] sticky top-6 transition-all duration-200 ease-in-out ${isCollapsed ? 'w-[56px]' : 'w-[220px]'}`}>
+      <aside className={`hidden lg:block shrink-0 bg-white rounded-2xl border border-gray-200 shadow-sm h-[calc(100vh-140px)] sticky top-6 transition-all duration-200 ease-in-out ${isCollapsed ? 'w-[56px]' : 'w-[232px]'}`}>
         <SidebarContent 
           groups={groupsMemo} 
           activeSection={activeSection} 
@@ -206,7 +230,7 @@ function SettingsPage() {
 
       {/* Mobile Bottom Sheet Overlay */}
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end" style={{ animation: "fadeIn 0.2s ease-out forwards" }}>
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end" style={{ animation: "fadeIn 0.2s ease-out forwards" }}>
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
           <div 
             className="relative w-full bg-white rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden" 
@@ -239,17 +263,26 @@ function SettingsPage() {
             isTransitioning ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
           }`}
         >
-          {displayedSection === "users" && <UserManagement />}
-          {displayedSection === "permissions" && <RolesPermissions />}
-          {displayedSection === "layouts" && <LayoutsFieldsBuilder />}
-          {displayedSection === "recycle-bin" && <RecycleBin />}
-          {displayedSection === "google-drive" && <GoogleDriveIntegration />}
-          {displayedSection === "whatsapp-bot" && <WhatsAppIntegration />}
-          {displayedSection === "system" && <SystemPreferences />}
-          {displayedSection === "notifications" && <ReminderPreferences />}
-          {displayedSection === "shops" && (isAdmin ? <ShopsSettings /> : (
-            <div className="p-8 text-center text-slate-500">Only admins can manage shops.</div>
-          ))}
+          {isAccessLoading ? (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 flex items-center justify-center gap-3 text-slate-400">
+              <i aria-hidden="true" className="ph ph-circle-notch animate-spin text-lg" />
+              Loading settings…
+            </div>
+          ) : !canSee(displayedSection) ? (
+            <OwnersOnlyState title="Only owners can open this section" />
+          ) : (
+            <>
+              {displayedSection === "users" && <UserManagement />}
+              {displayedSection === "permissions" && <RolesPermissions />}
+              {displayedSection === "layouts" && <LayoutsFieldsBuilder />}
+              {displayedSection === "recycle-bin" && <RecycleBin />}
+              {displayedSection === "google-drive" && <GoogleDriveIntegration />}
+              {displayedSection === "whatsapp-bot" && <WhatsAppIntegration />}
+              {displayedSection === "system" && <SystemPreferences />}
+              {displayedSection === "notifications" && <ReminderPreferences />}
+              {displayedSection === "shops" && <ShopsSettings />}
+            </>
+          )}
         </div>
       </div>
       

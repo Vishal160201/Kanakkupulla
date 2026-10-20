@@ -181,7 +181,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.sub as string;
-        session.user.role = token.role ?? "STAFF";
+        session.user.role = token.role ?? "MEMBER";
         session.user.status = token.status;
       }
       return session;
@@ -197,7 +197,7 @@ export const authOptions: NextAuthOptions = {
         token.sub = user.id;
         // `user` is the Prisma User row returned by authorize() / the adapter
         const dbUser = user as typeof user & { role?: JWT["role"]; status?: JWT["status"] };
-        token.role = dbUser.role || "STAFF";
+        token.role = dbUser.role || "MEMBER";
         token.status = dbUser.status;
         token.refreshedAt = Date.now();
         return token;

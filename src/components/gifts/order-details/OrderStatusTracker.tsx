@@ -7,7 +7,8 @@ import { STATUS_OPTIONS } from "./orderDetailsConstants";
 interface OrderStatusTrackerProps {
   currentStatusIndex: number;
   isUpdatingStatus: string | null;
-  onStatusChange: (status: string) => void;
+  /** Omitted without Gifts Manage: the tracker is read-only. */
+  onStatusChange?: (status: string) => void;
 }
 
 export default function OrderStatusTracker({ currentStatusIndex, isUpdatingStatus, onStatusChange }: OrderStatusTrackerProps) {
@@ -42,8 +43,9 @@ export default function OrderStatusTracker({ currentStatusIndex, isUpdatingStatu
               type="button"
               key={status.value}
               aria-current={isCurrent ? "step" : undefined}
-              className="flex flex-col items-center relative bg-white z-10 group cursor-pointer"
-              onClick={() => onStatusChange(status.value)}
+              className={cn("flex flex-col items-center relative bg-white z-10 group", onStatusChange ? "cursor-pointer" : "cursor-default")}
+              disabled={!onStatusChange}
+              onClick={() => onStatusChange?.(status.value)}
             >
 
               {/* Circle Icon Container */}

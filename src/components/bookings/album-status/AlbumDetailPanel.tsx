@@ -5,7 +5,7 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import type { AlbumBooking, AlbumTeamUser, AlbumTrackingUpdates } from "@/types/bookings";
 import {
-  albumData, albumDisplayId, albumStage, deliveryDateOf, designerIdOf, designerOptions, formatShootDate,
+  albumData, albumDisplayId, albumStage, deliveryDateOf, designerIdOf, designerName, designerOptions, formatShootDate, formatShortDate,
 } from "./albumUtils";
 
 function DetailRow({ label, children, alignStart }: { label: string; children: ReactNode; alignStart?: boolean }) {
@@ -39,10 +39,12 @@ interface AlbumDetailPanelProps {
   onClose: () => void;
   onOpenDetails: () => void;
   onUpdate: (id: string, updates: AlbumTrackingUpdates) => void;
+  /** Without Album status Manage the panel is read-only. */
+  canEdit: boolean;
 }
 
 /** Right column of the album-status page for the selected album. */
-export default function AlbumDetailPanel({ album, teamUsers, onClose, onOpenDetails, onUpdate }: AlbumDetailPanelProps) {
+export default function AlbumDetailPanel({ album, teamUsers, onClose, onOpenDetails, onUpdate, canEdit }: AlbumDetailPanelProps) {
   const cData = albumData(album);
   const { statusLabel, statusColor, progress } = albumStage(cData);
   const isDelivered = statusLabel.toLowerCase() === 'delivered';
@@ -71,20 +73,28 @@ export default function AlbumDetailPanel({ album, teamUsers, onClose, onOpenDeta
         <DetailRow label="Booking ID">{albumDisplayId(album)}</DetailRow>
         <DetailRow label="Shoot Date">{formattedShootDate}</DetailRow>
         <DetailRow label="Designer">
-          <CustomDropdown
-            options={designerOptions(teamUsers)}
-            value={designerId || ""}
-            onChange={(val) => onUpdate(album.id, { customData: { designer: val } })}
-            className="w-40 border-b border-dashed border-slate-300 rounded-none shadow-none bg-transparent"
-            placeholder="Unassigned"
-          />
+          {canEdit ? (
+            <CustomDropdown
+              options={designerOptions(teamUsers)}
+              value={designerId || ""}
+              onChange={(val) => onUpdate(album.id, { customData: { designer: val } })}
+              className="w-40 border-b border-dashed border-slate-300 rounded-none shadow-none bg-transparent"
+              placeholder="Unassigned"
+            />
+          ) : (
+            designerName(teamUsers, designerId, 'Unassigned')
+          )}
         </DetailRow>
         <DetailRow label="Delivery Date">
-          <DatePickerInput
-            value={deliveryDateStr ? new Date(deliveryDateStr).toISOString().split('T')[0] : ""}
-            onChange={(val) => onUpdate(album.id, { customData: { album_delivery_date: val } })}
-            className="flex items-center justify-between bg-white text-[0.8rem] border border-slate-200 rounded-lg px-3 py-1.5 outline-none hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer w-[140px] h-[34px]"
-          />
+          {canEdit ? (
+            <DatePickerInput
+              value={deliveryDateStr ? new Date(deliveryDateStr).toISOString().split('T')[0] : ""}
+              onChange={(val) => onUpdate(album.id, { customData: { album_delivery_date: val } })}
+              className="flex items-center justify-between bg-white text-[0.8rem] border border-slate-200 rounded-lg px-3 py-1.5 outline-none hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer w-[140px] h-[34px]"
+            />
+          ) : (
+            deliveryDateStr ? formatShortDate(deliveryDateStr) : 'Not set'
+          )}
           {deliveryDateStr && new Date(deliveryDateStr) < new Date() && !isDelivered && (
             <span className="text-orange-500 font-bold ml-1">(Overdue)</span>
           )}
@@ -125,9 +135,11 @@ export default function AlbumDetailPanel({ album, teamUsers, onClose, onOpenDeta
       <div className="mt-8 border-t border-slate-100 pt-6">
         <h4 className="font-black text-slate-800 text-sm mb-4">Quick Actions</h4>
         <div className="flex items-center gap-3">
-          <button type="button" className="flex-1 py-2.5 rounded-xl border border-purple-200 text-purple-700 font-bold text-xs hover:bg-purple-50 flex items-center justify-center gap-2 transition-colors">
-            <i className="ph-bold ph-upload-simple"></i> Upload Draft
-          </button>
+          {canEdit && (
+            <button type="button" className="flex-1 py-2.5 rounded-xl border border-purple-200 text-purple-700 font-bold text-xs hover:bg-purple-50 flex items-center justify-center gap-2 transition-colors">
+              <i className="ph-bold ph-upload-simple"></i> Upload Draft
+            </button>
+          )}
           <button
             type="button"
             onClick={onOpenDetails}
@@ -136,13 +148,15 @@ export default function AlbumDetailPanel({ album, teamUsers, onClose, onOpenDeta
             <i className="ph-bold ph-eye"></i> View Details
           </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onUpdate(album.id, { status: 'Delivered', customData: { fld_b_album_status: 'Delivered', album_progress: '100' } })}
-          className="w-full mt-3 py-3 rounded-xl bg-purple-700 text-white font-bold text-sm hover:bg-purple-800 flex items-center justify-center gap-2 shadow-md transition-colors"
-        >
-          <i className="ph-bold ph-check-circle"></i> Mark as Completed
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => onUpdate(album.id, { status: 'Delivered', customData: { fld_b_album_status: 'Delivered', album_progress: '100' } })}
+            className="w-full mt-3 py-3 rounded-xl bg-purple-700 text-white font-bold text-sm hover:bg-purple-800 flex items-center justify-center gap-2 shadow-md transition-colors"
+          >
+            <i className="ph-bold ph-check-circle"></i> Mark as Completed
+          </button>
+        )}
       </div>
     </div>
   );

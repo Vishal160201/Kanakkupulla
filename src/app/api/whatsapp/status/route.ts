@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/authz";
+import { requireOwner } from "@/lib/authz";
 import { botFetch } from "@/lib/whatsappBot";
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json({ error: "WHATSAPP_BOT_URL is not configured" }, { status: 500 });
   }
 
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   try {

@@ -1,11 +1,12 @@
 "use client";
 
-import { useShops } from "@/components/providers/ShopProvider";
+import { shopTypeOf, useShops } from "@/components/providers/ShopProvider";
 import ShopIcon from "@/components/shops/ShopIcon";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { DEFAULT_SHOP_ICON } from "@/lib/shopIcons";
 import type { Shop } from "@/types/shops";
 import { FieldError } from "./FieldChrome";
+import { useAccess } from "@/hooks/useAccess";
 
 interface ShopPickerFieldProps {
   value: string;
@@ -18,11 +19,17 @@ interface ShopPickerFieldProps {
 const labelClass = "block text-[10px] font-extrabold text-slate-500 tracking-[1.5px] uppercase";
 
 /**
- * Fixed (non-layout) "Shop" field of the transaction form. Only active shops can be
- * picked; an entry already in an archived shop keeps showing it until it is moved.
+ * Fixed (non-layout) "Shop" field of the transaction form. Only active shops of the
+ * active shop type can be picked (their ledgers use different layouts); an entry
+ * already in an archived shop keeps showing it until it is moved. Members can only
+ * move entries into shops where they have Daily Kanakku Manage.
  */
 export default function ShopPickerField({ value, onChange, error, originalShopId }: ShopPickerFieldProps) {
-  const { shops, allShops } = useShops();
+  const { shops: allActiveShops, allShops, activeShopType } = useShops();
+  const { can } = useAccess();
+  const shops = allActiveShops.filter(
+    (s) => shopTypeOf(s) === activeShopType && (s.id === value || can("ledger", "MANAGE", s.id))
+  );
   if (shops.length === 0) return null;
 
   const archivedOriginal = originalShopId

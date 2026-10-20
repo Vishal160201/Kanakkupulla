@@ -44,8 +44,8 @@ export function useStudioRecycleBin() {
     return newSet;
   };
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
       setSelectedIds(new Set(items.map((i) => i.id)));
     } else {
       setSelectedIds(new Set());

@@ -10,6 +10,7 @@ import { getProductIcon } from "@/lib/productIcons";
 import type { GiftOrder } from "@/types/gifts";
 import { STATUS_STYLE_MAP as STATUS_MAP } from "./giftOrderStatus";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useAccess } from "@/hooks/useAccess";
 
 interface OrdersTableProps {
   orders: GiftOrder[];
@@ -18,6 +19,8 @@ interface OrdersTableProps {
 
 export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps) {
   const { openGiftOrderDetails } = useGlobalForm();
+  const canManage = useAccess().can("gifts", "MANAGE");
+  const openLabel = canManage ? "View / Edit" : "View";
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -163,16 +166,17 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                         </div>
                       ) : (
                         <div className="flex items-center justify-end sm:justify-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                          <Tooltip content="View / Edit">
+                          <Tooltip content={openLabel}>
                             <button 
                               onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }}
                               type="button"
-                              aria-label="View / Edit"
+                              aria-label={openLabel}
                               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             >
                               <Edit2 size={16} />
                             </button>
                           </Tooltip>
+                          {canManage && (
                           <Tooltip content="Delete">
                             <button 
                               onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }}
@@ -183,6 +187,7 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                               <Trash2 size={16} />
                             </button>
                           </Tooltip>
+                          )}
                         </div>
                       )}
                     </td>
@@ -270,14 +275,16 @@ export default function OrdersTable({ orders, onOrderUpdated }: OrdersTableProps
                         onClick={(e) => { e.stopPropagation(); openGiftOrderDetails(order.id); }}
                         className="flex items-center justify-center min-h-[44px] min-w-[44px] px-3 gap-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50/50 rounded-lg transition-colors text-[0.7rem] font-semibold uppercase tracking-wider"
                       >
-                        <Edit2 size={14} /> Edit
+                        <Edit2 size={14} /> {canManage ? "Edit" : "View"}
                       </button>
+                      {canManage && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(order.id); }}
                         className="flex items-center justify-center min-h-[44px] min-w-[44px] px-3 gap-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50/50 rounded-lg transition-colors text-[0.7rem] font-semibold uppercase tracking-wider"
                       >
                         <Trash2 size={12} /> Delete
                       </button>
+                      )}
                     </div>
                   )}
                 </div>

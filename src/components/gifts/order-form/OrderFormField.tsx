@@ -7,6 +7,7 @@ import TimePickerInput from "@/components/ui/TimePickerInput";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import type { GiftLayoutField, GiftProduct } from "@/types/gifts";
 import { fieldKey, type OrderFormData } from "./orderFormLogic";
+import Checkbox from "@/components/ui/Checkbox";
 
 interface OrderFormFieldProps {
   field: GiftLayoutField;
@@ -66,15 +67,14 @@ export default function OrderFormField({ field, formData, products, driveStatus,
   if (field.type === 'CHECKBOX') {
     return (
       <div className="flex items-center h-[45px] w-full rounded-xl border border-gray-200 bg-white px-4">
-        <label className="flex items-center gap-3 cursor-pointer w-full h-full">
-          <input
-            type="checkbox"
-            checked={!!value}
-            onChange={(e) => onChange(field.id, e.target.checked)}
-            className="w-5 h-5 accent-blue-600 rounded border-gray-300 cursor-pointer"
-          />
-          <span className="text-[0.95rem] text-slate-700 font-medium">{field.name}</span>
-        </label>
+        <Checkbox
+          checked={!!value}
+          onChange={(checked) => onChange(field.id, checked)}
+          tone="blue"
+          label={field.name}
+          className="w-full h-full gap-3"
+          labelClassName="text-[0.95rem] text-slate-700 font-medium"
+        />
       </div>
     );
   }

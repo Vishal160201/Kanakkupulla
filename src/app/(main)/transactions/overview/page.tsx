@@ -5,6 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { useShopQueryParam, useShops } from "@/components/providers/ShopProvider";
+import { transactionFormKeyForShopType } from "@/lib/shopModules";
 import type { TransactionLayoutResponse, TransactionsOverviewResponse } from "@/types/transactions";
 import {
   buildHeatmapSegments,
@@ -25,7 +26,7 @@ import SmartInsightBanner from "@/components/transactions/overview/SmartInsightB
 
 export default function OverviewPage() {
   const shopParam = useShopQueryParam();
-  const { activeShopId, shops } = useShops();
+  const { activeShopId, activeShopType, shops } = useShops();
   const showShop = activeShopId === "all" && shops.length > 1;
 
   const queryStr = React.useMemo(() => {
@@ -37,14 +38,17 @@ export default function OverviewPage() {
   // Held back (null) until the active shop is known; the shop is part of the key.
   const overviewKey = shopParam === null ? null : `/api/transactions/overview${queryStr}${shopParam ? `&${shopParam}` : ''}`;
   const { data, isLoading } = useSWR<TransactionsOverviewResponse>(overviewKey, fetcher);
-  const { data: layoutRes } = useSWR<TransactionLayoutResponse>('/api/settings/layouts/TRANSACTION_FORM', fetcher);
+  // Quick-add categories come from the active shop type's ledger layout.
+  const { data: layoutRes } = useSWR<TransactionLayoutResponse>(
+    shopParam === null ? null : `/api/settings/layouts/${transactionFormKeyForShopType(activeShopType)}`,
+    fetcher
+  );
 
   if (isLoading || !data || !overviewKey) {
     return <div className="flex justify-center items-center h-64"><div className="animate-pulse w-8 h-8 rounded-full bg-orange-500"></div></div>;
   }
 
   const {
-    totalIncome = 0,
     totalExpenses = 0,
     expensesByCategory = {},
     recentTransactions: transactions = [],
@@ -120,7 +124,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Quick Add Transaction */}
-      <QuickAddCategories categories={buildQuickAddCategories(layoutRes)} />
+      <QuickAddCategories categories={buildQuickAddCategories(layoutRes, activeShopType)} />
 
       <TodayTransactionsPanel
         overviewKey={overviewKey}
@@ -149,7 +153,7 @@ export default function OverviewPage() {
 
         {/* Income Flow by Day Card */}
         <IncomeFlowCard
-          totalIncome={totalIncome}
+          totalIncome={weeklyFlow.actualFlow.reduce((sum, v) => sum + v, 0)}
           dayLabels={weeklyFlow.dayLabels}
           actualFlow={weeklyFlow.actualFlow}
           maxFlow={weeklyFlow.maxFlow}

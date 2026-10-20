@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireUser } from "@/lib/authz";
+import { requireAccess } from "@/lib/authz";
 
 export async function GET() {
   try {
-    const auth = await requireUser();
+    const auth = await requireAccess("bookings", "VIEW");
     if (auth.error) return auth.error;
 
     const today = new Date();

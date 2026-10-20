@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { generateOrderNumber } from "@/lib/orderId";
 import { broadcastNotification } from "@/lib/notifications";
 import { getDefaultShopId } from "@/lib/shops";
-import { requirePermission, requireUser } from "@/lib/authz";
+import { requireAccess } from "@/lib/authz";
 import type { Prisma } from "@prisma/client";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
 import { asJsonRecord } from "@/lib/validations/common";
@@ -15,7 +15,7 @@ const dmyToUtc = (value: string, time: string) => {
 };
 
 export async function GET(request: Request) {
-  const auth = await requireUser();
+  const auth = await requireAccess("gifts", "VIEW");
   if (auth.error) return auth.error;
 
   const query = parseSearchParams(request, giftOrderListQuerySchema);
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requirePermission("manage_bookings");
+  const auth = await requireAccess("gifts", "MANAGE");
   if (auth.error) return auth.error;
 
   try {

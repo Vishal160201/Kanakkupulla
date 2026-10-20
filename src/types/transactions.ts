@@ -5,6 +5,16 @@ import type { ShopSummary } from "./shops";
 
 export type TransactionType = "INCOME" | "EXPENSE";
 
+/**
+ * Where an entry came from when another module posted it (Fertilizer Inventory).
+ * Such entries are locked in the ledger: the API answers 409 to edits and deletes.
+ */
+export interface TransactionSource {
+  kind: "SALE" | "PURCHASE" | "CREDIT_PAYMENT" | "PRODUCE_SALE" | "PRODUCE_PAYMENT" | "PRODUCE_RECEIPT";
+  id: string;
+  billNumber?: string | null;
+}
+
 /** A transaction row as returned by the list / overview APIs. */
 export interface Transaction {
   id: string;
@@ -23,6 +33,8 @@ export interface Transaction {
   /** Shop the entry belongs to. */
   shopId?: string | null;
   shop?: ShopSummary | null;
+  /** Set for entries created by the inventory (locked); null for normal entries. */
+  source?: TransactionSource | null;
   /** Free-form layout field values; shape depends on the form layout. */
   customData?: unknown;
 }
@@ -80,7 +92,8 @@ export interface TodayTransactionGroup {
 export type TodayTransactionItem = Transaction | TodayTransactionGroup;
 
 // ---------------------------------------------------------------------------
-// Transaction form layout (GET /api/settings/layouts/TRANSACTION_FORM)
+// Transaction form layout (GET /api/settings/layouts/TRANSACTION_FORM, or
+// FERTILIZER_TRANSACTION_FORM for fertilizer shops)
 // ---------------------------------------------------------------------------
 
 /** Options are saved as strings; older layouts may hold {label, value} objects. */
@@ -145,6 +158,7 @@ export interface EditableTransaction {
   shopId?: string | null;
   shop?: ShopSummary | null;
   customData?: Record<string, unknown> | null;
+  source?: TransactionSource | null;
   items?: { category: string; amount: number | string }[];
 }
 
@@ -185,6 +199,8 @@ export interface TransactionDetail {
   } | null;
   user?: { id: string; name?: string | null; email?: string | null } | null;
   productOrder?: { id: string; orderNumber?: string | null } | null;
+  /** Set for entries created by the inventory (locked); null for normal entries. */
+  source?: TransactionSource | null;
   customFields: TransactionCustomField[];
 }
 

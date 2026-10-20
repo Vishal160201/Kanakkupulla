@@ -1,7 +1,10 @@
-// Shared shapes for the Settings area (layouts builder, team, recycle bin,
+// Shared shapes for the Settings area (layouts builder, team, roles, recycle bin,
 // system preferences, integrations).
 
-export type UserRole = "ADMIN" | "STAFF" | "PHOTOGRAPHER";
+import type { NotificationTypeKey, PermissionMap, RoleKey } from "@/lib/access";
+
+/** Studio-level role on the user record. Owners can do everything; members get access per shop. */
+export type UserRole = "OWNER" | "MEMBER";
 export type UserStatus = "ACTIVE" | "PENDING" | "INACTIVE";
 
 // ---------------------------------------------------------------------------
@@ -25,6 +28,7 @@ export interface StatusOption {
 
 export interface UserPicklistConfig {
   mode: "ALL" | "ROLES" | "USERS";
+  /** UserRole values ("OWNER" / "MEMBER"). Older layouts may still hold ADMIN / STAFF / PHOTOGRAPHER. */
   roles?: string[];
   userIds?: string[];
   showAvailability?: boolean;
@@ -91,6 +95,20 @@ export interface UserOption {
 // Team management
 // ---------------------------------------------------------------------------
 
+/** One shop a member can open, and the role they have there. */
+export interface UserShopAssignment {
+  shopId: string;
+  roleId: string;
+  roleKey: RoleKey;
+}
+
+/** Body item for POST /api/users and PUT /api/users/[id]. */
+export interface UserAssignmentInput {
+  shopId: string;
+  roleId: string;
+}
+
+/** GET /api/users row. `assignments` / `tempPassword` are sent to owners only. */
 export interface TeamMember {
   id: string;
   idNumber: number;
@@ -101,6 +119,55 @@ export interface TeamMember {
   status: UserStatus;
   invitedAt?: string | null;
   tempPassword?: string;
+  assignments?: UserShopAssignment[];
+}
+
+/** POST /api/users */
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  phone?: string;
+  isOwner: boolean;
+  assignments: UserAssignmentInput[];
+}
+
+/** PUT /api/users/[id] */
+export interface UpdateUserInput {
+  name?: string;
+  phone?: string;
+  status?: UserStatus;
+  isOwner?: boolean;
+  assignments?: UserAssignmentInput[];
+}
+
+// ---------------------------------------------------------------------------
+// Roles & permissions (GET /api/roles, PUT /api/roles/[id], PUT /api/roles/owner)
+// ---------------------------------------------------------------------------
+
+/** Which roles receive which alerts. A missing type falls back to the role's default. */
+export type NotificationRules = Partial<Record<NotificationTypeKey, boolean>>;
+
+/** A per-shop role (Admin / Staff) with its editable permission grid. */
+export interface AccessRole {
+  id: string;
+  key: RoleKey;
+  name: string;
+  description: string | null;
+  permissions: PermissionMap;
+  notifications: NotificationRules;
+  /** How many (user, shop) assignments use this role. */
+  assignmentCount: number;
+}
+
+export interface RolesResponse {
+  roles: AccessRole[];
+  owner: { notifications: NotificationRules };
+}
+
+export interface UpdateRoleInput {
+  permissions?: PermissionMap;
+  notifications?: NotificationRules;
+  description?: string;
 }
 
 // ---------------------------------------------------------------------------

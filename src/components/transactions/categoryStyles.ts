@@ -52,6 +52,21 @@ export const CATEGORY_ICONS: Record<string, string> = {
   "Other Expense": "ph-dots-three-circle"
 };
 
+/** Icons for the fertilizer-shop ledger categories (FERTILIZER_TRANSACTION_FORM). */
+export const FERTILIZER_CATEGORY_ICONS: Record<string, string> = {
+  "Fertilizer Sales": "ph-plant",
+  "Credit Collection": "ph-hand-coins",
+  "Stock Purchase": "ph-truck",
+  "Produce Sales": "ph-scales",
+  "Produce Sale Collection": "ph-hand-coins",
+  "Produce Payment": "ph-hand-arrow-up",
+  "Transport": "ph-truck-trailer",
+  "Loading & Unloading": "ph-package",
+  "Labour": "ph-users-three",
+  "Shop Rent": "ph-storefront",
+  "Electricity": "ph-lightning",
+};
+
 export const MODE_ICONS: Record<string, string> = {
   "UPI": "ph-qr-code",
   "Cash": "ph-money",
@@ -60,6 +75,7 @@ export const MODE_ICONS: Record<string, string> = {
 };
 
 export const getRelatableIcon = (cat: string) => {
+  if (FERTILIZER_CATEGORY_ICONS[cat]) return FERTILIZER_CATEGORY_ICONS[cat];
   const lowerCat = cat.toLowerCase();
   if (lowerCat.includes('photo') || lowerCat === 'pp') return 'ph-camera';
   if (lowerCat.includes('xerox') || lowerCat.includes('print')) return 'ph-printer';

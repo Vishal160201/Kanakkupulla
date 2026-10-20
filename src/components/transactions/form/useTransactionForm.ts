@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { fetcher } from "@/lib/fetcher";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
-import { useShops } from "@/components/providers/ShopProvider";
+import { shopTypeOf, useShops } from "@/components/providers/ShopProvider";
+import { transactionFormKeyForShopType } from "@/lib/shopModules";
 import type {
   EditableTransaction,
   TransactionEditResponse,
@@ -69,14 +70,19 @@ export function useTransactionForm() {
 
   const { data: driveStatus } = useSWR<{ connected: boolean }>("/api/integrations/google", fetcher);
 
-  const { data: layoutRes } = useSWR<TransactionLayoutResponse>("/api/settings/layouts/TRANSACTION_FORM", fetcher);
+  // Fields and categories come from the active shop type's layout (studio or fertilizer shop).
+  const { shops, activeShopId, activeShopType, isReady: shopsReady } = useShops();
+  const { data: layoutRes } = useSWR<TransactionLayoutResponse>(
+    shopsReady ? `/api/settings/layouts/${transactionFormKeyForShopType(activeShopType)}` : null,
+    fetcher
+  );
   const layoutSchema = layoutRes?.schema;
 
   const isEditMode = !!editTransaction;
 
-  // New entries start in the shop being viewed; "All Shops" (with several shops) leaves it unset.
-  const { shops, activeShopId, isReady: shopsReady } = useShops();
-  const presetShopId = activeShopId !== "all" ? activeShopId : (shops.length === 1 ? shops[0].id : "");
+  // New entries start in the shop being viewed; "All Shops" (several studio shops) leaves it unset.
+  const pickableShops = shops.filter((s) => shopTypeOf(s) === activeShopType);
+  const presetShopId = activeShopId !== "all" ? activeShopId : (pickableShops.length === 1 ? pickableShops[0].id : "");
   const originalShopId = editTransaction?.shopId ?? null;
 
   // Re-seed the form whenever the modal opens or its source data arrives.

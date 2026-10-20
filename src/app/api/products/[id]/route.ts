@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAdmin, requirePermission, requireUser } from "@/lib/authz";
+import { requireAccess, requireOwner } from "@/lib/authz";
 import { parseJsonBody } from "@/lib/validations/http";
 import { productUpdateSchema } from "@/lib/validations/products";
 
@@ -8,7 +8,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireUser();
+  const auth = await requireAccess("gifts", "VIEW");
   if (auth.error) return auth.error;
 
   try {
@@ -37,7 +37,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requirePermission("manage_bookings");
+  const auth = await requireAccess("gifts", "MANAGE");
   if (auth.error) return auth.error;
 
   try {
@@ -64,7 +64,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   try {

@@ -4,11 +4,23 @@ import { useState } from "react";
 import Link from "next/link";
 import type { WeeklyFlow } from "./overviewData";
 
+/** Minimum SVG-unit distance between two y-axis labels before they overlap. */
+const TICK_GAP = 14;
+
+const formatAxisValue = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
+
 type DailyNetTrendCardProps = Pick<WeeklyFlow, 'dayLabels' | 'netValues' | 'netMin' | 'netMax' | 'netPoints' | 'netZeroY' | 'netPath' | 'netAreaPath'>;
 
 export default function DailyNetTrendCard({ dayLabels, netValues, netMin, netMax, netPoints, netZeroY, netPath, netAreaPath }: DailyNetTrendCardProps) {
   const [hoveredNetDay, setHoveredNetDay] = useState<number | null>(null);
   const activeNetDay = hoveredNetDay ?? netValues.indexOf(Math.max(...netValues));
+
+  // Max/min are plotted at y=20/85 (see buildWeeklyFlow); drop any that would collide with ₹0.
+  const axisTicks = [
+    { label: formatAxisValue(netMax), y: 20, show: netMax > 0 && netZeroY - 20 >= TICK_GAP },
+    { label: '₹0', y: netZeroY, show: true },
+    { label: formatAxisValue(netMin), y: 85, show: netMin < 0 && 85 - netZeroY >= TICK_GAP },
+  ].filter(tick => tick.show);
 
   return (
     <div className="h-full bg-white rounded-[24px] p-5 xl:p-6 shadow-[0_12px_36px_rgba(15,23,42,0.06)] border border-slate-100 flex flex-col">
@@ -42,11 +54,15 @@ export default function DailyNetTrendCard({ dayLabels, netValues, netMin, netMax
       <div className="mt-auto w-full flex flex-col">
         {/* Chart Area */}
         <div className="flex h-[178px] relative mb-5">
-        <div className="flex flex-col justify-between text-[0.65rem] sm:text-[0.7rem] font-bold text-slate-400 pb-6 pr-2 sm:pr-4 w-10 sm:w-12 shrink-0">
-          <span>{netMax >= 1000 ? `${(netMax/1000).toFixed(1)}k` : netMax > 0 ? netMax : '10k'}</span>
-          <span>{netMax >= 1000 ? `${(netMax/2000).toFixed(1)}k` : netMax > 0 ? Math.round(netMax/2) : '5k'}</span>
-          <span>₹0</span>
-          <span>{netMin < 0 ? (netMin <= -1000 ? `${(netMin/1000).toFixed(1)}k` : netMin) : '-5k'}</span>
+        {/* Y Axis: labels sit at the same SVG y as the values they name */}
+        <div className="pb-6 pr-2 sm:pr-4 w-10 sm:w-12 shrink-0">
+          <div className="relative h-full text-[0.65rem] sm:text-[0.7rem] font-bold text-slate-400">
+            {axisTicks.map(tick => (
+              <span key={tick.label} className="absolute left-0 -translate-y-1/2 whitespace-nowrap" style={{ top: `${(tick.y / 120) * 100}%` }}>
+                {tick.label}
+              </span>
+            ))}
+          </div>
         </div>
         <div className="flex-1 relative pb-6">
            <svg viewBox="0 0 280 120" className="w-full h-full overflow-visible" aria-hidden="true" preserveAspectRatio="none">

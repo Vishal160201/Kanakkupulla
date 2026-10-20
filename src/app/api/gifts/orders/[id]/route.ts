@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireUser } from "@/lib/authz";
+import { requireAccess } from "@/lib/authz";
 import { broadcastNotification } from "@/lib/notifications";
 import type { Prisma } from "@prisma/client";
 import { parseJsonBody } from "@/lib/validations/http";
@@ -11,7 +11,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireUser();
+  const auth = await requireAccess("gifts", "VIEW");
   if (auth.error) return auth.error;
 
   try {
@@ -39,7 +39,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requirePermission("manage_bookings");
+  const auth = await requireAccess("gifts", "MANAGE");
   if (auth.error) return auth.error;
 
   try {
@@ -122,7 +122,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requirePermission("manage_bookings");
+  const auth = await requireAccess("gifts", "MANAGE");
   if (auth.error) return auth.error;
   const userId = auth.user.id;
 

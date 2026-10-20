@@ -1,16 +1,21 @@
 import { z } from "zod";
-import { ROLES } from "./users";
+import { ACCESS_LEVELS } from "../access";
 import { queryInt, queryString } from "./common";
 
-/** PUT /api/permissions */
-export const permissionUpdateSchema = z.object({
-  role: z.enum(ROLES, { message: "role, permission, and enabled are required" }),
-  permission: z
-    .string({ message: "role, permission, and enabled are required" })
-    .min(1, "role, permission, and enabled are required")
-    .max(100),
-  enabled: z.boolean({ message: "role, permission, and enabled are required" }),
-});
+const levelMap = z.record(z.string(), z.enum(ACCESS_LEVELS));
+const notificationMap = z.record(z.string(), z.boolean());
+
+/** PUT /api/roles/[id] */
+export const roleUpdateSchema = z
+  .object({
+    permissions: levelMap.optional(),
+    notifications: notificationMap.optional(),
+    description: z.string().trim().max(300).nullish(),
+  })
+  .refine(d => d.permissions || d.notifications || d.description !== undefined, { message: "Nothing to update" });
+
+/** PUT /api/roles/owner */
+export const ownerNotificationsSchema = z.object({ notifications: notificationMap });
 
 /** GET /api/system-logs */
 export const systemLogQuerySchema = z.object({

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAdmin, requireUser } from "@/lib/authz";
+import { requireOwner, requireUser } from "@/lib/authz";
 import { parseJsonBody } from "@/lib/validations/http";
 import { userCreateSchema } from "@/lib/validations/users";
+import { formatAssignments, setUserAssignments, userAssignmentsSelect, validateAssignments } from "@/lib/userAccess";
+import { ShopError } from "@/lib/shops";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -10,11 +12,12 @@ export async function GET() {
   const auth = await requireUser();
   if (auth.error) return auth.error;
 
-  // Allow all authenticated users to see the team list for picklists
-  // (We removed the ADMIN-only restriction for GET)
+  // Every signed-in user gets the team list for picklists; owners also get shop assignments
+  // and pending temporary passwords.
+  const isOwner = auth.user.role === "OWNER";
 
   try {
-    const users = await prisma.user.findMany({
+    const rows = await prisma.user.findMany({
       select: {
         id: true,
         idNumber: true,
@@ -24,12 +27,14 @@ export async function GET() {
         role: true,
         status: true,
         invitedAt: true,
+        ...userAssignmentsSelect,
       },
       orderBy: { name: "asc" },
       take: 500,
     });
+    const users = rows.map(({ shopMemberships, ...user }) => (isOwner ? { ...user, assignments: formatAssignments(shopMemberships) } : user));
 
-    if (auth.user.role === "ADMIN") {
+    if (isOwner) {
       const activeTokens = await prisma.passwordResetToken.findMany({
         where: { expires: { gt: new Date() } },
         select: { email: true, token: true },
@@ -55,13 +60,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   try {
     const parsed = await parseJsonBody(request, userCreateSchema);
     if (parsed.error) return parsed.error;
-    const { name, email, role } = parsed.data; // email is trimmed + lower-cased
+    const { name, email, phone, isOwner, assignments } = parsed.data; // email is trimmed + lower-cased
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -76,23 +81,25 @@ export async function POST(request: Request) {
     const impossiblePassword = crypto.randomBytes(32).toString("hex");
     const hashedPassword = await bcrypt.hash(impossiblePassword, 12);
 
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role,
-        status: "ACTIVE", // Removed approval concept
-        invitedAt: new Date(),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        status: true,
-        invitedAt: true,
-      },
+    const newUser = await prisma.$transaction(async tx => {
+      const valid = isOwner ? [] : await validateAssignments(tx, assignments);
+      const created = await tx.user.create({
+        data: {
+          name,
+          email,
+          phone,
+          password: hashedPassword,
+          role: isOwner ? "OWNER" : "MEMBER",
+          status: "ACTIVE", // Removed approval concept
+          invitedAt: new Date(),
+        },
+        select: { id: true },
+      });
+      await setUserAssignments(tx, created.id, valid);
+      return tx.user.findUniqueOrThrow({
+        where: { id: created.id },
+        select: { id: true, name: true, email: true, phone: true, role: true, status: true, invitedAt: true, ...userAssignmentsSelect },
+      });
     });
 
     // Create a PasswordResetToken containing the temporary password
@@ -105,8 +112,10 @@ export async function POST(request: Request) {
       }
     });
 
-    return NextResponse.json({ user: newUser, tempPassword }, { status: 201 });
+    const { shopMemberships, ...userFields } = newUser;
+    return NextResponse.json({ user: { ...userFields, assignments: formatAssignments(shopMemberships) }, tempPassword }, { status: 201 });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to create user:", error);
     return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }

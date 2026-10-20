@@ -8,6 +8,7 @@ import Modals from '@/components/dashboard/Modals';
 import { useBookings } from '@/components/providers/BookingProvider';
 import { useGlobalForm } from '@/components/providers/GlobalFormProvider';
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useAccess } from "@/hooks/useAccess";
 
 /** Row of the /api/bookings list as used by the schedule export. */
 interface ExportBooking {
@@ -43,6 +44,11 @@ export default function BookingsLayout({
   const pathname = usePathname();
   const { setIsFilterModalOpen, filters, setFilters, hasData } = useBookings();
   const { openBookingForm } = useGlobalForm();
+  const { can } = useAccess();
+  // Album status has its own permission; the other tabs are Bookings.
+  const canViewBookings = can('bookings', 'VIEW');
+  const canViewAlbums = can('albums', 'VIEW');
+  const canManageBookings = can('bookings', 'MANAGE');
 
   const isOverview = pathname === '/bookings/overview';
   const isUpcoming = pathname === '/bookings/upcoming';
@@ -150,8 +156,9 @@ export default function BookingsLayout({
 
   return (
     <div className="view-section active">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-        <div className="flex overflow-x-auto hide-scrollbar w-full sm:w-auto pb-1 -mx-2 px-2 sm:mx-0 sm:px-0" style={{ gap: "10px" }}>
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
+        <div className="flex overflow-x-auto hide-scrollbar w-full lg:w-auto min-w-0 pb-1 -mx-2 px-2 lg:mx-0 lg:px-0" style={{ gap: "10px" }}>
+          {canViewBookings && (
           <Link 
           href="/bookings/overview"
           className={`btn ${isOverview ? 'btn-primary' : 'btn-outline'} sub-nav-btn whitespace-nowrap flex-shrink-0`} 
@@ -159,6 +166,8 @@ export default function BookingsLayout({
         >
           Overview
         </Link>
+          )}
+        {canViewBookings && (
         <Link 
           href="/bookings/upcoming"
           className={`btn ${isUpcoming ? 'btn-primary' : 'btn-outline'} sub-nav-btn whitespace-nowrap flex-shrink-0`} 
@@ -166,6 +175,8 @@ export default function BookingsLayout({
         >
           Upcoming Shoots
         </Link>
+        )}
+        {canViewAlbums && (
         <Link 
           href="/bookings/album-status"
           className={`btn ${isAlbumStatus ? 'btn-primary' : 'btn-outline'} sub-nav-btn whitespace-nowrap flex-shrink-0`} 
@@ -173,6 +184,8 @@ export default function BookingsLayout({
         >
           Album status
         </Link>
+        )}
+        {canViewBookings && (
         <Link 
           href="/bookings/allBookings"
           className={`btn ${isTable ? 'btn-primary' : 'btn-outline'} sub-nav-btn whitespace-nowrap flex-shrink-0`} 
@@ -180,11 +193,12 @@ export default function BookingsLayout({
         >
           All bookings
         </Link>
+        )}
         </div>
         
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-start sm:justify-end mt-2 sm:mt-0">
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-start lg:justify-end">
           {isTable && (
-            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             {hasActiveFilters ? (
               <div className="flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100 overflow-x-auto hide-scrollbar max-w-full">
                 <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#ea580c" }}>Filtered by:</span>
@@ -200,11 +214,11 @@ export default function BookingsLayout({
                 </Tooltip>
               </div>
             ) : null}
-            <button className="btn btn-outline" onClick={() => setIsFilterModalOpen(true)}><i className="ph-fill ph-funnel icon-3d-styled"></i> Filters</button>
+            <button className="btn btn-outline whitespace-nowrap" onClick={() => setIsFilterModalOpen(true)}><i className="ph-fill ph-funnel icon-3d-styled"></i> Filters</button>
             {hasData && (
               <div className="relative">
                 <button 
-                  className="btn btn-primary" 
+                  className="btn btn-primary whitespace-nowrap" 
                   onClick={() => setExportMenuOpen(!exportMenuOpen)}
                   disabled={isExporting}
                 >
@@ -233,7 +247,7 @@ export default function BookingsLayout({
             </div>
           )}
           
-          {isOverview && (
+          {isOverview && canManageBookings && (
             <button onClick={() => openBookingForm()} className="btn btn-primary" style={{ borderRadius: "20px", display: "flex", alignItems: "center", gap: "6px" }}>
               <i className="ph-bold ph-plus"></i> Add Booking
             </button>

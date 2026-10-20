@@ -1,7 +1,7 @@
 import type { Prisma, RecycleBin } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getGoogleDriveToken, type DriveSession } from "@/lib/googleDriveAuth";
-import { roleHasPermission, type SessionUser } from "@/lib/authz";
+import { can, type SessionUser } from "@/lib/authz";
 import { getDefaultShopId } from "@/lib/shops";
 
 export const PRODUCT_ORDER_TYPES = ["product-order", "gift", "frame"];
@@ -13,13 +13,20 @@ export function canAccessEntry(entry: Pick<RecycleBin, "itemType" | "trashedById
   return !PRIVATE_ITEM_TYPES.includes(entry.itemType) || entry.trashedById === userId;
 }
 
-/** Restoring needs the same permission as editing the item; private items only need ownership. */
-export async function canRestoreEntry(entry: Pick<RecycleBin, "itemType" | "trashedById">, user: SessionUser) {
+/**
+ * Restoring needs Recycle Bin MANAGE plus Manage on the item's own module (in its shop for
+ * ledger entries); private items only need ownership.
+ */
+export async function canRestoreEntry(entry: Pick<RecycleBin, "itemType" | "trashedById" | "originalData">, user: SessionUser) {
   if (PRIVATE_ITEM_TYPES.includes(entry.itemType)) return entry.trashedById === user.id;
+  if (!(await can(user, "recycle_bin", "MANAGE"))) return false;
   if (entry.itemType === "transaction" || entry.itemType === "TRANSACTION_GROUP") {
-    return roleHasPermission(user.role, "manage_transactions");
+    const data = snapshotOf(entry as RecycleBin);
+    const shopId = entry.itemType === "transaction" ? (data as { shopId?: string | null }).shopId : data.children?.[0]?.shopId;
+    return can(user, "ledger", "MANAGE", shopId ?? null);
   }
-  return roleHasPermission(user.role, "manage_bookings");
+  if (PRODUCT_ORDER_TYPES.includes(entry.itemType)) return can(user, "gifts", "MANAGE");
+  return can(user, "bookings", "MANAGE");
 }
 
 /**

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma, { toNumber } from "@/lib/prisma";
-import { canWriteTransaction, forbiddenResponse, requirePermission, requireUser } from "@/lib/authz";
+import { can, canWriteTransaction, forbiddenResponse, requireUser } from "@/lib/authz";
+import type { ModuleKey } from "@/lib/access";
+import { assertLedgerReadable } from "@/lib/ledgerAccess";
+import { assertNotInventoryCategory, assertNotInventoryLinked, ledgerSourceInclude, withSource } from "@/lib/ledgerSource";
 import { DEFAULT_LAYOUTS } from "@/lib/defaultLayouts";
+import { transactionFormKeyForShopType } from "@/lib/shopModules";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
 import { resolveShopForWrite, shopSummarySelect, shopWhere, ShopError } from "@/lib/shops";
 import { asJsonRecord, pickCustomFields } from "@/lib/validations/common";
@@ -32,7 +36,7 @@ const endOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission("view_transactions", "manage_transactions", "manage_bookings");
+  const auth = await requireUser();
   if (auth.error) return auth.error;
 
   const query = parseSearchParams(request, transactionDetailQuerySchema);
@@ -43,6 +47,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     
     // Handle Legacy Advance Transactions (dynamically generated for old bookings)
     if (id.startsWith("legacy-advance-")) {
+      await assertLedgerReadable(auth.user, null, ["bookings"]);
       const bookingId = id.replace("legacy-advance-", "");
       const booking = await prisma.booking.findUnique({
         where: { id: bookingId },
@@ -109,13 +114,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         },
         user: { select: { id: true, name: true, email: true } },
         productOrder: { select: { id: true, orderNumber: true } },
-        shop: { select: shopSummarySelect },
+        shop: { select: { ...shopSummarySelect, type: true } },
+        ...ledgerSourceInclude,
       },
     });
 
     if (!transaction) {
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
     }
+    // Booking / gift managers may open the payments linked to their bookings and orders
+    const linkedModules: ModuleKey[] = [
+      ...(transaction.bookingId ? (["bookings"] as const) : []),
+      ...(transaction.productOrderId ? (["gifts"] as const) : []),
+    ];
+    await assertLedgerReadable(auth.user, transaction.shopId, linkedModules);
+    // Day totals use the shop being viewed when the user may read it, otherwise the entry's own shop
+    const impactShopId =
+      query.data.shopId && (await can(auth.user, "ledger", "VIEW", query.data.shopId)) ? query.data.shopId : transaction.shopId;
 
     const dateRange = {
       gte: startOfDay(transaction.date),
@@ -125,7 +140,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const scopedDayWhere = {
       date: dateRange,
       deletedAt: null,
-      ...shopWhere(query.data.shopId),
+      ...shopWhere(impactShopId),
     };
 
     const [incomeAggregate, expenseAggregate, categoryAggregate, layout] = await Promise.all([
@@ -145,7 +160,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           category: transaction.category,
         },
       }),
-      prisma.formLayout.findUnique({ where: { formKey: "TRANSACTION_FORM" } }),
+      prisma.formLayout.findUnique({ where: { formKey: transactionFormKeyForShopType(transaction.shop.type) } }),
     ]);
 
     const dayIncome = toNumber(incomeAggregate._sum.amount);
@@ -157,7 +172,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         ? (transaction.customData as Record<string, unknown>)
         : {};
 
-    const fallbackLayout = DEFAULT_LAYOUTS.find((item) => item.formKey === "TRANSACTION_FORM");
+    const fallbackLayout = DEFAULT_LAYOUTS.find((item) => item.formKey === transactionFormKeyForShopType(transaction.shop.type));
     const layoutSchema = layout?.schema || fallbackLayout?.schema;
     const fields = layoutFields(layoutSchema);
 
@@ -207,7 +222,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json(
       {
         transaction: {
-          ...transaction,
+          ...withSource(transaction),
           attachmentUrl,
           customFields,
         },
@@ -222,6 +237,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to fetch transaction:", error);
     return NextResponse.json({ error: "Failed to fetch transaction" }, { status: 500 });
   }
@@ -246,10 +262,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!(await canWriteTransaction(auth.user, existing))) {
       return forbiddenResponse();
     }
+    await assertNotInventoryLinked(existing.id);
 
     const customData = { ...asJsonRecord(existing.customData), ...pickCustomFields(restBody) };
     // Moving an entry to another shop requires that shop to be active
-    const nextShopId = shopId && shopId !== existing.shopId ? await resolveShopForWrite(shopId) : undefined;
+    const nextShopId = shopId && shopId !== existing.shopId ? await resolveShopForWrite(shopId, undefined, auth.user) : undefined;
+    if (nextShopId && !(await canWriteTransaction(auth.user, { ...existing, shopId: nextShopId }))) {
+      return forbiddenResponse();
+    }
+    await assertNotInventoryCategory(nextShopId ?? existing.shopId, [category ?? existing.category], nextShopId ? [] : [existing.category]);
 
     const updatedTransaction = await prisma.transaction.update({
       where: { id },
@@ -294,6 +315,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!(await canWriteTransaction(auth.user, existing))) {
       return forbiddenResponse();
     }
+    await assertNotInventoryLinked(existing.id);
 
     // Only support patching deletedAt for soft-deletion right now
     if (body.deletedAt !== undefined) {
@@ -306,6 +328,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     
     return NextResponse.json({ error: "Invalid patch request" }, { status: 400 });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to patch transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
@@ -328,6 +351,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (!(await canWriteTransaction(auth.user, existing))) {
       return forbiddenResponse();
     }
+    await assertNotInventoryLinked(existing.id);
 
     await prisma.$transaction([
       prisma.recycleBin.create({
@@ -375,6 +399,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to delete transaction:", error);
     return NextResponse.json({ error: "Failed to delete transaction" }, { status: 500 });
   }

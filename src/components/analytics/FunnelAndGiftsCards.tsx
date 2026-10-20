@@ -19,7 +19,7 @@ const STATUS_COLORS: Record<string, string> = {
 /** Section 3: Booking Funnel */
 export function BookingFunnelCard({ stages }: { stages: FunnelStage[] }) {
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm flex flex-col h-[300px] lg:h-[400px]">
+    <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm flex flex-col h-auto lg:h-[400px]">
       <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><Target size={18} className="text-rose-500"/> Booking Funnel</h3>
       <div className="flex-1 flex flex-col gap-2 overflow-y-auto">
         {stages.map((stage, i) => {
@@ -102,18 +102,18 @@ export function GiftsPerformanceCard({ giftsPerformance, activeProductFilter, on
 
         <div className="w-px bg-slate-100 hidden lg:block"></div>
 
-        <div className="flex-1 flex flex-col h-[200px] lg:h-auto">
+        <div className="flex-1 flex flex-col h-[260px] lg:h-auto">
           <h4 className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-2">Order Status</h4>
-          <div className="flex-1 min-h-[150px]">
+          <div className="flex-1 min-h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={giftsPerformance.statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={5} isAnimationActive={true}>
+                <Pie data={giftsPerformance.statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="45%" outerRadius="75%" paddingAngle={5} isAnimationActive={true}>
                   {giftsPerformance.statusDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name] || COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ borderRadius: '12px' }} />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>

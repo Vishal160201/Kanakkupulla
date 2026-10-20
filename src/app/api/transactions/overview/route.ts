@@ -1,20 +1,24 @@
 import { NextResponse } from 'next/server';
 import prisma, { toNumber } from '@/lib/prisma';
 import type { Prisma } from "@prisma/client";
-import { requirePermission } from "@/lib/authz";
+import { requireUser } from "@/lib/authz";
+import { assertLedgerReadable } from "@/lib/ledgerAccess";
+import { ledgerSourceInclude, withSource } from "@/lib/ledgerSource";
+import { ShopError } from "@/lib/shops";
 import { parseSearchParams } from "@/lib/validations/http";
 import { transactionOverviewQuerySchema } from "@/lib/validations/transactions";
 import { shopSummarySelect, shopWhere } from "@/lib/shops";
 
 export async function GET(req: Request) {
   try {
-    const auth = await requirePermission("view_transactions", "manage_transactions");
+    const auth = await requireUser();
     if (auth.error) return auth.error;
 
     const query = parseSearchParams(req, transactionOverviewQuerySchema);
     if (query.error) return query.error;
     const { startDate, endDate, shopId } = query.data;
 
+    await assertLedgerReadable(auth.user, shopId);
     const shopFilter = shopWhere(shopId);
     const whereClause: Prisma.TransactionWhereInput = { deletedAt: null, ...shopFilter };
 
@@ -57,14 +61,14 @@ export async function GET(req: Request) {
           { createdAt: 'desc' }
         ],
         take: 100,
-        include: { shop: { select: shopSummarySelect } },
+        include: { shop: { select: shopSummarySelect }, ...ledgerSourceInclude },
       }),
       // Today's Transactions
       prisma.transaction.findMany({
         where: { date: { gte: todayStart, lte: todayEnd }, deletedAt: null, ...shopFilter },
         orderBy: { date: 'desc' },
         take: 500,
-        include: { shop: { select: shopSummarySelect } },
+        include: { shop: { select: shopSummarySelect }, ...ledgerSourceInclude },
       }),
       // Today's Income + Expense combined
       prisma.transaction.groupBy({
@@ -93,14 +97,15 @@ export async function GET(req: Request) {
       totalIncome,
       totalExpenses,
       expensesByCategory,
-      recentTransactions,
-      todayTransactions,
+      recentTransactions: recentTransactions.map(withSource),
+      todayTransactions: todayTransactions.map(withSource),
       todayIncome,
       todayExpense,
       todayNet: todayIncome - todayExpense
     });
 
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to fetch transactions overview:", error);
     return NextResponse.json({ error: "Failed to fetch transactions overview" }, { status: 500 });
   }

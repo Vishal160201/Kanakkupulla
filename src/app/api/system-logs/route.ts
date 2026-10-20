@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAdmin } from "@/lib/authz";
+import { requireOwner } from "@/lib/authz";
 import { parseSearchParams } from "@/lib/validations/http";
 import { systemLogQuerySchema } from "@/lib/validations/admin";
 
 export async function GET(request: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   const query = parseSearchParams(request, systemLogQuerySchema);

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CheckboxMark } from "@/components/ui/Checkbox";
 
 interface CustomMultiDropdownProps {
   options: (string | { label: string, value: string })[];
@@ -12,6 +13,8 @@ interface CustomMultiDropdownProps {
   placeholder?: string;
   className?: string;
   error?: boolean;
+  /** Called when an option is ticked; return true to take over (the dropdown closes, value unchanged). */
+  onPick?: (val: string) => boolean;
 }
 
 const NO_VALUES: string[] = [];
@@ -22,7 +25,8 @@ export default function CustomMultiDropdown({
   onChange,
   placeholder = "Select...",
   className,
-  error
+  error,
+  onPick
 }: CustomMultiDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -106,6 +110,10 @@ export default function CustomMultiDropdown({
   }, [isOpen]);
 
   const handleToggle = (val: string) => {
+    if (!localValue.includes(val) && onPick?.(val)) {
+      setIsOpen(false);
+      return;
+    }
     setLocalValue(prev => 
       prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
     );
@@ -203,8 +211,11 @@ export default function CustomMultiDropdown({
             const isFocused = idx === focusedIndex;
 
             return (
-              <label
+              <div
                 key={idx}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => handleToggle(val)}
                 onMouseEnter={() => setFocusedIndex(idx)}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors text-left cursor-pointer",
@@ -213,15 +224,9 @@ export default function CustomMultiDropdown({
                   isFocused && isSelected ? "ring-2 ring-blue-500/20" : ""
                 )}
               >
-                <input 
-                  type="checkbox" 
-                  className="w-4 h-4 accent-blue-600 rounded border-gray-300 cursor-pointer"
-                  checked={isSelected}
-                  onChange={() => handleToggle(val)}
-                  tabIndex={-1} // Prevent tab stopping on checkboxes, managed by container keys
-                />
+                <CheckboxMark checked={isSelected} tone="blue" size="sm" />
                 <span className="whitespace-nowrap flex-1 text-slate-700 font-medium">{label}</span>
-              </label>
+              </div>
             );
           })
         )}

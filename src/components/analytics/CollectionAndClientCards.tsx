@@ -19,7 +19,7 @@ export function CollectionHealthCard({ chart, overdue, onOpenOrder }: Collection
     <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 p-5 shadow-sm flex flex-col h-auto lg:h-[400px]">
       <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><DollarSign size={18} className="text-emerald-500"/> Collection Health</h3>
       <div className="flex flex-col lg:flex-row gap-6 h-full">
-        <div className="h-[200px] lg:h-[300px] flex-1 shrink-0">
+        <div className="h-[200px] lg:h-[300px] lg:flex-1 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
@@ -84,15 +84,15 @@ export function ClientInsightsCard({ distribution, topClients, activeClientId, o
     <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm flex flex-col h-auto lg:h-[400px]">
       <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><Users size={18} className="text-blue-500"/> Client Insights</h3>
 
-      <div className="h-[150px] lg:h-[180px] w-full shrink-0 mb-4">
+      <div className="h-[190px] lg:h-[180px] w-full shrink-0 mb-4">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={distribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5}>
+            <Pie data={distribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="50%" outerRadius="80%" paddingAngle={5}>
               <Cell fill="#3b82f6" />
               <Cell fill="#6366f1" />
             </Pie>
             <Tooltip contentStyle={{ borderRadius: '12px' }} />
-            <Legend iconType="circle" />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -100,6 +100,9 @@ export function ClientInsightsCard({ distribution, topClients, activeClientId, o
       <div className="flex-1 flex flex-col min-h-0">
         <h4 className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-3 shrink-0">Top Clients</h4>
         <div className="overflow-y-auto flex-1 flex flex-col gap-2 pr-1">
+          {topClients.length === 0 && (
+            <p className="text-sm text-slate-400 py-4 text-center">No client spending in this period</p>
+          )}
           {topClients.map((c) => (
             <button
               type="button"

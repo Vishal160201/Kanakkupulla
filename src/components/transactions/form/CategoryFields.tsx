@@ -4,6 +4,8 @@ import CustomMultiDropdown from "@/components/ui/CustomMultiDropdown";
 import { FieldError, FieldLabel, type TransactionFieldProps } from "./FieldChrome";
 import { optionLabel, optionValue, splitSelection, textValue } from "./transactionFormUtils";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
+import { useInventoryLedgerShortcut } from "@/components/inventory/useInventoryLedgerShortcut";
 
 /** Single amount input (hidden when several categories split the amount). */
 export function AmountField({ field, fieldName, form, errors, setField }: TransactionFieldProps) {
@@ -31,7 +33,7 @@ export function AmountField({ field, fieldName, form, errors, setField }: Transa
 }
 
 /** Multi-select dropdown; with several picks, also renders one amount input per category. */
-export function MultiSelectField({ field, fieldName, form, errors, setField, withCategoryAmounts = false }: TransactionFieldProps & { withCategoryAmounts?: boolean }) {
+export function MultiSelectField({ field, fieldName, form, errors, setField, withCategoryAmounts = false, onPick }: TransactionFieldProps & { withCategoryAmounts?: boolean; onPick?: (value: string) => boolean }) {
   const opts = field.options || [];
   const selectedArray = splitSelection(form[fieldName] || '');
   const legacyOpts = selectedArray.filter((s) => !opts.some((o) => optionValue(o) === s));
@@ -46,6 +48,7 @@ export function MultiSelectField({ field, fieldName, form, errors, setField, wit
         onChange={(val) => setField(fieldName)(Array.isArray(val) ? val.join(', ') : val)}
         error={!!errors[fieldName]}
         placeholder={`Select ${field.name}...`}
+        onPick={onPick}
       />
       <FieldError message={errors[fieldName]} />
 
@@ -84,4 +87,18 @@ export function MultiSelectField({ field, fieldName, form, errors, setField, wit
       )}
     </div>
   );
+}
+
+/** Category picker. In fertilizer shops, new entries for inventory-owned categories open the inventory flow instead. */
+export function CategorySelectField(props: TransactionFieldProps) {
+  const { transactionToEditId, closeTransactionForm } = useGlobalForm();
+  const inventoryShortcut = useInventoryLedgerShortcut();
+  const onPick = transactionToEditId
+    ? undefined
+    : (category: string) => {
+        if (!inventoryShortcut(category)) return false;
+        closeTransactionForm();
+        return true;
+      };
+  return <MultiSelectField {...props} withCategoryAmounts onPick={onPick} />;
 }

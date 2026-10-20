@@ -48,10 +48,10 @@ function ModePill({ label, value, iconClass, iconColor }: { label: string; value
 
 export default function OverviewKpiCards({ todayIncome, todayExpense, todayNet, todayCashNet, todayUpiNet, highestExpenseCategory }: OverviewKpiCardsProps) {
   return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-5 mb-8">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-5 mb-8">
       {/* Today's Income */}
       <Link href="/transactions/allTransactions?view=day&type=INCOME" className="block outline-none group min-w-0">
-        <div className="bg-white rounded-lg sm:rounded-[18px] md:rounded-[22px] p-3 sm:p-4 md:p-5 shadow-sm sm:shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-slate-100/80 flex flex-col justify-between h-[110px] sm:h-[130px] md:h-[150px] animate-slide-up hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200" style={{ animationDelay: "100ms" }}>
+        <div className="bg-white rounded-lg sm:rounded-[18px] md:rounded-[22px] p-3 sm:p-4 md:p-5 shadow-sm sm:shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-slate-100/80 flex flex-col justify-between h-[130px] md:h-[150px] animate-slide-up hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200" style={{ animationDelay: "100ms" }}>
           <div className="flex justify-between items-start gap-1.5 sm:gap-2">
             <div className="min-w-0">
               <span className="text-[0.55rem] sm:text-[0.6rem] md:text-[0.65rem] font-extrabold text-slate-500 uppercase tracking-[1px]">Today&apos;s Income</span>
@@ -78,7 +78,7 @@ export default function OverviewKpiCards({ todayIncome, todayExpense, todayNet, 
 
       {/* Today's Expenses */}
       <Link href="/transactions/allTransactions?view=day&type=EXPENSE" className="block outline-none group min-w-0">
-        <div className="bg-white rounded-lg sm:rounded-[18px] md:rounded-[22px] p-3 sm:p-4 md:p-5 shadow-sm sm:shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-slate-100/80 flex flex-col justify-between h-[110px] sm:h-[130px] md:h-[150px] animate-slide-up hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200" style={{ animationDelay: "150ms" }}>
+        <div className="bg-white rounded-lg sm:rounded-[18px] md:rounded-[22px] p-3 sm:p-4 md:p-5 shadow-sm sm:shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-slate-100/80 flex flex-col justify-between h-[130px] md:h-[150px] animate-slide-up hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200" style={{ animationDelay: "150ms" }}>
           <div className="flex justify-between items-start gap-1.5 sm:gap-2">
             <div className="min-w-0">
               <span className="text-[0.55rem] sm:text-[0.6rem] md:text-[0.65rem] font-extrabold text-slate-500 uppercase tracking-[1px]">Today&apos;s Expenses</span>
@@ -104,9 +104,10 @@ export default function OverviewKpiCards({ todayIncome, todayExpense, todayNet, 
       </Link>
 
       {/* Net Today */}
-      <Link href="/transactions/allTransactions?view=day" className="block outline-none group min-w-0">
+      {/* Full width on phones so the amount and Cash/UPI pills keep their side-by-side layout */}
+      <Link href="/transactions/allTransactions?view=day" className="block outline-none group min-w-0 max-sm:col-span-2">
         <div
-          className="rounded-lg sm:rounded-[18px] md:rounded-[22px] p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(15,23,42,0.04)] flex flex-col h-[110px] sm:h-[130px] md:h-[150px] animate-slide-up transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200 group-hover:-translate-y-0.5 group-hover:shadow-md"
+          className="rounded-lg sm:rounded-[18px] md:rounded-[22px] p-2.5 sm:p-4 shadow-[0_8px_32px_rgba(15,23,42,0.04)] flex flex-col h-[130px] md:h-[150px] animate-slide-up transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200 group-hover:-translate-y-0.5 group-hover:shadow-md"
           style={{
             animationDelay: "200ms",
             background: "linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(245,248,255,0.85) 100%)",
@@ -168,8 +169,8 @@ export default function OverviewKpiCards({ todayIncome, todayExpense, todayNet, 
       </Link>
 
       {/* Top Expense */}
-      <Link href={`/transactions/allTransactions?categories=${highestExpenseCategory ? encodeURIComponent(highestExpenseCategory.category) : ''}`} className="block outline-none group min-w-0">
-        <div className="bg-white rounded-lg sm:rounded-[18px] md:rounded-[22px] p-3 sm:p-4 md:p-5 shadow-sm sm:shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-slate-100/80 flex flex-col justify-between min-h-[110px] sm:h-[130px] md:h-[150px] animate-slide-up hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200" style={{ animationDelay: "250ms" }}>
+      <Link href={`/transactions/allTransactions?categories=${highestExpenseCategory ? encodeURIComponent(highestExpenseCategory.category) : ''}`} className="block outline-none group min-w-0 max-sm:col-span-2">
+        <div className="bg-white rounded-lg sm:rounded-[18px] md:rounded-[22px] p-3 sm:p-4 md:p-5 shadow-sm sm:shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-slate-100/80 flex flex-col justify-between h-[130px] md:h-[150px] animate-slide-up hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200" style={{ animationDelay: "250ms" }}>
           <span className="text-[0.55rem] sm:text-[0.6rem] md:text-[0.65rem] font-extrabold text-slate-500 uppercase tracking-[1px]">Top Expense</span>
           <div className="flex items-center justify-between gap-1.5 sm:gap-3">
             <div className="min-w-0 flex-1">

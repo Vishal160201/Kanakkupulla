@@ -13,12 +13,15 @@ import FinancialsCard from "./order-details/FinancialsCard";
 import AttachmentsCard, { hasAttachments } from "./order-details/AttachmentsCard";
 import GiftInvoiceTemplate from "./order-details/GiftInvoiceTemplate";
 import DiscountConfirmDialog from "./order-details/DiscountConfirmDialog";
+import { useAccess } from "@/hooks/useAccess";
 
 /** Panel contents for one order. Keyed by order id so transient UI state resets per order. */
 function OrderDetailsBody({ orderId }: { orderId: string | null }) {
   const { closeGiftOrderDetails, openTransactionDetails } = useGlobalForm();
   const details = useGiftOrderDetails(orderId, closeGiftOrderDetails);
   const { order, error, customData, totals, edit, exporting, status, collection } = details;
+  // Status changes, edits and payment collection need Gifts Manage.
+  const canManage = useAccess().can("gifts", "MANAGE");
 
   if (!order && !error) {
     return (
@@ -41,7 +44,7 @@ function OrderDetailsBody({ orderId }: { orderId: string | null }) {
   }
 
   const currentStatusIndex = STATUS_OPTIONS.findIndex(s => s.value === order.status);
-  const editForm = edit.isEditing ? edit.editForm : null;
+  const editForm = edit.isEditing && canManage ? edit.editForm : null;
   const setEditForm = edit.setEditForm;
 
   return (
@@ -91,11 +94,11 @@ function OrderDetailsBody({ orderId }: { orderId: string | null }) {
           <OrderStatusTracker
             currentStatusIndex={currentStatusIndex}
             isUpdatingStatus={status.isUpdatingStatus}
-            onStatusChange={status.handleStatusChange}
+            onStatusChange={canManage ? status.handleStatusChange : undefined}
           />
 
           {/* Inline Panels */}
-          {status.showRollbackWarning && (
+          {canManage && status.showRollbackWarning && (
             <RollbackWarning
               isUpdatingStatus={status.isUpdatingStatus}
               onCancel={() => status.setShowRollbackWarning(null)}
@@ -103,7 +106,7 @@ function OrderDetailsBody({ orderId }: { orderId: string | null }) {
             />
           )}
 
-          {collection.showDueCollection && (
+          {canManage && collection.showDueCollection && (
             <DueCollectionPanel dueAmount={totals.dueAmount} collection={collection} />
           )}
 

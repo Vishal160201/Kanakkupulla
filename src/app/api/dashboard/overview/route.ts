@@ -1,25 +1,31 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma, { toNumber } from '@/lib/prisma';
-import { requireUser } from "@/lib/authz";
+import { can, isOwner, requireAccess } from "@/lib/authz";
 import { parseSearchParams } from "@/lib/validations/http";
 import { asJsonRecord } from "@/lib/validations/common";
 import { dashboardOverviewQuerySchema } from "@/lib/validations/dashboard";
-import { shopSummarySelect, shopWhere } from "@/lib/shops";
+import { assertReadableShop, shopSummarySelect, shopWhere, ShopError } from "@/lib/shops";
 
 type PendingAlbum = { id: string; clientName: string; status: string; date: Date };
 
 export async function GET(req: Request) {
   try {
-    const auth = await requireUser();
+    const auth = await requireAccess("dashboard", "VIEW");
     if (auth.error) return auth.error;
 
     const query = parseSearchParams(req, dashboardOverviewQuerySchema);
     if (query.error) return query.error;
     const { startDate: startDateParam, endDate: endDateParam, shopId } = query.data;
     // Ledger figures follow the shop switcher; booking and gift figures are studio-wide
-    const shopFilter = shopWhere(shopId);
-    const shopSql = shopId ? Prisma.sql`AND "shopId" = ${shopId}` : Prisma.empty;
+    await assertReadableShop(auth.user, shopId, ["STUDIO"]);
+    // Money figures need Daily Kanakku access ("All Shops" is owners only); otherwise they read as zero
+    const canSeeLedger = (shopId || isOwner(auth.user)) && (await can(auth.user, "ledger", "VIEW", shopId));
+    const ledgerShopId = canSeeLedger ? shopId : "__no_ledger_access__";
+    const shopFilter = canSeeLedger ? shopWhere(shopId) : { shopId: ledgerShopId };
+    const shopSql = ledgerShopId
+      ? Prisma.sql`AND "shopId" = ${ledgerShopId}`
+      : Prisma.sql`AND "shopId" IN (SELECT "id" FROM "Shop" WHERE "type" = 'STUDIO')`;
 
     const today = new Date();
 
@@ -201,6 +207,7 @@ export async function GET(req: Request) {
     });
 
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Dashboard API Error:", error);
     return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 });
   }

@@ -3,7 +3,9 @@ import prisma from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/notifications";
 import { generateNextTransactionId } from "@/lib/transactionId";
 import { resolveShopForWrite, shopSummarySelect, shopWhere, ShopError } from "@/lib/shops";
-import { canWriteTransaction, forbiddenResponse, requirePermission, requireUser } from "@/lib/authz";
+import { canWriteTransaction, forbiddenResponse, requireUser } from "@/lib/authz";
+import { assertLedgerReadable } from "@/lib/ledgerAccess";
+import { assertNotInventoryCategory, assertNotInventoryLinked, ledgerSourceInclude, withSource } from "@/lib/ledgerSource";
 import type { Prisma } from "@prisma/client";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
 import { asJsonRecord, pickCustomFields } from "@/lib/validations/common";
@@ -17,7 +19,7 @@ import {
 const PAGE_SIZE = 25;
 
 export async function GET(request: Request) {
-  const auth = await requirePermission("view_transactions", "manage_transactions");
+  const auth = await requireUser();
   if (auth.error) return auth.error;
 
   const query = parseSearchParams(request, transactionListQuerySchema);
@@ -25,6 +27,7 @@ export async function GET(request: Request) {
   const { month, categories: category, view, dateFrom, dateTo, amountMin, amountMax, category: legacyCategory, type, paymentMode, page, shopId } = query.data;
 
   try {
+    await assertLedgerReadable(auth.user, shopId);
     const whereClause: Prisma.TransactionWhereInput = { deletedAt: null, ...shopWhere(shopId) };
     // 1. Date Logic — F4: Fixed date mutation bug by NOT reusing the same `now` object
     if (dateFrom || dateTo) {
@@ -89,17 +92,18 @@ export async function GET(request: Request) {
         ],
         take: PAGE_SIZE,
         skip: (page - 1) * PAGE_SIZE,
-        include: { shop: { select: shopSummarySelect } },
+        include: { shop: { select: shopSummarySelect }, ...ledgerSourceInclude },
       }),
       prisma.transaction.count({ where: whereClause }),
     ]);
 
-    return NextResponse.json({ items: transactions, total, page, pageSize: PAGE_SIZE }, {
+    return NextResponse.json({ items: transactions.map(withSource), total, page, pageSize: PAGE_SIZE }, {
       headers: {
         "Cache-Control": "private, no-store",
       },
     });
   } catch (error) {
+    if (error instanceof ShopError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("Failed to fetch transactions:", error);
     const message = error instanceof Error ? error.message.toLowerCase() : "";
     if (message.includes("timeout") || message.includes("connection")) {
@@ -123,14 +127,15 @@ export async function POST(request: Request) {
     if (parsed.error) return parsed.error;
     const { amount: parsedAmount, type, date, category, paymentMode, description, status, productOrderId, bookingId, recordDate, shopId, ...restBody } = parsed.data;
 
-    if (!(await canWriteTransaction(auth.user, { bookingId, productOrderId }))) {
+    if (!(await canWriteTransaction(auth.user, { bookingId, productOrderId, shopId }))) {
       return forbiddenResponse();
     }
 
     const customData = pickCustomFields(restBody);
     const txDate = recordDate ?? date;
     // Entries without a shop (booking advances, gift payments, older clients) go to the default shop
-    const resolvedShopId = await resolveShopForWrite(shopId);
+    const resolvedShopId = await resolveShopForWrite(shopId, undefined, auth.user);
+    await assertNotInventoryCategory(resolvedShopId, [category]);
 
     const transactionId = await generateNextTransactionId();
 
@@ -193,10 +198,15 @@ export async function PUT(request: Request) {
     if (!(await canWriteTransaction(auth.user, existing))) {
       return forbiddenResponse();
     }
+    await assertNotInventoryLinked(existing.id);
 
     const customData = { ...asJsonRecord(existing.customData), ...pickCustomFields(restBody) };
     // Moving an entry to another shop requires that shop to be active
-    const nextShopId = shopId && shopId !== existing.shopId ? await resolveShopForWrite(shopId) : undefined;
+    const nextShopId = shopId && shopId !== existing.shopId ? await resolveShopForWrite(shopId, undefined, auth.user) : undefined;
+    if (nextShopId && !(await canWriteTransaction(auth.user, { ...existing, shopId: nextShopId }))) {
+      return forbiddenResponse();
+    }
+    await assertNotInventoryCategory(nextShopId ?? existing.shopId, [category], nextShopId ? [] : [existing.category]);
 
     const updated = await prisma.transaction.update({
       where: { id },

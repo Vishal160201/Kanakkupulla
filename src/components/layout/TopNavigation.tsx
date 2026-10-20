@@ -5,12 +5,14 @@ import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { useMobileNav } from "../providers/MobileNavProvider";
+import { useShops } from "../providers/ShopProvider";
 import GlobalSearch from "./top-nav/GlobalSearch";
 import NotificationsMenu from "./top-nav/NotificationsMenu";
 import ProfileMenu, { type NavUser } from "./top-nav/ProfileMenu";
 import StudioShopPicker from "./top-nav/StudioShopPicker";
 import StudioBrand from "./top-nav/StudioBrand";
 import { useNotificationPreferences } from "./top-nav/useNotificationPreferences";
+import { useAccess } from "@/hooks/useAccess";
 
 const AVATAR_BUTTON = "w-[45px] h-[45px] rounded-full flex items-center justify-center font-extrabold text-base cursor-pointer shadow-sm transition-colors";
 
@@ -21,6 +23,7 @@ function getTitle(pathname: string) {
   if (pathname.includes("transactions")) return "Ledger & Analytics";
   if (pathname.includes("settings")) return "Settings";
   if (pathname.includes("gifts")) return "Gifts & Frames";
+  if (pathname.startsWith("/inventory")) return "Fertilizer Inventory";
   return "Moondot studio";
 }
 
@@ -29,19 +32,23 @@ export default function TopNavigation() {
   const router = useRouter();
   const { toggleSidebar } = useMobileNav();
   const { data: session } = useSession();
+  const { isOwner, access } = useAccess();
   const preferences = useNotificationPreferences();
+  // Search and notifications cover studio data (bookings, gifts), so they're hidden in other shop types.
+  const { activeShopType } = useShops();
+  const isStudioMode = activeShopType === "STUDIO";
 
   // Keep-alive ping (result unused by the header itself).
   useSWR("/api/ping", fetcher, { refreshInterval: 60000 });
 
   const userName = session?.user?.name || "Studio User";
-  const userRole = session?.user?.role || "STAFF";
   const user: NavUser = {
     name: userName,
     email: session?.user?.email || "user@example.com",
-    role: userRole,
+    // Owners: "Owner"; members: their role in each assigned shop, e.g. "Admin · Head office".
+    roles: isOwner ? ["Owner"] : (access?.shops ?? []).map((s) => `${s.roleName} · ${s.shopName}`),
     initials: userName.substring(0, 2).toUpperCase(),
-    isStudioOwner: userRole === "ADMIN",
+    isOwner,
   };
 
   const title = getTitle(pathname);
@@ -73,8 +80,8 @@ export default function TopNavigation() {
   }
 
   return (
-    <header className={`relative flex ${title ? 'justify-between' : 'justify-end'} items-center px-4 md:px-10 py-4 md:py-5 bg-slate-50 z-50`}>
-      <div className="flex items-center gap-3">
+    <header className={`relative flex ${title ? 'justify-between' : 'justify-end'} items-center gap-3 px-4 md:px-8 2xl:px-[max(2rem,calc((100%_-_1400px)/2))] py-4 md:py-5 bg-slate-50 z-50`}>
+      <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={toggleSidebar}
@@ -102,13 +109,13 @@ export default function TopNavigation() {
         {title && title === "Moondot studio" ? (
           <StudioBrand />
         ) : (
-          title && <h1 className="text-xl md:text-4xl font-extrabold text-slate-900 tracking-tight hidden sm:block">{title}</h1>
+          title && <h1 className="text-xl md:text-2xl lg:text-4xl font-extrabold text-slate-900 tracking-tight hidden sm:block truncate">{title}</h1>
         )}
       </div>
 
-      <div className="flex items-center gap-3 md:gap-5">
-        <GlobalSearch />
-        <NotificationsMenu />
+      <div className="flex shrink-0 items-center gap-3 lg:gap-5">
+        {isStudioMode && <GlobalSearch />}
+        {isStudioMode && <NotificationsMenu />}
         <StudioShopPicker />
         <ProfileMenu
           user={user}

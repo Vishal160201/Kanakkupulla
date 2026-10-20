@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAdmin } from "@/lib/authz";
+import { requireOwner } from "@/lib/authz";
 import { parseJsonBody } from "@/lib/validations/http";
 import { layoutCheckUsageSchema } from "@/lib/validations/settings";
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   try {
@@ -21,13 +21,15 @@ export async function POST(req: Request) {
       } else if (fieldId === "fld_b_status") {
         count = await prisma.booking.count({ where: { status: value } });
       }
-    } else if (formKey === "TRANSACTION_FORM") {
+    } else if (formKey === "TRANSACTION_FORM" || formKey === "FERTILIZER_TRANSACTION_FORM") {
+      // Each ledger form only owns the entries of its own shop type
+      const shopScope = { shop: { type: formKey === "FERTILIZER_TRANSACTION_FORM" ? "FERTILIZER" as const : "STUDIO" as const } };
       if (fieldId === "fld_tx_type") {
-        count = await prisma.transaction.count({ where: { type: value } });
+        count = await prisma.transaction.count({ where: { type: value, ...shopScope } });
       } else if (fieldId === "fld_tx_category") {
-        count = await prisma.transaction.count({ where: { category: value } });
+        count = await prisma.transaction.count({ where: { category: value, ...shopScope } });
       } else if (fieldId === "fld_tx_mode") {
-        count = await prisma.transaction.count({ where: { paymentMode: value } });
+        count = await prisma.transaction.count({ where: { paymentMode: value, ...shopScope } });
       }
     }
 

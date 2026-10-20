@@ -207,7 +207,7 @@ export default function OrderForm({ products, onOrderCreated, open, onOpenChange
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger
-        render={<Button className="w-full sm:w-auto gap-2 bg-[#8C5E2D] hover:bg-[#734A21] text-white rounded-xl shadow-lg transition-all active:scale-95" />}
+        render={<Button className="w-full sm:w-auto h-11 sm:h-9 gap-2 bg-[#8C5E2D] hover:bg-[#734A21] text-white rounded-xl shadow-lg transition-all active:scale-95" />}
       >
         <PlusCircle size={18} />
         <span>New Order</span>

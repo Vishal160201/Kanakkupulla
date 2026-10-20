@@ -9,16 +9,11 @@ import { Tooltip } from "@/components/ui/Tooltip";
 export interface NavUser {
   name: string;
   email: string;
-  role: string;
+  /** "Owner", or one "<role> · <shop>" label per assigned shop (empty while loading). */
+  roles: string[];
   initials: string;
-  isStudioOwner: boolean;
+  isOwner: boolean;
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Studio Owner",
-  STAFF: "Staff",
-  PHOTOGRAPHER: "Photographer",
-};
 
 interface ProfileMenuProps {
   user: NavUser;
@@ -69,7 +64,7 @@ export default function ProfileMenu({ user, preferences, buttonClassName }: Prof
 
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-extrabold text-lg shrink-0 relative">
-                {user.isStudioOwner && (
+                {user.isOwner && (
                   <i className="ph-fill ph-crown absolute -top-1 -left-1 text-orange-400 text-sm bg-white rounded-full p-0.5 shadow-sm"></i>
                 )}
                 {user.initials}
@@ -78,7 +73,17 @@ export default function ProfileMenu({ user, preferences, buttonClassName }: Prof
               <div className="flex flex-col overflow-hidden w-full">
                 <span className="font-bold text-[0.95rem] text-slate-900 leading-tight truncate">{user.name}</span>
                 <span className="text-[0.75rem] text-slate-500 truncate">{user.email}</span>
-                <span className="text-[0.65rem] text-slate-500 mt-1 truncate">Role: <strong className="text-slate-700">{ROLE_LABELS[user.role] || user.role}</strong></span>
+                {user.roles.length === 1 && (
+                  <span className="text-[0.65rem] text-slate-500 mt-1 truncate">Role: <strong className="text-slate-700">{user.roles[0]}</strong></span>
+                )}
+                {user.roles.length > 1 && (
+                  <span className="text-[0.65rem] text-slate-500 mt-1">
+                    Roles:
+                    {user.roles.map((role) => (
+                      <strong key={role} className="block truncate text-slate-700">{role}</strong>
+                    ))}
+                  </span>
+                )}
               </div>
             </div>
 

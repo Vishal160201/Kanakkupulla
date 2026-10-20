@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { requirePermission } from "@/lib/authz";
+import { requireAnyAccess } from "@/lib/authz";
 import { parseJsonBody } from "@/lib/validations/http";
 import { asJsonRecord } from "@/lib/validations/common";
 import { bookingStatusApiSchema } from "@/lib/validations/booking";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const auth = await requirePermission("manage_bookings", "manage_galleries");
+    const auth = await requireAnyAccess(["bookings", "MANAGE"], ["albums", "MANAGE"]);
     if (auth.error) return auth.error;
 
     const { id } = await params;

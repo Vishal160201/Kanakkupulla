@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import type { AlbumBooking, AlbumCustomData } from "@/types/bookings";
 import { parseCustomData } from "@/components/bookings/layoutUtils";
 import AlbumStatusClient from "./AlbumStatusClient";
+import { requirePageAccess } from "@/lib/pageAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export default async function AlbumStatusPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
+  await requirePageAccess("albums");
   const params = await searchParams;
   const initialTab = params?.tab || 'Pending';
 

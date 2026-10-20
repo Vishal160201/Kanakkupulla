@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
-import { usePermissions } from "@/hooks/usePermissions";
+import { useAccess } from "@/hooks/useAccess";
 import type { LayoutSection } from "@/types/bookings";
 import { shortBookingId } from "@/components/bookings/layoutUtils";
 import { useBookingDetails } from "@/components/bookings/booking-details/useBookingDetails";
@@ -30,8 +30,11 @@ const bySectionPriority = (a: LayoutSection, b: LayoutSection) => {
 
 export default function BookingDetailsModal({ standaloneBookingId }: { standaloneBookingId?: string }) {
   const router = useRouter();
-  const { checkPermission } = usePermissions();
-  const canManageTransactions = checkPermission('manage_transactions');
+  const { can } = useAccess();
+  // Bookings are studio-wide data, so the studio level applies whatever shop is active.
+  const canManageBookings = can("bookings", "MANAGE");
+  // Album tracking updates also accept Album status Manage.
+  const canManageAlbums = canManageBookings || can("albums", "MANAGE");
   const {
     openBookingForm,
     isBookingDetailsOpen,
@@ -83,10 +86,12 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
       ) : (
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
 
+          {/* Content is capped so cards don't spread across very wide screens; the header's own px-6 sits inside this cap, so it gets 3rem extra to line up with the cards */}
+          <div className="shrink-0 w-full max-w-[calc(1400px+3rem)] mx-auto">
           <BookingDetailsHeader
             booking={booking}
-            canManageTransactions={canManageTransactions}
-            isStatusPicker={details.isStatusPicker}
+            canManage={canManageBookings}
+            isStatusPicker={details.isStatusPicker && canManageBookings}
             statusOptions={details.statusOptions}
             isStatusDropdownOpen={details.isStatusDropdownOpen}
             setIsStatusDropdownOpen={details.setIsStatusDropdownOpen}
@@ -98,9 +103,11 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
             onGenerateInvoice={details.generateInvoice}
             onChangeStatus={details.changeStatus}
           />
+          </div>
 
           {/* Scrollable Content Area */}
-          <main id="booking-details-content" className="flex-1 overflow-y-auto px-6 pb-6">
+          <main id="booking-details-content" className="flex-1 overflow-y-auto px-4 md:px-6 pb-6">
+            <div className="w-full max-w-[1400px] mx-auto">
 
             <BookingInfoStrip booking={booking} teamUsers={teamUsers} albumDesignerVal={albumDesignerVal} />
 
@@ -121,6 +128,8 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                       teamUsers={teamUsers}
                       isFieldVisible={(rule) => isFieldVisibleForBooking(booking, rule)}
                       isUpdatingStatus={details.isUpdatingStatus}
+                      canChangeEventStatus={canManageBookings}
+                      canChangeAlbumStatus={canManageAlbums}
                       onSectionStatusChange={details.changeSectionStatus}
                     />
                   ))}
@@ -133,14 +142,15 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
                 <FinancialsCard booking={booking} onOpenTransaction={openTransactionDetails} />
               </div>
             </div>
+            </div>
           </main>
 
           <BookingActionBar
             displayId={booking.bookingNumber || shortBookingId(booking.id)}
-            onEdit={() => {
+            onEdit={canManageBookings ? () => {
               openBookingForm(booking.id, undefined);
               closeBookingDetails();
-            }}
+            } : undefined}
             onClose={handleClose}
           />
 

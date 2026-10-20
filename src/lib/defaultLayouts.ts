@@ -124,6 +124,42 @@ export const DEFAULT_LAYOUTS = [
     }
   },
   {
+    formKey: "FERTILIZER_TRANSACTION_FORM",
+    name: "Fertilizer Shop Daily Kanakku",
+    description: "Fields used when recording income or expenses for a fertilizer shop.",
+    schema: {
+      sections: [
+        {
+          id: "sec_ftx_details",
+          title: "Transaction Details",
+          fields: [
+            { id: "fld_tx_amount", name: "Amount", type: "CURRENCY", mandatory: true },
+            { id: "fld_tx_type", name: "Transaction Type", type: "PICK_LIST", mandatory: true, options: ["INCOME", "EXPENSE"] },
+            { id: "fld_tx_date", name: "Date", type: "DATE", mandatory: true, isRecordDate: true },
+            { id: "fld_tx_category", name: "Category", type: "MULTI_SELECT", mandatory: true, options: [
+              "Fertilizer Sales",
+              "Credit Collection",
+              "Stock Purchase",
+              "Produce Sales",
+              "Produce Sale Collection",
+              "Produce Payment",
+              "Transport",
+              "Loading & Unloading",
+              "Labour",
+              "Shop Rent",
+              "Electricity",
+              "Salary",
+              "Tea & snacks",
+              "Other"
+            ] },
+            { id: "fld_tx_mode", name: "Payment Mode", type: "PICK_LIST", mandatory: true, options: ["Cash", "Bank Transfer", "UPI", "Cheque"] },
+            { id: "fld_tx_desc", name: "Description", type: "MULTI_LINE", mandatory: false },
+          ]
+        }
+      ]
+    }
+  },
+  {
     formKey: "GIFT_ORDER_FORM",
     name: "Gift Order Form",
     description: "Fields used when creating a new gift order.",

@@ -4,6 +4,8 @@ import type { Transaction, TransactionListGroup, TransactionListItem } from "@/t
 import { getConsistentColorClasses, getGiftsBadgeInfo, getRelatableIcon } from "../categoryStyles";
 import ShopBadge from "@/components/shops/ShopBadge";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { LOCKED_ENTRY_MESSAGE, SourceBadge, isLockedEntry } from "../sourceLock";
+import { useCanWriteTransaction } from "@/hooks/useAccess";
 
 const isGroup = (tx: TransactionListItem): tx is TransactionListGroup => 'isGroup' in tx && tx.isGroup === true;
 
@@ -59,6 +61,10 @@ export default function TransactionListRow({ tx, isChild = false, showShop = fal
     tx.description ? tx.description.split(' - ')[0] : tx.category
   );
   const isExpanded = group !== null && expandedGroups.has(tx.id);
+  // Entries posted by Fertilizer Inventory can only be changed there.
+  const isLocked = isLockedEntry(group ?? tx);
+  // Edit / delete only for users allowed to change this entry (no buttons that would be refused).
+  const canWrite = useCanWriteTransaction()({ shopId: tx.shopId ?? tx.shop?.id ?? null, bookingId: tx.bookingId, productOrderId: tx.productOrderId });
 
   return (
     <div className={`${isChild ? 'pl-8 border-l-2 border-slate-100 ml-6 relative before:content-[""] before:absolute before:left-[-2px] before:top-0 before:w-0.5 before:h-full before:bg-slate-100' : ''}`}>
@@ -74,11 +80,11 @@ export default function TransactionListRow({ tx, isChild = false, showShop = fal
         }}
         className={`flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent p-3 transition-all hover:border-slate-200 hover:bg-slate-50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 sm:p-4 group ${isChild ? 'bg-slate-50/50 my-1 py-2 sm:py-2.5 rounded-xl' : ''}`}
       >
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${colorClass.bg} ${colorClass.text} ${isChild ? 'w-10 h-10 rounded-lg' : ''}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+          <div className={`w-12 h-12 shrink-0 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${colorClass.bg} ${colorClass.text} ${isChild ? 'w-10 h-10 rounded-lg' : ''}`}>
             <i className={`ph-bold ${iconClass} ${isChild ? 'text-lg' : 'text-xl'}`}></i>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="truncate font-bold text-slate-900 text-sm mb-1">
               {title}
             </div>
@@ -101,6 +107,7 @@ export default function TransactionListRow({ tx, isChild = false, showShop = fal
                   DUE
                 </span>
               )}
+              {!group && <SourceBadge source={tx.source} />}
               {showShop && !isChild && <ShopBadge shop={tx.shop} />}
               <span className="truncate text-[11px] text-slate-400 font-medium shrink-0">{new Date(tx.date).toLocaleDateString('en-GB')} &middot; {tx.paymentMode}</span>
               {!group && <span className="hidden sm:inline text-[10px] text-slate-300 font-mono shrink-0">{tx.transactionId}</span>}
@@ -108,13 +115,31 @@ export default function TransactionListRow({ tx, isChild = false, showShop = fal
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 text-right sm:gap-2">
-          <div className="min-w-[100px] text-right">
+          <div className="sm:min-w-[100px] text-right">
             <div className={`text-sm font-bold sm:text-base ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'}`}>
               {tx.type === 'EXPENSE' ? '-' : ''}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
 
-          <div className="flex items-center gap-1 w-[64px] justify-end">
+          {isLocked ? (
+          <div className="hidden sm:flex items-center gap-1 w-[64px] justify-end">
+            <Tooltip content={LOCKED_ENTRY_MESSAGE}>
+              <span
+                tabIndex={0}
+                role="img"
+                aria-label={LOCKED_ENTRY_MESSAGE}
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+                className="h-8 w-8 items-center justify-center rounded-full text-slate-300 hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+              >
+                <i aria-hidden="true" className="ph-bold ph-lock-simple"></i>
+              </span>
+            </Tooltip>
+          </div>
+          ) : !canWrite ? (
+          <div className="hidden sm:block w-[64px]" aria-hidden="true" />
+          ) : (
+          <div className="hidden sm:flex items-center gap-1 w-[64px] justify-end">
             <Tooltip content={group ? "Delete Group" : "Delete Transaction"}>
               <button
                 type="button"
@@ -146,6 +171,7 @@ export default function TransactionListRow({ tx, isChild = false, showShop = fal
               </button>
             </Tooltip>
           </div>
+          )}
 
           {group ? (
             <button

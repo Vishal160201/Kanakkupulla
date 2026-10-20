@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/authz";
+import { can, getSessionUser } from "@/lib/authz";
 import { asJsonRecord } from "@/lib/validations/common";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const user = await getSessionUser();
-  if (!user) {
+  // The upcoming-shoot banner is studio data: only for people who can see bookings
+  if (!user || !(await can(user, "bookings", "VIEW"))) {
     return NextResponse.json({ show: false });
   }
 

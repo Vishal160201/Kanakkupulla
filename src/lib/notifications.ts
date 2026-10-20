@@ -3,6 +3,8 @@ import webpush, { WebPushError } from "web-push";
 import nodemailer from "nodemailer";
 import { Prisma, type NotificationType, type NotificationPriority } from "@prisma/client";
 import { botFetch } from "./whatsappBot";
+import { getOwnerNotifications, listRoles } from "./roles";
+import type { NotificationTypeKey } from "./access";
 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
@@ -196,20 +198,24 @@ export async function broadcastNotification(params: NotificationContent & { skip
   const { skipUserId, ...content } = params;
   const { type } = content;
   try {
-    const rolePermissions = await prisma.rolePermission.findMany({
-      where: { permission: `notify_${type}` },
-      select: { role: true, enabled: true },
-    });
-    const rolesEnabled = rolePermissions.filter(rp => rp.enabled).map(rp => rp.role);
-
-    // Always include ADMINs unless they explicitly disabled this type
-    const adminPerm = rolePermissions.find(rp => rp.role === "ADMIN");
-    if ((!adminPerm || adminPerm.enabled) && !rolesEnabled.includes("ADMIN")) rolesEnabled.push("ADMIN");
+    // Studio alerts go to owners (unless they switched this type off) and to members whose role
+    // in any studio shop has it switched on (Roles & Permissions → Notifications).
+    const [ownerAlerts, roles] = await Promise.all([getOwnerNotifications(), listRoles()]);
+    const roleIds = roles.filter(r => r.notifications[type as NotificationTypeKey] ?? r.key !== "STAFF").map(r => r.id);
+    const audience: Prisma.UserWhereInput[] = [];
+    if (ownerAlerts[type as NotificationTypeKey] ?? true) audience.push({ role: "OWNER" });
+    if (roleIds.length > 0) {
+      audience.push({
+        role: "MEMBER",
+        shopMemberships: { some: { roleId: { in: roleIds }, shop: { type: "STUDIO", isArchived: false } } },
+      });
+    }
+    if (audience.length === 0) return [];
 
     return await notifyRecipients(
       {
         status: "ACTIVE",
-        role: { in: rolesEnabled },
+        OR: audience,
         ...(skipUserId ? { id: { not: skipUserId } } : {}),
       },
       content

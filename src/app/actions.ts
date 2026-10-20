@@ -8,7 +8,7 @@ import { Booking } from "@/types";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { broadcastNotification } from "@/lib/notifications";
-import { assertPermission } from "@/lib/authz";
+import { assertAccess } from "@/lib/authz";
 import { trashBooking } from "@/lib/recycleBin";
 import crypto from "crypto";
 
@@ -66,7 +66,7 @@ async function generateBookingNumber(db: Pick<typeof prisma, "booking">) {
 
 export async function saveBookingAction(formData: FormData) {
   try {
-    const user = await assertPermission("manage_bookings");
+    const user = await assertAccess(["bookings", "MANAGE"]);
     const rawData = Object.fromEntries(formData.entries());
     const validatedData = bookingSchema.parse(rawData);
     
@@ -237,7 +237,7 @@ export async function saveBookingAction(formData: FormData) {
 
 export async function deleteBookingAction(id: string) {
   try {
-    const user = await assertPermission("manage_bookings");
+    const user = await assertAccess(["bookings", "MANAGE"]);
     if (!bookingIdSchema.safeParse(id).success) return { success: false, error: "Not found" };
     const trashed = await trashBooking(id, user.id);
     if (!trashed) return { success: false, error: "Not found" };
@@ -251,7 +251,7 @@ export async function deleteBookingAction(id: string) {
 
 export async function updateBookingStatusAction(bookingId: string, newStatus: string) {
   try {
-    const user = await assertPermission("manage_bookings");
+    const user = await assertAccess(["bookings", "MANAGE"]);
     const idResult = bookingIdSchema.safeParse(bookingId);
     const statusResult = statusSchema.safeParse(newStatus);
     if (!idResult.success || !statusResult.success) return { success: false, error: 'Invalid input' };
@@ -302,7 +302,7 @@ export async function updateBookingStatusAction(bookingId: string, newStatus: st
 
 export async function updateAlbumTrackingAction(bookingId: string, updates: { status?: string, customData?: Record<string, unknown> }) {
   try {
-    const user = await assertPermission("manage_bookings", "manage_galleries");
+    const user = await assertAccess(["albums", "MANAGE"], ["bookings", "MANAGE"]);
     const parsed = albumTrackingSchema.safeParse(updates);
     if (!bookingIdSchema.safeParse(bookingId).success || !parsed.success) return { success: false, error: 'Invalid input' };
 
@@ -334,7 +334,7 @@ export async function updateAlbumTrackingAction(bookingId: string, updates: { st
 
 export async function generateInvoiceAction(bookingId: string) {
   try {
-    await assertPermission('manage_transactions');
+    await assertAccess(["bookings", "MANAGE"]);
   } catch {
     return { success: false, error: 'Permission denied' };
   }

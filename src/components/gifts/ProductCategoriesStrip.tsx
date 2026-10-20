@@ -33,7 +33,7 @@ export default function ProductCategoriesStrip({ onCategorySelect, selectedCateg
     <div className="w-max max-w-full mx-auto bg-white/60 backdrop-blur-xl rounded-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-fit">
       <div 
         ref={scrollRef}
-        className="flex justify-start gap-[10px] overflow-x-auto overflow-y-visible py-3 px-4 snap-x hide-scrollbar items-start"
+        className="flex justify-start lg:flex-wrap lg:justify-center gap-[10px] lg:gap-y-3 overflow-x-auto overflow-y-visible py-3 px-4 snap-x hide-scrollbar items-start"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         <style dangerouslySetInnerHTML={{__html: `

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { requireAdmin, requireUser } from "@/lib/authz";
+import { requireOwner, requireUser } from "@/lib/authz";
 import { parseJsonBody } from "@/lib/validations/http";
 import { layoutUpsertSchema } from "@/lib/validations/settings";
 
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   try {

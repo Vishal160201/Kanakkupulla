@@ -16,6 +16,7 @@ import {
   albumData, deliveryDateOf, designerIdOf, designerName, isAlbumOverdue,
 } from "@/components/bookings/album-status/albumUtils";
 import styles from './album-status.module.css';
+import { useAccess } from "@/hooks/useAccess";
 
 interface AlbumStatusClientProps {
   albums: AlbumBooking[];
@@ -60,6 +61,9 @@ function matchesSearch(a: AlbumBooking, searchQuery: string, teamUsers: AlbumTea
 export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [], initialTab = 'Pending' }: AlbumStatusClientProps) {
   const router = useRouter();
   const { openBookingDetails } = useGlobalForm();
+  const { can } = useAccess();
+  // Album tracking updates need Album status (or Bookings) Manage; otherwise the page is read-only.
+  const canEdit = can('albums', 'MANAGE') || can('bookings', 'MANAGE');
 
   // Local copy for optimistic updates; replaced whenever the server sends a fresh list.
   const [albums, setAlbums] = useState(initialAlbums);
@@ -132,13 +136,15 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
       <div className="flex flex-col gap-6 max-w-[1400px] mx-auto pb-10">
 
         {/* Metrics Cards */}
-        <AlbumMetricCards
-          counts={counts}
-          activeTab={activeTab}
-          onSelect={setActiveTab}
-          rowClassName={styles.cardRow}
-          cardAnimClassName={styles.cardAnim}
-        />
+        <div className={styles.cardRowWrap}>
+          <AlbumMetricCards
+            counts={counts}
+            activeTab={activeTab}
+            onSelect={setActiveTab}
+            rowClassName={styles.cardRow}
+            cardAnimClassName={styles.cardAnim}
+          />
+        </div>
 
         {/* Filters Row */}
         {totalCount > 0 && (
@@ -165,6 +171,7 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
             onOpenDetails={openBookingDetails}
             onSelect={setSelectedAlbumId}
             onUpdate={handleUpdateAlbum}
+            canEdit={canEdit}
           />
 
           {/* Right Column - Detail Panel */}
@@ -177,6 +184,7 @@ export default function AlbumStatusClient({ albums: initialAlbums, teamUsers = [
                 if (selectedAlbumId) openBookingDetails(selectedAlbumId);
               }}
               onUpdate={handleUpdateAlbum}
+              canEdit={canEdit}
             />
           )}
 

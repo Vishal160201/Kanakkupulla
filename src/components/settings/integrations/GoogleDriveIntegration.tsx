@@ -87,7 +87,7 @@ export default function GoogleDriveIntegration() {
     }
   };
 
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isOwner = session?.user?.role === "OWNER";
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 overflow-hidden">
@@ -137,7 +137,7 @@ export default function GoogleDriveIntegration() {
                   </span>
                 </Tooltip>
                 
-                {isAdmin && !showDisconnectConfirm && (
+                {isOwner && !showDisconnectConfirm && (
                   <button
                     onClick={() => setShowDisconnectConfirm(true)}
                     className="px-4 py-2 bg-red-50 text-red-600 text-sm font-bold rounded-lg hover:bg-red-100 transition-colors"
@@ -184,7 +184,7 @@ export default function GoogleDriveIntegration() {
           ) : !isLoading ? (
             <button
               onClick={handleConnect}
-              className="w-full px-4 py-2 bg-white border border-gray-300 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 mt-2"
+              className="w-full sm:w-auto px-4 py-2 bg-white border border-gray-300 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-50 transition-colors flex sm:inline-flex items-center justify-center gap-2 mt-2"
             >
               <i className="ph-bold ph-plugs"></i>
               {needsReauth ? "Reconnect Google Drive" : "Connect Google Drive"}

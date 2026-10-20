@@ -817,6 +817,17 @@ h1, h2, h3, h4, h5, h6 {
 .calendar-event.orange { background-color: var(--brand-orange); }
 .calendar-event.green { background-color: var(--brand-green); }
 
+/* Phones: fit all seven month columns (Fri/Sat were scrolled off-screen) */
+@media (max-width: 639px) {
+  .calendar-wrapper { padding: 16px 12px; }
+  .calendar-grid { gap: 3px; }
+  .calendar-day-header { font-size: 0.6rem; padding: 6px 0; letter-spacing: 0; }
+  .calendar-cell { min-height: 64px; padding: 4px 3px; border-radius: 8px; }
+  .calendar-date { font-size: 0.75rem; margin-bottom: 4px; }
+  .calendar-cell .calendar-event { padding: 2px 3px !important; font-size: 0.55rem !important; border-radius: 4px !important; }
+  .calendar-cell .calendar-event i { display: none; }
+}
+
 /* Upcoming Details Card */
 .detail-card {
   border: 1px solid var(--border-color);

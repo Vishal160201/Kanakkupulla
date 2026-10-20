@@ -6,7 +6,9 @@ import { ShopDot } from "@/components/shops/ShopBadge";
 import ShopIcon from "@/components/shops/ShopIcon";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { SHOP_ICONS, isShopIcon, type ShopIconName } from "@/lib/shopIcons";
-import type { Shop, ShopInput } from "@/types/shops";
+import { SHOP_TYPES, SHOP_TYPE_LABELS } from "@/lib/shopModules";
+import { shopTypeOf } from "@/components/providers/ShopProvider";
+import type { Shop, ShopInput, ShopType } from "@/types/shops";
 
 export const SHOP_COLOR_PRESETS = [
   "#6366f1", // indigo
@@ -20,6 +22,12 @@ export const SHOP_COLOR_PRESETS = [
 ];
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+
+/** What each shop type gets, shown under the type choice. */
+const SHOP_TYPE_DETAILS: Record<ShopType, { icon: string; hint: string }> = {
+  STUDIO: { icon: "ph-camera", hint: "Every studio module: bookings, gifts, dashboard and Daily Kanakku." },
+  FERTILIZER: { icon: "ph-plant", hint: "Daily Kanakku and Fertilizer Inventory only. Open to owners and the people you add." },
+};
 
 interface ShopFormDialogProps {
   /** Shop being edited, or null to create one. */
@@ -41,6 +49,8 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
   const [icon, setIcon] = useState<ShopIconName | null>(isShopIcon(shop?.icon) ? shop.icon : null);
   const [color, setColor] = useState(shop?.color ?? SHOP_COLOR_PRESETS[0]);
   const [isDefault, setIsDefault] = useState(false);
+  // Fixed once the shop exists.
+  const [type, setType] = useState<ShopType>(shop ? shopTypeOf(shop) : "STUDIO");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const shownErrors = { ...serverErrors, ...errors };
@@ -54,7 +64,9 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
     if (Object.keys(errs).length > 0) return;
 
     const input: ShopInput = { name: name.trim(), color, icon };
-    if (!shop && isDefault) input.isDefault = true;
+    if (!shop) input.type = type;
+    // Only studio shops can be the default (booking and gift payments land there).
+    if (!shop && isDefault && type === "STUDIO") input.isDefault = true;
     onSubmit(input);
   };
 
@@ -111,6 +123,42 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
               className={`${inputClass} ${shownErrors.name ? "border-red-300" : ""}`}
             />
             {shownErrors.name && <p className="text-xs text-red-500 mt-1 font-medium">{shownErrors.name}</p>}
+          </div>
+
+          <div>
+            <span id="shop-type-label" className={labelClass}>Shop type</span>
+            {shop ? (
+              <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 h-11">
+                <i aria-hidden="true" className={`ph-bold ${SHOP_TYPE_DETAILS[type].icon} text-slate-500`} />
+                <span className="text-sm font-bold text-slate-700">{SHOP_TYPE_LABELS[type]}</span>
+                <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400">
+                  <i aria-hidden="true" className="ph-bold ph-lock-simple" /> Can&apos;t be changed
+                </span>
+              </div>
+            ) : (
+              <div role="radiogroup" aria-labelledby="shop-type-label" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+                {SHOP_TYPES.map((option) => {
+                  const isSelected = type === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setType(option)}
+                      className={`h-10 rounded-lg inline-flex items-center justify-center gap-2 text-sm font-bold transition-all ${
+                        isSelected ? "bg-white text-orange-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      <i aria-hidden="true" className={`ph-bold ${SHOP_TYPE_DETAILS[option].icon}`} />
+                      {SHOP_TYPE_LABELS[option]}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-[11px] font-semibold text-slate-400 mt-1.5">{SHOP_TYPE_DETAILS[type].hint}</p>
+            {shownErrors.type && <p className="text-xs text-red-500 mt-1 font-medium">{shownErrors.type}</p>}
           </div>
 
           <div>
@@ -181,7 +229,7 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
             {shownErrors.color && <p className="text-xs text-red-500 mt-1 font-medium">{shownErrors.color}</p>}
           </div>
 
-          {!shop && (
+          {!shop && type === "STUDIO" && (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
               <div>
                 <div className="text-sm font-bold text-slate-800">Make this the default shop</div>

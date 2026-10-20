@@ -2,6 +2,7 @@
 
 import StudioItemsTable from "./StudioItemsTable";
 import type { StudioRecycleBinState } from "./useStudioRecycleBin";
+import { useRecycleBinAccess } from "../common/useIsOwner";
 
 const SOURCE_TABS = [
   { label: "All Sources", val: "" },
@@ -12,30 +13,32 @@ const SOURCE_TABS = [
 
 export default function StudioRecycleBin({ bin }: { bin: StudioRecycleBinState }) {
   const { page, limit, total, totalPages, items, selectedIds } = bin;
+  // Permanent deletes (single, bulk, empty bin) are owner-only; restoring needs Recycle Bin Manage.
+  const { canDelete, canRestore } = useRecycleBinAccess();
 
   return (
     <div className="animate-[fadeIn_0.2s_ease-out]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-[1.15rem] font-bold text-slate-900 mb-1">Recycle Bin</h2>
           <p className="text-sm text-slate-500">Deleted items are kept here for 30 days before being permanently removed.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="flex max-w-full overflow-x-auto scrollbar-hide bg-slate-100 p-1 rounded-xl">
             {SOURCE_TABS.map((tab) => (
               <button
                 type="button"
                 key={tab.label}
                 onClick={() => bin.changeSourceFilter(tab.val)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${bin.sourceFilter === tab.val ? "bg-white text-orange-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap shrink-0 transition-colors ${bin.sourceFilter === tab.val ? "bg-white text-orange-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
 
-          {bin.confirmEmptyBin ? (
+          {!canDelete ? null : bin.confirmEmptyBin ? (
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-red-600">Empty bin?</span>
               <button type="button" onClick={bin.handleEmptyBinConfirm} disabled={bin.isDeletingEmpty} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors shadow-sm">{bin.isDeletingEmpty ? "..." : "Yes"}</button>
@@ -61,14 +64,16 @@ export default function StudioRecycleBin({ bin }: { bin: StudioRecycleBinState }
         </div>
       )}
 
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 0 && (canRestore || canDelete) && (
         <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 mb-4 flex items-center justify-between animate-[fadeIn_0.2s_ease-out]">
           <span className="text-sm font-semibold text-orange-800 px-2">{selectedIds.size} items selected</span>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={bin.handleBulkRestore} className="px-3 py-1.5 bg-white text-orange-600 rounded-lg text-xs font-bold border border-orange-200 hover:bg-orange-50 transition-colors">
-              Restore Selected
-            </button>
-            {bin.confirmBulkDelete ? (
+            {canRestore && (
+              <button type="button" onClick={bin.handleBulkRestore} className="px-3 py-1.5 bg-white text-orange-600 rounded-lg text-xs font-bold border border-orange-200 hover:bg-orange-50 transition-colors">
+                Restore Selected
+              </button>
+            )}
+            {!canDelete ? null : bin.confirmBulkDelete ? (
               <div className="flex items-center gap-2 border-l border-orange-200 pl-2 ml-1">
                 <span className="text-xs font-bold text-red-600">Delete {selectedIds.size}?</span>
                 <button type="button" onClick={bin.handleBulkDeleteConfirm} disabled={bin.isDeletingBulk} className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors shadow-sm">{bin.isDeletingBulk ? "..." : "Yes"}</button>

@@ -47,9 +47,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, message: "No bookings for tomorrow." });
     }
 
-    // Get admins as fallback
+    // Owners as fallback
     const admins = await prisma.user.findMany({
-      where: { role: "ADMIN", status: "ACTIVE" },
+      where: { role: "OWNER", status: "ACTIVE" },
       select: { id: true },
     });
 
