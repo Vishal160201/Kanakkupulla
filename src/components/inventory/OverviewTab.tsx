@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { EmptyState, ErrorState, KpiCard, ListSkeleton, cardClass } from "./InventoryUI";
 import { LOW_STOCK_THRESHOLD, errorMessage, formatINR, formatQty, packLabel, quantityUnit } from "./inventoryUtils";
 import { useInventoryBills, useInventoryProducts, useInventorySummary } from "./useInventoryData";
@@ -9,7 +10,7 @@ import ProductDetailDialog from "./products/ProductDetailDialog";
 import BillRow from "./bills/BillRow";
 import BillDetailDialog from "./bills/BillDetailDialog";
 import type { InventoryTab } from "./InventoryTabs";
-import { ProduceKpis } from "./produce/ProduceTab";
+import { ProduceKpis } from "./produce/ProduceView";
 import { cn } from "@/lib/utils";
 
 function KpiSkeleton() {
@@ -36,6 +37,7 @@ function SectionHeader({ title, actionLabel, onAction }: { title: string; action
 }
 
 export default function OverviewTab({ shopId, onNavigate }: { shopId: string; onNavigate: (tab: InventoryTab) => void }) {
+  const router = useRouter();
   const summary = useInventorySummary(shopId);
   const products = useInventoryProducts(shopId);
   const sales = useInventoryBills(shopId, "SALE", 1, "");
@@ -88,18 +90,21 @@ export default function OverviewTab({ shopId, onNavigate }: { shopId: string; on
           <KpiCard
             label="Credit outstanding"
             value={formatINR(s.creditOutstanding, { decimals: false })}
-            hint={`${s.customersWithDues} customer${s.customersWithDues === 1 ? "" : "s"} with dues`}
+            hint={`${s.customersWithDues} farmer${s.customersWithDues === 1 ? "" : "s"} with dues`}
             icon="hand-coins"
             iconClass="bg-violet-50 text-violet-600"
             highlight={s.creditOutstanding > 0}
-            onClick={() => onNavigate("credit")}
+            onClick={() => router.push("/farmers?filter=owe-you")}
           />
         </div>
       )}
 
       <section>
-        <SectionHeader title="Produce" actionLabel="Open produce" onAction={() => onNavigate("produce")} />
-        <ProduceKpis shopId={shopId} onSection={() => onNavigate("produce")} />
+        <SectionHeader title="Produce" actionLabel="Open produce" onAction={() => router.push("/produce")} />
+        <ProduceKpis
+          shopId={shopId}
+          onSection={(section) => router.push(section === "farmers" ? "/farmers?filter=you-owe" : `/produce?section=${section}`)}
+        />
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-start">

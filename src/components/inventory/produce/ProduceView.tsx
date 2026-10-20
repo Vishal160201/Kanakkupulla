@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import CustomDropdown, { type DropdownOption } from "@/components/ui/CustomDropdown";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -18,20 +18,22 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from "../InventoryUI";
-import { errorMessage, formatDate, formatINR, sendJson, useCanManageInventory, useDebouncedValue, useRevalidateInventory } from "../inventoryUtils";
-import { useProduceBuyers, useProduceCollections, useProduceFarmers, useProduceItems, useProduceSales, useProduceSummary } from "../useInventoryData";
-import FarmerProduceDialog from "./FarmerProduceDialog";
+import { errorMessage, formatINR, sendJson, useCanManageInventory, useDebouncedValue, useRevalidateInventory } from "../inventoryUtils";
+import { useProduceBuyers, useProduceCollections, useProduceItems, useProduceSales, useProduceSummary } from "../useInventoryData";
+import FarmerDetailDialog from "../farmers/FarmerDetailDialog";
 import BuyerDialog from "./BuyerDialog";
 import BuyerFormDialog from "./BuyerFormDialog";
 import CropFormDialog from "./CropFormDialog";
 import { CollectionRow, ProduceSaleRow, formatQuantity, initials } from "./produceShared";
 import { cn } from "@/lib/utils";
 
-export type ProduceSection = "collections" | "farmers" | "buyers" | "crops";
+export type ProduceSection = "collections" | "buyers" | "crops";
+
+/** Where a produce KPI leads: a section here, or the Farmers page for farmer dues. */
+export type ProduceKpiTarget = ProduceSection | "farmers";
 
 const SECTIONS: { id: ProduceSection; label: string; icon: string }[] = [
   { id: "collections", label: "Collections", icon: "basket" },
-  { id: "farmers", label: "Farmers", icon: "users-three" },
   { id: "buyers", label: "Buyers", icon: "storefront" },
   { id: "crops", label: "Crops", icon: "plant" },
 ];
@@ -64,7 +66,7 @@ export function CropFilter({ shopId, value, onChange }: { shopId: string; value:
 }
 
 /** Produce KPIs: stock (all crops in kg, or one crop in its unit), owed to farmers, buyer dues, today's collection. */
-export function ProduceKpis({ shopId, itemId = ALL_CROPS, onSection }: { shopId: string; itemId?: string; onSection?: (section: ProduceSection) => void }) {
+export function ProduceKpis({ shopId, itemId = ALL_CROPS, onSection }: { shopId: string; itemId?: string; onSection?: (target: ProduceKpiTarget) => void }) {
   const { data: s, error, mutate } = useProduceSummary(shopId);
   if (error) {
     return (
@@ -166,116 +168,6 @@ function CollectionsSection({ shopId, itemId, onCollect, onOpenFarmer }: { shopI
           </ul>
           {data && <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} disabled={isValidating} />}
         </>
-      )}
-    </div>
-  );
-}
-
-function FarmersSection({ shopId, onOpenFarmer }: { shopId: string; onOpenFarmer: (id: string) => void }) {
-  const [search, setSearch] = useState("");
-  const [onlyOwed, setOnlyOwed] = useState(true);
-  const debounced = useDebouncedValue(search);
-  const { data, error, isLoading, isValidating, mutate } = useProduceFarmers(shopId, debounced);
-  const all = useMemo(() => data?.farmers ?? [], [data]);
-  // "All" lists farmers with any produce (or every match while searching)
-  const farmers = useMemo(
-    () => all.filter((f) => (onlyOwed ? f.produceDue > 0 : f.collections > 0 || f.produceDue !== 0 || !!debounced)),
-    [all, onlyOwed, debounced]
-  );
-  const totalOwed = farmers.reduce((sum, f) => sum + Math.max(0, f.produceDue), 0);
-
-  return (
-    <div className={cn(cardClass, "p-4 sm:p-5")}>
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search name, phone or village" />
-        <div className="flex bg-slate-50 border border-slate-200 rounded-xl p-1 h-11 sm:ml-auto" role="radiogroup" aria-label="Farmer filter">
-          {[true, false].map((owed) => (
-            <button
-              key={String(owed)}
-              type="button"
-              role="radio"
-              aria-checked={onlyOwed === owed}
-              onClick={() => setOnlyOwed(owed)}
-              className={cn("flex-1 sm:flex-none px-3 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap", onlyOwed === owed ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800")}
-            >
-              {owed ? "To pay" : "All with produce"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {data && farmers.length > 0 && (
-        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-rose-50/60 border border-rose-100 px-4 py-2.5">
-          <span className="text-xs font-bold text-rose-700 min-w-0 truncate">
-            {farmers.length} farmer{farmers.length === 1 ? "" : "s"}{onlyOwed ? " to pay" : ""}
-            {isValidating && <i className="ph ph-circle-notch animate-spin ml-2" aria-hidden="true" />}
-          </span>
-          <span className="text-sm font-extrabold text-rose-700 whitespace-nowrap">{formatINR(totalOwed)}</span>
-        </div>
-      )}
-
-      {error ? (
-        <ErrorState message={errorMessage(error)} onRetry={() => mutate()} />
-      ) : isLoading && !data ? (
-        <ListSkeleton />
-      ) : farmers.length === 0 ? (
-        debounced ? (
-          <EmptyState icon="magnifying-glass" title="No matching farmers" message={`Nothing matches "${debounced}".`} />
-        ) : onlyOwed && all.some((f) => f.collections > 0) ? (
-          <EmptyState
-            icon="check-circle"
-            title="Every farmer is paid"
-            message="You don't owe anyone for produce right now."
-            action={
-              <button type="button" onClick={() => setOnlyOwed(false)} className="px-4 py-2 rounded-xl bg-orange-50 text-orange-600 font-bold text-sm hover:bg-orange-100">
-                Show all farmers
-              </button>
-            }
-          />
-        ) : (
-          <EmptyState icon="users-three" title="No produce farmers yet" message="Farmers appear here once you collect produce from them. They're the same farmers as in Credit." />
-        )
-      ) : (
-        <ul className="space-y-1">
-          {farmers.map((f) => (
-            <li key={f.id}>
-              <button
-                type="button"
-                onClick={() => onOpenFarmer(f.id)}
-                className="w-full text-left flex items-center justify-between gap-3 rounded-2xl border border-transparent p-3 transition-all hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-extrabold", f.produceDue > 0 ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500")}>
-                    {initials(f.name) || <i className="ph-bold ph-user" aria-hidden="true" />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-bold text-sm text-slate-900 truncate">{f.name}</div>
-                    <div className="text-[11px] font-semibold text-slate-400 truncate">
-                      {f.crops.length > 0 ? f.crops.join(", ") : "No produce yet"}
-                      {f.place && <> &middot; {f.place}</>}
-                      {f.lastCollection && <span className="hidden sm:inline"> &middot; Last {formatDate(f.lastCollection)}</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  {f.produceDue > 0 ? (
-                    <>
-                      <div className="text-sm font-extrabold text-rose-600 whitespace-nowrap">{formatINR(f.produceDue)}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">To pay</div>
-                    </>
-                  ) : (
-                    <Pill tone="green">Paid</Pill>
-                  )}
-                  {f.fertilizerCredit > 0 && (
-                    <div className="mt-0.5 flex justify-end">
-                      <Pill tone="blue">Credit {formatINR(f.fertilizerCredit, { decimals: false })}</Pill>
-                    </div>
-                  )}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
     </div>
   );
@@ -537,16 +429,28 @@ function CropsSection({ shopId }: { shopId: string }) {
   );
 }
 
-/** Produce bought from farmers and sold to buyers, per crop. */
-export default function ProduceTab({ shopId, onCollect, onSell }: { shopId: string; onCollect?: () => void; onSell?: () => void }) {
-  const [section, setSection] = useState<ProduceSection>("collections");
+/** Produce bought from farmers and sold to buyers, per crop. Farmer dues live on the Farmers page. */
+export default function ProduceView({
+  shopId,
+  initialSection = "collections",
+  onCollect,
+  onSell,
+  onOpenFarmers,
+}: {
+  shopId: string;
+  initialSection?: ProduceSection;
+  onCollect?: () => void;
+  onSell?: () => void;
+  onOpenFarmers: () => void;
+}) {
+  const [section, setSection] = useState<ProduceSection>(initialSection);
   const [itemId, setItemId] = useState(ALL_CROPS);
   const [farmerId, setFarmerId] = useState<string | null>(null);
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div role="tablist" aria-label="Produce sections" className="grid grid-cols-4 sm:inline-flex bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full sm:w-auto">
+        <div role="tablist" aria-label="Produce sections" className="grid grid-cols-3 sm:inline-flex bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full sm:w-auto">
           {SECTIONS.map((s) => {
             const active = s.id === section;
             return (
@@ -570,14 +474,13 @@ export default function ProduceTab({ shopId, onCollect, onSell }: { shopId: stri
         <CropFilter shopId={shopId} value={itemId} onChange={setItemId} />
       </div>
 
-      <ProduceKpis shopId={shopId} itemId={itemId} onSection={setSection} />
+      <ProduceKpis shopId={shopId} itemId={itemId} onSection={(target) => (target === "farmers" ? onOpenFarmers() : setSection(target))} />
 
       {section === "collections" && <CollectionsSection shopId={shopId} itemId={itemId} onCollect={onCollect} onOpenFarmer={setFarmerId} />}
-      {section === "farmers" && <FarmersSection shopId={shopId} onOpenFarmer={setFarmerId} />}
       {section === "buyers" && <BuyersSection shopId={shopId} itemId={itemId} onSell={onSell} />}
       {section === "crops" && <CropsSection shopId={shopId} />}
 
-      {farmerId && <FarmerProduceDialog shopId={shopId} customerId={farmerId} onClose={() => setFarmerId(null)} />}
+      {farmerId && <FarmerDetailDialog shopId={shopId} customerId={farmerId} onClose={() => setFarmerId(null)} />}
     </div>
   );
 }

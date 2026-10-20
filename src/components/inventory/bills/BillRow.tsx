@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export default function BillRow({ bill, onOpen, showKind = false }: { bill: InventoryBill; onOpen: (id: string) => void; showKind?: boolean }) {
   const isSale = bill.kind === "SALE";
   const voided = !!bill.voidedAt;
-  const party = isSale ? bill.customer?.name ?? "Walk-in customer" : bill.supplierName || "Supplier not set";
+  const party = isSale ? bill.customer?.name ?? "Walk-in" : bill.supplierName || "Supplier not set";
 
   return (
     <button

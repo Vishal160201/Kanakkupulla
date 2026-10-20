@@ -9,7 +9,7 @@ import { useCanManageInventory } from "./inventoryUtils";
 
 /**
  * In a fertilizer shop, Daily Kanakku categories the inventory owns (Fertilizer Sales, Stock Purchase,
- * Credit Collection, and the produce ones) open the inventory flow instead of a plain ledger entry, so
+ * Credit Collection, and the produce ones) open their own flow instead of a plain ledger entry, so
  * stock, credit and produce dues stay right.
  * Returns a handler that takes a category and reports whether it took over.
  */
@@ -33,11 +33,16 @@ export function useInventoryLedgerShortcut(): (category: string) => boolean {
     } else if (isSale || isPurchase) {
       openInventoryBill(isSale ? "SALE" : "PURCHASE");
     } else if (isProduce) {
-      toast.info("Record produce in Fertilizer Inventory", { description: "Collections, farmer payments and buyer sales keep produce stock and dues right." });
-      router.push("/inventory?tab=produce");
+      const isFarmerPayment = category === PRODUCE_LEDGER_CATEGORIES.FARMER_PAYMENT;
+      toast.info(isFarmerPayment ? "Pay the farmer from their page" : "Record produce from Produce", {
+        description: isFarmerPayment
+          ? "What you owe them goes down and the amount is posted to Daily Kanakku."
+          : "Collections and buyer sales keep produce stock and dues right.",
+      });
+      router.push(isFarmerPayment ? "/farmers?filter=you-owe" : "/produce");
     } else {
-      toast.info("Collect credit from the customer's page", { description: "Their balance goes down and the amount is posted to Daily Kanakku." });
-      router.push("/inventory?tab=credit");
+      toast.info("Record the repayment from the farmer's page", { description: "Their credit goes down and the amount is posted to Daily Kanakku." });
+      router.push("/farmers?filter=owe-you");
     }
     return true;
   };

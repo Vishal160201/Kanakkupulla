@@ -7,8 +7,6 @@ export const INVENTORY_TABS = [
   { id: "products", label: "Products", icon: "package" },
   { id: "sales", label: "Sales", icon: "shopping-cart" },
   { id: "purchases", label: "Purchases", icon: "truck" },
-  { id: "credit", label: "Credit", icon: "hand-coins" },
-  { id: "produce", label: "Produce", icon: "plant" },
 ] as const;
 
 export type InventoryTab = (typeof INVENTORY_TABS)[number]["id"];
@@ -19,7 +17,7 @@ export const isInventoryTab = (value: unknown): value is InventoryTab =>
 /** Segmented tab control in the style of the Daily Kanakku tabs. */
 export default function InventoryTabs({ value, onChange }: { value: InventoryTab; onChange: (tab: InventoryTab) => void }) {
   return (
-    <div role="tablist" aria-label="Inventory sections" className="grid grid-cols-3 gap-0.5 md:flex md:items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full md:w-auto">
+    <div role="tablist" aria-label="Inventory sections" className="grid grid-cols-4 gap-0.5 md:flex md:items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full md:w-auto">
       {INVENTORY_TABS.map((tab) => {
         const active = tab.id === value;
         return (

@@ -4,7 +4,7 @@
 export const SHOP_TYPES = ["STUDIO", "FERTILIZER"] as const;
 export type ShopTypeName = (typeof SHOP_TYPES)[number];
 
-export type AppModule = "dashboard" | "bookings" | "transactions" | "gifts" | "analytics" | "inventory" | "settings";
+export type AppModule = "dashboard" | "bookings" | "transactions" | "gifts" | "analytics" | "inventory" | "farmers" | "produce" | "settings";
 
 const MODULE_PATHS: Record<AppModule, string> = {
   dashboard: "/dashboard",
@@ -13,12 +13,14 @@ const MODULE_PATHS: Record<AppModule, string> = {
   gifts: "/gifts",
   analytics: "/analytics",
   inventory: "/inventory",
+  farmers: "/farmers",
+  produce: "/produce",
   settings: "/settings",
 };
 
 export const SHOP_TYPE_MODULES: Record<ShopTypeName, readonly AppModule[]> = {
   STUDIO: ["dashboard", "bookings", "transactions", "gifts", "analytics", "settings"],
-  FERTILIZER: ["transactions", "inventory", "settings"],
+  FERTILIZER: ["transactions", "inventory", "farmers", "produce", "settings"],
 };
 
 export const SHOP_TYPE_LABELS: Record<ShopTypeName, string> = {

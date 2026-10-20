@@ -10,7 +10,7 @@ import { PRODUCE_UNITS, formatQuantity } from "@/lib/produceMath";
 import type { ProduceCollection, ProduceItem, ProducePayment, ProduceReceipt, ProduceSale } from "@/types/inventory";
 import { FieldError, Pill, inputClass, inputErrorClass, primaryButtonClass } from "../InventoryUI";
 import { errorDetails, errorMessage, formatDate, formatINR, sendJson } from "../inventoryUtils";
-import { validateCustomer } from "../credit/CustomerFormDialog";
+import { validateParty } from "../farmers/FarmerFormDialog";
 import { cn } from "@/lib/utils";
 
 export { formatQuantity };
@@ -240,7 +240,7 @@ export function QuickAddParty({
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    const errs = validateCustomer(party.name, party.phone);
+    const errs = validateParty(party.name, party.phone);
     if (errs.name) errs.name = "Name is required.";
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;

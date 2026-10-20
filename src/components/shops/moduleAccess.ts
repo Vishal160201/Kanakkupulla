@@ -24,7 +24,11 @@ export function accessModuleForPath(pathname: string): ModuleKey | null {
     case "transactions": return "ledger";
     case "gifts": return "gifts";
     case "analytics": return "analytics";
-    case "inventory": return "inventory";
+    // Farmers and Produce are part of the fertilizer inventory permission
+    case "inventory":
+    case "farmers":
+    case "produce":
+      return "inventory";
     default: return null;
   }
 }

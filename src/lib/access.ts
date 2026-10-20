@@ -27,7 +27,7 @@ export const ACCESS_MODULES: readonly AccessModule[] = [
   { key: "gifts", label: "Gifts & Frames", description: "Product orders and their payments", icon: "gift", appliesTo: "studio", levels: ACCESS_LEVELS },
   { key: "analytics", label: "Analytics", description: "Reports; Manage also allows exports", icon: "chart-bar", appliesTo: "studio", levels: ACCESS_LEVELS },
   { key: "ledger", label: "Daily Kanakku", description: "Income and expense entries of the shop", icon: "notebook", appliesTo: "all", levels: ACCESS_LEVELS },
-  { key: "inventory", label: "Fertilizer Inventory", description: "Products, sales, purchases and farmer credit", icon: "package", appliesTo: "shop", levels: ACCESS_LEVELS },
+  { key: "inventory", label: "Fertilizer Inventory", description: "Products, sales, purchases, farmers and produce", icon: "package", appliesTo: "shop", levels: ACCESS_LEVELS },
   { key: "recycle_bin", label: "Recycle Bin", description: "Trashed items; Manage allows restoring", icon: "trash", appliesTo: "all", levels: ACCESS_LEVELS },
 ];
 

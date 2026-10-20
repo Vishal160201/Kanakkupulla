@@ -172,7 +172,7 @@ export interface CreditCustomer {
   name: string;
   phone: string | null;
   place: string | null;
-  /** Credit owed by the customer. */
+  /** Fertilizer credit owed by the farmer. */
   balance: number;
   lastActivity: string | null;
   isArchived?: boolean;

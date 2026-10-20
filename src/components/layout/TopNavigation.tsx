@@ -24,6 +24,8 @@ function getTitle(pathname: string) {
   if (pathname.includes("settings")) return "Settings";
   if (pathname.includes("gifts")) return "Gifts & Frames";
   if (pathname.startsWith("/inventory")) return "Fertilizer Inventory";
+  if (pathname.startsWith("/farmers")) return "Farmers";
+  if (pathname.startsWith("/produce")) return "Produce";
   return "Moondot studio";
 }
 

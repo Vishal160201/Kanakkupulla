@@ -55,17 +55,17 @@ export async function assertNotInventoryLinked(transactionId: string) {
     prisma.produceReceipt.findUnique({ where: { transactionId }, select: { id: true } }),
   ]);
   if (bill || payment || producePayment || produceSale || produceReceipt) {
-    throw new ShopError("This entry was created by Fertilizer Inventory. Change or void it there.", 409);
+    throw new ShopError("This entry was created by Fertilizer Inventory, Farmers or Produce. Change or void it there.", 409);
   }
 }
 
 const INVENTORY_ONLY_MESSAGES: Record<string, string> = {
   [INVENTORY_LEDGER_CATEGORIES.SALE]: "Record fertilizer sales with New Sale in Fertilizer Inventory, so stock goes down.",
   [INVENTORY_LEDGER_CATEGORIES.PURCHASE]: "Record stock purchases with New Purchase in Fertilizer Inventory, so stock goes up.",
-  [INVENTORY_LEDGER_CATEGORIES.CREDIT_PAYMENT]: "Collect credit from the customer in Fertilizer Inventory, so their balance goes down.",
-  [PRODUCE_LEDGER_CATEGORIES.FARMER_PAYMENT]: "Pay farmers for produce from Produce in Fertilizer Inventory, so what you owe them goes down.",
-  [PRODUCE_LEDGER_CATEGORIES.SALE]: "Record produce sales from Produce in Fertilizer Inventory, so produce stock goes down.",
-  [PRODUCE_LEDGER_CATEGORIES.SALE_COLLECTION]: "Collect buyer dues from Produce in Fertilizer Inventory, so their balance goes down.",
+  [INVENTORY_LEDGER_CATEGORIES.CREDIT_PAYMENT]: "Record repayments from the farmer's page in Farmers, so their credit goes down.",
+  [PRODUCE_LEDGER_CATEGORIES.FARMER_PAYMENT]: "Pay farmers for produce from their page in Farmers, so what you owe them goes down.",
+  [PRODUCE_LEDGER_CATEGORIES.SALE]: "Record produce sales with Sell Produce in Produce, so produce stock goes down.",
+  [PRODUCE_LEDGER_CATEGORIES.SALE_COLLECTION]: "Collect buyer dues from the buyer's page in Produce, so their balance goes down.",
 };
 
 /**

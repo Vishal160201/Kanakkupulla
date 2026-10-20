@@ -39,6 +39,8 @@ const NAV_ITEMS: NavItem[] = [
   },
   { name: "Daily kanakku", path: "/transactions/overview", activePrefix: "/transactions", icon: "ph-file-text", module: "transactions", access: [{ module: "ledger", path: "/transactions/overview" }] },
   { name: "Fertilizer Inventory", path: "/inventory", activePrefix: "/inventory", icon: "ph-package", module: "inventory", access: [{ module: "inventory", path: "/inventory" }] },
+  { name: "Farmers", path: "/farmers", activePrefix: "/farmers", icon: "ph-users-three", module: "farmers", access: [{ module: "inventory", path: "/farmers" }] },
+  { name: "Produce", path: "/produce", activePrefix: "/produce", icon: "ph-plant", module: "produce", access: [{ module: "inventory", path: "/produce" }] },
   { name: "Gifts & Frames", path: "/gifts", activePrefix: "/gifts", icon: "ph-gift", module: "gifts", access: [{ module: "gifts", path: "/gifts" }] },
   { name: "Analytics", path: "/analytics", activePrefix: "/analytics", icon: "ph-chart-bar", module: "analytics", access: [{ module: "analytics", path: "/analytics" }] },
 ];

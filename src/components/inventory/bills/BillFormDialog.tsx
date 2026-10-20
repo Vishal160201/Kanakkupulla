@@ -24,7 +24,7 @@ import {
   useRevalidateInventory,
 } from "../inventoryUtils";
 import { useCreditCustomers, useInventoryProducts } from "../useInventoryData";
-import { validateCustomer } from "../credit/CustomerFormDialog";
+import { validateParty } from "../farmers/FarmerFormDialog";
 import { parseLineErrors } from "./lineErrors";
 import { cn } from "@/lib/utils";
 
@@ -76,7 +76,7 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Inline "Add new customer" mini-form.
+  // Inline "Add new farmer" mini-form.
   const [addingCustomer, setAddingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", place: "" });
   const [newCustomerErrors, setNewCustomerErrors] = useState<Record<string, string>>({});
@@ -168,9 +168,9 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
 
   // ----- Customer -------------------------------------------------------------
   const customerOptions: DropdownOption[] = [
-    { label: "Walk-in (no customer)", value: "", icon: "user" },
+    { label: "Walk-in (no farmer)", value: "", icon: "user" },
     ...customers.map((c) => ({ label: c.place ? `${c.name} · ${c.place}` : c.name, value: c.id, hint: c.balance > 0 ? `Due ${formatINR(c.balance)}` : undefined })),
-    { label: "Add new customer", value: NEW_CUSTOMER, icon: "user-plus" },
+    { label: "Add new farmer", value: NEW_CUSTOMER, icon: "user-plus" },
   ];
 
   const onCustomerChange = (value: string) => {
@@ -183,7 +183,7 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
   };
 
   const saveNewCustomer = async () => {
-    const errs = validateCustomer(newCustomer.name, newCustomer.phone);
+    const errs = validateParty(newCustomer.name, newCustomer.phone);
     setNewCustomerErrors(errs);
     if (Object.keys(errs).length > 0) return;
     setSavingCustomer(true);
@@ -221,7 +221,7 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
     if (isSale) {
       if (!Number.isFinite(paidValue) || paidValue < 0) errs.paid = "Enter a valid amount.";
       else if (paidValue > total) errs.paid = `Can't be more than the total (${formatINR(total)}).`;
-      else if (paidValue < total && !customerId) errs.customer = "Choose a customer — the unpaid amount goes on their credit.";
+      else if (paidValue < total && !customerId) errs.customer = "Choose a farmer — the unpaid amount goes on their credit.";
     }
     if (!paymentMode) errs.paymentMode = "Choose a payment mode.";
     setErrors(errs);
@@ -280,7 +280,7 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
       busy={saving}
       size="xl"
       eyebrow={isSale ? "New sale" : "New purchase"}
-      title={isSale ? "Sell to a customer" : "Record stock purchase"}
+      title={isSale ? "Sell fertilizer" : "Record stock purchase"}
       subtitle={isSale ? "Stock goes down; the paid amount is posted to Daily Kanakku." : "Stock goes up; the total is posted to Daily Kanakku as an expense."}
       footer={
         <>
@@ -315,14 +315,14 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
           {isSale ? (
             <div>
               <div className="flex items-center justify-between">
-                <span className={labelClass}>Customer {credit > 0 && <RequiredMark />}</span>
+                <span className={labelClass}>Farmer {credit > 0 && <RequiredMark />}</span>
                 {!addingCustomer && (
                   <button type="button" onClick={() => setAddingCustomer(true)} className="mb-2 text-[11px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1">
-                    <i className="ph-bold ph-user-plus" /> New customer
+                    <i className="ph-bold ph-user-plus" /> New farmer
                   </button>
                 )}
               </div>
-              <CustomDropdown options={customerOptions} value={customerId} onChange={onCustomerChange} error={!!errors.customer} placeholder="Walk-in (no customer)" />
+              <CustomDropdown options={customerOptions} value={customerId} onChange={onCustomerChange} error={!!errors.customer} placeholder="Walk-in (no farmer)" />
               <FieldError message={errors.customer} />
             </div>
           ) : (
@@ -337,16 +337,16 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
           <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 space-y-3 animate-slide-down">
             <div className="flex items-center justify-between">
               <span className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <i className="ph-bold ph-user-plus text-orange-500" /> New customer
+                <i className="ph-bold ph-user-plus text-orange-500" /> New farmer
               </span>
-              <button type="button" aria-label="Cancel new customer" onClick={() => { setAddingCustomer(false); setNewCustomerErrors({}); }} className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-white hover:text-slate-700">
+              <button type="button" aria-label="Cancel new farmer" onClick={() => { setAddingCustomer(false); setNewCustomerErrors({}); }} className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-white hover:text-slate-700">
                 <i className="ph-bold ph-x text-xs" />
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <input
-                  aria-label="Customer name"
+                  aria-label="Farmer name"
                   autoFocus
                   value={newCustomer.name}
                   maxLength={100}
@@ -359,7 +359,7 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
               </div>
               <div>
                 <input
-                  aria-label="Customer phone"
+                  aria-label="Farmer phone"
                   type="tel"
                   inputMode="tel"
                   value={newCustomer.phone}
@@ -372,7 +372,7 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
                 <FieldError message={newCustomerErrors.phone} />
               </div>
               <input
-                aria-label="Customer village or place"
+                aria-label="Farmer village or place"
                 value={newCustomer.place}
                 maxLength={100}
                 onChange={(e) => setNewCustomer((c) => ({ ...c, place: e.target.value }))}
@@ -539,7 +539,7 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
                 </>
               ) : (
                 <>
-                  <span className="font-extrabold">{formatINR(credit)}</span> is unpaid. Choose a customer to give credit, or set Paid now to the full amount.
+                  <span className="font-extrabold">{formatINR(credit)}</span> is unpaid. Choose a farmer to give credit, or set Paid now to the full amount.
                 </>
               )}
             </div>

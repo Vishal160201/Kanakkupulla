@@ -70,7 +70,7 @@ export const customerListQuery = z.object({ shopId, search: queryString });
 
 export const customerCreateSchema = z.object({
   shopId,
-  name: z.string({ message: "Customer name is required." }).trim().min(1, "Customer name is required.").max(120),
+  name: z.string({ message: "Farmer name is required." }).trim().min(1, "Farmer name is required.").max(120),
   phone: z.string().trim().max(20).regex(/^[0-9+\s-]*$/, "Phone can only contain digits.").nullish().transform(v => v || null),
   place: optionalText(120),
 });

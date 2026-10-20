@@ -146,7 +146,7 @@ export async function createBill(user: SessionUser, input: BillInput) {
     throw new InventoryValidationError("Paid amount must be between 0 and the bill total.", 422, { paidAmount: "Paid amount must be between 0 and the bill total." });
   }
   if (input.kind === "SALE" && paid < total && !input.customerId) {
-    throw new InventoryValidationError("Pick a customer for a credit sale.", 422, { customerId: "Pick a customer for a credit sale." });
+    throw new InventoryValidationError("Pick a farmer for a credit sale.", 422, { customerId: "Pick a farmer for a credit sale." });
   }
 
   const bill = await prisma.$transaction(async tx => {
@@ -160,7 +160,7 @@ export async function createBill(user: SessionUser, input: BillInput) {
 
     if (input.customerId) {
       const customer = await tx.inventoryCustomer.findFirst({ where: { id: input.customerId, shopId: input.shopId }, select: { id: true } });
-      if (!customer) throw new ShopError("Customer not found in this shop.", 422);
+      if (!customer) throw new ShopError("Farmer not found in this shop.", 422);
     }
 
     if (input.kind === "SALE") {
@@ -258,7 +258,7 @@ export async function voidBill(user: SessionUser, billId: string) {
       const balance = (await customerBalances(tx, existing.shopId, [existing.customerId])).get(existing.customerId) ?? 0;
       const credit = existing.totalAmount - existing.paidAmount;
       if (balance - credit < -0.005) {
-        throw new ShopError("The customer has already repaid part of this credit. Void those payments first.", 409);
+        throw new ShopError("The farmer has already repaid part of this credit. Void those repayments first.", 409);
       }
     }
 
@@ -312,13 +312,13 @@ export async function recordPayment(
 ) {
   return prisma.$transaction(async tx => {
     const customer = await tx.inventoryCustomer.findUnique({ where: { id: customerId } });
-    if (!customer) throw new ShopError("Customer not found.", 404);
+    if (!customer) throw new ShopError("Farmer not found.", 404);
     await getInventoryShop(user, customer.shopId, "MANAGE");
 
     await tx.$queryRaw`SELECT "id" FROM "InventoryCustomer" WHERE "id" = ${customerId} FOR UPDATE`;
     const balance = (await customerBalances(tx, customer.shopId, [customerId])).get(customerId) ?? 0;
     if (input.amount > balance + 0.005) {
-      throw new InventoryValidationError(`${customer.name} owes only ₹${balance}.`, 422, { amount: `Amount can't be more than the balance (₹${balance}).` });
+      throw new InventoryValidationError(`${customer.name} owes only ₹${balance}.`, 422, { amount: `Amount can't be more than their credit (₹${balance}).` });
     }
 
     const transactionId = await postLedgerEntry(tx, {

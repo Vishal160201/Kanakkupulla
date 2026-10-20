@@ -148,7 +148,7 @@ export default function BillDetailDialog({ billId, onClose }: BillDetailDialogPr
         title={`Void ${bill?.billNumber ?? "bill"}?`}
         message={
           isSale
-            ? "The sold quantity goes back into stock, any credit from this bill is removed from the customer's balance and its Daily Kanakku entry is deleted."
+            ? "The sold quantity goes back into stock, any credit from this bill is removed from the farmer's credit and its Daily Kanakku entry is deleted."
             : "The purchased quantity is taken out of stock and its Daily Kanakku entry is deleted."
         }
         confirmLabel="Void bill"

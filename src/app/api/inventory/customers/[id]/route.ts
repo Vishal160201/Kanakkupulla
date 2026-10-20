@@ -21,7 +21,7 @@ export async function GET(_request: Request, { params }: Ctx) {
       where: { id: route.data.id },
       select: { id: true, shopId: true, name: true, phone: true, place: true, isArchived: true },
     });
-    if (!customer) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    if (!customer) return NextResponse.json({ error: "Farmer not found" }, { status: 404 });
     await getInventoryShop(auth.user, customer.shopId);
 
     const [bills, payments, balances] = await Promise.all([
@@ -67,12 +67,12 @@ export async function PUT(request: Request, { params }: Ctx) {
 
   try {
     const existing = await prisma.inventoryCustomer.findUnique({ where: { id: route.data.id }, select: { id: true, shopId: true } });
-    if (!existing) return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    if (!existing) return NextResponse.json({ error: "Farmer not found" }, { status: 404 });
     await getInventoryShop(auth.user, existing.shopId, "MANAGE");
     if (body.data.isArchived) {
       const balance = (await customerBalances(prisma, existing.shopId, [existing.id])).get(existing.id) ?? 0;
       if (balance > 0.005) {
-        return NextResponse.json({ error: "This customer still owes money. Settle the balance before archiving." }, { status: 409 });
+        return NextResponse.json({ error: "This farmer still owes fertilizer credit. Settle it before archiving." }, { status: 409 });
       }
       const produceDue = (await farmerProduceDues(prisma, existing.shopId, [existing.id])).get(existing.id)?.due ?? 0;
       if (produceDue > 0.005) {

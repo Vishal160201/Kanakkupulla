@@ -26,7 +26,7 @@ const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 /** What each shop type gets, shown under the type choice. */
 const SHOP_TYPE_DETAILS: Record<ShopType, { icon: string; hint: string }> = {
   STUDIO: { icon: "ph-camera", hint: "Every studio module: bookings, gifts, dashboard and Daily Kanakku." },
-  FERTILIZER: { icon: "ph-plant", hint: "Daily Kanakku and Fertilizer Inventory only. Open to owners and the people you add." },
+  FERTILIZER: { icon: "ph-plant", hint: "Daily Kanakku, Fertilizer Inventory, Farmers and Produce only. Open to owners and the people you add." },
 };
 
 interface ShopFormDialogProps {

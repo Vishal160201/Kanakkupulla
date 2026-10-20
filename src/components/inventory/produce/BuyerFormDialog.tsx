@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { ProduceBuyer, ProduceBuyerInput } from "@/types/inventory";
 import { FieldError, InventoryDialog, RequiredMark, inputClass, inputErrorClass, labelClass, primaryButtonClass, secondaryButtonClass } from "../InventoryUI";
 import { errorMessage, sendJson, useRevalidateInventory } from "../inventoryUtils";
-import { validateCustomer } from "../credit/CustomerFormDialog";
+import { validateParty } from "../farmers/FarmerFormDialog";
 import { cn } from "@/lib/utils";
 
 /** Add / edit a produce buyer (marketer / trader). Mount only while open. */
@@ -28,7 +28,7 @@ export default function BuyerFormDialog({
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
-    const errs = validateCustomer(name, phone);
+    const errs = validateParty(name, phone, "Buyer");
     if (errs.name) errs.name = "Buyer name is required.";
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;

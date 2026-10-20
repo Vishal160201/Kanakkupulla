@@ -1,6 +1,6 @@
 import type { TransactionDetail } from "@/types/transactions";
 import { DetailRow, LinkRow, fieldIcon, formatCustomValue, getCategoryIcon, money } from "./detailParts";
-import { sourceIcon, sourceLabel } from "../sourceLock";
+import { sourceIcon, sourceLabel, sourcePage } from "../sourceLock";
 
 interface TransactionSummarySectionProps {
   transaction: TransactionDetail;
@@ -78,7 +78,7 @@ export default function TransactionSummarySection({ transaction, isIncome, onNav
         {transaction.source && (
           <DetailRow
             icon={sourceIcon(transaction.source)}
-            label="Fertilizer Inventory"
+            label={sourcePage(transaction.source)}
             value={sourceLabel(transaction.source)}
           />
         )}

@@ -36,7 +36,7 @@ export default function BillsTab({ shopId, kind, onNew }: BillsTabProps) {
             setSearch(v);
             setPage(1);
           }}
-          placeholder={isSale ? "Search bill no. or customer" : "Search bill no. or supplier"}
+          placeholder={isSale ? "Search bill no. or farmer" : "Search bill no. or supplier"}
         />
         <div className="sm:ml-auto flex items-center gap-3">
           {isValidating && data && <i className="ph ph-circle-notch animate-spin text-slate-400" aria-label="Refreshing" />}

@@ -4,15 +4,15 @@ import type { TransactionSource } from "@/types/transactions";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 /** Shown wherever editing or deleting an inventory-created entry is blocked. */
-export const LOCKED_ENTRY_MESSAGE = "Created by Fertilizer Inventory — change or void it there";
+export const LOCKED_ENTRY_MESSAGE = "Created by Fertilizer Inventory, Farmers or Produce — change or void it there";
 
-const SOURCE_META: Record<TransactionSource["kind"], { label: string; icon: string }> = {
-  SALE: { label: "Sale", icon: "ph-shopping-cart-simple" },
-  PURCHASE: { label: "Purchase", icon: "ph-truck" },
-  CREDIT_PAYMENT: { label: "Credit payment", icon: "ph-hand-coins" },
-  PRODUCE_SALE: { label: "Produce sale", icon: "ph-scales" },
-  PRODUCE_PAYMENT: { label: "Produce payment", icon: "ph-hand-arrow-up" },
-  PRODUCE_RECEIPT: { label: "Produce dues", icon: "ph-hand-coins" },
+const SOURCE_META: Record<TransactionSource["kind"], { label: string; icon: string; page: string }> = {
+  SALE: { label: "Sale", icon: "ph-shopping-cart-simple", page: "Fertilizer Inventory" },
+  PURCHASE: { label: "Purchase", icon: "ph-truck", page: "Fertilizer Inventory" },
+  CREDIT_PAYMENT: { label: "Credit repayment", icon: "ph-hand-coins", page: "Farmers" },
+  PRODUCE_SALE: { label: "Produce sale", icon: "ph-scales", page: "Produce" },
+  PRODUCE_PAYMENT: { label: "Produce payment", icon: "ph-hand-arrow-up", page: "Farmers" },
+  PRODUCE_RECEIPT: { label: "Produce dues", icon: "ph-hand-coins", page: "Produce" },
 };
 
 /** True when another module posted the entry and it can't be changed from the ledger. */
@@ -20,10 +20,15 @@ export function isLockedEntry(tx: { source?: TransactionSource | null; children?
   return !!tx.source || (tx.children?.some((child) => !!child.source) ?? false);
 }
 
-/** "Sale S-0003", "Purchase P-0001", "Produce sale PS-0002" or "Credit payment". */
+/** "Sale S-0003", "Purchase P-0001", "Produce sale PS-0002" or "Credit repayment". */
 export function sourceLabel(source: TransactionSource): string {
   const { label } = SOURCE_META[source.kind];
   return source.billNumber ? `${label} ${source.billNumber}` : label;
+}
+
+/** Page the entry was recorded in (where it can be changed or voided). */
+export function sourcePage(source: TransactionSource): string {
+  return SOURCE_META[source.kind].page;
 }
 
 export function sourceIcon(source: TransactionSource): string {
