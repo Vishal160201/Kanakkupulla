@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useShops } from "@/components/providers/ShopProvider";
-import ShopSwitcher from "@/components/shops/ShopSwitcher";
 
 const RANGES = ['today', 'this-week', 'this-month', 'this-year', 'custom'];
 
@@ -30,8 +28,6 @@ export default function AnalyticsHeader({ dateRange, onRangeChange, onConfirmCus
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
-  const { shops } = useShops();
-  const hasShops = shops.length > 1;
 
   const parsedStart = parseDate(customStart);
   const parsedEnd = parseDate(customEnd);
@@ -115,12 +111,6 @@ export default function AnalyticsHeader({ dateRange, onRangeChange, onConfirmCus
           )}
         </div>
       </div>
-
-      {hasShops && (
-        <div className="border-t border-slate-100 pt-4">
-          <ShopSwitcher note="Revenue, expenses, net profit, growth, daily trends and top-client spend follow the selected shop. The booking funnel, gift performance, collection health, collection rate, average order value and client counts are studio-wide." />
-        </div>
-      )}
     </div>
   );
 }

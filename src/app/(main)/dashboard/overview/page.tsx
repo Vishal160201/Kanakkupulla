@@ -12,7 +12,6 @@ import RevenueTarget from "@/components/dashboard/RevenueTarget";
 import StatCards from "@/components/dashboard/StatCards";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useShopQueryParam } from "@/components/providers/ShopProvider";
-import ShopSwitcher from "@/components/shops/ShopSwitcher";
 import { GiftShopCard, RecentTransactionsCard, UpcomingShootsCard } from "./DashboardCards";
 import type { DashboardOverviewResponse } from "./types";
 
@@ -141,8 +140,6 @@ export default function OverviewPage() {
   return (
     <section id="view-dashboard" className="flex flex-col gap-5 w-full max-w-[1400px] mx-auto pb-20 pt-4 bg-[#fafafa] min-h-screen">
       <OverdueBookingBanners />
-
-      <ShopSwitcher note="Income, expenses and recent transactions follow the selected shop. Bookings and gift orders are studio-wide." />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <QuickActions />

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
-import ShopSwitcher from "@/components/shops/ShopSwitcher";
 
 function TransactionsLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "";
@@ -15,9 +14,6 @@ function TransactionsLayoutContent({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="p-0 md:p-4 lg:p-8 pb-20 animate-fade-in w-full max-w-7xl mx-auto">
-      {/* Shop switcher (hidden with a single shop) */}
-      <ShopSwitcher className="mb-5" />
-
       {/* Tab Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-7">
         <div className="flex items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm overflow-x-auto no-scrollbar w-full sm:w-auto">

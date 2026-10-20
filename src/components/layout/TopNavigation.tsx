@@ -8,6 +8,7 @@ import { useMobileNav } from "../providers/MobileNavProvider";
 import GlobalSearch from "./top-nav/GlobalSearch";
 import NotificationsMenu from "./top-nav/NotificationsMenu";
 import ProfileMenu, { type NavUser } from "./top-nav/ProfileMenu";
+import StudioShopPicker from "./top-nav/StudioShopPicker";
 import StudioBrand from "./top-nav/StudioBrand";
 import { useNotificationPreferences } from "./top-nav/useNotificationPreferences";
 
@@ -108,6 +109,7 @@ export default function TopNavigation() {
       <div className="flex items-center gap-3 md:gap-5">
         <GlobalSearch />
         <NotificationsMenu />
+        <StudioShopPicker />
         <ProfileMenu
           user={user}
           preferences={preferences}
