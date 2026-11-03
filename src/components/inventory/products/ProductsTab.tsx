@@ -1,5 +1,6 @@
 "use client";
 
+import { useShops } from "@/components/providers/ShopProvider";
 import { useMemo, useState } from "react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { InventoryProduct } from "@/types/inventory";
@@ -34,6 +35,7 @@ export default function ProductsTab({ shopId }: { shopId: string }) {
   const [showArchived, setShowArchived] = useState(false);
   const [dialog, setDialog] = useState<ProductDialog>(null);
   const canManage = useCanManageInventory();
+  const { activeShopType } = useShops();
 
   const products = useMemo(() => data?.products ?? [], [data]);
   const archivedCount = products.filter((p) => p.isArchived).length;
@@ -88,7 +90,7 @@ export default function ProductsTab({ shopId }: { shopId: string }) {
           <EmptyState
             icon="package"
             title="No products yet"
-            message="Add the fertilizers, seeds and pesticides you sell: how they're packed (bottle, packet, bag, loose) and the price."
+            message={activeShopType === "CABLE" ? "Add the equipment you stock: ONTs, routers, set-top boxes (piece) and fibre cable (loose, in metres)." : "Add the fertilizers, seeds and pesticides you sell: how they're packed (bottle, packet, bag, loose) and the price."}
             action={
               canManage && (
                 <button type="button" onClick={() => setDialog({ kind: "form", product: null })} className={primaryButtonClass}>

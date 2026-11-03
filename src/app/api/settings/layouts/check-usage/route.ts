@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireOwner } from "@/lib/authz";
 import { parseJsonBody } from "@/lib/validations/http";
 import { layoutCheckUsageSchema } from "@/lib/validations/settings";
+import { shopTypeForTransactionFormKey } from "@/lib/shopModules";
 
 export async function POST(req: Request) {
   const auth = await requireOwner();
@@ -12,6 +13,7 @@ export async function POST(req: Request) {
     const parsed = await parseJsonBody(req, layoutCheckUsageSchema);
     if (parsed.error) return parsed.error;
     const { formKey, fieldId, value } = parsed.data;
+    const ledgerShopType = shopTypeForTransactionFormKey(formKey);
 
     let count = 0;
 
@@ -21,9 +23,9 @@ export async function POST(req: Request) {
       } else if (fieldId === "fld_b_status") {
         count = await prisma.booking.count({ where: { status: value } });
       }
-    } else if (formKey === "TRANSACTION_FORM" || formKey === "FERTILIZER_TRANSACTION_FORM") {
+    } else if (ledgerShopType) {
       // Each ledger form only owns the entries of its own shop type
-      const shopScope = { shop: { type: formKey === "FERTILIZER_TRANSACTION_FORM" ? "FERTILIZER" as const : "STUDIO" as const } };
+      const shopScope = { shop: { type: ledgerShopType } };
       if (fieldId === "fld_tx_type") {
         count = await prisma.transaction.count({ where: { type: value, ...shopScope } });
       } else if (fieldId === "fld_tx_category") {

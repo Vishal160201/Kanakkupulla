@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { FolderClock, PenTool, Printer, Package, AlertTriangle } from "lucide-react";
+import { FolderClock, PenTool, Printer, Package, AlertTriangle } from "@/components/ui/icons";
 import { clickableProps } from "../clickableProps";
 
 const ICON_MAP: Record<string, React.ReactNode> = {

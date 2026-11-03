@@ -75,20 +75,10 @@ export interface UserAccess {
   shops: ShopAccess[];
 }
 
-// Short-lived cache so a burst of requests doesn't re-read the role tables every time.
-const ACCESS_TTL_MS = 10_000;
-const accessCache = new Map<string, { at: number; value: UserAccess }>();
-
-export function clearAccessCache(userId?: string) {
-  if (userId) accessCache.delete(userId);
-  else accessCache.clear();
-}
-
 export async function getUserAccess(user: Pick<SessionUser, "id" | "role">): Promise<UserAccess> {
   if (isOwner(user)) return { isOwner: true, studio: FULL_ACCESS, shops: [] };
 
-  const cached = accessCache.get(user.id);
-  if (cached && Date.now() - cached.at < ACCESS_TTL_MS) return cached.value;
+  // No cache on purpose: an in-memory cache is per server instance, so revoked roles would linger on others.
 
   const memberships = await prisma.shopMember.findMany({
     where: { userId: user.id, shop: { isArchived: false } },
@@ -114,9 +104,7 @@ export async function getUserAccess(user: Pick<SessionUser, "id" | "role">): Pro
     for (const key of Object.keys(studio) as ModuleKey[]) studio[key] = maxLevel(studio[key], shop.permissions[key]);
   }
 
-  const value: UserAccess = { isOwner: false, studio, shops };
-  accessCache.set(user.id, { at: Date.now(), value });
-  return value;
+  return { isOwner: false, studio, shops };
 }
 
 /**

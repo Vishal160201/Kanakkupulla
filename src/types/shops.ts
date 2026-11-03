@@ -2,7 +2,7 @@
 
 import type { ShopTypeName } from "@/lib/shopModules";
 
-/** STUDIO shops share every studio module; FERTILIZER shops get the ledger, inventory, farmers and produce only. */
+/** STUDIO shops share every studio module; FERTILIZER and CABLE shops get the ledger plus their own modules (src/lib/shopModules.ts). */
 export type ShopType = ShopTypeName;
 
 /** A shop as returned by GET /api/shops. */

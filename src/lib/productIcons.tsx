@@ -1,18 +1,4 @@
-import { 
-  Key, 
-  Copy, 
-  Coffee, 
-  Smartphone, 
-  Magnet, 
-  ImagePlus, 
-  Image as ImageIcon, 
-  ContactRound, 
-  Mail, 
-  IdCard, 
-  CreditCard,
-  Frame,
-  Package
-} from "lucide-react";
+import { Key, Copy, Coffee, Smartphone, Magnet, ImagePlus, Image as ImageIcon, ContactRound, Mail, IdCard, CreditCard, Frame, Package } from "@/components/ui/icons";
 
 export const getProductIcon = (productId?: string | null) => {
   const normalizedId = productId?.toLowerCase() || '';

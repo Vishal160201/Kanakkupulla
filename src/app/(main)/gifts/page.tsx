@@ -7,7 +7,7 @@ import OrderForm from "@/components/gifts/OrderForm";
 import OrdersTable from "@/components/gifts/OrdersTable";
 import ProductCategoriesStrip from "@/components/gifts/ProductCategoriesStrip";
 import AllOrdersList from "@/components/gifts/AllOrdersList";
-import { Settings, ShoppingBag, PackageOpen, CalendarClock, CalendarDays } from "lucide-react";
+import { Settings, ShoppingBag, PackageOpen, CalendarClock, CalendarDays } from "@/components/ui/icons";
 import { isTomorrow, isThisWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,7 +15,7 @@ import type { GiftOrder, GiftOrdersResponse, GiftProductsResponse } from "@/type
 import { useAccess } from "@/hooks/useAccess";
 import PermissionTooltip from "@/components/shared/PermissionTooltip";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle } from "@/components/ui/icons";
 
 const NO_ORDERS: GiftOrder[] = [];
 

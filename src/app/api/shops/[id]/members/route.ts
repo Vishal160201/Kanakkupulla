@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { clearAccessCache, requireOwner } from "@/lib/authz";
+import { requireOwner } from "@/lib/authz";
 import { parseJsonBody, parseParams } from "@/lib/validations/http";
 import { shopMembersSchema, shopParamsSchema } from "@/lib/validations/shops";
 
@@ -48,7 +48,6 @@ export async function PUT(request: Request, { params }: Ctx) {
         data: { action: "SHOP_MEMBERS_UPDATED", details: `Set ${members.length} member(s) for shop ${shop.name} (${id})`, userId: auth.user.id },
       }),
     ]);
-    clearAccessCache();
 
     return NextResponse.json({ members: members.map(m => ({ ...m, roleKey: roleKeys.get(m.roleId) })) });
   } catch (error) {

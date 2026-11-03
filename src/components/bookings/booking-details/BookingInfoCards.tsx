@@ -1,4 +1,4 @@
-import { FileText, Clock, UserCircle, Phone, Mail } from "lucide-react";
+import { FileText, Clock, UserCircle, Phone, Mail } from "@/components/ui/icons";
 import type { BookingDetail, TeamUser } from "@/types/bookings";
 import { shortBookingId } from "../layoutUtils";
 

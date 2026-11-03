@@ -8,6 +8,7 @@ import type { Shop } from "@/types/shops";
 import type { AccessRole, CreateUserInput } from "@/types/settings";
 import UserAccessFields, { type AssignmentDraft } from "./users/UserAccessFields";
 import { readError } from "./users/userHelpers";
+import { USERNAME_PATTERN } from "@/lib/auth/username";
 
 interface InviteUserModalProps {
   shops: Shop[];
@@ -19,7 +20,7 @@ interface InviteUserModalProps {
   onSuccess: () => void;
 }
 
-type FieldErrors = Partial<Record<"name" | "email" | "phone" | "assignments", string>>;
+type FieldErrors = Partial<Record<"name" | "email" | "username" | "phone" | "assignments", string>>;
 
 const inputClass =
   "w-full px-4 py-2.5 border rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all";
@@ -38,6 +39,7 @@ function FieldError({ message }: { message?: string }) {
 export default function InviteUserModal({ shops, roles, isLoadingOptions, optionsError, onClose, onSuccess }: InviteUserModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [isOwner, setIsOwner] = useState(false);
   const [assignments, setAssignments] = useState<AssignmentDraft>({});
@@ -52,6 +54,9 @@ export default function InviteUserModal({ shops, roles, isLoadingOptions, option
     if (!name.trim()) next.name = "Enter a name";
     if (!email.trim()) next.email = "Enter an email address";
     else if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = "Enter a valid email address";
+    if (username.trim() && !USERNAME_PATTERN.test(username.trim())) {
+      next.username = "Use 3–32 letters, numbers, dots, underscores or hyphens";
+    }
     if (!isOwner && !Object.entries(assignments).some(([shopId, roleId]) => roleId && activeShopIds.has(shopId))) {
       next.assignments = "Give access to at least one shop, or make them an Owner";
     }
@@ -67,6 +72,7 @@ export default function InviteUserModal({ shops, roles, isLoadingOptions, option
     const body: CreateUserInput = {
       name: name.trim(),
       email: email.trim(),
+      username: username.trim() || undefined,
       phone: phone.trim() || undefined,
       isOwner,
       assignments: isOwner
@@ -198,6 +204,28 @@ export default function InviteUserModal({ shops, roles, isLoadingOptions, option
                   className={`${inputClass} ${errors.email ? "border-rose-400" : "border-slate-200"}`}
                 />
                 <FieldError message={errors.email} />
+              </div>
+              <div>
+                <label htmlFor="invite-username" className={labelClass}>
+                  Username <span className="normal-case font-medium text-slate-400">(optional)</span>
+                </label>
+                <input
+                  id="invite-username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  placeholder="e.g. arjun"
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={!!errors.username}
+                  className={`${inputClass} ${errors.username ? "border-rose-400" : "border-slate-200"}`}
+                />
+                {errors.username ? (
+                  <FieldError message={errors.username} />
+                ) : (
+                  <p className="mt-1 text-[0.7rem] text-slate-400">They can sign in with this or their email.</p>
+                )}
               </div>
               <div>
                 <label htmlFor="invite-phone" className={labelClass}>Mobile number (for WhatsApp)</label>

@@ -35,16 +35,7 @@ export async function GET() {
       }
     });
 
-    // Merge with our static config to keep icons and fields
-    const enrichedProducts = dbProducts.map(dbP => {
-      const config = GIFTS_PRODUCTS.find(g => g.id === dbP.id);
-      return {
-        ...dbP,
-        iconName: config?.icon.displayName
-      };
-    });
-
-    return NextResponse.json({ products: enrichedProducts });
+    return NextResponse.json({ products: dbProducts });
   } catch (error) {
     console.error("Failed to fetch gift products:", error);
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });

@@ -114,6 +114,7 @@ export interface TeamMember {
   idNumber: number;
   name: string | null;
   email: string | null;
+  username?: string | null;
   phone: string | null;
   role: UserRole;
   status: UserStatus;
@@ -126,6 +127,7 @@ export interface TeamMember {
 export interface CreateUserInput {
   name: string;
   email: string;
+  username?: string;
   phone?: string;
   isOwner: boolean;
   assignments: UserAssignmentInput[];
@@ -134,6 +136,7 @@ export interface CreateUserInput {
 /** PUT /api/users/[id] */
 export interface UpdateUserInput {
   name?: string;
+  username?: string;
   phone?: string;
   status?: UserStatus;
   isOwner?: boolean;

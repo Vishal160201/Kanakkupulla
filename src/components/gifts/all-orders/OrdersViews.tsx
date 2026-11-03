@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { format } from "date-fns";
-import { Edit2, Trash2 } from "lucide-react";
+import { Edit2, Trash2 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { getProductIcon } from "@/lib/productIcons";
 import type { GiftOrder } from "@/types/gifts";

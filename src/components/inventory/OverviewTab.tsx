@@ -10,7 +10,7 @@ import ProductDetailDialog from "./products/ProductDetailDialog";
 import BillRow from "./bills/BillRow";
 import BillDetailDialog from "./bills/BillDetailDialog";
 import type { InventoryTab } from "./InventoryTabs";
-import { ProduceKpis } from "./produce/ProduceView";
+import { ProduceKpis } from "./produce/ProduceKpis";
 import { cn } from "@/lib/utils";
 
 function KpiSkeleton() {

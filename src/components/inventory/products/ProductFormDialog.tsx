@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useShops } from "@/components/providers/ShopProvider";
 import { toast } from "sonner";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import type { InventoryProduct, InventoryProductInput } from "@/types/inventory";
@@ -20,10 +21,11 @@ const SIZE_PLACEHOLDERS: Partial<Record<PackType, string>> = { Bottle: "e.g. 1",
 
 /** Add / edit a product (name, pack type and size, price). Mount only while open. */
 export default function ProductFormDialog({ shopId, product, onClose }: ProductFormDialogProps) {
+  const isCable = useShops().activeShopType === "CABLE";
   const revalidate = useRevalidateInventory();
   const [name, setName] = useState(product?.name ?? "");
   // Old rows may hold a unit that is no longer a pack type; it has to be changed on save.
-  const [unit, setUnit] = useState<string>(product && isPackType(product.unit) ? product.unit : "Bag");
+  const [unit, setUnit] = useState<string>(product && isPackType(product.unit) ? product.unit : isCable ? "Piece" : "Bag");
   const [packSize, setPackSize] = useState(product?.packSize ? String(product.packSize) : "");
   const [packUnit, setPackUnit] = useState<string>(product?.packUnit ?? PACK_UNITS.Bag[0]);
   const [price, setPrice] = useState(product ? String(product.price) : "");
@@ -113,7 +115,7 @@ export default function ProductFormDialog({ shopId, product, onClose }: ProductF
             value={name}
             maxLength={100}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Urea"
+            placeholder={isCable ? "e.g. ONT router" : "e.g. Urea"}
             className={cn(inputClass, errors.name && inputErrorClass)}
           />
           <FieldError message={errors.name} />

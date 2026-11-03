@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Check, CheckCircle2, Clock, CreditCard, Receipt, Tag, TrendingUp, Wallet } from "lucide-react";
+import { Check, CheckCircle2, Clock, CreditCard, Receipt, Tag, TrendingUp, Wallet } from "@/components/ui/icons";
 import type { GiftOrder, GiftOrderCustomData } from "@/types/gifts";
 import type { GiftOrderDetails, GiftOrderEditForm } from "./useGiftOrderDetails";
 import FinancialsEditForm from "./FinancialsEditForm";

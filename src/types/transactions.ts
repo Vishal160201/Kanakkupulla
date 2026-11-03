@@ -10,7 +10,7 @@ export type TransactionType = "INCOME" | "EXPENSE";
  * Such entries are locked in the ledger: the API answers 409 to edits and deletes.
  */
 export interface TransactionSource {
-  kind: "SALE" | "PURCHASE" | "CREDIT_PAYMENT" | "PRODUCE_SALE" | "PRODUCE_PAYMENT" | "PRODUCE_RECEIPT";
+  kind: "SALE" | "PURCHASE" | "CREDIT_PAYMENT" | "PRODUCE_SALE" | "PRODUCE_PAYMENT" | "PRODUCE_RECEIPT" | "CABLE_PAYMENT";
   id: string;
   billNumber?: string | null;
 }
@@ -93,7 +93,7 @@ export type TodayTransactionItem = Transaction | TodayTransactionGroup;
 
 // ---------------------------------------------------------------------------
 // Transaction form layout (GET /api/settings/layouts/TRANSACTION_FORM, or
-// FERTILIZER_TRANSACTION_FORM for fertilizer shops)
+// FERTILIZER_TRANSACTION_FORM / CABLE_TRANSACTION_FORM for those shop types)
 // ---------------------------------------------------------------------------
 
 /** Options are saved as strings; older layouts may hold {label, value} objects. */

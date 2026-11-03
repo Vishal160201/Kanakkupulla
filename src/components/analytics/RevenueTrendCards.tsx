@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, Legend, type MouseHandlerDataParam
 } from "recharts";
-import { Briefcase, TrendingUp, X } from "lucide-react";
+import { Briefcase, TrendingUp, X } from "@/components/ui/icons";
 import { formatThousands, type DailyTrendPoint, type RevenueIntelligencePoint } from "./types";
 
 interface RevenueIntelligenceCardProps {

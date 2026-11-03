@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 /** `icon` is a Phosphor icon name (e.g. "storefront"); `hint` is a small trailing tag (e.g. "Archived"). */

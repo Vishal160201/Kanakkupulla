@@ -48,6 +48,7 @@ export interface QuickAddCategory {
 
 const INCOME_CATEGORIES = ["Photography Session", "Booking Advance", "Passport Photo", "Frame Sales", "Editing Charges", "Album Payment", "PP", "Xerox", "Printout", "E-Sevai", "Others"];
 const FERTILIZER_INCOME_CATEGORIES: string[] = [INVENTORY_LEDGER_CATEGORIES.SALE, INVENTORY_LEDGER_CATEGORIES.CREDIT_PAYMENT];
+const CABLE_INCOME_CATEGORIES: string[] = ["Internet Renewal", "Cable Collection", "New Connection"];
 
 const toShares = (totals: Record<string, number>, total: number): CategoryShare[] =>
   Object.entries(totals)
@@ -225,7 +226,7 @@ export function buildQuickAddCategories(
 
   const fallback = shopType === "STUDIO" ? Object.keys(CATEGORY_ICONS) : [];
   const baseCategories = dynamicCategories.length > 0 ? dynamicCategories : fallback;
-  const incomeCategories = shopType === "STUDIO" ? INCOME_CATEGORIES : FERTILIZER_INCOME_CATEGORIES;
+  const incomeCategories = shopType === "STUDIO" ? INCOME_CATEGORIES : shopType === "CABLE" ? CABLE_INCOME_CATEGORIES : FERTILIZER_INCOME_CATEGORIES;
 
   return baseCategories.map(cat => {
     const isIncome = incomeCategories.includes(cat);

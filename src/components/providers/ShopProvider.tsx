@@ -4,17 +4,19 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { fetcher } from "@/lib/fetcher";
-import { modulesForShopType, type AppModule } from "@/lib/shopModules";
+import { isShopType, modulesForShopType, type AppModule } from "@/lib/shopModules";
 import type { ActiveShopId, Shop, ShopListResponse, ShopType } from "@/types/shops";
 
 export const SHOPS_KEY = "/api/shops?includeArchived=true";
 
 /** STUDIO shops (anything not explicitly another type, so older payloads still work). */
-export const isStudioShop = (shop: Pick<Shop, "type">) => shop.type !== "FERTILIZER";
+export const isStudioShop = (shop: Pick<Shop, "type">) => shopTypeOf(shop) === "STUDIO";
 
 /** A shop's type, defaulting to STUDIO. */
-export const shopTypeOf = (shop: Pick<Shop, "type"> | null | undefined): ShopType =>
-  shop?.type === "FERTILIZER" ? "FERTILIZER" : "STUDIO";
+export const shopTypeOf = (shop: Pick<Shop, "type"> | null | undefined): ShopType => {
+  const type = shop?.type;
+  return isShopType(type) ? type : "STUDIO";
+};
 
 interface ShopContextType {
   /** Active (non-archived) shops, default first. */
@@ -154,7 +156,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const activeShopId = data ? resolveActiveShopId(stored, shops, defaultShopId, canViewAllShops) : "all";
   const activeShop = activeShopId === "all" ? null : shops.find((s) => s.id === activeShopId) ?? null;
   // Until the shop list arrives, assume the stored shop's type (STUDIO when unknown).
-  const activeShopType = isReady ? shopTypeOf(activeShop) : storedType === "FERTILIZER" ? "FERTILIZER" : "STUDIO";
+  const activeShopType = isReady ? shopTypeOf(activeShop) : isShopType(storedType) ? storedType : "STUDIO";
   const allowedModules = modulesForShopType(activeShopType);
 
   // Remember the validated selection (stale id, a member's "all", first visit) so the next

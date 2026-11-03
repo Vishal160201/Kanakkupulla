@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Receipt, Upload, Clock, MapPin, Tag, Calendar, Info, FolderOpen, CheckCircle2, ChevronDown } from "lucide-react";
+import { Trash2, Receipt, Upload, Clock, MapPin, Tag, Calendar, Info, FolderOpen, CheckCircle2, ChevronDown } from "@/components/ui/icons";
 import type { BookingDetail, StatusOption } from "@/types/bookings";
 import { shortBookingId } from "../layoutUtils";
 import { getStatusVisual } from "./fieldIcons";

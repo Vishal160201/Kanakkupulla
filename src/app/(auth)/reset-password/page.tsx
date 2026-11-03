@@ -79,7 +79,7 @@ function ResetPasswordForm() {
   return (
     <div className="bg-white w-full rounded-[2rem] shadow-2xl border border-slate-100 p-8 pt-6 pb-10 relative">
       <div className="flex justify-center mb-4">
-        <Image src="/assets/logo.png" alt="Kanakkupulla Logo" width={360} height={100} className="w-[360px] object-contain drop-shadow-sm" />
+        <Image src="/assets/logo.png" alt="Kanakkupulla Logo" width={360} height={100} loading="eager" className="w-[360px] object-contain drop-shadow-sm" />
       </div>
 
       <div className="text-center mb-8">

@@ -124,6 +124,40 @@ export const DEFAULT_LAYOUTS = [
     }
   },
   {
+    formKey: "CABLE_TRANSACTION_FORM",
+    name: "Cable & Internet Daily Kanakku",
+    description: "Fields used when recording income or expenses for a cable / internet shop.",
+    schema: {
+      sections: [
+        {
+          id: "sec_ctx_details",
+          title: "Transaction Details",
+          fields: [
+            { id: "fld_tx_amount", name: "Amount", type: "CURRENCY", mandatory: true },
+            { id: "fld_tx_type", name: "Transaction Type", type: "PICK_LIST", mandatory: true, options: ["INCOME", "EXPENSE"] },
+            { id: "fld_tx_date", name: "Date", type: "DATE", mandatory: true, isRecordDate: true },
+            { id: "fld_tx_category", name: "Category", type: "MULTI_SELECT", mandatory: true, options: [
+              "Internet Renewal",
+              "Cable Collection",
+              "New Connection",
+              "Wallet Top-up",
+              "Stock Purchase",
+              "Fibre & Repair",
+              "Line Staff Salary",
+              "Pole Rent",
+              "Shop Rent",
+              "Electricity",
+              "Tea & snacks",
+              "Other"
+            ] },
+            { id: "fld_tx_mode", name: "Payment Mode", type: "PICK_LIST", mandatory: true, options: ["Cash", "Bank Transfer", "UPI", "Cheque"] },
+            { id: "fld_tx_desc", name: "Description", type: "MULTI_LINE", mandatory: false },
+          ]
+        }
+      ]
+    }
+  },
+  {
     formKey: "FERTILIZER_TRANSACTION_FORM",
     name: "Fertilizer Shop Daily Kanakku",
     description: "Fields used when recording income or expenses for a fertilizer shop.",

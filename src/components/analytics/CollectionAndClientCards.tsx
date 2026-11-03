@@ -4,7 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell, Legend
 } from "recharts";
-import { DollarSign, Users } from "lucide-react";
+import { Rupee, Users } from "@/components/ui/icons";
 import { formatThousands, type CollectionPoint, type NameValue, type OverdueOrder, type TopClient } from "./types";
 
 interface CollectionHealthCardProps {
@@ -17,7 +17,7 @@ interface CollectionHealthCardProps {
 export function CollectionHealthCard({ chart, overdue, onOpenOrder }: CollectionHealthCardProps) {
   return (
     <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 p-5 shadow-sm flex flex-col h-auto lg:h-[400px]">
-      <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><DollarSign size={18} className="text-emerald-500"/> Collection Health</h3>
+      <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6"><Rupee size={18} className="text-emerald-500"/> Collection Health</h3>
       <div className="flex flex-col lg:flex-row gap-6 h-full">
         <div className="h-[200px] lg:h-[300px] lg:flex-1 shrink-0">
           <ResponsiveContainer width="100%" height="100%">

@@ -10,7 +10,7 @@ import BillsTab from "./bills/BillsTab";
 import BillFormDialog from "./bills/BillFormDialog";
 import { primaryButtonClass, secondaryButtonClass } from "./InventoryUI";
 import { useCanManageInventory } from "./inventoryUtils";
-import FertilizerShopShell from "./FertilizerShopShell";
+import ShopTypeShell from "@/components/shops/ShopTypeShell";
 import PermissionTooltip from "@/components/shared/PermissionTooltip";
 
 /** Fertilizer Inventory for the active (FERTILIZER) shop. */
@@ -27,7 +27,8 @@ export default function InventoryPage() {
   const canManage = useCanManageInventory();
 
   return (
-    <FertilizerShopShell
+    <ShopTypeShell
+      shopType="FERTILIZER"
       pageName="Fertilizer Inventory"
       eyebrow="Stock & sales"
       actions={
@@ -66,6 +67,6 @@ export default function InventoryPage() {
           )}
         </>
       )}
-    </FertilizerShopShell>
+    </ShopTypeShell>
   );
 }

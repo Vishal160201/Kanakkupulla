@@ -34,7 +34,6 @@ export interface GiftProduct {
   description?: string | null;
   price?: number;
   stock?: number;
-  iconName?: string;
 }
 
 export interface GiftOrderTransaction {

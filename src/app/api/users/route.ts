@@ -23,6 +23,7 @@ export async function GET() {
         idNumber: true,
         name: true,
         email: true,
+        username: true,
         phone: true,
         role: true,
         status: true,
@@ -66,12 +67,16 @@ export async function POST(request: Request) {
   try {
     const parsed = await parseJsonBody(request, userCreateSchema);
     if (parsed.error) return parsed.error;
-    const { name, email, phone, isOwner, assignments } = parsed.data; // email is trimmed + lower-cased
+    const { name, email, username, phone, isOwner, assignments } = parsed.data; // email/username are trimmed + lower-cased
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
+    }
+    if (username && (await prisma.user.findUnique({ where: { username }, select: { id: true } }))) {
+      const error = "That username is already taken";
+      return NextResponse.json({ error, errors: { username: error } }, { status: 409 });
     }
 
     // Generate temporary password to be used as a token
@@ -87,6 +92,7 @@ export async function POST(request: Request) {
         data: {
           name,
           email,
+          username,
           phone,
           password: hashedPassword,
           role: isOwner ? "OWNER" : "MEMBER",
@@ -98,7 +104,7 @@ export async function POST(request: Request) {
       await setUserAssignments(tx, created.id, valid);
       return tx.user.findUniqueOrThrow({
         where: { id: created.id },
-        select: { id: true, name: true, email: true, phone: true, role: true, status: true, invitedAt: true, ...userAssignmentsSelect },
+        select: { id: true, name: true, email: true, username: true, phone: true, role: true, status: true, invitedAt: true, ...userAssignmentsSelect },
       });
     });
 

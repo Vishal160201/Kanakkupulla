@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Upload, Paperclip, X, CheckCircle2 } from "lucide-react";
+import { Loader2, Upload, Paperclip, X, CheckCircle2 } from "@/components/ui/icons";
 import GooglePicker from "@/components/shared/GooglePicker";
 import { isDriveAttachment, type DriveAttachment } from "@/types/gifts";
 
@@ -151,6 +151,7 @@ export default function FileAttachment({
               <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-slate-50 shadow-sm">
                 <div className="flex items-center gap-3 overflow-hidden flex-1">
                   {driveFile ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- runtime URL (Drive, upload or OAuth avatar), not optimizable by next/image
                     <img src={driveFile.iconUrl} alt="icon" className="w-6 h-6 object-contain" />
                   ) : (
                     type === 'IMAGE' ? (

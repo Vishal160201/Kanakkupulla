@@ -77,6 +77,7 @@ function UserRow({ user, isCurrentUser, onEdit, onToggleStatus, shops, roles }: 
           </div>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             {user.email && <span className="text-[0.7rem] text-slate-500 truncate max-w-full">{user.email}</span>}
+            {user.username && <span className="text-[0.7rem] font-semibold text-indigo-500 whitespace-nowrap">@{user.username}</span>}
             <span className="text-[0.65rem] font-mono text-slate-400 whitespace-nowrap">{userIdLabel(user)}</span>
           </div>
           <div className="mt-1.5">

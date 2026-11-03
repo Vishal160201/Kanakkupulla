@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Button } from "@/components/ui/button";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import { toast } from "sonner";
-import { PlusCircle, ShoppingBag, Loader2 } from "lucide-react";
+import { PlusCircle, ShoppingBag, Loader2 } from "@/components/ui/icons";
 import type { GiftLayoutResponse, GiftLayoutSchema, GiftProduct } from "@/types/gifts";
 import OrderFormField from "./order-form/OrderFormField";
 import {

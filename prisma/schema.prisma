@@ -107,6 +107,22 @@ model Shop {
   produceBuyers      ProduceBuyer[]
   produceSales       ProduceSale[]
   produceReceipts    ProduceReceipt[]
+  /// sha256 of the sync key the Kanakkupulla browser extension sends (cable shops); the key is shown once
+  syncKeyHash        String?             @unique
+  /// Last successful portal sync
+  syncedAt           DateTime?
+  /// Partner wallet balance in the provider's portal, as of walletSyncedAt (cable shops)
+  walletBalance      Decimal?            @db.Decimal(12, 2)
+  walletSyncedAt     DateTime?
+  /// Warn when the wallet falls below this (cable shops); null = no warning
+  lowWalletAlert     Decimal?            @db.Decimal(12, 2)
+  /// Shown in customer WhatsApp messages (cable shops)
+  upiId              String?
+  contactPhone       String?
+  cableSubscribers   CableSubscriber[]
+  cablePlans         CablePlan[]
+  cablePayments      CablePayment[]
+  cableComplaints    CableComplaint[]
 
   @@index([isArchived])
 }
@@ -114,6 +130,7 @@ model Shop {
 enum ShopType {
   STUDIO
   FERTILIZER
+  CABLE
 }
 
 /// A member's role in one shop. Owners need no assignments; members only see their assigned shops.
@@ -412,6 +429,113 @@ model ProduceReceipt {
   @@index([shopId, date])
 }
 
+/// An internet / cable subscriber copied from the provider's portal by the browser extension (src/lib/cableSync.ts).
+model CableSubscriber {
+  id          String         @id @default(cuid())
+  shopId      String
+  /// Portal it comes from: TIC_FIBER (TCCL later)
+  provider    String
+  /// The portal's user / account id
+  externalId  String
+  name        String
+  phone       String?
+  altPhone    String?
+  /// As the portal shows it: Active, Inactive, …
+  status      String
+  plan        String?
+  macId       String?
+  address     String?
+  area        String?
+  createdOn   DateTime?
+  activatedAt DateTime?
+  renewedAt   DateTime?
+  expiresAt   DateTime?
+  /// Set when the subscriber no longer appears in the portal; cleared if they come back
+  goneAt      DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  shop        Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  renewals    CableRenewal[]
+  payments    CablePayment[]
+  complaints  CableComplaint[]
+
+  @@unique([shopId, provider, externalId])
+  @@index([shopId, expiresAt])
+}
+
+/// Recorded when a sync sees a subscriber's expiry date move forward. Its amount is what the subscriber owes for it.
+model CableRenewal {
+  id             String          @id @default(cuid())
+  subscriberId   String
+  plan           String?
+  /// The plan's price when it was renewed (editable); null until the plan has a price
+  amount         Decimal?        @db.Decimal(12, 2)
+  renewedAt      DateTime?
+  previousExpiry DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime        @default(now())
+  subscriber     CableSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriberId, expiresAt])
+}
+
+/// A plan name seen in the portal, with the shop's selling price for one renewal.
+model CablePlan {
+  id        String   @id @default(cuid())
+  shopId    String
+  provider  String
+  name      String
+  /// What the shop charges the subscriber per renewal; null until set
+  price     Decimal? @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Restrict)
+
+  @@unique([shopId, provider, name])
+}
+
+/// Money collected from a subscriber against their renewal dues; posted to Daily Kanakku.
+model CablePayment {
+  id            String          @id @default(cuid())
+  shopId        String
+  subscriberId  String
+  amount        Decimal         @db.Decimal(12, 2)
+  date          DateTime
+  paymentMode   String
+  notes         String?
+  transactionId String?         @unique
+  /// Who collected it (user id)
+  createdById   String?
+  voidedAt      DateTime?
+  createdAt     DateTime        @default(now())
+  shop          Shop            @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  subscriber    CableSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Restrict)
+  transaction   Transaction?    @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, date])
+  @@index([subscriberId, voidedAt])
+}
+
+/// A fault reported by a subscriber (no signal, slow speed, …), fixed by line staff.
+model CableComplaint {
+  id           String          @id @default(cuid())
+  shopId       String
+  subscriberId String
+  issue        String
+  notes        String?
+  /// User id of the line staff member it's assigned to
+  assignedToId String?
+  createdById  String?
+  fixedAt      DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  shop         Shop            @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  subscriber   CableSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Restrict)
+
+  @@index([shopId, fixedAt])
+  @@index([subscriberId])
+}
+
 model Transaction {
   id              String           @id @default(cuid())
   amount          Decimal          @db.Decimal(12, 2)
@@ -441,6 +565,7 @@ model Transaction {
   producePayment  ProducePayment?
   produceSale     ProduceSale?
   produceReceipt  ProduceReceipt?
+  cablePayment    CablePayment?
 
   @@index([date])
   @@index([category])
@@ -489,6 +614,8 @@ model User {
   id                 String             @id @default(cuid())
   name               String?
   email              String?            @unique
+  /// Optional sign-in name (lowercase); people can sign in with this or the email
+  username           String?            @unique
   emailVerified      DateTime?
   password           String?
   image              String?

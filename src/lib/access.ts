@@ -7,7 +7,7 @@ export type AccessLevel = (typeof ACCESS_LEVELS)[number];
 export const ROLE_KEYS = ["ADMIN", "STAFF"] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
 
-export type ModuleKey = "dashboard" | "bookings" | "albums" | "gifts" | "analytics" | "ledger" | "inventory" | "recycle_bin";
+export type ModuleKey = "dashboard" | "bookings" | "albums" | "gifts" | "analytics" | "ledger" | "inventory" | "cable" | "recycle_bin";
 
 export interface AccessModule {
   key: ModuleKey;
@@ -28,6 +28,7 @@ export const ACCESS_MODULES: readonly AccessModule[] = [
   { key: "analytics", label: "Analytics", description: "Reports; Manage also allows exports", icon: "chart-bar", appliesTo: "studio", levels: ACCESS_LEVELS },
   { key: "ledger", label: "Daily Kanakku", description: "Income and expense entries of the shop", icon: "notebook", appliesTo: "all", levels: ACCESS_LEVELS },
   { key: "inventory", label: "Fertilizer Inventory", description: "Products, sales, purchases, farmers and produce", icon: "package", appliesTo: "shop", levels: ACCESS_LEVELS },
+  { key: "cable", label: "Cable & Internet", description: "Subscribers synced from TIC Fiber, and their renewals", icon: "broadcast", appliesTo: "shop", levels: ACCESS_LEVELS },
   { key: "recycle_bin", label: "Recycle Bin", description: "Trashed items; Manage allows restoring", icon: "trash", appliesTo: "all", levels: ACCESS_LEVELS },
 ];
 

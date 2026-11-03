@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import PermissionTooltip from "@/components/shared/PermissionTooltip";
 import { primaryButtonClass, secondaryButtonClass } from "../InventoryUI";
 import { useCanManageInventory } from "../inventoryUtils";
-import FertilizerShopShell from "../FertilizerShopShell";
+import ShopTypeShell from "@/components/shops/ShopTypeShell";
 import ProduceView, { type ProduceSection } from "./ProduceView";
 import CollectionFormDialog from "./CollectionFormDialog";
 import ProduceSaleFormDialog from "./ProduceSaleFormDialog";
@@ -20,7 +20,8 @@ export default function ProducePage() {
   const canManage = useCanManageInventory();
 
   return (
-    <FertilizerShopShell
+    <ShopTypeShell
+      shopType="FERTILIZER"
       pageName="Produce"
       eyebrow="Produce trade"
       actions={
@@ -53,6 +54,6 @@ export default function ProducePage() {
           {newProduce === "sale" && canManage && <ProduceSaleFormDialog key={`${shopId}-produce-sale`} shopId={shopId} onClose={() => setNewProduce(null)} />}
         </>
       )}
-    </FertilizerShopShell>
+    </ShopTypeShell>
   );
 }

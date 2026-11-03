@@ -1,10 +1,10 @@
 // Which app modules each shop type has. Shared by the client (sidebar, route guard,
 // shop picker) and the server (API checks). Keep free of server-only imports.
 
-export const SHOP_TYPES = ["STUDIO", "FERTILIZER"] as const;
+export const SHOP_TYPES = ["STUDIO", "FERTILIZER", "CABLE"] as const;
 export type ShopTypeName = (typeof SHOP_TYPES)[number];
 
-export type AppModule = "dashboard" | "bookings" | "transactions" | "gifts" | "analytics" | "inventory" | "farmers" | "produce" | "settings";
+export type AppModule = "dashboard" | "bookings" | "transactions" | "gifts" | "analytics" | "inventory" | "farmers" | "produce" | "subscribers" | "settings";
 
 const MODULE_PATHS: Record<AppModule, string> = {
   dashboard: "/dashboard",
@@ -15,23 +15,27 @@ const MODULE_PATHS: Record<AppModule, string> = {
   inventory: "/inventory",
   farmers: "/farmers",
   produce: "/produce",
+  subscribers: "/subscribers",
   settings: "/settings",
 };
 
 export const SHOP_TYPE_MODULES: Record<ShopTypeName, readonly AppModule[]> = {
   STUDIO: ["dashboard", "bookings", "transactions", "gifts", "analytics", "settings"],
   FERTILIZER: ["transactions", "inventory", "farmers", "produce", "settings"],
+  CABLE: ["transactions", "subscribers", "settings"],
 };
 
 export const SHOP_TYPE_LABELS: Record<ShopTypeName, string> = {
   STUDIO: "Studio",
   FERTILIZER: "Fertilizer shop",
+  CABLE: "Cable & internet",
 };
 
 /** Heading the shop picker groups a type under. */
 export const SHOP_TYPE_GROUPS: Record<ShopTypeName, "STUDIO" | "OTHERS"> = {
   STUDIO: "STUDIO",
   FERTILIZER: "OTHERS",
+  CABLE: "OTHERS",
 };
 
 export function isShopType(value: unknown): value is ShopTypeName {
@@ -61,8 +65,22 @@ export function landingPathForShopType(type: ShopTypeName): string {
 }
 
 /** Form layout that defines a shop type's Daily Kanakku fields and categories. */
-export function transactionFormKeyForShopType(type: ShopTypeName): "TRANSACTION_FORM" | "FERTILIZER_TRANSACTION_FORM" {
-  return type === "FERTILIZER" ? "FERTILIZER_TRANSACTION_FORM" : "TRANSACTION_FORM";
+export const TRANSACTION_FORM_KEYS = {
+  STUDIO: "TRANSACTION_FORM",
+  FERTILIZER: "FERTILIZER_TRANSACTION_FORM",
+  CABLE: "CABLE_TRANSACTION_FORM",
+} as const satisfies Record<ShopTypeName, string>;
+
+export type TransactionFormKey = (typeof TRANSACTION_FORM_KEYS)[ShopTypeName];
+
+export function transactionFormKeyForShopType(type: ShopTypeName): TransactionFormKey {
+  return TRANSACTION_FORM_KEYS[type];
+}
+
+/** Shop type whose Daily Kanakku a form key defines, or null for non-ledger forms. */
+export function shopTypeForTransactionFormKey(formKey: string): ShopTypeName | null {
+  const hit = (Object.entries(TRANSACTION_FORM_KEYS) as [ShopTypeName, string][]).find(([, key]) => key === formKey);
+  return hit ? hit[0] : null;
 }
 
 /** Ledger categories the inventory posts automatically for fertilizer shops. */
@@ -80,5 +98,12 @@ export const PRODUCE_LEDGER_CATEGORIES = {
   SALE: "Produce Sales",
   /** Received later against a buyer's dues (income) */
   SALE_COLLECTION: "Produce Sale Collection",
+} as const;
+/** Ledger categories cable & internet shops use for renewal money (must match CABLE_TRANSACTION_FORM). */
+export const CABLE_LEDGER_CATEGORIES = {
+  /** Collected from a subscriber for their renewal (income) */
+  RENEWAL: "Internet Renewal",
+  /** Money added to the provider's partner wallet (expense); renewals are paid from it */
+  WALLET_TOP_UP: "Wallet Top-up",
 } as const;
 export const INVENTORY_PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque"] as const;

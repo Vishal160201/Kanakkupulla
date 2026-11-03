@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { width: 320px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, sans-serif; color: #0f172a; background: #fff; }
+    h1 { font-size: 14px; margin: 0 0 10px; }
+    label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #64748b; margin: 10px 0 4px; }
+    input { box-sizing: border-box; width: 100%; height: 34px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 10px; font: inherit; }
+    input:focus { outline: none; border-color: #f97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, .15); }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    button { flex: 1; height: 34px; border-radius: 10px; font: inherit; font-weight: 700; cursor: pointer; border: 1px solid #e2e8f0; background: #fff; color: #334155; }
+    button.primary { background: #f97316; border-color: #f97316; color: #fff; }
+    button:disabled { opacity: .5; cursor: default; }
+    #status { margin-top: 12px; padding: 8px 10px; border-radius: 10px; background: #f8fafc; color: #475569; font-weight: 600; }
+    #status.ok { background: #ecfdf5; color: #047857; }
+    #status.bad { background: #fff1f2; color: #be123c; }
+    #note { margin-top: 6px; color: #94a3b8; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <h1>Kanakkupulla Sync · TIC Fiber</h1>
+  <label for="appUrl">Kanakkupulla address</label>
+  <input id="appUrl" type="url" placeholder="https://kanakkupulla.vercel.app" autocomplete="off">
+  <label for="syncKey">Sync key</label>
+  <input id="syncKey" type="password" placeholder="kks_…" autocomplete="off">
+  <div class="row">
+    <button id="save" class="primary">Save</button>
+    <button id="sync">Sync now</button>
+  </div>
+  <div id="status" role="status">Not synced yet.</div>
+  <div id="note">Syncs every minute while Chrome is open. What you type is kept if this popup closes. <a href="#" id="openTab">Open in a tab</a></div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -9,7 +9,7 @@ import { errorMessage, formatINR, roundMoney, useCanManageInventory, useDebounce
 import { useProduceFarmers } from "../useInventoryData";
 import CollectionFormDialog from "../produce/CollectionFormDialog";
 import { initials } from "../produce/produceShared";
-import FertilizerShopShell from "../FertilizerShopShell";
+import ShopTypeShell from "@/components/shops/ShopTypeShell";
 import FarmerFormDialog from "./FarmerFormDialog";
 import FarmerDetailDialog from "./FarmerDetailDialog";
 import { cn } from "@/lib/utils";
@@ -259,7 +259,8 @@ export default function FarmersPage() {
   const canManage = useCanManageInventory();
 
   return (
-    <FertilizerShopShell
+    <ShopTypeShell
+      shopType="FERTILIZER"
       pageName="Farmers"
       eyebrow="Farmers"
       actions={
@@ -285,6 +286,6 @@ export default function FarmersPage() {
           {collecting && canManage && <CollectionFormDialog key={`${shopId}-collection`} shopId={shopId} onClose={() => setCollecting(false)} />}
         </>
       )}
-    </FertilizerShopShell>
+    </ShopTypeShell>
   );
 }

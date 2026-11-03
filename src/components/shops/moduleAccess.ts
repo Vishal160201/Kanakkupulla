@@ -12,6 +12,7 @@ export const APP_MODULE_OF: Record<ModuleKey, AppModule> = {
   analytics: "analytics",
   ledger: "transactions",
   inventory: "inventory",
+  cable: "subscribers",
   recycle_bin: "settings",
 };
 
@@ -29,6 +30,7 @@ export function accessModuleForPath(pathname: string): ModuleKey | null {
     case "farmers":
     case "produce":
       return "inventory";
+    case "subscribers": return "cable";
     default: return null;
   }
 }
@@ -40,6 +42,7 @@ const MODULE_LANDINGS: { module: ModuleKey; path: string }[] = [
   { module: "albums", path: "/bookings/album-status" },
   { module: "ledger", path: "/transactions/overview" },
   { module: "inventory", path: "/inventory" },
+  { module: "cable", path: "/subscribers" },
   { module: "gifts", path: "/gifts" },
   { module: "analytics", path: "/analytics" },
 ];

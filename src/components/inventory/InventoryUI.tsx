@@ -62,7 +62,7 @@ export function MoneyInput({
   );
 }
 
-export function SearchInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+export function SearchInput({ value, onChange, placeholder, autoFocus }: { value: string; onChange: (v: string) => void; placeholder: string; autoFocus?: boolean }) {
   return (
     <div className="relative w-full sm:max-w-xs">
       <i className="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
@@ -72,6 +72,7 @@ export function SearchInput({ value, onChange, placeholder }: { value: string; o
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
+        autoFocus={autoFocus}
         className={cn(inputClass, "pl-9 pr-9")}
       />
       {value && (

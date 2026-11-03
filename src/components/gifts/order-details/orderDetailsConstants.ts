@@ -1,4 +1,4 @@
-import { CheckCircle2, PackageOpen, Settings, ShoppingBag } from "lucide-react";
+import { CheckCircle2, PackageOpen, Settings, ShoppingBag } from "@/components/ui/icons";
 
 export const STATUS_OPTIONS = [
   { value: "PENDING", label: "PENDING", icon: PackageOpen, text: "text-red-500", bg: "bg-red-50", border: "border-red-200", solidBg: "bg-red-500", shadow: "shadow-red-500/30", line: "bg-red-400", textLabel: "text-red-600" },

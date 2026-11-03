@@ -15,13 +15,13 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /**
- * The shop behind an inventory request: must exist, be accessible, be a fertilizer shop, and the
- * user's role there must allow `level` on Fertilizer Inventory.
+ * The shop behind an inventory request: must exist, be accessible, be a fertilizer shop (or a cable
+ * shop, for its equipment stock), and the user's role there must allow `level` on that shop's module.
  */
 export async function getInventoryShop(user: SessionUser, shopId: string, level: AccessLevel = "VIEW") {
   const shop = await getAccessibleShop(user, shopId);
-  if (shop.type !== "FERTILIZER") throw new ShopError("Inventory is only available for fertilizer shops.", 422);
-  if (!(await can(user, "inventory", level, shopId))) {
+  if (shop.type !== "FERTILIZER" && shop.type !== "CABLE") throw new ShopError("Inventory is only available for fertilizer and cable shops.", 422);
+  if (!(await can(user, shop.type === "CABLE" ? "cable" : "inventory", level, shopId))) {
     throw new ShopError(level === "MANAGE" ? "You can view this shop's inventory but not change it." : "You don't have access to this shop's inventory.", 403);
   }
   return shop;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { clearAccessCache, requireOwner } from "@/lib/authz";
+import { requireOwner } from "@/lib/authz";
 import { normalizePermissions, type RoleKey } from "@/lib/access";
 import { listRoles, normalizeNotifications } from "@/lib/roles";
 import { parseJsonBody } from "@/lib/validations/http";
@@ -35,7 +35,6 @@ export async function PUT(request: Request, { params }: Ctx) {
     await prisma.systemLog.create({
       data: { action: "ROLE_UPDATED", details: `Updated role ${existing.name}`, userId: auth.user.id },
     });
-    clearAccessCache();
 
     const role = (await listRoles()).find(r => r.id === id);
     return NextResponse.json({ role });

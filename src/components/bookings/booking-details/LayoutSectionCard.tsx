@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { format } from "date-fns";
-import { ChevronDown, Gem, Package } from "lucide-react";
+import { ChevronDown, Gem, Package } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import VerticalStatusStepper from "@/components/dashboard/VerticalStatusStepper";
 import type { BookingDetail, FieldOption, LayoutField, LayoutSection, StatusOption, TeamUser } from "@/types/bookings";

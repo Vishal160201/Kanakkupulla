@@ -7,6 +7,7 @@ import { INVENTORY_PAYMENT_MODES } from "@/lib/shopModules";
 import { PACK_TYPES, PACK_TYPE_HINTS, PACK_UNITS, packLabel, quantityUnit, type PackType } from "@/lib/inventoryPacks";
 import type { DropdownOption } from "@/components/ui/CustomDropdown";
 import { useActiveShopCan } from "@/hooks/useAccess";
+import { useShops } from "@/components/providers/ShopProvider";
 
 // ---------------------------------------------------------------------------
 // Formatting
@@ -134,7 +135,9 @@ export const inventoryUrl = (path: string, shopId: string, params: Record<string
 /** Revalidates every cached /api/inventory* response (and the ledger, which sales/purchases post to). */
 /** Whether the user may change this (the active) shop's inventory: sales, purchases, products, customers, payments. */
 export function useCanManageInventory(): boolean {
-  return useActiveShopCan()("inventory", "MANAGE");
+  // Cable shops keep equipment stock under their own Cable & Internet permission
+  const { activeShopType } = useShops();
+  return useActiveShopCan()(activeShopType === "CABLE" ? "cable" : "inventory", "MANAGE");
 }
 
 export function useRevalidateInventory() {

@@ -41,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: "Fertilizer Inventory", path: "/inventory", activePrefix: "/inventory", icon: "ph-package", module: "inventory", access: [{ module: "inventory", path: "/inventory" }] },
   { name: "Farmers", path: "/farmers", activePrefix: "/farmers", icon: "ph-users-three", module: "farmers", access: [{ module: "inventory", path: "/farmers" }] },
   { name: "Produce", path: "/produce", activePrefix: "/produce", icon: "ph-plant", module: "produce", access: [{ module: "inventory", path: "/produce" }] },
+  { name: "TIC Fiber", path: "/subscribers", activePrefix: "/subscribers", icon: "ph-broadcast", module: "subscribers", access: [{ module: "cable", path: "/subscribers" }] },
   { name: "Gifts & Frames", path: "/gifts", activePrefix: "/gifts", icon: "ph-gift", module: "gifts", access: [{ module: "gifts", path: "/gifts" }] },
   { name: "Analytics", path: "/analytics", activePrefix: "/analytics", icon: "ph-chart-bar", module: "analytics", access: [{ module: "analytics", path: "/analytics" }] },
 ];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/components/ui/icons";
 import type { GiftOrderEditForm } from "./useGiftOrderDetails";
 import { PAYMENT_MODE_OPTIONS } from "./orderDetailsConstants";
 

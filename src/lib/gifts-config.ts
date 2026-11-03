@@ -1,22 +1,9 @@
-import { 
-  Key, 
-  Coffee, 
-  Files, 
-  Smartphone, 
-  Magnet, 
-  Image as ImageIcon, 
-  ImagePlus, 
-  IdCard, 
-  Mail, 
-  CreditCard,
-  Frame,
-  LucideIcon
-} from "lucide-react";
+import { Key, Coffee, Files, Smartphone, Magnet, Image as ImageIcon, ImagePlus, IdCard, Mail, CreditCard, Frame, type IconComponent } from "@/components/ui/icons";
 
 export type GiftProduct = {
   id: string;
   name: string;
-  icon: LucideIcon;
+  icon: IconComponent;
 };
 
 export const GIFTS_PRODUCTS: GiftProduct[] = [

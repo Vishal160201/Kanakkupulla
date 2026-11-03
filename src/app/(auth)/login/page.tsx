@@ -22,8 +22,8 @@ export default function LoginPage() {
   const loginUser = async (e: React.FormEvent) => {
     e.preventDefault();
     // Validated here (not by the browser) so errors show in the app's own banner
-    if (!data.email.trim()) return setError("Enter your email address.");
-    if (!/^\S+@\S+\.\S+$/.test(data.email.trim())) return setError("Enter a valid email address.");
+    if (!data.email.trim()) return setError("Enter your email or username.");
+    if (data.email.includes("@") && !/^\S+@\S+\.\S+$/.test(data.email.trim())) return setError("Enter a valid email address.");
     if (!data.password) return setError("Enter your password.");
     setLoading(true);
     setError(null);
@@ -57,7 +57,7 @@ export default function LoginPage() {
     <div className="bg-white w-full rounded-[2rem] shadow-2xl border border-slate-100 p-8 pt-6 pb-10 relative">
       {/* Logo inside card */}
       <div className="flex justify-center mb-4">
-        <Image src="/assets/logo.png" alt="Kanakkupulla Logo" width={360} height={100} className="w-[360px] object-contain drop-shadow-sm" />
+        <Image src="/assets/logo.png" alt="Kanakkupulla Logo" width={360} height={100} loading="eager" className="w-[360px] object-contain drop-shadow-sm" />
       </div>
 
 
@@ -78,12 +78,15 @@ export default function LoginPage() {
             <i className="ph ph-user text-[1.1rem]"></i>
           </div>
           <input 
-            type="email" 
-            placeholder="Email/username"
+            type="text"
+            aria-label="Email or username"
+            placeholder="Email or username"
+            autoCapitalize="none"
+            spellCheck={false}
             className="w-full h-[50px] pl-11 pr-4 bg-white border border-slate-200 rounded-full text-[0.95rem] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all placeholder:text-slate-400"
             value={data.email}
             onChange={(e) => setData({ ...data, email: e.target.value })}
-            autoComplete="email"
+            autoComplete="username"
           />
         </div>
 
@@ -128,8 +131,8 @@ export default function LoginPage() {
           </button>
           <a href="#" onClick={async (e) => {
             e.preventDefault();
-            if (!data.email) {
-              setError("Please enter your email address to reset your password.");
+            if (!data.email.trim()) {
+              setError("Enter your email or username first to reset your password.");
             } else {
               try {
                 const res = await fetch('/api/auth/forgot-password', {

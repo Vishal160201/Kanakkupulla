@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2, Tag } from "lucide-react";
+import { CheckCircle2, Loader2, Tag } from "@/components/ui/icons";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface DiscountConfirmDialogProps {

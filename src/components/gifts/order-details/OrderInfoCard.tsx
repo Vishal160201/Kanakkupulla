@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { format } from "date-fns";
-import { Calendar, Package, Phone, User } from "lucide-react";
+import { Calendar, Package, Phone, User } from "@/components/ui/icons";
 import { getProductIcon } from "@/lib/productIcons";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import type { GiftOrder, GiftOrderCustomData } from "@/types/gifts";

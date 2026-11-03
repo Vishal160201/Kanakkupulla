@@ -6,7 +6,7 @@ import { fetcher } from "@/lib/fetcher";
 import type { UserItem } from "../ui/MultiUserPicklist";
 import { bookingSchema, BookingFormData } from "@/lib/validations/booking";
 import { motion } from "framer-motion";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
@@ -41,7 +41,7 @@ function BookingFormModalInner() {
     resolver: zodResolver(bookingSchema),
     defaultValues: BASE_DEFAULT_VALUES
   });
-  const { register, handleSubmit, reset, setValue, getValues, watch, clearErrors, formState: { errors, isSubmitting } } = form;
+  const { register, handleSubmit, reset, setValue, getValues, clearErrors, control, formState: { errors, isSubmitting } } = form;
 
   const [isMultiInstallment, setIsMultiInstallment] = useState(false);
   const [installments, setInstallments] = useState<Installment[]>(() => [newInstallment()]);
@@ -50,7 +50,7 @@ function BookingFormModalInner() {
   const { data: usersData } = useSWR<UsersResponse>("/api/users", fetcher);
   const { data: driveStatus } = useSWR<{ connected: boolean }>("/api/integrations/google", fetcher);
 
-  const selectedDateStr = watch('date');
+  const selectedDateStr = useWatch({ control, name: 'date' });
   // keepPreviousData: while another date's bookings load, availability keeps using the last loaded list.
   const { data: bookingsData } = useSWR<{ items?: BookingListItem[] }>(
     selectedDateStr ? `/api/bookings?startDate=${selectedDateStr}&endDate=${selectedDateStr}` : null,
@@ -100,8 +100,8 @@ function BookingFormModalInner() {
     }
   }, [isAddSession, selectedDateForNew, reset, clearErrors, layoutSchema]);
 
-  const packageValue = watch('package');
-  const advanceValue = watch('advance');
+  const packageValue = useWatch({ control, name: 'package' });
+  const advanceValue = useWatch({ control, name: 'advance' });
   useEffect(() => {
     // If installments change, auto-update the advance
     if (installments.length > 0) {
@@ -121,7 +121,7 @@ function BookingFormModalInner() {
 
   // Mandatory layout fields are registered inside DynamicField (so hidden fields don't block submit)
   // and custom-component validation happens in onSubmit.
-  const formValues = watch();
+  const formValues = useWatch({ control });
 
   const evaluateVisibility = (rule: VisibilityRule | null | undefined) => {
     const dependsOnKey = getRuleDependency(rule);
@@ -142,8 +142,8 @@ function BookingFormModalInner() {
     onSaved: closeBookingForm,
   });
 
-  const currentDate = watch('date');
-  const currentTime = watch('time');
+  const currentDate = useWatch({ control, name: 'date' });
+  const currentTime = useWatch({ control, name: 'time' });
 
   const usersWithAvailability = teamUsers.map(user => {
     const isBusy = allBookings.some(b => {

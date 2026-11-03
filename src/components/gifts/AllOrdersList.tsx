@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { format } from "date-fns";
-import { Loader2, LayoutGrid, LayoutList, ChevronLeft, ChevronRight, Filter, Download } from "lucide-react";
+import { Loader2, LayoutGrid, LayoutList, ChevronLeft, ChevronRight, Filter, Download } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";

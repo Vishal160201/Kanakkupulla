@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { clearAccessCache, requireOwner } from "@/lib/authz";
+import { requireOwner } from "@/lib/authz";
 import { ShopError } from "@/lib/shops";
 import { formatAssignments, setUserAssignments, userAssignmentsSelect, validateAssignments } from "@/lib/userAccess";
 import { parseJsonBody } from "@/lib/validations/http";
@@ -18,7 +18,7 @@ export async function PUT(
     const { id } = await params;
     const parsed = await parseJsonBody(request, userUpdateSchema);
     if (parsed.error) return parsed.error;
-    const { status, name, phone, isOwner, assignments } = parsed.data;
+    const { status, name, username, phone, isOwner, assignments } = parsed.data;
 
     const user = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
     if (!user) {
@@ -36,10 +36,18 @@ export async function PUT(
     if (id === auth.user.id && status === "INACTIVE") {
       return NextResponse.json({ error: "You can't deactivate yourself." }, { status: 422 });
     }
+    if (username) {
+      const taken = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+      if (taken && taken.id !== id) {
+        const error = "That username is already taken";
+        return NextResponse.json({ error, errors: { username: error } }, { status: 409 });
+      }
+    }
 
     const updateData: Prisma.UserUpdateInput = {};
     if (status) updateData.status = status;
     if (name !== undefined) updateData.name = name;
+    if (username !== undefined) updateData.username = username;
     if (phone !== undefined) updateData.phone = phone;
     if (isOwner !== undefined) updateData.role = isOwner ? "OWNER" : "MEMBER";
 
@@ -57,10 +65,9 @@ export async function PUT(
       return tx.user.update({
         where: { id },
         data: updateData,
-        select: { id: true, name: true, email: true, phone: true, role: true, status: true, ...userAssignmentsSelect },
+        select: { id: true, name: true, email: true, username: true, phone: true, role: true, status: true, ...userAssignmentsSelect },
       });
     });
-    clearAccessCache(id);
 
     const { shopMemberships, ...userFields } = updated;
     return NextResponse.json({ user: { ...userFields, assignments: formatAssignments(shopMemberships) } });

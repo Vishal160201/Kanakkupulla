@@ -21,6 +21,12 @@ export const SHOP_ICONS = [
   "leaf",
   "tractor",
   "grains",
+  "television-simple",
+  "broadcast",
+  "wifi-high",
+  "cell-tower",
+  "globe-simple",
+  "network",
 ] as const;
 
 export type ShopIconName = (typeof SHOP_ICONS)[number];

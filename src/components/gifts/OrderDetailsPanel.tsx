@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { AlertTriangle, ArrowLeft, Download, Loader2, Receipt } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Download, Loader2, Receipt } from "@/components/ui/icons";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useGiftOrderDetails } from "./order-details/useGiftOrderDetails";

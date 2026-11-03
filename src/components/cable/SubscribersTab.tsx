@@ -1,0 +1,175 @@
+"use client";
+
+import { useState } from "react";
+import type { CableSubscriberListResponse, CableSubscriberRow } from "@/types/cable";
+import { EmptyState, KpiCard, Pill, SearchInput, cardClass, type PillTone } from "@/components/inventory/InventoryUI";
+import { formatDate, formatINR, useDebouncedValue } from "@/components/inventory/inventoryUtils";
+import { initials } from "@/components/inventory/produce/produceShared";
+import { cn } from "@/lib/utils";
+import { SOON_DAYS, expiryLabel, expiryState, type ExpiryState } from "./cableShared";
+
+type Filter = "all" | "soon" | "expired" | "dues" | "gone";
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "soon", label: "Expiring" },
+  { id: "expired", label: "Expired" },
+  { id: "dues", label: "Dues" },
+  { id: "gone", label: "Removed" },
+];
+
+const STATE_TONE: Record<ExpiryState, string> = {
+  gone: "text-slate-400",
+  expired: "text-rose-600",
+  soon: "text-amber-700",
+  ok: "text-emerald-700",
+  unknown: "text-slate-400",
+};
+
+const statusTone = (status: string): PillTone => (status === "Active" ? "green" : status === "Inactive" ? "slate" : "amber");
+
+function matches(s: CableSubscriberRow, filter: Filter, now: number) {
+  const state = expiryState(s, now);
+  if (filter === "gone") return state === "gone";
+  if (filter === "dues") return s.due > 0;
+  if (state === "gone") return false;
+  return filter === "all" || state === filter;
+}
+
+/** Plans still running first, soonest to expire on top; then expired ones, most recent first. */
+function byUrgency(now: number) {
+  const time = (s: CableSubscriberRow) => (s.expiresAt ? new Date(s.expiresAt).getTime() : Infinity);
+  return (a: CableSubscriberRow, b: CableSubscriberRow) => {
+    const aPast = time(a) < now;
+    const bPast = time(b) < now;
+    if (aPast !== bPast) return aPast ? 1 : -1;
+    return (aPast ? time(b) - time(a) : time(a) - time(b)) || a.name.localeCompare(b.name);
+  };
+}
+
+function SubscriberRow({ s, now, onOpen }: { s: CableSubscriberRow; now: number; onOpen: () => void }) {
+  const state = expiryState(s, now);
+  const details = [s.externalId, s.phone, s.area].filter(Boolean).join(" · ");
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full text-left flex items-center gap-3 rounded-2xl border border-transparent p-3 transition-all hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+    >
+      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-extrabold bg-sky-50 text-sky-700">
+        {initials(s.name) || <i className="ph-bold ph-user" aria-hidden="true" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-bold text-sm text-slate-900 truncate">{s.name}</span>
+          <Pill tone={state === "gone" ? "slate" : statusTone(s.status)}>{state === "gone" ? "Removed" : s.status}</Pill>
+          {s.openComplaints > 0 && <Pill tone="amber" icon="wrench">{s.openComplaints}</Pill>}
+        </div>
+        <div className="text-[11px] font-semibold text-slate-400 truncate">{details}</div>
+      </div>
+      <div className="hidden lg:block w-[200px] shrink-0 text-xs font-semibold text-slate-500 truncate" title={s.plan ?? undefined}>
+        {s.plan ?? "—"}
+      </div>
+      <div className="hidden sm:block text-right shrink-0 w-[150px]">
+        <div className="text-sm font-extrabold text-slate-800 whitespace-nowrap">{formatDate(s.expiresAt)}</div>
+        <div className={cn("text-[11px] font-bold whitespace-nowrap truncate", STATE_TONE[state])}>{state === "gone" ? "Not in TIC Fiber" : expiryLabel(s.expiresAt, now)}</div>
+      </div>
+      <div className="text-right shrink-0 w-[96px]">
+        {s.due > 0 ? (
+          <div className="text-sm font-extrabold text-rose-600 whitespace-nowrap">{formatINR(s.due, { decimals: false })}</div>
+        ) : s.due < 0 ? (
+          <div className="text-xs font-bold text-emerald-700 whitespace-nowrap">{formatINR(-s.due, { decimals: false })} adv.</div>
+        ) : (
+          <div className="text-sm font-bold text-slate-300">—</div>
+        )}
+        {/* On phones the expiry column is hidden, so show its short label here */}
+        <div className={cn("sm:hidden text-[10px] font-bold whitespace-nowrap truncate", STATE_TONE[state])}>{state === "gone" ? "Removed" : expiryLabel(s.expiresAt, now).replace("Expires", "").trim()}</div>
+      </div>
+    </button>
+  );
+}
+
+/** Every subscriber with expiry and dues; filters for the ones that need a renewal or a collection. */
+export default function SubscribersTab({ data, now, onOpen }: { data: CableSubscriberListResponse; now: number; onOpen: (id: string) => void }) {
+  const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
+  const debounced = useDebouncedValue(search).trim().toLowerCase();
+
+  // A shop has tens to a few thousand subscribers: cheap enough to filter on every render
+  const all = data.subscribers;
+  const searched = debounced ? all.filter((s) => [s.name, s.externalId, s.phone, s.area, s.plan].some((v) => v?.toLowerCase().includes(debounced))) : all;
+  const counts = Object.fromEntries(FILTERS.map((f) => [f.id, searched.filter((s) => matches(s, f.id, now)).length])) as Record<Filter, number>;
+  const list = searched.filter((s) => matches(s, filter, now)).sort(filter === "dues" ? (a, b) => b.due - a.due : byUrgency(now));
+  const totalDue = all.reduce((sum, s) => sum + Math.max(0, s.due), 0);
+
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <KpiCard label="Subscribers" value={String(counts.all)} hint="In TIC Fiber" icon="wifi-high" iconClass="bg-sky-50 text-sky-600" onClick={() => setFilter("all")} />
+        <KpiCard label="Expiring" value={String(counts.soon)} hint={`Within ${SOON_DAYS} days`} icon="hourglass-medium" iconClass="bg-amber-50 text-amber-600" onClick={() => setFilter("soon")} />
+        <KpiCard label="Expired" value={String(counts.expired)} hint="Need a renewal" icon="calendar-x" iconClass="bg-rose-50 text-rose-500" onClick={() => setFilter("expired")} />
+        <KpiCard label="Dues" value={formatINR(totalDue, { decimals: false })} hint={`${counts.dues} to collect`} icon="hand-coins" iconClass="bg-violet-50 text-violet-600" highlight={totalDue > 0} onClick={() => setFilter("dues")} />
+      </div>
+
+      <div className={cn(cardClass, "p-4 sm:p-5")}>
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search name, user ID, phone, area or plan" />
+          <div className="grid grid-cols-5 lg:flex bg-slate-50 border border-slate-200 rounded-xl p-1 lg:ml-auto" role="radiogroup" aria-label="Subscriber filter">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="radio"
+                aria-checked={filter === f.id}
+                onClick={() => setFilter(f.id)}
+                className={cn(
+                  "min-w-0 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap truncate",
+                  filter === f.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                )}
+              >
+                {f.label}
+                <span className="hidden sm:inline ml-1 text-slate-400 font-semibold">{counts[f.id]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {list.length > 0 && (
+          <div className="hidden sm:flex items-center gap-3 px-3 pb-2 text-[10px] font-extrabold uppercase tracking-[1.2px] text-slate-400">
+            <span className="flex-1">Subscriber</span>
+            <span className="hidden lg:block w-[200px]">Plan</span>
+            <span className="w-[150px] text-right">Expiry</span>
+            <span className="w-[96px] text-right">Due</span>
+          </div>
+        )}
+
+        {list.length === 0 ? (
+          debounced ? (
+            <EmptyState icon="magnifying-glass" title="No matching subscribers" message={`Nothing matches "${search.trim()}".`} />
+          ) : all.length === 0 ? (
+            <EmptyState icon="broadcast" title="No subscribers yet" message="They appear here after the first sync from TIC Fiber." />
+          ) : (
+            <EmptyState
+              icon="check-circle"
+              title="No subscribers here"
+              message="Try another filter."
+              action={
+                <button type="button" onClick={() => setFilter("all")} className="px-4 py-2 rounded-xl bg-orange-50 text-orange-600 font-bold text-sm hover:bg-orange-100">
+                  Show all subscribers
+                </button>
+              }
+            />
+          )
+        ) : (
+          <ul className="space-y-1">
+            {list.map((s) => (
+              <li key={s.id}>
+                <SubscriberRow s={s} now={now} onOpen={() => onOpen(s.id)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}

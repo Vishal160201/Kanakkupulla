@@ -4,7 +4,7 @@ import type { TransactionSource } from "@/types/transactions";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 /** Shown wherever editing or deleting an inventory-created entry is blocked. */
-export const LOCKED_ENTRY_MESSAGE = "Created by Fertilizer Inventory, Farmers or Produce — change or void it there";
+export const LOCKED_ENTRY_MESSAGE = "Created by another page (Fertilizer Inventory, Farmers, Produce or Cable & Internet) — change or void it there";
 
 const SOURCE_META: Record<TransactionSource["kind"], { label: string; icon: string; page: string }> = {
   SALE: { label: "Sale", icon: "ph-shopping-cart-simple", page: "Fertilizer Inventory" },
@@ -13,6 +13,7 @@ const SOURCE_META: Record<TransactionSource["kind"], { label: string; icon: stri
   PRODUCE_SALE: { label: "Produce sale", icon: "ph-scales", page: "Produce" },
   PRODUCE_PAYMENT: { label: "Produce payment", icon: "ph-hand-arrow-up", page: "Farmers" },
   PRODUCE_RECEIPT: { label: "Produce dues", icon: "ph-hand-coins", page: "Produce" },
+  CABLE_PAYMENT: { label: "Renewal payment", icon: "ph-wifi-high", page: "Cable & Internet" },
 };
 
 /** True when another module posted the entry and it can't be changed from the ledger. */

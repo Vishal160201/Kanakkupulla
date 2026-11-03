@@ -10,7 +10,7 @@ vi.mock("@/lib/prisma", () => ({ default: { shopMember: { findMany }, shop: { fi
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("next-auth", () => ({ getServerSession }));
 
-import { can, canWriteTransaction, clearAccessCache, getSessionUser, getUserAccess, requireAccess, requireOwner, verifyCronRequest } from "@/lib/authz";
+import { can, canWriteTransaction, getSessionUser, getUserAccess, requireAccess, requireOwner, verifyCronRequest } from "@/lib/authz";
 
 const sessionFor = (role: string, status = "ACTIVE") => ({ user: { id: "u1", role, status, email: "a@b.c", name: "A" } });
 const member = { id: "u1", role: "MEMBER" as const, email: null, name: null };
@@ -24,7 +24,6 @@ const membership = (shopId: string, type: string, key: string, perms: Record<str
 beforeEach(() => {
   findMany.mockReset().mockResolvedValue([]);
   getServerSession.mockReset();
-  clearAccessCache();
   delete process.env.CRON_SECRET;
 });
 
@@ -59,10 +58,10 @@ describe("per-shop roles", () => {
     expect(await can(member, "bookings", "MANAGE", "manju")).toBe(true); // studio module ignores the shop
   });
 
-  it("caches access briefly", async () => {
+  it("re-reads access every time so role changes apply at once", async () => {
     await getUserAccess(member);
     await getUserAccess(member);
-    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany).toHaveBeenCalledTimes(2);
   });
 
   it("allows booking-linked payments for booking managers", async () => {

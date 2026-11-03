@@ -13,7 +13,7 @@ export const PACK_UNITS: Record<PackType, readonly string[]> = {
   Bottle: ["ml", "L"],
   Packet: ["g", "kg"],
   Bag: ["kg"],
-  Loose: ["kg", "L", "tonne"],
+  Loose: ["kg", "L", "tonne", "m"],
   Piece: [],
 };
 
@@ -24,7 +24,7 @@ export const PACK_TYPE_HINTS: Record<PackType, string> = {
   Bottle: "Liquid in bottles (ml / litre)",
   Packet: "Packets by weight (g / kg)",
   Bag: "Bags / sacks by weight (kg)",
-  Loose: "Sold by weight or volume",
+  Loose: "Sold by weight, volume or length (m)",
   Piece: "Counted one by one",
 };
 

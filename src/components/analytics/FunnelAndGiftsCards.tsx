@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, type MouseHandlerDataParam
 } from "recharts";
-import { ShoppingBag, Target, Tag, X } from "lucide-react";
+import { ShoppingBag, Target, Tag, X } from "@/components/ui/icons";
 import type { FunnelStage, GiftsPerformance } from "./types";
 
 const COLORS = ['#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#8b5cf6'];

@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { Trash2 } from "@/components/ui/icons";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 /** Bottom sticky action bar of the details view. Without `onEdit` (no Bookings Manage) there is no Edit button. */

@@ -1,13 +1,13 @@
 "use client";
 
+import { useShops } from "@/components/providers/ShopProvider";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import CustomDropdown, { type DropdownOption } from "@/components/ui/CustomDropdown";
 import DatePickerInput from "@/components/ui/DatePickerInput";
-import { Tooltip } from "@/components/ui/Tooltip";
 import type { BillKind, CreditCustomer, InventoryBill, InventoryBillInput, InventoryProduct } from "@/types/inventory";
-import { FieldError, InventoryDialog, MoneyInput, RequiredMark, inputClass, inputErrorClass, labelClass, primaryButtonClass, secondaryButtonClass } from "../InventoryUI";
+import { FieldError, InventoryDialog, MoneyInput, RequiredMark, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from "../InventoryUI";
 import {
   PAYMENT_MODE_OPTIONS,
   errorDetails,
@@ -24,22 +24,10 @@ import {
   useRevalidateInventory,
 } from "../inventoryUtils";
 import { useCreditCustomers, useInventoryProducts } from "../useInventoryData";
-import { validateParty } from "../farmers/FarmerFormDialog";
 import { parseLineErrors } from "./lineErrors";
+import BillLineRow, { type LineDraft, type LineErrors } from "./BillLineRow";
+import NewFarmerInline from "./NewFarmerInline";
 import { cn } from "@/lib/utils";
-
-interface LineDraft {
-  key: number;
-  productId: string;
-  quantity: string;
-  unitPrice: string;
-}
-
-interface LineErrors {
-  product?: string;
-  quantity?: string;
-  unitPrice?: string;
-}
 
 interface BillFormDialogProps {
   shopId: string;
@@ -54,6 +42,7 @@ const NEW_CUSTOMER = "__new__";
 
 /** New Sale / New Purchase bill. Mount only while open. */
 export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClose, onCreated }: BillFormDialogProps) {
+  const { activeShopType } = useShops();
   const isSale = kind === "SALE";
   const router = useRouter();
   const revalidate = useRevalidateInventory();
@@ -78,9 +67,6 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
 
   // Inline "Add new farmer" mini-form.
   const [addingCustomer, setAddingCustomer] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", place: "" });
-  const [newCustomerErrors, setNewCustomerErrors] = useState<Record<string, string>>({});
-  const [savingCustomer, setSavingCustomer] = useState(false);
   const [createdCustomers, setCreatedCustomers] = useState<CreditCustomer[]>([]);
 
   const products = useMemo(() => (productData?.products ?? []).filter((p) => !p.isArchived), [productData]);
@@ -182,32 +168,12 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
     setErrors((prev) => ({ ...prev, customer: "" }));
   };
 
-  const saveNewCustomer = async () => {
-    const errs = validateParty(newCustomer.name, newCustomer.phone);
-    setNewCustomerErrors(errs);
-    if (Object.keys(errs).length > 0) return;
-    setSavingCustomer(true);
-    try {
-      const res = await sendJson<{ customer: CreditCustomer }>("/api/inventory/customers", "POST", {
-        shopId,
-        name: newCustomer.name.trim(),
-        phone: newCustomer.phone.trim() || undefined,
-        place: newCustomer.place.trim() || undefined,
-      });
-      if (res?.customer) {
-        setCreatedCustomers((prev) => [...prev, { ...res.customer, balance: res.customer.balance ?? 0 }]);
-        setCustomerId(res.customer.id);
-      }
-      toast.success(`${newCustomer.name.trim()} added`);
-      setAddingCustomer(false);
-      setNewCustomer({ name: "", phone: "", place: "" });
-      setErrors((prev) => ({ ...prev, customer: "" }));
-      void mutateCustomers();
-    } catch (err) {
-      toast.error(errorMessage(err));
-    } finally {
-      setSavingCustomer(false);
-    }
+  const onCustomerCreated = (customer: CreditCustomer) => {
+    setCreatedCustomers((prev) => [...prev, customer]);
+    setCustomerId(customer.id);
+    setAddingCustomer(false);
+    setErrors((prev) => ({ ...prev, customer: "" }));
+    void mutateCustomers();
   };
 
   // ----- Submit ---------------------------------------------------------------
@@ -333,62 +299,7 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
           )}
         </div>
 
-        {isSale && addingCustomer && (
-          <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 space-y-3 animate-slide-down">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <i className="ph-bold ph-user-plus text-orange-500" /> New farmer
-              </span>
-              <button type="button" aria-label="Cancel new farmer" onClick={() => { setAddingCustomer(false); setNewCustomerErrors({}); }} className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-white hover:text-slate-700">
-                <i className="ph-bold ph-x text-xs" />
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <input
-                  aria-label="Farmer name"
-                  autoFocus
-                  value={newCustomer.name}
-                  maxLength={100}
-                  onChange={(e) => setNewCustomer((c) => ({ ...c, name: e.target.value }))}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveNewCustomer(); } }}
-                  placeholder="Name *"
-                  className={cn(inputClass, newCustomerErrors.name && inputErrorClass)}
-                />
-                <FieldError message={newCustomerErrors.name} />
-              </div>
-              <div>
-                <input
-                  aria-label="Farmer phone"
-                  type="tel"
-                  inputMode="tel"
-                  value={newCustomer.phone}
-                  maxLength={20}
-                  onChange={(e) => setNewCustomer((c) => ({ ...c, phone: e.target.value }))}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveNewCustomer(); } }}
-                  placeholder="Phone"
-                  className={cn(inputClass, newCustomerErrors.phone && inputErrorClass)}
-                />
-                <FieldError message={newCustomerErrors.phone} />
-              </div>
-              <input
-                aria-label="Farmer village or place"
-                value={newCustomer.place}
-                maxLength={100}
-                onChange={(e) => setNewCustomer((c) => ({ ...c, place: e.target.value }))}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveNewCustomer(); } }}
-                placeholder="Village / place"
-                className={inputClass}
-              />
-            </div>
-            <div className="flex justify-end">
-              <button type="button" onClick={() => void saveNewCustomer()} disabled={savingCustomer} className={cn(primaryButtonClass, "h-10")}>
-                {savingCustomer ? <i className="ph ph-circle-notch animate-spin" /> : <i className="ph-bold ph-check" />}
-                Add customer
-              </button>
-            </div>
-          </div>
-        )}
+        {isSale && addingCustomer && <NewFarmerInline shopId={shopId} onCreated={onCustomerCreated} onCancel={() => setAddingCustomer(false)} />}
 
         {/* Lines */}
         <div>
@@ -397,9 +308,9 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
             <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 flex flex-col items-center gap-3 text-center">
               <i className="ph-bold ph-package text-2xl text-slate-300" aria-hidden="true" />
               <p className="text-sm font-medium text-slate-500">
-                No products yet. Add your products (name, pack, price) in Fertilizer Inventory first.
+                No products yet. Add your products (name, pack, price) first.
               </p>
-              <button type="button" onClick={() => { onClose(); router.push("/inventory?tab=products"); }} className={cn(secondaryButtonClass, "h-10")}>
+              <button type="button" onClick={() => { onClose(); router.push(activeShopType === "CABLE" ? "/subscribers?tab=equipment" : "/inventory?tab=products"); }} className={cn(secondaryButtonClass, "h-10")}>
                 <i className="ph-bold ph-plus" /> Add products
               </button>
             </div>
@@ -419,73 +330,21 @@ export default function BillFormDialog({ shopId, kind, defaultCustomerId, onClos
                 <span />
               </div>
               <ul className="space-y-2">
-                {lines.map((line, idx) => {
-                  const product = productById.get(line.productId);
-                  const le = shownLineErrors(line.key);
-                  return (
-                    <li key={line.key} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-2.5 md:p-1.5 md:bg-transparent md:border-0">
-                      <div className="grid grid-cols-[1fr_36px] md:grid-cols-[1fr_120px_130px_120px_36px] gap-2 items-start">
-                        <div className="min-w-0">
-                          <CustomDropdown
-                            options={productOptionsFor(line)}
-                            value={line.productId}
-                            onChange={(v) => selectProduct(line.key, v)}
-                            error={!!le.product}
-                            placeholder={productsLoading ? "Loading products…" : `Item ${idx + 1}: choose product`}
-                          />
-                          <FieldError message={le.product} />
-                        </div>
-                        <div className="md:order-last pt-1.5 md:pt-0">
-                          <Tooltip content="Remove item">
-                            <button
-                              type="button"
-                              aria-label={`Remove item ${idx + 1}`}
-                              onClick={() => removeLine(line.key)}
-                              className="h-9 w-9 md:h-[45px] flex items-center justify-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                            >
-                              <i className="ph-bold ph-trash" />
-                            </button>
-                          </Tooltip>
-                        </div>
-                        <div className="col-span-2 md:col-span-3 grid grid-cols-3 md:grid-cols-[120px_130px_120px] gap-2 md:contents">
-                          <div className="min-w-0">
-                            <div className="relative">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                autoComplete="off"
-                                aria-label={`Quantity for item ${idx + 1}`}
-                                aria-invalid={!!le.quantity || undefined}
-                                value={line.quantity}
-                                onChange={(e) => updateLine(line.key, { quantity: sanitizeDecimal(e.target.value) })}
-                                placeholder="Qty"
-                                className={cn(inputClass, "h-[45px] pr-11", le.quantity && inputErrorClass)}
-                              />
-                              {product && (
-                                <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 max-w-[40px] truncate">{quantityUnit(product, 2)}</span>
-                              )}
-                            </div>
-                            <FieldError message={le.quantity} />
-                          </div>
-                          <div className="min-w-0">
-                            <MoneyInput
-                              ariaLabel={`Rate for item ${idx + 1}`}
-                              value={line.unitPrice}
-                              onChange={(v) => updateLine(line.key, { unitPrice: sanitizeDecimal(v, 2) })}
-                              hasError={!!le.unitPrice}
-                              placeholder="Rate"
-                              className="[&_input]:h-[45px]"
-                            />
-                            <FieldError message={le.unitPrice} />
-                          </div>
-                          <div className="h-[45px] flex items-center justify-end px-1 text-sm font-extrabold text-slate-900 truncate">
-                            {formatINR(lineAmount(line))}
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
+                {lines.map((line, idx) => (
+                  <BillLineRow
+                    key={line.key}
+                    line={line}
+                    index={idx}
+                    product={productById.get(line.productId)}
+                    amount={lineAmount(line)}
+                    errors={shownLineErrors(line.key)}
+                    productOptions={productOptionsFor(line)}
+                    productsLoading={productsLoading}
+                    onSelectProduct={(v) => selectProduct(line.key, v)}
+                    onChange={(patch) => updateLine(line.key, patch)}
+                    onRemove={() => removeLine(line.key)}
+                  />
+                ))}
               </ul>
               <button
                 type="button"

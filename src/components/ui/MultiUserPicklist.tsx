@@ -83,6 +83,7 @@ export default function MultiUserPicklist({ users, value, onChange, placeholder 
                 onClick={(e) => e.stopPropagation()}
               >
                 {u.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- runtime URL (Drive, upload or OAuth avatar), not optimizable by next/image
                   <img src={u.image} alt={u.name} className="w-6 h-6 rounded-full object-cover shadow-sm border border-white" />
                 ) : (
                   <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[0.6rem] font-bold shadow-sm border border-white">
@@ -124,6 +125,7 @@ export default function MultiUserPicklist({ users, value, onChange, placeholder 
                 >
                   <div className="flex items-center gap-3">
                     {u.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- runtime URL (Drive, upload or OAuth avatar), not optimizable by next/image
                       <img src={u.image} alt={u.name} className={`w-8 h-8 rounded-full object-cover shadow-sm border border-white ${showAvailability && u.isBusy ? 'grayscale opacity-60' : ''}`} />
                     ) : (
                       <div className={`w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[0.7rem] font-bold shadow-sm border border-white shrink-0 ${showAvailability && u.isBusy ? 'text-slate-400' : 'text-slate-600'}`}>

@@ -6,6 +6,7 @@ import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import type { JWT } from "next-auth/jwt";
+import { identifierLookup } from "@/lib/auth/username";
 
 const ROLE_REFRESH_MS = 60 * 1000;
 
@@ -54,7 +55,8 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        // Holds an email or a username; the field name is kept for the sign-in page
+        email: { label: "Email or username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
@@ -63,9 +65,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email.toLowerCase(),
-          },
+          where: identifierLookup(credentials.email),
         });
 
         if (!user || !user?.password) {
@@ -86,7 +86,8 @@ export const authOptions: NextAuthOptions = {
             where: { token: credentials.password },
           });
 
-          if (tempToken && tempToken.email.toLowerCase() === credentials.email.toLowerCase()) {
+          // Tokens are keyed by email, so compare with the account's email (the user may have typed a username)
+          if (tempToken && user.email && tempToken.email.toLowerCase() === user.email.toLowerCase()) {
             const hasExpired = new Date(tempToken.expires) < new Date();
             if (!hasExpired) {
               throw new Error(`TEMPORARY_PASSWORD:${tempToken.token}`);

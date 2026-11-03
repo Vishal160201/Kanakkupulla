@@ -1,6 +1,4 @@
-import {
-  TrendingUp, TrendingDown, DollarSign, Target, ShoppingBag, PieChart as PieChartIcon, Info
-} from "lucide-react";
+import { TrendingUp, TrendingDown, Rupee, Target, ShoppingBag, PieChart as PieChartIcon, Info } from "@/components/ui/icons";
 import { formatCurrency, type AnalyticsMetrics } from "./types";
 
 export function SmartInsightsPanel({ isLoading, insights }: { isLoading: boolean; insights: string[] }) {
@@ -26,7 +24,7 @@ export function SmartInsightsPanel({ isLoading, insights }: { isLoading: boolean
 
 export function KpiStrip({ metrics }: { metrics: AnalyticsMetrics }) {
   const kpis = [
-    { label: "Total Revenue", val: formatCurrency(metrics.totalRevenue), icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
+    { label: "Total Revenue", val: formatCurrency(metrics.totalRevenue), icon: Rupee, color: "text-emerald-600", bg: "bg-emerald-50" },
     { label: "Total Expenses", val: formatCurrency(metrics.totalExpenses), icon: TrendingDown, color: "text-red-600", bg: "bg-red-50" },
     { label: "Net Profit", val: formatCurrency(metrics.netProfit), icon: Target, color: "text-blue-600", bg: "bg-blue-50" },
     { label: "Collection Rate", val: `${metrics.collectionRate}%`, icon: PieChartIcon, color: "text-indigo-600", bg: "bg-indigo-50" },

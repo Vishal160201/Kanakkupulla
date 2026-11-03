@@ -1,6 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import prisma, { type AppPrismaClient } from "@/lib/prisma";
-import { clearAccessCache } from "@/lib/authz";
+import type { AppPrismaClient } from "@/lib/prisma";
 import { ShopError } from "@/lib/shops";
 
 type Tx = Omit<AppPrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends">;
@@ -28,7 +27,6 @@ export async function setUserAssignments(db: Tx, userId: string, assignments: { 
       create: { shopId: a.shopId, userId, roleId: a.roleId },
     });
   }
-  clearAccessCache(userId);
 }
 
 export const userAssignmentsSelect = {

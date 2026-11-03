@@ -8,6 +8,7 @@ import type { Shop } from "@/types/shops";
 import type { AccessRole, TeamMember, UpdateUserInput } from "@/types/settings";
 import UserAccessFields, { type AssignmentDraft } from "./users/UserAccessFields";
 import { STATUS_LABELS, STATUS_STYLES, avatarColorOf, initialsOf, readError, userIdLabel } from "./users/userHelpers";
+import { USERNAME_PATTERN } from "@/lib/auth/username";
 
 interface EditUserModalProps {
   user: TeamMember;
@@ -26,7 +27,7 @@ interface EditUserModalProps {
   onRequestDelete: (user: TeamMember) => void;
 }
 
-type FieldErrors = Partial<Record<"name" | "phone" | "assignments", string>>;
+type FieldErrors = Partial<Record<"name" | "username" | "phone" | "assignments", string>>;
 
 const inputClass =
   "w-full px-4 py-2.5 bg-white border rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all";
@@ -51,6 +52,7 @@ export default function EditUserModal({
 }: EditUserModalProps) {
   const [name, setName] = useState(user.name || "");
   const [phone, setPhone] = useState(user.phone || "");
+  const [username, setUsername] = useState(user.username || "");
   const [isOwner, setIsOwner] = useState(user.role === "OWNER");
   const [assignments, setAssignments] = useState<AssignmentDraft>(() => toDraft(user));
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -71,13 +73,17 @@ export default function EditUserModal({
     e.preventDefault();
     const found: FieldErrors = {};
     if (!name.trim()) found.name = "Enter a name";
+    if (username.trim() && !USERNAME_PATTERN.test(username.trim())) {
+      found.username = "Use 3–32 letters, numbers, dots, underscores or hyphens";
+    }
     if (!isOwner && !Object.entries(assignments).some(([shopId, roleId]) => roleId && activeShopIds.has(shopId))) {
       found.assignments = "Give access to at least one shop, or make them an Owner";
     }
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
-    const body: UpdateUserInput = { name: name.trim(), phone: phone.trim(), isOwner };
+    // An empty username clears it
+    const body: UpdateUserInput = { name: name.trim(), username: username.trim(), phone: phone.trim(), isOwner };
     // Owners don't need shop roles. Assignments in archived shops are kept as they were.
     if (!isOwner) {
       body.assignments = Object.entries(assignments)
@@ -172,9 +178,33 @@ export default function EditUserModal({
                 {errors.phone && <p role="alert" className="mt-1 text-xs font-semibold text-rose-600">{errors.phone}</p>}
               </div>
             </div>
-            <div>
-              <label htmlFor="edit-email" className={labelClass}>Email address</label>
-              <input id="edit-email" type="email" value={user.email || ""} readOnly className={readonlyClass} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="edit-email" className={labelClass}>Email address</label>
+                <input id="edit-email" type="email" value={user.email || ""} readOnly className={readonlyClass} />
+              </div>
+              <div>
+                <label htmlFor="edit-username" className={labelClass}>
+                  Username <span className="normal-case font-medium text-slate-400">(optional)</span>
+                </label>
+                <input
+                  id="edit-username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  placeholder="e.g. arjun"
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={!!errors.username}
+                  className={`${inputClass} ${errors.username ? "border-rose-400" : "border-slate-200"}`}
+                />
+                {errors.username ? (
+                  <p role="alert" className="mt-1 text-xs font-semibold text-rose-600">{errors.username}</p>
+                ) : (
+                  <p className="mt-1 text-[0.7rem] text-slate-400">Signs in with this or the email.</p>
+                )}
+              </div>
             </div>
 
             <UserAccessFields

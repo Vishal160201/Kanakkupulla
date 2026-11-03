@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalUsernameSchema } from "@/lib/auth/username";
 
 export const USER_STATUSES = ["ACTIVE", "PENDING", "INACTIVE"] as const;
 
@@ -16,6 +17,8 @@ export const userCreateSchema = z
       .toLowerCase()
       .min(1, "Name and email are required")
       .pipe(z.email("Invalid email address")),
+    /** Optional sign-in name; people can sign in with either this or the email. */
+    username: optionalUsernameSchema.optional().transform(v => v ?? null),
     phone: z.string().trim().max(20).nullish().transform(v => v || null),
     isOwner: z.boolean().default(false),
     assignments: assignments.default([]),
@@ -30,12 +33,19 @@ export const userUpdateSchema = z
   .object({
     status: z.enum(USER_STATUSES, { message: "Invalid status" }).optional().or(z.literal("").transform(() => undefined)),
     name: z.string().trim().nullish(),
+    username: optionalUsernameSchema.optional(),
     phone: z.string().trim().nullish(),
     isOwner: z.boolean().optional(),
     assignments: assignments.optional(),
   })
   .refine(
-    d => d.status !== undefined || d.name !== undefined || d.phone !== undefined || d.isOwner !== undefined || d.assignments !== undefined,
+    d =>
+      d.status !== undefined ||
+      d.name !== undefined ||
+      d.username !== undefined ||
+      d.phone !== undefined ||
+      d.isOwner !== undefined ||
+      d.assignments !== undefined,
     { message: "No valid fields provided" }
   );
 

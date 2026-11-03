@@ -2,20 +2,23 @@
 
 import { useShops } from "@/components/providers/ShopProvider";
 import ShopIcon from "@/components/shops/ShopIcon";
-import { EmptyState, cardClass } from "./InventoryUI";
-import InventorySkeleton from "./InventorySkeleton";
+import { EmptyState, cardClass } from "@/components/inventory/InventoryUI";
+import InventorySkeleton from "@/components/inventory/InventorySkeleton";
+import { SHOP_TYPE_LABELS, type ShopTypeName } from "@/lib/shopModules";
 
 /**
- * Frame for the fertilizer-shop pages (Fertilizer Inventory, Farmers, Produce): waits for the
- * active shop, explains when it isn't a fertilizer shop, and shows which shop this is with the
+ * Frame for the pages of one shop type (Fertilizer Inventory, Farmers, Produce, Subscribers): waits
+ * for the active shop, explains when it is another type, and shows which shop this is with the
  * page's main actions. Content is keyed by shop so switching shops resets its state.
  */
-export default function FertilizerShopShell({
+export default function ShopTypeShell({
+  shopType,
   pageName,
   eyebrow,
   actions,
   children,
 }: {
+  shopType: Exclude<ShopTypeName, "STUDIO">;
   pageName: string;
   eyebrow: string;
   actions?: React.ReactNode;
@@ -25,13 +28,13 @@ export default function FertilizerShopShell({
 
   if (!isReady) return <InventorySkeleton />;
 
-  if (!activeShop || activeShopId === "all" || activeShopType !== "FERTILIZER") {
+  if (!activeShop || activeShopId === "all" || activeShopType !== shopType) {
     return (
       <div className={`${cardClass} max-w-lg mx-auto mt-6`}>
         <EmptyState
-          icon="plant"
-          title="Select a fertilizer shop from the Studio menu"
-          message={`${pageName} is available for fertilizer shops only. Switch shops from the menu next to your avatar.`}
+          icon={shopType === "CABLE" ? "broadcast" : "plant"}
+          title={`Select a ${SHOP_TYPE_LABELS[shopType].toLowerCase()} shop from the Studio menu`}
+          message={`${pageName} is available for ${SHOP_TYPE_LABELS[shopType].toLowerCase()} shops only. Switch shops from the menu next to your avatar.`}
         />
       </div>
     );

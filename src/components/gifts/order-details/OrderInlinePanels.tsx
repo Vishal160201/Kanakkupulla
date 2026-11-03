@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Loader2, Tag, Wallet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Tag, Wallet } from "@/components/ui/icons";
 import type { GiftOrderDetails } from "./useGiftOrderDetails";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 

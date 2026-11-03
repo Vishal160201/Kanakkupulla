@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Calendar, ArrowRight, Clock, MapPin, User } from "lucide-react";
+import { X, Calendar, ArrowRight, Clock, MapPin, User } from "@/components/ui/icons";
 import Link from "next/link";
 import Image from "next/image";
 import useSWR from "swr";
@@ -167,6 +167,7 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
                 src="/banner-photographer.png"
                 alt="Photographer"
                 fill
+                sizes="(min-width: 768px) 55vw, 0px"
                 style={{ objectFit: 'contain', objectPosition: 'bottom center' }}
                 className="drop-shadow-[0_0_40px_rgba(139,92,246,0.6)] scale-[1.35] origin-bottom -translate-y-20"
               />

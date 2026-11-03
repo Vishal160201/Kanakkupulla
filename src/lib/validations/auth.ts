@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-/** POST /api/auth/forgot-password */
+/** POST /api/auth/forgot-password (`email` may also be a username; the field name is kept for the sign-in page) */
 export const forgotPasswordSchema = z.object({
   email: z
-    .string({ message: "Email is required" })
+    .string({ message: "Email or username is required" })
     .trim()
     .toLowerCase()
-    .min(1, "Email is required")
+    .min(1, "Email or username is required")
     .max(320),
 });
 

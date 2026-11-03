@@ -1,9 +1,5 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  FileText, Wallet, Clock, MapPin, Tag, UserCircle, Calendar, Link as LinkIcon, Phone, Mail, Info,
-  Camera, Image as ImageIcon, LayoutList, Users, FolderOpen, Package,
-  BookOpen, Maximize, Images, Activity, CheckCircle2, XCircle, Edit3, Send, Play, User, Focus, Gem, Church, Heart,
-} from "lucide-react";
+import type { IconComponent } from "@/components/ui/icons";
+import { FileText, Wallet, Clock, MapPin, Tag, UserCircle, Calendar, Link as LinkIcon, Phone, Mail, Info, Camera, Image as ImageIcon, LayoutList, Users, FolderOpen, Package, BookOpen, Maximize, Images, Activity, CheckCircle2, XCircle, Edit3, Send, Play, User, Focus, Gem, Church, Heart } from "@/components/ui/icons";
 
 export const getSectionIcon = (title: string) => {
   const t = (title || '').toLowerCase();
@@ -43,9 +39,9 @@ export const getFieldIcon = (field: { name?: string }) => {
 };
 
 /** Icon + colours for one entry of a multi-select / inclusions list. */
-export const getInclusionItemStyle = (item: string): { ItemIcon: LucideIcon; itemColor: string; itemBg: string } => {
+export const getInclusionItemStyle = (item: string): { ItemIcon: IconComponent; itemColor: string; itemBg: string } => {
   const itemLower = item.toLowerCase();
-  let ItemIcon: LucideIcon = Camera;
+  let ItemIcon: IconComponent = Camera;
   let itemColor = "text-indigo-500";
   let itemBg = "bg-indigo-50/70";
 

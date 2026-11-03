@@ -1,6 +1,6 @@
 "use client";
 
-import { Paperclip } from "lucide-react";
+import { Paperclip } from "@/components/ui/icons";
 import type { GiftOrderCustomData } from "@/types/gifts";
 import { isDriveAttachment } from "@/types/gifts";
 import { isAttachmentValue } from "./orderDetailsConstants";
@@ -23,6 +23,7 @@ export default function AttachmentsCard({ customData }: { customData: GiftOrderC
             const fileId = driveFile.id || driveFile.driveFileId;
             return (
               <a key={key} href={driveFile.url || driveFile.webViewLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer w-fit min-w-[200px]">
+                {/* eslint-disable-next-line @next/next/no-img-element -- runtime URL (Drive, upload or OAuth avatar), not optimizable by next/image */}
                 <img
                   src={fileId ? `/api/integrations/google/thumbnail?fileId=${fileId}` : driveFile.iconUrl}
                   alt="Drive File"
@@ -50,6 +51,7 @@ export default function AttachmentsCard({ customData }: { customData: GiftOrderC
             return (
               <Tooltip key={key} content="Click to view full size">
                 <button type="button" aria-label="View attachment full size" className="w-24 h-24 rounded-xl border border-slate-200 overflow-hidden bg-slate-100 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.open(val, '_blank')}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- runtime URL (Drive, upload or OAuth avatar), not optimizable by next/image */}
                   <img src={val} alt="Attachment" className="w-full h-full object-cover" />
                 </button>
               </Tooltip>

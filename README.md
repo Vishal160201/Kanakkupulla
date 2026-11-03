@@ -40,7 +40,7 @@ See `.env.example` for the full list. Required at minimum: `DATABASE_URL` and `N
 | Web push | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` |
 | Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` |
 | Cron | `CRON_SECRET` |
-| Personal tracker (optional) | `PERSONAL_TRACKER_EMAIL`, `NEXT_PUBLIC_PERSONAL_TRACKER_EMAIL` (same value) |
+| Primary owner (optional) | `NEXT_PUBLIC_PERSONAL_TRACKER_EMAIL`: personal recycle bin tab and master-admin lock |
 | WhatsApp | `WHATSAPP_BOT_URL`, `WHATSAPP_BOT_SECRET` |
 | Bot server only | `WHATSAPP_BOT_SECRET`, `ALLOWED_ORIGIN` (optional), `PORT` (optional, default 3001) |
 
@@ -52,6 +52,7 @@ See `.env.example` for the full list. Required at minimum: `DATABASE_URL` and `N
 | `npm run build` | `prisma generate && next build`. It never touches the database. |
 | `npm start` | Start the production server |
 | `npm test` | Run the unit tests (Vitest) |
+| `npm run test:e2e` | Playwright smoke tests (signed-out redirects, API/cron auth); starts the dev server if needed |
 | `npm run lint` | `eslint .` |
 | `npm run db:migrate` | `prisma migrate deploy`: apply pending migrations (production/CI) |
 | `npm run db:migrate:dev` | `prisma migrate dev`: create and apply a new migration in development |

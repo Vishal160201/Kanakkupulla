@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Receipt, Wallet, Clock, CheckCircle2, TrendingUp, Check, CreditCard } from "lucide-react";
+import { Receipt, Wallet, Clock, CheckCircle2, TrendingUp, Check, CreditCard } from "@/components/ui/icons";
 import type { BookingDetail, BookingTransaction } from "@/types/bookings";
 import { clickableProps } from "../clickableProps";
 

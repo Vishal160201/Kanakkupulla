@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FileText, Link as LinkIcon, Target, Upload } from "lucide-react";
+import { FileText, Link as LinkIcon, Target, Upload } from "@/components/ui/icons";
 import type { BookingDetail, LayoutSchema } from "@/types/bookings";
 import { STANDARD_FIELD_MAP } from "../layoutUtils";
 import { readBookingField } from "./bookingFields";
