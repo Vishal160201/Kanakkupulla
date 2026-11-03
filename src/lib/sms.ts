@@ -51,7 +51,17 @@ export async function sendSms(gateway: SmsGateway, to: string, content: string, 
     throw new SmsError("Couldn't reach httpSMS. Check the phone's internet and try again.", 502);
   }
   if (!res.ok) {
-    throw new SmsError(res.status === 401 ? "httpSMS rejected the API key. Check it in Settings." : `httpSMS couldn't send the SMS (error ${res.status}).`, 502);
+    // Surface httpSMS's own reason so a bad key vs an unregistered number is clear
+    let detail = "";
+    try {
+      const body = (await res.json()) as { message?: string; data?: unknown };
+      detail = body.message || (typeof body.data === "string" ? body.data : "");
+    } catch {
+      detail = (await res.text().catch(() => "")).slice(0, 140);
+    }
+    const suffix = detail ? ` (${detail})` : "";
+    if (res.status === 401) throw new SmsError(`httpSMS rejected the API key${suffix}. Copy it again from httpsms.com/settings into Settings.`, 502);
+    throw new SmsError(`httpSMS couldn't send the SMS: error ${res.status}${suffix}.`, 502);
   }
 }
 
