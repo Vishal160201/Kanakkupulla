@@ -10,7 +10,7 @@ import { dateInput, idSchema } from "@/lib/validations/common";
 
 export const dynamic = "force-dynamic";
 
-const query = z.object({ shopId: idSchema, date: dateInput("Pick a date.") });
+const query = z.object({ shopId: idSchema, date: dateInput("Pick a date."), provider: z.enum(["TIC_FIBER", "TCCL"]).optional() });
 
 // GET /api/cable/collections?shopId=&date=YYYY-MM-DD — that day's payments, with totals per collector.
 export async function GET(request: Request) {
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const start = q.data.date;
     const end = new Date(start.getTime() + 86_400_000);
     const payments = await prisma.cablePayment.findMany({
-      where: { shopId: shop.id, voidedAt: null, date: { gte: start, lt: end } },
+      where: { shopId: shop.id, voidedAt: null, date: { gte: start, lt: end }, ...(q.data.provider ? { subscriber: { provider: q.data.provider } } : {}) },
       orderBy: { createdAt: "asc" },
       include: { subscriber: { select: { id: true, name: true, externalId: true, area: true } } },
     });

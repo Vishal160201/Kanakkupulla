@@ -100,9 +100,10 @@ Thank you,
 {shop}`,
     paymentDue: `Hi {customer},
 
-A gentle reminder: *{due}* is pending for your internet renewal.
+A gentle reminder: *{due}* is pending for your {service}.
 
 Plan: {plan}
+VC number: {vc}
 Pay by UPI: {upi}
 Help: {phone}
 
@@ -110,9 +111,10 @@ Thank you,
 {shop}`,
     thanks: `Hi {customer},
 
-We received *{paid}* for your internet renewal. Thank you!
+We received *{paid}* for your {service}. Thank you!
 
 Plan: {plan}
+VC number: {vc}
 Active till: *{expiry}*
 
 {shop}`,
@@ -142,9 +144,10 @@ UPI மூலம் செலுத்த: {upi}
 {shop}`,
     paymentDue: `வணக்கம் {customer},
 
-உங்கள் இணையப் புதுப்பிப்புக்கான *{due}* இன்னும் செலுத்தப்படவில்லை. தயவுசெய்து விரைவில் செலுத்தவும்.
+உங்கள் {service} *{due}* இன்னும் செலுத்தப்படவில்லை. தயவுசெய்து விரைவில் செலுத்தவும்.
 
 திட்டம்: {plan}
+VC எண்: {vc}
 UPI மூலம் செலுத்த: {upi}
 உதவிக்கு: {phone}
 
@@ -152,13 +155,20 @@ UPI மூலம் செலுத்த: {upi}
 {shop}`,
     thanks: `வணக்கம் {customer},
 
-உங்கள் இணையப் புதுப்பிப்புக்கான *{paid}* பெற்றுக்கொண்டோம். நன்றி!
+உங்கள் {service} *{paid}* பெற்றுக்கொண்டோம். நன்றி!
 
 திட்டம்: {plan}
+VC எண்: {vc}
 *{expiry}* வரை செயலில் இருக்கும்
 
 {shop}`,
   },
+};
+
+/** What the money is for, as the {service} placeholder: internet renewal or cable TV bill (Tamil takes the "for" ending). */
+export const SERVICE_TEXT: Record<"internet" | "cable", Record<MessageLanguage, string>> = {
+  internet: { en: "internet renewal", ta: "இணையப் புதுப்பிப்புக்கான" },
+  cable: { en: "cable TV bill", ta: "கேபிள் டிவி கட்டணத்துக்கான" },
 };
 
 /** "06 Nov 2026" / "06 நவ., 2026" for messages in that language. */

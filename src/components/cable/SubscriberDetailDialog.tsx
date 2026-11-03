@@ -49,10 +49,18 @@ function RenewalRow({ renewal, canManage }: { renewal: CableRenewal; canManage: 
   return (
     <li className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
       <div className="min-w-0">
-        <div className="font-bold text-slate-800 truncate">{renewal.plan ?? "Plan not shown"}</div>
+        <div className="font-bold text-slate-800 truncate">
+          {renewal.kind === "RENEWAL" ? (renewal.plan ?? "Plan not shown") : renewal.kind === "BILL" ? "Cable TV bill" : "Opening balance from TCCL"}
+        </div>
         <div className="text-[11px] font-semibold text-slate-400">
-          Renewed {formatDate(renewal.renewedAt ?? renewal.createdAt)} · {renewal.previousExpiry ? `${formatDate(renewal.previousExpiry)} → ` : ""}
-          {formatDate(renewal.expiresAt)}
+          {renewal.kind === "RENEWAL" ? (
+            <>
+              Renewed {formatDate(renewal.renewedAt ?? renewal.createdAt)} · {renewal.previousExpiry ? `${formatDate(renewal.previousExpiry)} → ` : ""}
+              {formatDate(renewal.expiresAt)}
+            </>
+          ) : (
+            <>Added {formatDate(renewal.renewedAt ?? renewal.createdAt)}{renewal.amount !== null && renewal.amount < 0 && " · paid in advance"}</>
+          )}
         </div>
       </div>
       {editing ? (
@@ -118,6 +126,7 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
   const [voiding, setVoiding] = useState<CablePayment | null>(null);
   const [busy, setBusy] = useState(false);
   const s = data?.subscriber;
+  const isCable = s?.provider === "TCCL";
 
   const doVoid = async () => {
     if (!voiding) return;
@@ -136,7 +145,7 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
 
   return (
     <>
-      <InventoryDialog open onClose={onClose} eyebrow="TIC Fiber subscriber" title={s?.name ?? "Subscriber"} subtitle={s ? [s.externalId, s.area].filter(Boolean).join(" · ") : undefined} size="lg">
+      <InventoryDialog open onClose={onClose} eyebrow={isCable ? "TCCL cable TV" : "TIC Fiber internet"} title={s?.name ?? "Subscriber"} subtitle={s ? [s.externalId, s.area].filter(Boolean).join(" · ") : undefined} size="lg">
         {error ? (
           <ErrorState message={errorMessage(error)} onRetry={() => mutate()} />
         ) : !s ? (
@@ -176,6 +185,7 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
               <CollectPaymentForm
                 subscriberId={s.id}
                 due={s.due}
+                isCable={isCable}
                 onDone={(paid) => {
                   setPanel(null);
                   if (paid) setChat({ paid });
@@ -185,16 +195,25 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
             {panel === "complaint" && <ComplaintForm subscriberId={s.id} onDone={() => setPanel(null)} />}
 
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <Field label="Status" value={<Pill tone={s.status === "Active" ? "green" : "slate"}>{s.status}</Pill>} />
-              <Field label="Plan" value={s.plan} />
-              <Field label="Expiry" value={s.expiresAt && `${formatDate(s.expiresAt)} · ${expiryLabel(s.expiresAt)}`} />
+              <Field label={isCable ? "Set-top box" : "Status"} value={<Pill tone={s.status === "Active" ? "green" : "slate"}>{s.status}</Pill>} />
+              {isCable ? (
+                <>
+                  <Field label="VC number" value={s.vcNumber} />
+                  <Field label="STB serial" value={s.macId} />
+                </>
+              ) : (
+                <>
+                  <Field label="Plan" value={s.plan} />
+                  <Field label="Expiry" value={s.expiresAt && `${formatDate(s.expiresAt)} · ${expiryLabel(s.expiresAt)}`} />
+                </>
+              )}
               <Field label="Phone" value={s.phone && <a className="text-orange-600 hover:underline" href={`tel:${s.phone}`}>{s.phone}</a>} />
               <Field label="Alternative phone" value={s.altPhone} />
               <Field label="Area" value={s.area} />
-              <Field label="Last renewal" value={s.renewedAt && formatDate(s.renewedAt)} />
+              {!isCable && <Field label="Last renewal" value={s.renewedAt && formatDate(s.renewedAt)} />}
               <Field label="Activated" value={s.activatedAt && formatDate(s.activatedAt)} />
               <Field label="Customer since" value={s.createdOn && formatDate(s.createdOn)} />
-              <Field label="MAC ID" value={s.macId} />
+              {!isCable && <Field label="MAC ID" value={s.macId} />}
               <div className="col-span-2">
                 <Field label="Address" value={s.address} />
               </div>
@@ -212,9 +231,11 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
             )}
 
             <section>
-              <SectionTitle>Renewals</SectionTitle>
+              <SectionTitle>{isCable ? "Bills" : "Renewals"}</SectionTitle>
               {s.renewals.length === 0 ? (
-                <p className="text-sm font-medium text-slate-400">None yet. A renewal is added when a sync sees the expiry date move forward.</p>
+                <p className="text-sm font-medium text-slate-400">
+                  {isCable ? "None yet. A bill is added when TCCL's billed total goes up." : "None yet. A renewal is added when a sync sees the expiry date move forward."}
+                </p>
               ) : (
                 <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
                   {s.renewals.map((r) => (
@@ -240,11 +261,11 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
         )}
       </InventoryDialog>
 
-      {chat && s && <WhatsAppDialog target={{ name: s.name, phone: s.phone, plan: s.plan, expiresAt: s.expiresAt, due: Math.max(0, s.due - (chat.paid ?? 0)), paid: chat.paid }} shop={shop} onClose={() => setChat(null)} />}
+      {chat && s && <WhatsAppDialog target={{ provider: s.provider, vcNumber: s.vcNumber, name: s.name, phone: s.phone, plan: s.plan, expiresAt: s.expiresAt, due: Math.max(0, s.due - (chat.paid ?? 0)), paid: chat.paid }} shop={shop} onClose={() => setChat(null)} />}
       <ConfirmDialog
         open={!!voiding}
         title="Void this payment?"
-        message={voiding && <>{formatINR(voiding.amount)} is owed by {s?.name ?? "the subscriber"} again and its Internet Renewal entry is removed from Daily Kanakku.</>}
+        message={voiding && <>{formatINR(voiding.amount)} is owed by {s?.name ?? "the subscriber"} again and its {isCable ? "Cable Collection" : "Internet Renewal"} entry is removed from Daily Kanakku.</>}
         confirmLabel="Void"
         busyLabel="Voiding…"
         icon="prohibit"

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { useRevalidateCable } from "./useCableData";
 
 /** Money received from a subscriber: posted to Daily Kanakku as Internet Renewal. More than the due is kept as advance. */
-export default function CollectPaymentForm({ subscriberId, due, onDone }: { subscriberId: string; due: number; onDone: (amount?: number) => void }) {
+export default function CollectPaymentForm({ subscriberId, due, isCable, onDone }: { subscriberId: string; due: number; isCable?: boolean; onDone: (amount?: number) => void }) {
   const revalidate = useRevalidateCable();
   const [amount, setAmount] = useState(due > 0 ? String(roundMoney(due)) : "");
   const [date, setDate] = useState(todayISO());
@@ -30,7 +30,7 @@ export default function CollectPaymentForm({ subscriberId, due, onDone }: { subs
     setSaving(true);
     try {
       await sendJson(`/api/cable/subscribers/${encodeURIComponent(subscriberId)}/payments`, "POST", { amount: roundMoney(value), date, paymentMode: mode, notes: notes.trim() || undefined });
-      toast.success(`${formatINR(value)} collected`, { description: "Posted to Daily Kanakku as Internet Renewal." });
+      toast.success(`${formatINR(value)} collected`, { description: `Posted to Daily Kanakku as ${isCable ? "Cable Collection" : "Internet Renewal"}.` });
       revalidate();
       onDone(roundMoney(value));
     } catch (err) {

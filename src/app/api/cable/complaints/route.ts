@@ -10,7 +10,7 @@ import { idSchema } from "@/lib/validations/common";
 
 export const dynamic = "force-dynamic";
 
-const query = z.object({ shopId: idSchema, status: z.enum(["open", "fixed"]).default("open") });
+const query = z.object({ shopId: idSchema, status: z.enum(["open", "fixed"]).default("open"), provider: z.enum(["TIC_FIBER", "TCCL"]).optional() });
 
 // GET /api/cable/complaints?shopId=&status=open|fixed — complaints (open: oldest first; fixed: last 100) and who they can go to.
 export async function GET(request: Request) {
@@ -23,10 +23,10 @@ export async function GET(request: Request) {
     const open = q.data.status === "open";
     const [complaints, people] = await Promise.all([
       prisma.cableComplaint.findMany({
-        where: { shopId: shop.id, fixedAt: open ? null : { not: null } },
+        where: { shopId: shop.id, fixedAt: open ? null : { not: null }, ...(q.data.provider ? { subscriber: { provider: q.data.provider } } : {}) },
         orderBy: open ? { createdAt: "asc" } : { fixedAt: "desc" },
         take: open ? undefined : 100,
-        include: { subscriber: { select: { id: true, name: true, externalId: true, phone: true, area: true } } },
+        include: { subscriber: { select: { id: true, name: true, externalId: true, phone: true, area: true, provider: true } } },
       }),
       shopPeople(shop.id),
     ]);

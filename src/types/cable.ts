@@ -1,3 +1,6 @@
+// TIC Fiber (internet) or TCCL (cable TV).
+export type CableProvider = "TIC_FIBER" | "TCCL";
+
 // Cable & internet shops: subscribers synced from the TIC Fiber portal and the money / complaints around them.
 
 export interface CableSubscriberRow {
@@ -11,6 +14,8 @@ export interface CableSubscriberRow {
   status: string;
   plan: string | null;
   area: string | null;
+  /** Set-top box VC number (TCCL) */
+  vcNumber: string | null;
   expiresAt: string | null;
   renewedAt: string | null;
   /** Set when the subscriber no longer appears in the portal */
@@ -26,24 +31,30 @@ export interface CableShopInfo {
   contactPhone: string | null;
   walletBalance: number | null;
   walletSyncedAt: string | null;
+  tcclWalletBalance: number | null;
+  tcclWalletSyncedAt: string | null;
   lowWalletAlert: number | null;
 }
 
 export interface CableSubscriberListResponse {
   subscribers: CableSubscriberRow[];
+  /** Last TIC Fiber sync */
   syncedAt: string | null;
+  tcclSyncedAt: string | null;
   hasSyncKey: boolean;
   shop: CableShopInfo;
 }
 
 export interface CableRenewal {
   id: string;
+  /** RENEWAL (internet), BILL (TCCL monthly bill) or OPENING (balance carried over from TCCL) */
+  kind: "RENEWAL" | "BILL" | "OPENING";
   plan: string | null;
   /** null until the plan has a price */
   amount: number | null;
   renewedAt: string | null;
   previousExpiry: string | null;
-  expiresAt: string;
+  expiresAt: string | null;
   createdAt: string;
 }
 
@@ -102,7 +113,7 @@ export interface CableCollectionsResponse {
 }
 
 export interface CableReport {
-  months: { month: string; renewals: number; billed: number; collected: number; walletTopUps: number; margin: number }[];
+  months: { month: string; renewals: number; billed: number; collected: number }[];
   byPlan: { plan: string; renewals: number; billed: number }[];
   byArea: { area: string; collected: number }[];
   statusCounts: { status: string; count: number }[];

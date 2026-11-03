@@ -12,6 +12,9 @@
     button { flex: 1; height: 34px; border-radius: 10px; font: inherit; font-weight: 700; cursor: pointer; border: 1px solid #e2e8f0; background: #fff; color: #334155; }
     button.primary { background: #f97316; border-color: #f97316; color: #fff; }
     button:disabled { opacity: .5; cursor: default; }
+    .portals { margin-top: 0; }
+    .portal[aria-checked="true"] { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+    .portal[aria-checked="true"]::before { content: "✓ "; }
     #status { margin-top: 12px; padding: 8px 10px; border-radius: 10px; background: #f8fafc; color: #475569; font-weight: 600; }
     #status.ok { background: #ecfdf5; color: #047857; }
     #status.bad { background: #fff1f2; color: #be123c; }
@@ -19,11 +22,16 @@
   </style>
 </head>
 <body>
-  <h1>Kanakkupulla Sync · TIC Fiber</h1>
+  <h1>Kanakkupulla Sync</h1>
   <label for="appUrl">Kanakkupulla address</label>
   <input id="appUrl" type="url" placeholder="https://kanakkupulla.vercel.app" autocomplete="off">
   <label for="syncKey">Sync key</label>
   <input id="syncKey" type="password" placeholder="kks_…" autocomplete="off">
+  <label>Portals to sync</label>
+  <div class="row portals">
+    <button type="button" class="portal" data-setting="useTicFiber" role="switch">TIC Fiber</button>
+    <button type="button" class="portal" data-setting="useTccl" role="switch">TCCL</button>
+  </div>
   <div class="row">
     <button id="save" class="primary">Save</button>
     <button id="sync">Sync now</button>

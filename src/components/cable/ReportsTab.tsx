@@ -40,8 +40,9 @@ function BarRow({ label, value, max, detail }: { label: string; value: number; m
 }
 
 /** Last 6 months: renewals, billed vs collected, wallet top-ups and margin; revenue by plan and area. */
-export default function ReportsTab({ shopId }: { shopId: string }) {
-  const { data, error, mutate } = useCableReport(shopId);
+export default function ReportsTab({ shopId, provider }: { shopId: string; provider: import("@/types/cable").CableProvider }) {
+  const isCable = provider === "TCCL";
+  const { data, error, mutate } = useCableReport(shopId, provider);
   if (error) return <div className={cardClass}><ErrorState message={errorMessage(error)} onRetry={() => mutate()} /></div>;
   if (!data) return <div className={cn(cardClass, "p-4")}><ListSkeleton rows={4} /></div>;
 
@@ -51,17 +52,15 @@ export default function ReportsTab({ shopId }: { shopId: string }) {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <Card title="Month by month" hint="Margin = collected from subscribers − Wallet Top-up entries in Daily Kanakku">
+      <Card title="Month by month" hint={isCable ? "Cable TV bills raised and collected each month" : "Renewals and collections each month"}>
         <div className="overflow-x-auto -mx-1">
-          <table className="w-full min-w-[560px] text-sm">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="text-[10px] font-extrabold uppercase tracking-[1.2px] text-slate-400 text-right">
                 <th className="text-left py-2 px-1">Month</th>
-                <th className="py-2 px-1">Renewals</th>
+                <th className="py-2 px-1">{isCable ? "Bills" : "Renewals"}</th>
                 <th className="py-2 px-1">Billed</th>
                 <th className="py-2 px-1">Collected</th>
-                <th className="py-2 px-1">Wallet top-ups</th>
-                <th className="py-2 px-1">Margin</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -71,11 +70,6 @@ export default function ReportsTab({ shopId }: { shopId: string }) {
                   <td className="py-2.5 px-1">{m.renewals}</td>
                   <td className="py-2.5 px-1">{inr(m.billed)}</td>
                   <td className="py-2.5 px-1 text-emerald-700">{inr(m.collected)}</td>
-                  <td className="py-2.5 px-1 text-rose-600">{inr(m.walletTopUps)}</td>
-                  <td className={cn("py-2.5 px-1 font-extrabold", m.margin < 0 ? "text-rose-600" : "text-slate-900")}>
-                    {m.margin < 0 ? "−" : ""}
-                    {inr(Math.abs(m.margin))}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -83,18 +77,20 @@ export default function ReportsTab({ shopId }: { shopId: string }) {
         </div>
       </Card>
 
-      <div className="grid gap-5 sm:gap-6 lg:grid-cols-2">
-        <Card title="Billed by plan" hint="Renewals in the last 6 months">
-          {data.byPlan.length === 0 ? (
-            <EmptyState icon="chart-bar" title="No renewals yet" className="py-6" />
-          ) : (
-            <ul>
-              {data.byPlan.map((p) => (
-                <BarRow key={p.plan} label={p.plan} value={p.billed} max={maxPlan} detail={`· ${p.renewals}`} />
-              ))}
-            </ul>
-          )}
-        </Card>
+      <div className={cn("grid gap-5 sm:gap-6", !isCable && "lg:grid-cols-2")}>
+        {!isCable && (
+          <Card title="Billed by plan" hint="Renewals in the last 6 months">
+            {data.byPlan.length === 0 ? (
+              <EmptyState icon="chart-bar" title="No renewals yet" className="py-6" />
+            ) : (
+              <ul>
+                {data.byPlan.map((p) => (
+                  <BarRow key={p.plan} label={p.plan} value={p.billed} max={maxPlan} detail={`· ${p.renewals}`} />
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
         <Card title="Collected by area" hint="Payments in the last 6 months">
           {data.byArea.length === 0 ? (
             <EmptyState icon="map-pin" title="No collections yet" className="py-6" />

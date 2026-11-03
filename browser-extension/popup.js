@@ -18,8 +18,19 @@ for (const [field, draft] of Object.entries(DRAFTS)) {
   $(field).addEventListener("input", () => chrome.storage.local.set({ [draft]: $(field).value }));
 }
 
+// Portal switches: saved straight away; both are on until switched off
+const portals = [...document.querySelectorAll(".portal")];
+for (const button of portals) {
+  button.addEventListener("click", async () => {
+    const on = button.getAttribute("aria-checked") !== "true";
+    button.setAttribute("aria-checked", String(on));
+    await chrome.storage.local.set({ [button.dataset.setting]: on });
+  });
+}
+
 async function load() {
-  const saved = await chrome.storage.local.get(["appUrl", "syncKey", "status", ...Object.values(DRAFTS)]);
+  const saved = await chrome.storage.local.get(["appUrl", "syncKey", "status", ...Object.values(DRAFTS), ...portals.map((b) => b.dataset.setting)]);
+  for (const button of portals) button.setAttribute("aria-checked", String(saved[button.dataset.setting] ?? true));
   $("appUrl").value = saved.draftAppUrl ?? saved.appUrl ?? "";
   $("syncKey").value = saved.draftSyncKey ?? saved.syncKey ?? "";
   showStatus(saved.status);

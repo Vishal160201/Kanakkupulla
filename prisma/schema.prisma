@@ -116,6 +116,10 @@ model Shop {
   walletSyncedAt     DateTime?
   /// Warn when the wallet falls below this (cable shops); null = no warning
   lowWalletAlert     Decimal?            @db.Decimal(12, 2)
+  /// TCCL (cable TV) portal: last sync and partner wallet; the columns above are for TIC Fiber
+  tcclSyncedAt       DateTime?
+  tcclWalletBalance  Decimal?            @db.Decimal(12, 2)
+  tcclWalletSyncedAt DateTime?
   /// Shown in customer WhatsApp messages (cable shops)
   upiId              String?
   contactPhone       String?
@@ -443,7 +447,12 @@ model CableSubscriber {
   /// As the portal shows it: Active, Inactive, …
   status      String
   plan        String?
+  /// MAC id (TIC Fiber) or STB serial number (TCCL)
   macId       String?
+  /// Set-top box VC number (TCCL)
+  vcNumber    String?
+  /// TCCL's total billed for this customer as last seen; a rise is charged as a monthly bill
+  billedTotal Decimal?         @db.Decimal(12, 2)
   address     String?
   area        String?
   createdOn   DateTime?
@@ -463,16 +472,20 @@ model CableSubscriber {
   @@index([shopId, expiresAt])
 }
 
-/// Recorded when a sync sees a subscriber's expiry date move forward. Its amount is what the subscriber owes for it.
+/// A charge on a subscriber: an internet renewal (the sync saw the expiry move forward), a TCCL monthly bill
+/// (TCCL's billed total went up) or the opening balance carried over from TCCL. Dues = charges − payments.
 model CableRenewal {
   id             String          @id @default(cuid())
   subscriberId   String
+  /// RENEWAL | BILL | OPENING
+  kind           String          @default("RENEWAL")
   plan           String?
   /// The plan's price when it was renewed (editable); null until the plan has a price
   amount         Decimal?        @db.Decimal(12, 2)
   renewedAt      DateTime?
   previousExpiry DateTime?
-  expiresAt      DateTime
+  /// Renewals only (keeps a renewal from being recorded twice)
+  expiresAt      DateTime?
   createdAt      DateTime        @default(now())
   subscriber     CableSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
 

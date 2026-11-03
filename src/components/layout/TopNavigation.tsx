@@ -26,6 +26,7 @@ function getTitle(pathname: string) {
   if (pathname.startsWith("/inventory")) return "Fertilizer Inventory";
   if (pathname.startsWith("/farmers")) return "Farmers";
   if (pathname.startsWith("/produce")) return "Produce";
+  if (pathname.startsWith("/subscribers/cable")) return "TCCL";
   if (pathname.startsWith("/subscribers")) return "TIC Fiber";
   return "Moondot studio";
 }

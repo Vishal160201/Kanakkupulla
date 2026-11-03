@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CableSubscriberRow } from "@/types/cable";
+import type { CableProvider, CableSubscriberRow } from "@/types/cable";
 import { EmptyState, ErrorState, InventoryDialog, ListSkeleton, SearchInput, cardClass, primaryButtonClass } from "@/components/inventory/InventoryUI";
 import { errorMessage, useDebouncedValue } from "@/components/inventory/inventoryUtils";
 import { cn } from "@/lib/utils";
@@ -41,11 +41,12 @@ function NewComplaintDialog({ subscribers, onClose }: { subscribers: CableSubscr
 }
 
 /** Open complaints (oldest first) with who's fixing them; fixed ones for reference. */
-export default function ComplaintsTab({ shopId, subscribers, onOpen }: { shopId: string; subscribers: CableSubscriberRow[]; onOpen: (id: string) => void }) {
+export default function ComplaintsTab({ shopId, provider, subscribers, onOpen }: { shopId: string; provider: CableProvider; subscribers: CableSubscriberRow[]; onOpen: (id: string) => void }) {
   const [status, setStatus] = useState<"open" | "fixed">("open");
   const [adding, setAdding] = useState(false);
   const canManage = useCanManageCable();
-  const { data, error, isLoading, mutate } = useComplaints(shopId, status);
+  const { data, error, isLoading, mutate } = useComplaints(shopId, status, provider);
+  const providerSubscribers = subscribers.filter((s) => (s.provider === "TCCL") === (provider === "TCCL"));
 
   return (
     <section className={cn(cardClass, "p-4 sm:p-5 space-y-4")}>
@@ -94,7 +95,7 @@ export default function ComplaintsTab({ shopId, subscribers, onOpen }: { shopId:
           ))}
         </ul>
       )}
-      {adding && <NewComplaintDialog subscribers={subscribers} onClose={() => setAdding(false)} />}
+      {adding && <NewComplaintDialog subscribers={providerSubscribers} onClose={() => setAdding(false)} />}
     </section>
   );
 }

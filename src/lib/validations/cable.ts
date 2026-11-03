@@ -6,11 +6,12 @@ const money = (message: string) => numeric(message).refine((n) => n >= 0, { mess
 const optionalText = (max: number) => z.string().trim().max(max).nullish().transform((v) => v || null);
 
 export const cableShopQuery = z.object({ shopId: idSchema });
+export const cableReportQuery = z.object({ shopId: idSchema, provider: z.enum(["TIC_FIBER", "TCCL"]) });
 export const cableShopBody = z.object({ shopId: idSchema });
 
 /** What the browser extension posts: the portal report as heading → cell text rows (parsed on the server). */
 export const cableSyncSchema = z.object({
-  provider: z.literal("TIC_FIBER"),
+  provider: z.enum(["TIC_FIBER", "TCCL"]),
   rows: z.array(z.record(z.string().max(100), z.string().max(1000))).max(10_000),
   /** Partner wallet balance, when the extension could read it */
   wallet: z.number().finite().nullable().optional(),

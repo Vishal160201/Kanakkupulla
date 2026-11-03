@@ -24,6 +24,8 @@ interface NavItem {
    * linking to the page of the first one they can view.
    */
   access: { module: ModuleKey; path: string }[];
+  /** Active only on an exact path match (so a parent item doesn't light up on a child's route). */
+  exactActive?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -41,7 +43,8 @@ const NAV_ITEMS: NavItem[] = [
   { name: "Fertilizer Inventory", path: "/inventory", activePrefix: "/inventory", icon: "ph-package", module: "inventory", access: [{ module: "inventory", path: "/inventory" }] },
   { name: "Farmers", path: "/farmers", activePrefix: "/farmers", icon: "ph-users-three", module: "farmers", access: [{ module: "inventory", path: "/farmers" }] },
   { name: "Produce", path: "/produce", activePrefix: "/produce", icon: "ph-plant", module: "produce", access: [{ module: "inventory", path: "/produce" }] },
-  { name: "TIC Fiber", path: "/subscribers", activePrefix: "/subscribers", icon: "ph-broadcast", module: "subscribers", access: [{ module: "cable", path: "/subscribers" }] },
+  { name: "TIC Fiber", path: "/subscribers", activePrefix: "/subscribers", icon: "ph-wifi-high", module: "subscribers", access: [{ module: "cable", path: "/subscribers" }], exactActive: true },
+  { name: "TCCL", path: "/subscribers/cable", activePrefix: "/subscribers/cable", icon: "ph-television-simple", module: "subscribers", access: [{ module: "cable", path: "/subscribers/cable" }] },
   { name: "Gifts & Frames", path: "/gifts", activePrefix: "/gifts", icon: "ph-gift", module: "gifts", access: [{ module: "gifts", path: "/gifts" }] },
   { name: "Analytics", path: "/analytics", activePrefix: "/analytics", icon: "ph-chart-bar", module: "analytics", access: [{ module: "analytics", path: "/analytics" }] },
 ];
@@ -123,7 +126,7 @@ export default function Sidebar() {
       
       <ul className="list-none mt-10 flex flex-col gap-2">
         {visibleNavItems.map((item) => {
-          const isActive = pathname === item.activePrefix || pathname.startsWith(`${item.activePrefix}/`);
+          const isActive = item.exactActive ? pathname === item.activePrefix : pathname === item.activePrefix || pathname.startsWith(`${item.activePrefix}/`);
           return (
             <li key={item.path}>
               <Tooltip content={isCollapsed ? item.name : undefined} side="right">

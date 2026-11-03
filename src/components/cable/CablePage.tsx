@@ -7,7 +7,7 @@ import ShopTypeShell from "@/components/shops/ShopTypeShell";
 import PermissionTooltip from "@/components/shared/PermissionTooltip";
 import { ErrorState, ListSkeleton, cardClass, primaryButtonClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
 import { errorMessage, formatINR } from "@/components/inventory/inventoryUtils";
-import type { CableSubscriberListResponse } from "@/types/cable";
+import type { CableProvider, CableSubscriberListResponse } from "@/types/cable";
 import { cn } from "@/lib/utils";
 import { ago } from "./cableShared";
 import { requestExtensionSync } from "./extensionSync";
@@ -69,48 +69,63 @@ function SyncNowButton() {
   );
 }
 
-/** Sync health and the partner wallet balance, above every tab. */
-function StatusStrip({ data, now, onSetup }: { data: CableSubscriberListResponse; now: number; onSetup?: () => void }) {
-  const minutes = data.syncedAt ? (now - new Date(data.syncedAt).getTime()) / 60_000 : null;
+type PortalStatus = { name: string; syncedAt: string | null; wallet: number | null; walletAt: string | null };
+
+/** One portal's sync health and partner wallet. */
+function PortalLine({ portal, now, lowWalletAlert, onSetup }: { portal: PortalStatus; now: number; lowWalletAlert: number | null; onSetup?: () => void }) {
+  const minutes = portal.syncedAt ? (now - new Date(portal.syncedAt).getTime()) / 60_000 : null;
   const stale = minutes !== null && minutes > STALE_MINUTES;
-  const tone = minutes === null ? "bg-slate-50 border-slate-200 text-slate-600" : stale ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-emerald-50 border-emerald-100 text-emerald-800";
-  const { walletBalance, lowWalletAlert } = data.shop;
-  const walletLow = walletBalance !== null && lowWalletAlert !== null && walletBalance < lowWalletAlert;
+  const walletLow = portal.wallet !== null && lowWalletAlert !== null && portal.wallet < lowWalletAlert;
+  const tone = stale || walletLow ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-emerald-50 border-emerald-100 text-emerald-800";
   return (
-    <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-      <div className={cn("flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold", tone)} role="status">
-        <i className={cn("ph-bold text-lg shrink-0", minutes === null ? "ph-plugs" : stale ? "ph-warning" : "ph-arrows-clockwise")} aria-hidden="true" />
-        <span className="flex-1 min-w-0">
-          {minutes === null
-            ? "TIC Fiber isn't connected yet. Set up the browser extension to sync subscribers every minute."
-            : stale
-              ? `Last synced from TIC Fiber ${ago(data.syncedAt!, now)}. Check that Chrome is open with the extension, and that you're logged in to the TIC Fiber partner portal.`
-              : `Synced from TIC Fiber ${ago(data.syncedAt!, now)}`}
+    <div className={cn("flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold", tone)} role="status">
+      <i className={cn("ph-bold text-lg shrink-0", stale ? "ph-warning" : "ph-arrows-clockwise")} aria-hidden="true" />
+      <span className="flex-1 min-w-0">
+        <span className="font-extrabold">{portal.name}</span>{" "}
+        {stale
+          ? `· last synced ${ago(portal.syncedAt!, now)}. Check that Chrome is open with the extension and you're logged in to the ${portal.name} portal.`
+          : `· synced ${ago(portal.syncedAt!, now)}`}
+      </span>
+      {portal.wallet !== null && (
+        <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap font-extrabold", walletLow && "text-rose-700")}>
+          <i className={cn("ph-bold", walletLow ? "ph-warning-circle" : "ph-wallet")} aria-hidden="true" />
+          Wallet {portal.wallet < 0 ? "−" : ""}
+          {formatINR(Math.abs(portal.wallet))}
+          {walletLow && <span className="font-semibold"> · below {formatINR(lowWalletAlert!, { decimals: false })}</span>}
         </span>
-        {onSetup && (minutes === null || stale) && (
-          <button type="button" onClick={onSetup} className="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-white/80 border border-current/20 font-bold text-xs hover:bg-white">
-            Sync setup
-          </button>
-        )}
-      </div>
-      {walletBalance !== null && (
-        <div className={cn("flex items-center gap-3 rounded-2xl border px-4 py-3", walletLow ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-white border-slate-200 text-slate-700")} role="status">
-          <i className={cn("ph-bold text-lg", walletLow ? "ph-warning-circle" : "ph-wallet")} aria-hidden="true" />
-          <div className="min-w-0">
-            <div className="text-[10px] font-extrabold uppercase tracking-[1.2px] opacity-70">TIC wallet{data.shop.walletSyncedAt ? ` · ${ago(data.shop.walletSyncedAt, now)}` : ""}</div>
-            <div className="text-sm font-extrabold">
-              {walletBalance < 0 ? "−" : ""}
-              {formatINR(Math.abs(walletBalance))}
-              {walletLow && <span className="font-semibold"> · below {formatINR(lowWalletAlert!, { decimals: false })}, top up before renewing</span>}
-            </div>
-          </div>
-        </div>
+      )}
+      {onSetup && stale && (
+        <button type="button" onClick={onSetup} className="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-white/80 border border-current/20 font-bold text-xs hover:bg-white">
+          Sync setup
+        </button>
       )}
     </div>
   );
 }
 
-function CableView({ shopId, tab, onTab, onSetup }: { shopId: string; tab: Tab; onTab: (t: Tab) => void; onSetup?: () => void }) {
+/** Sync health and partner wallet of this section's portal, above every tab. */
+function StatusStrip({ data, provider, now, onSetup }: { data: CableSubscriberListResponse; provider: CableProvider; now: number; onSetup?: () => void }) {
+  const portal: PortalStatus =
+    provider === "TCCL"
+      ? { name: "TCCL", syncedAt: data.tcclSyncedAt, wallet: data.shop.tcclWalletBalance, walletAt: data.shop.tcclWalletSyncedAt }
+      : { name: "TIC Fiber", syncedAt: data.syncedAt, wallet: data.shop.walletBalance, walletAt: data.shop.walletSyncedAt };
+  if (!portal.syncedAt) {
+    return (
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-2xl border bg-slate-50 border-slate-200 text-slate-600 px-4 py-3 text-sm font-semibold" role="status">
+        <i className="ph-bold ph-plugs text-lg shrink-0" aria-hidden="true" />
+        <span className="flex-1 min-w-0">{portal.name} isn&apos;t connected yet. Set up the browser extension to sync its subscribers every minute.</span>
+        {onSetup && (
+          <button type="button" onClick={onSetup} className="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-white/80 border border-current/20 font-bold text-xs hover:bg-white">
+            Sync setup
+          </button>
+        )}
+      </div>
+    );
+  }
+  return <PortalLine portal={portal} now={now} lowWalletAlert={data.shop.lowWalletAlert} onSetup={onSetup} />;
+}
+
+function CableView({ shopId, provider, tab, onTab, onSetup }: { shopId: string; provider: CableProvider; tab: Tab; onTab: (t: Tab) => void; onSetup?: () => void }) {
   const { data, error, mutate } = useSubscribers(shopId);
   const [openId, setOpenId] = useState<string | null>(null);
   const now = useNow();
@@ -120,8 +135,8 @@ function CableView({ shopId, tab, onTab, onSetup }: { shopId: string; tab: Tab; 
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <StatusStrip data={data} now={now} onSetup={onSetup} />
-      <div role="tablist" aria-label="Cable & Internet sections" className="grid grid-cols-5 gap-0.5 md:flex md:items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full md:w-auto md:self-start">
+      <StatusStrip data={data} provider={provider} now={now} onSetup={onSetup} />
+      <div role="tablist" aria-label={`${provider === "TCCL" ? "TCCL" : "TIC Fiber"} sections`} className="grid grid-cols-5 gap-0.5 md:flex md:items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full md:w-auto md:self-start">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -139,18 +154,19 @@ function CableView({ shopId, tab, onTab, onSetup }: { shopId: string; tab: Tab; 
           </button>
         ))}
       </div>
-      {tab === "subscribers" && <SubscribersTab data={data} now={now} onOpen={setOpenId} />}
-      {tab === "collections" && <CollectionsTab shopId={shopId} data={data} onOpen={setOpenId} />}
-      {tab === "complaints" && <ComplaintsTab shopId={shopId} subscribers={data.subscribers} onOpen={setOpenId} />}
+      {tab === "subscribers" && <SubscribersTab data={data} provider={provider} now={now} onOpen={setOpenId} />}
+      {tab === "collections" && <CollectionsTab shopId={shopId} provider={provider} data={data} onOpen={setOpenId} />}
+      {tab === "complaints" && <ComplaintsTab shopId={shopId} provider={provider} subscribers={data.subscribers} onOpen={setOpenId} />}
       {tab === "equipment" && <EquipmentTab shopId={shopId} />}
-      {tab === "reports" && <ReportsTab shopId={shopId} />}
+      {tab === "reports" && <ReportsTab shopId={shopId} provider={provider} />}
       {openId && <SubscriberDetailDialog subscriberId={openId} shop={data.shop} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
 
-/** Cable & internet shop: subscribers synced from TIC Fiber, renewal collections, complaints and reports. */
-export default function CablePage() {
+/** One portal's section of a cable shop: its subscribers, collections, complaints and reports. */
+export default function CablePage({ provider }: { provider: CableProvider }) {
+  const isCable = provider === "TCCL";
   const canManage = useCanManageCable();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -163,8 +179,8 @@ export default function CablePage() {
   return (
     <ShopTypeShell
       shopType="CABLE"
-      pageName="Cable & Internet"
-      eyebrow="Cable & Internet"
+      pageName={isCable ? "TCCL" : "TIC Fiber"}
+      eyebrow={isCable ? "Cable TV subscribers" : "Internet subscribers"}
       actions={
         <>
           <PermissionTooltip allowed={canManage} className="flex">
@@ -178,7 +194,7 @@ export default function CablePage() {
     >
       {(shopId) => (
         <>
-          <CableView shopId={shopId} tab={tab} onTab={setTab} onSetup={canManage ? () => setDialog("setup") : undefined} />
+          <CableView shopId={shopId} provider={provider} tab={tab} onTab={setTab} onSetup={canManage ? () => setDialog("setup") : undefined} />
           {dialog === "setup" && canManage && <SyncSetupDialog shopId={shopId} onClose={() => setDialog(null)} />}
           {dialog === "settings" && canManage && <CableSettingsDialog shopId={shopId} onSyncSetup={() => setDialog("setup")} onClose={() => setDialog(null)} />}
         </>

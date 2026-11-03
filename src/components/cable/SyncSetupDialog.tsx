@@ -69,9 +69,9 @@ export default function SyncSetupDialog({ shopId, onClose }: { shopId: string; o
       open
       onClose={onClose}
       busy={busy}
-      eyebrow="TIC Fiber"
+      eyebrow="TIC Fiber · TCCL"
       title="Sync setup"
-      subtitle="A Chrome extension reads your TIC Fiber partner portal every minute and updates this list."
+      subtitle="A Chrome extension reads your TIC Fiber and TCCL portals every minute and updates this shop."
       size="lg"
       footer={
         <div className="flex justify-end">
@@ -129,10 +129,10 @@ export default function SyncSetupDialog({ shopId, onClose }: { shopId: string; o
           <p className={muted}>and the sync key from step 2, then Save.</p>
         </Step>
 
-        <Step n={4} title="Stay logged in to the TIC Fiber partner portal">
+        <Step n={4} title="Stay logged in to the portals">
           <p className={muted}>
-            Log in at <code className="font-bold">partner.ticfiber.in</code> in the same Chrome. The extension uses that login and never sees your password. If the portal logs you out, the
-            extension icon shows a red badge until you log in again.
+            Log in at <code className="font-bold">partner.ticfiber.in</code> (internet) and <code className="font-bold">sms.tccl.co.in</code> (cable TV) in the same Chrome, and tick the
+            portals you use in the extension. It uses those logins and never sees your passwords. If a portal logs you out, the extension icon shows a red badge until you log in again.
           </p>
         </Step>
       </ol>

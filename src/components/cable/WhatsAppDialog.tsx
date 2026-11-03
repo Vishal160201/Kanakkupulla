@@ -4,11 +4,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { InventoryDialog, primaryButtonClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
 import { formatINR } from "@/components/inventory/inventoryUtils";
-import { CABLE_TEMPLATES, formatPhone, messageDate, normalizePhone, planLabel, renderTemplate, waChatUrl, withoutMissing, type CableMessageKind, type MessageLanguage } from "@/lib/whatsapp";
+import { CABLE_TEMPLATES, SERVICE_TEXT, formatPhone, messageDate, normalizePhone, planLabel, renderTemplate, waChatUrl, withoutMissing, type CableMessageKind, type MessageLanguage } from "@/lib/whatsapp";
 import type { CableShopInfo } from "@/types/cable";
 import { cn } from "@/lib/utils";
 
 export interface WhatsAppTarget {
+  /** TIC_FIBER (internet) or TCCL (cable TV) */
+  provider: string;
+  vcNumber?: string | null;
   name: string;
   phone: string | null;
   plan: string | null;
@@ -40,6 +43,7 @@ function storedLanguage(): MessageLanguage {
 /** Default message for where the subscriber is: just paid → thanks; expired → expired; owes → pending; else reminder. */
 function defaultKind(t: WhatsAppTarget): CableMessageKind {
   if (t.paid) return "thanks";
+  if (t.provider === "TCCL") return "paymentDue";
   if (t.expiresAt && new Date(t.expiresAt).getTime() < Date.now()) return "expired";
   if (t.due > 0) return "paymentDue";
   return "renewalReminder";
@@ -51,9 +55,14 @@ function defaultKind(t: WhatsAppTarget): CableMessageKind {
  */
 export default function WhatsAppDialog({ target, shop, onClose }: { target: WhatsAppTarget; shop: CableShopInfo; onClose: () => void }) {
   const [language, setLanguage] = useState<MessageLanguage>(storedLanguage);
+  const isCable = target.provider === "TCCL";
+  // Cable TV has no plan expiry, so only the money messages apply
+  const options = isCable ? OPTIONS.filter((o) => o.kind !== "renewalReminder" && o.kind !== "expired") : OPTIONS;
   const varsFor = (lang: MessageLanguage) => ({
     customer: target.name,
-    provider: "TIC Fiber",
+    provider: isCable ? "TCCL" : "TIC Fiber",
+    service: SERVICE_TEXT[isCable ? "cable" : "internet"][lang],
+    vc: target.vcNumber ?? "",
     plan: planLabel(target.plan),
     expiry: target.expiresAt ? messageDate(target.expiresAt, lang) : "",
     due: target.due > 0 ? formatINR(target.due, { decimals: false }) : "",
@@ -144,7 +153,7 @@ export default function WhatsAppDialog({ target, shop, onClose }: { target: What
           ))}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Message">
-          {OPTIONS.map((o) => (
+          {options.map((o) => (
             <button
               key={o.kind}
               type="button"

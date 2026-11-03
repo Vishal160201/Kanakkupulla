@@ -26,7 +26,7 @@ export async function GET(request: Request) {
         orderBy: [{ expiresAt: "asc" }, { name: "asc" }],
         select: {
           id: true, provider: true, externalId: true, name: true, phone: true, status: true, plan: true,
-          area: true, expiresAt: true, renewedAt: true, goneAt: true,
+          area: true, vcNumber: true, expiresAt: true, renewedAt: true, goneAt: true,
         },
       }),
       subscriberDues(prisma, shop.id),
@@ -36,6 +36,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       subscribers: subscribers.map((s) => ({ ...s, due: dues.get(s.id) ?? 0, openComplaints: complaintsOf.get(s.id) ?? 0 })),
       syncedAt: shop.syncedAt,
+      tcclSyncedAt: shop.tcclSyncedAt,
       hasSyncKey: !!shop.syncKeyHash,
       shop: {
         name: shop.name,
@@ -43,6 +44,8 @@ export async function GET(request: Request) {
         contactPhone: shop.contactPhone,
         walletBalance: shop.walletBalance === null ? null : toNumber(shop.walletBalance),
         walletSyncedAt: shop.walletSyncedAt,
+        tcclWalletBalance: shop.tcclWalletBalance === null ? null : toNumber(shop.tcclWalletBalance),
+        tcclWalletSyncedAt: shop.tcclWalletSyncedAt,
         lowWalletAlert: shop.lowWalletAlert === null ? null : toNumber(shop.lowWalletAlert),
       },
     });

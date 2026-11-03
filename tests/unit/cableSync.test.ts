@@ -4,7 +4,7 @@ vi.mock("@/lib/prisma", () => ({ default: {} }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 
-import { diffSubscribers, parsePortalDate, ticRowToSubscriber, type SubscriberFields } from "@/lib/cableSync";
+import { diffSubscribers, parsePortalDate, parseTcclDate, tcclCharges, tcclRowToSubscriber, ticRowToSubscriber, type SubscriberFields } from "@/lib/cableSync";
 
 const row = (overrides: Record<string, string> = {}) => ({
   "User ID": "kumar@",
@@ -91,5 +91,53 @@ describe("diffSubscribers", () => {
     expect(d.goneIds).toEqual(["id-old@"]);
     expect(d.updates.map((u) => u.id)).toEqual(["id-kumar@"]);
     expect(d.creates).toEqual([]);
+  });
+});
+
+describe("TCCL", () => {
+  const tccl = (o: Record<string, string> = {}) => ({
+    account_number: "C2128032",
+    customer_name: "Murugan",
+    mobile_no: "919000000001",
+    city: "TENKASI",
+    installation_address: "North street",
+    vc_number: "0123456789",
+    serial_number: "SN12345678",
+    installation_date: "20-02-2019  15:43:40",
+    Created_Date: "20-02-2019  15:43:40",
+    total_bill_amount: "12345.00",
+    total_paid_amount: "12045.00",
+    "STB Status": "Active",
+    ...o,
+  });
+
+  it("reads Ezybill dates as India time", () => {
+    expect(parseTcclDate("20-02-2019  15:43:40")?.toISOString()).toBe("2019-02-20T10:13:40.000Z");
+    expect(parseTcclDate("05-11-2026")?.toISOString()).toBe("2026-11-04T18:30:00.000Z");
+    expect(parseTcclDate("")).toBeNull();
+  });
+
+  it("maps a customer row", () => {
+    const s = tcclRowToSubscriber(tccl());
+    expect(s).toMatchObject({ externalId: "C2128032", name: "Murugan", status: "Active", vcNumber: "0123456789", macId: "SN12345678", area: "TENKASI", billed: 12345, paid: 12045, expiresAt: null });
+    expect(tcclRowToSubscriber(tccl({ account_number: "" }))).toBeNull();
+  });
+
+  it("carries the TCCL balance over once, then charges each rise in the billed total", () => {
+    const first = tcclCharges([], [tcclRowToSubscriber(tccl())!]);
+    expect(first.charges).toEqual([{ externalId: "C2128032", kind: "OPENING", amount: 300 }]);
+    expect(first.billedTotals.get("C2128032")).toBe(12345);
+
+    // Next month TCCL bills 250 more; payments are now kept in Kanakkupulla, so TCCL's paid doesn't matter
+    const later = tcclCharges([{ externalId: "C2128032", billedTotal: 12345 }], [tcclRowToSubscriber(tccl({ total_bill_amount: "12595.00" }))!]);
+    expect(later.charges).toEqual([{ externalId: "C2128032", kind: "BILL", amount: 250 }]);
+
+    const same = tcclCharges([{ externalId: "C2128032", billedTotal: 12345 }], [tcclRowToSubscriber(tccl())!]);
+    expect(same.charges).toEqual([]);
+  });
+
+  it("skips a zero opening balance and keeps an advance as a negative one", () => {
+    expect(tcclCharges([], [tcclRowToSubscriber(tccl({ total_paid_amount: "12345.00" }))!]).charges).toEqual([]);
+    expect(tcclCharges([], [tcclRowToSubscriber(tccl({ total_paid_amount: "12445.00" }))!]).charges).toEqual([{ externalId: "C2128032", kind: "OPENING", amount: -100 }]);
   });
 });

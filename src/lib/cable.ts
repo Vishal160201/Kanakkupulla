@@ -40,15 +40,16 @@ export async function recordCablePayment(
     const subscriber = await subscriberForWrite(user, subscriberId, tx);
     const amount = round2(input.amount);
     if (amount <= 0) throw new InventoryValidationError("Enter the amount received.", 422, { amount: "Enter the amount received." });
+    const isCable = subscriber.provider === "TCCL";
     const transactionId = await postLedgerEntry(tx, {
       shopId: subscriber.shopId,
       userId: user.id,
       type: "INCOME",
-      category: CABLE_LEDGER_CATEGORIES.RENEWAL,
+      category: isCable ? CABLE_LEDGER_CATEGORIES.CABLE : CABLE_LEDGER_CATEGORIES.RENEWAL,
       amount,
       date: input.date,
       paymentMode: input.paymentMode,
-      description: `Internet renewal - ${subscriber.name} (${subscriber.externalId})`,
+      description: `${isCable ? "Cable TV bill" : "Internet renewal"} - ${subscriber.name} (${subscriber.externalId})`,
     });
     return tx.cablePayment.create({
       data: {
@@ -178,29 +179,26 @@ export function lastMonths(count: number, now = new Date()) {
   });
 }
 
-export async function cableReport(shopId: string, months = 6) {
+export async function cableReport(shopId: string, provider: string, months = 6) {
   const keys = lastMonths(months);
   // Start of the oldest month in India time
   const [y, m] = keys[0].split("-").map(Number);
   const since = new Date(Date.UTC(y, m - 1, 1) - 330 * 60_000);
 
-  const [renewals, payments, topUps, subscribers] = await Promise.all([
+  const [renewals, payments, subscribers] = await Promise.all([
     prisma.cableRenewal.findMany({
-      where: { subscriber: { shopId }, createdAt: { gte: since } },
-      select: { amount: true, plan: true, renewedAt: true, createdAt: true },
+      // Opening balances carried over from TCCL aren't this period's billing
+      where: { subscriber: { shopId, provider }, createdAt: { gte: since }, kind: { not: "OPENING" } },
+      select: { amount: true, plan: true, kind: true, renewedAt: true, createdAt: true },
     }),
     prisma.cablePayment.findMany({
-      where: { shopId, voidedAt: null, date: { gte: since } },
+      where: { shopId, voidedAt: null, date: { gte: since }, subscriber: { provider } },
       select: { amount: true, date: true, subscriber: { select: { area: true } } },
     }),
-    prisma.transaction.findMany({
-      where: { shopId, deletedAt: null, type: "EXPENSE", category: CABLE_LEDGER_CATEGORIES.WALLET_TOP_UP, date: { gte: since } },
-      select: { amount: true, date: true },
-    }),
-    prisma.cableSubscriber.groupBy({ by: ["status"], where: { shopId, goneAt: null }, _count: { _all: true } }),
+    prisma.cableSubscriber.groupBy({ by: ["status"], where: { shopId, provider, goneAt: null }, _count: { _all: true } }),
   ]);
 
-  const monthly = new Map(keys.map((k) => [k, { month: k, renewals: 0, billed: 0, collected: 0, walletTopUps: 0, margin: 0 }]));
+  const monthly = new Map(keys.map((k) => [k, { month: k, renewals: 0, billed: 0, collected: 0 }]));
   const byPlan = new Map<string, { plan: string; renewals: number; billed: number }>();
   const byArea = new Map<string, { area: string; collected: number }>();
 
@@ -208,7 +206,7 @@ export async function cableReport(shopId: string, months = 6) {
     const row = monthly.get(toMonth(r.renewedAt ?? r.createdAt));
     const amount = toNumber(r.amount);
     if (row) {
-      row.renewals += 1;
+      if (r.kind === "RENEWAL") row.renewals += 1;
       row.billed += amount;
     }
     const plan = r.plan ?? "Unknown plan";
@@ -225,18 +223,12 @@ export async function cableReport(shopId: string, months = 6) {
     a.collected += toNumber(p.amount);
     byArea.set(area, a);
   }
-  for (const t of topUps) {
-    const row = monthly.get(toMonth(t.date));
-    if (row) row.walletTopUps += toNumber(t.amount);
-  }
   for (const row of monthly.values()) {
     row.billed = round2(row.billed);
     row.collected = round2(row.collected);
-    row.walletTopUps = round2(row.walletTopUps);
-    row.margin = round2(row.collected - row.walletTopUps);
   }
 
-  const gone = await prisma.cableSubscriber.count({ where: { shopId, goneAt: { not: null } } });
+  const gone = await prisma.cableSubscriber.count({ where: { shopId, provider, goneAt: { not: null } } });
   return {
     months: [...monthly.values()],
     byPlan: [...byPlan.values()].map((p) => ({ ...p, billed: round2(p.billed) })).sort((a, b) => b.billed - a.billed || b.renewals - a.renewals),

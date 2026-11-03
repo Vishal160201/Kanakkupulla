@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import type { CableSubscriberListResponse, CableSubscriberRow } from "@/types/cable";
+import type { CableProvider, CableSubscriberListResponse, CableSubscriberRow } from "@/types/cable";
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { EmptyState, ErrorState, ListSkeleton, cardClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
@@ -46,7 +46,7 @@ function DueRow({ s, onOpen, onChat }: { s: CableSubscriberRow; onOpen: () => vo
     <li className="flex items-center gap-2 rounded-2xl p-2.5 hover:bg-slate-50">
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 rounded-xl">
         <div className="text-sm font-bold text-slate-900 truncate">{s.name}</div>
-        <div className="text-[11px] font-semibold text-slate-400 truncate">{[s.externalId, s.phone, s.plan].filter(Boolean).join(" · ")}</div>
+        <div className="text-[11px] font-semibold text-slate-400 truncate">{[s.provider === "TCCL" ? "Cable" : "Internet", s.externalId, s.phone, s.plan ?? (s.vcNumber && `VC ${s.vcNumber}`)].filter(Boolean).join(" · ")}</div>
       </button>
       <div className="text-sm font-extrabold text-rose-600 whitespace-nowrap">{formatINR(s.due, { decimals: false })}</div>
       {s.phone && (
@@ -65,9 +65,9 @@ function DueRow({ s, onOpen, onChat }: { s: CableSubscriberRow; onOpen: () => vo
   );
 }
 
-function DayCollections({ shopId }: { shopId: string }) {
+function DayCollections({ shopId, provider }: { shopId: string; provider: CableProvider }) {
   const [date, setDate] = useState(todayISO());
-  const { data, error, isLoading, mutate } = useCollections(shopId, date);
+  const { data, error, isLoading, mutate } = useCollections(shopId, date, provider);
   return (
     <section className={cn(cardClass, "p-4 sm:p-5 space-y-4")}>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -116,9 +116,9 @@ function DayCollections({ shopId }: { shopId: string }) {
 }
 
 /** The collection round: who owes what, area by area (printable), and what was collected each day. */
-export default function CollectionsTab({ shopId, data, onOpen }: { shopId: string; data: CableSubscriberListResponse; onOpen: (id: string) => void }) {
+export default function CollectionsTab({ shopId, provider, data, onOpen }: { shopId: string; provider: CableProvider; data: CableSubscriberListResponse; onOpen: (id: string) => void }) {
   const [chat, setChat] = useState<CableSubscriberRow | null>(null);
-  const owing = data.subscribers.filter((s) => s.due > 0 && !s.goneAt);
+  const owing = data.subscribers.filter((s) => s.due > 0 && !s.goneAt && (s.provider === "TCCL") === (provider === "TCCL"));
   const byArea = new Map<string, CableSubscriberRow[]>();
   for (const s of owing) byArea.set(s.area ?? "No area", [...(byArea.get(s.area ?? "No area") ?? []), s]);
   const groups = [...byArea]
@@ -163,9 +163,9 @@ export default function CollectionsTab({ shopId, data, onOpen }: { shopId: strin
         )}
       </section>
 
-      <DayCollections shopId={shopId} />
+      <DayCollections shopId={shopId} provider={provider} />
 
-      {chat && <WhatsAppDialog target={{ name: chat.name, phone: chat.phone, plan: chat.plan, expiresAt: chat.expiresAt, due: chat.due }} shop={data.shop} onClose={() => setChat(null)} />}
+      {chat && <WhatsAppDialog target={{ provider: chat.provider, vcNumber: chat.vcNumber, name: chat.name, phone: chat.phone, plan: chat.plan, expiresAt: chat.expiresAt, due: chat.due }} shop={data.shop} onClose={() => setChat(null)} />}
     </div>
   );
 }

@@ -103,6 +103,8 @@ export const PRODUCE_LEDGER_CATEGORIES = {
 export const CABLE_LEDGER_CATEGORIES = {
   /** Collected from a subscriber for their renewal (income) */
   RENEWAL: "Internet Renewal",
+  /** Collected from a cable TV (TCCL) subscriber for their bill (income) */
+  CABLE: "Cable Collection",
   /** Money added to the provider's partner wallet (expense); renewals are paid from it */
   WALLET_TOP_UP: "Wallet Top-up",
 } as const;

@@ -5,6 +5,7 @@ import useSWR, { useSWRConfig } from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { useActiveShopCan } from "@/hooks/useAccess";
 import type {
+  CableProvider,
   CableCollectionsResponse,
   CableComplaintListItem,
   CablePerson,
@@ -30,16 +31,16 @@ export function usePlans(shopId: string) {
   return useSWR<{ plans: CablePlan[] }>(`/api/cable/plans?${q(shopId)}`, fetcher);
 }
 
-export function useComplaints(shopId: string, status: "open" | "fixed") {
-  return useSWR<{ complaints: CableComplaintListItem[]; people: CablePerson[] }>(`/api/cable/complaints?${q(shopId)}&status=${status}`, fetcher);
+export function useComplaints(shopId: string, status: "open" | "fixed", provider?: CableProvider) {
+  return useSWR<{ complaints: CableComplaintListItem[]; people: CablePerson[] }>(`/api/cable/complaints?${q(shopId)}&status=${status}${provider ? `&provider=${provider}` : ""}`, fetcher);
 }
 
-export function useCollections(shopId: string, date: string) {
-  return useSWR<CableCollectionsResponse>(`/api/cable/collections?${q(shopId)}&date=${encodeURIComponent(date)}`, fetcher);
+export function useCollections(shopId: string, date: string, provider?: CableProvider) {
+  return useSWR<CableCollectionsResponse>(`/api/cable/collections?${q(shopId)}&date=${encodeURIComponent(date)}${provider ? `&provider=${provider}` : ""}`, fetcher);
 }
 
-export function useCableReport(shopId: string) {
-  return useSWR<CableReport>(`/api/cable/reports?${q(shopId)}`, fetcher);
+export function useCableReport(shopId: string, provider: CableProvider) {
+  return useSWR<CableReport>(`/api/cable/reports?${q(shopId)}&provider=${provider}`, fetcher);
 }
 
 /** Reloads every cable view (and the ledger, which collections post to). */
