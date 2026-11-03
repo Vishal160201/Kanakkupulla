@@ -108,7 +108,7 @@ export default function WhatsAppDialog({ target, shop, onClose }: { target: What
     setSendingSms(true);
     try {
       await sendJson(`/api/cable/subscribers/${encodeURIComponent(target.id)}/sms`, "POST", { text });
-      toast.success(`SMS sent to ${target.name}`);
+      toast.success(`SMS queued for ${target.name}`, { description: "Your phone will send it shortly." });
       onClose();
     } catch (err) {
       toast.error(errorMessage(err));

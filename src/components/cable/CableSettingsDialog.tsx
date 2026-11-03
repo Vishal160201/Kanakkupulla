@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import QRCode from "qrcode";
 import { toast } from "sonner";
 import type { CablePlan } from "@/types/cable";
 import CustomDropdown from "@/components/ui/CustomDropdown";
@@ -70,11 +71,14 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
   const [phone, setPhone] = useState<string | null>(null);
   const [alert, setAlert] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [smsKey, setSmsKey] = useState("");
   const [smsFrom, setSmsFrom] = useState<string | null>(null);
   const [smsLang, setSmsLang] = useState<"en" | "ta" | null>(null);
   const [smsAuto, setSmsAuto] = useState<boolean | null>(null);
   const [savingSms, setSavingSms] = useState(false);
+  const [pairToken, setPairToken] = useState<string | null>(null);
+  const [pairQr, setPairQr] = useState<string | null>(null);
+  const [pairing, setPairing] = useState(false);
+  const [confirmRepair, setConfirmRepair] = useState(false);
 
   // Fields show the saved values until edited
   const lastTen = (v: string) => v.replace(/\D/g, "").slice(-10);
@@ -93,10 +97,8 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
         smsFrom: smsFromShown,
         smsLanguage: smsLangShown,
         smsAutoReminders: smsAutoShown,
-        ...(smsKey.trim() ? { smsApiKey: smsKey.trim() } : {}),
       });
       toast.success("SMS settings saved");
-      setSmsKey("");
       setSmsFrom(null);
       setSmsLang(null);
       setSmsAuto(null);
@@ -105,6 +107,32 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
       toast.error(errorMessage(err));
     } finally {
       setSavingSms(false);
+    }
+  };
+
+  const pairPhone = async () => {
+    setPairing(true);
+    try {
+      const res = await sendJson<{ token: string }>("/api/cable/sms/pair", "POST", { shopId });
+      setPairToken(res.token);
+      // The SMS Sender app scans this to fill in the address + token by itself
+      const link = `kanakkupulla://pair?url=${encodeURIComponent(window.location.origin)}&token=${encodeURIComponent(res.token)}`;
+      setPairQr(await QRCode.toDataURL(link, { margin: 1, width: 220 }).catch(() => null));
+      setConfirmRepair(false);
+      revalidate();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setPairing(false);
+    }
+  };
+
+  const copyToken = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success("Token copied");
+    } catch {
+      toast.error("Couldn't copy — select the token and copy it.");
     }
   };
 
@@ -184,14 +212,61 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
         </section>
 
         <section>
-          <SectionTitle title="SMS reminders (httpSMS)" hint="Send SMS from your own phone's SIM. Install the httpSMS app on an always-on Android phone, then paste its API key and the SIM's number." />
+          <SectionTitle title="SMS reminders" hint="Send SMS free from your own phone's SIM. Install the Kanakkupulla SMS Sender app on an always-on Android phone and pair it below." />
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 mb-3 space-y-2">
+            {pairToken ? (
+              <>
+                {pairQr && (
+                  <div className="flex flex-col items-center gap-1 pb-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- data: URL, nothing to optimize */}
+                    <img src={pairQr} alt="Pairing QR code — scan it with the Kanakkupulla SMS app" width={220} height={220} className="rounded-xl border border-slate-200 bg-white" />
+                    <p className="text-xs font-bold text-slate-600">In the app, tap <span className="text-slate-900">Scan QR to connect</span></p>
+                  </div>
+                )}
+                <p className="text-[10px] font-extrabold uppercase tracking-[1.2px] text-slate-400">Or paste the token into the app</p>
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3 pr-1 py-1">
+                  <code className="flex-1 min-w-0 truncate text-xs font-bold text-slate-800 select-all">{pairToken}</code>
+                  <button type="button" onClick={() => copyToken(pairToken)} className="shrink-0 h-8 px-3 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200">
+                    <i className="ph-bold ph-copy mr-1" aria-hidden="true" /> Copy
+                  </button>
+                </div>
+                <p className="text-xs font-bold text-amber-700">
+                  <i className="ph-bold ph-warning mr-1" aria-hidden="true" /> Shown once. Scan the QR now, or paste the token (and this site&apos;s address) into the app.
+                </p>
+              </>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-600 min-w-0">
+                  {shop?.smsPaired ? (
+                    <>
+                      <i className="ph-bold ph-device-mobile text-emerald-600 mr-1" aria-hidden="true" />
+                      Phone paired{shop.smsDeviceSeenAt ? ` · last seen ${new Date(shop.smsDeviceSeenAt).toLocaleString("en-IN")}` : " · waiting for first poll"}
+                    </>
+                  ) : (
+                    <><i className="ph-bold ph-device-mobile-slash text-slate-400 mr-1" aria-hidden="true" /> No phone paired yet.</>
+                  )}
+                </p>
+                {shop?.smsPaired && !confirmRepair ? (
+                  <button type="button" onClick={() => setConfirmRepair(true)} className={cn(secondaryButtonClass, "shrink-0")}>
+                    <i className="ph-bold ph-arrows-clockwise" aria-hidden="true" /> Re-pair
+                  </button>
+                ) : (
+                  <div className="flex gap-2 shrink-0">
+                    {confirmRepair && (
+                      <button type="button" onClick={() => setConfirmRepair(false)} className={secondaryButtonClass}>Cancel</button>
+                    )}
+                    <button type="button" onClick={pairPhone} disabled={pairing} className={cn(primaryButtonClass)}>
+                      <i className={pairing ? "ph ph-circle-notch animate-spin" : "ph-bold ph-device-mobile"} aria-hidden="true" />
+                      {confirmRepair ? "New token" : "Pair phone"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="sms-key" className={labelClass}>
-                httpSMS API key {shop?.smsConfigured && <span className="text-emerald-600">· connected</span>}
-              </label>
-              <input id="sms-key" type="password" autoComplete="off" value={smsKey} maxLength={1000} onChange={(e) => setSmsKey(e.target.value)} placeholder={shop?.smsConfigured ? "•••••••• (leave blank to keep)" : "Paste your API key"} className={inputClass} />
-            </div>
             <div>
               <label htmlFor="sms-from" className={labelClass}>Send from (SIM number)</label>
               <div className="relative">

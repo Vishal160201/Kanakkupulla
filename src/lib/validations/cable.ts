@@ -33,13 +33,13 @@ export const cableSettingsSchema = z.object({
   upiId: optionalText(100).optional(),
   contactPhone: optionalText(20).optional(),
   lowWalletAlert: money("Enter 0 or more.").nullable().optional(),
-  smsApiKey: z.string().trim().max(1000).optional(),
   smsFrom: optionalText(20).optional(),
   smsAutoReminders: z.boolean().optional(),
   smsLanguage: z.enum(["en", "ta"]).optional(),
 });
 
 export const cableSmsSchema = z.object({ text: z.string().trim().min(1, "Enter a message.").max(2000) });
+export const outboxReportSchema = z.object({ id: idSchema, ok: z.boolean(), reason: z.string().max(200).optional() });
 export const cableRemindersSchema = z.object({ shopId: idSchema, provider: z.enum(["TIC_FIBER", "TCCL"]).optional() });
 
 export const complaintCreateSchema = z.object({

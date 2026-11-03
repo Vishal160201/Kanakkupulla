@@ -131,6 +131,11 @@ model Shop {
   smsAutoReminders   Boolean             @default(false)
   /// Language for automatic and bulk SMS: "en" or "ta"
   smsLanguage        String              @default("en")
+  /// sha256 of the token the Kanakkupulla SMS sender Android app uses to poll this shop's outbox
+  smsDeviceTokenHash String?             @unique
+  /// Last time the sender app polled (shows whether the phone is connected)
+  smsDeviceSeenAt    DateTime?
+  outboundSms        OutboundSms[]
   cableSubscribers   CableSubscriber[]
   cablePlans         CablePlan[]
   cablePayments      CablePayment[]
@@ -555,6 +560,27 @@ model CableComplaint {
 
   @@index([shopId, fixedAt])
   @@index([subscriberId])
+}
+
+/// One SMS queued for the shop's own Android sender app to send via its SIM (our free alternative to httpSMS).
+model OutboundSms {
+  id           String    @id @default(cuid())
+  shopId       String
+  /// Recipient in E.164 (+91…)
+  to           String
+  content      String
+  /// pending → sending (claimed by the app) → sent | failed
+  status       String    @default("pending")
+  subscriberId String?
+  createdById  String?
+  /// Failure reason reported by the app
+  reason       String?
+  attempts     Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  shop         Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, status])
 }
 
 model Transaction {

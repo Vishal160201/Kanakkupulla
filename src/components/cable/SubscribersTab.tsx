@@ -151,8 +151,8 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
   const sendReminders = async () => {
     setSendingSms(true);
     try {
-      const r = await sendJson<{ sent: number; failed: number }>("/api/cable/sms/reminders", "POST", { shopId, provider });
-      toast.success(`${r.sent} SMS sent${r.failed ? `, ${r.failed} failed` : ""}`);
+      const r = await sendJson<{ queued: number }>("/api/cable/sms/reminders", "POST", { shopId, provider });
+      toast.success(`${r.queued} SMS queued`, { description: "Your phone will send them over the next few minutes." });
       setConfirmSms(false);
     } catch (err) {
       toast.error(errorMessage(err));

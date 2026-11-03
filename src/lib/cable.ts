@@ -3,7 +3,7 @@ import type { SessionUser } from "@/lib/authz";
 import { ShopError } from "@/lib/shops";
 import { InventoryValidationError, postLedgerEntry, type Tx } from "@/lib/inventory";
 import { getCableShop } from "@/lib/cableSync";
-import { getShopGateway, needsReminder, reminderMessage, sendSms } from "@/lib/sms";
+import { enqueueSms, needsReminder, reminderMessage } from "@/lib/sms";
 import type { MessageLanguage } from "@/lib/whatsapp";
 import { CABLE_LEDGER_CATEGORIES } from "@/lib/shopModules";
 
@@ -116,7 +116,6 @@ export async function updateCableSettings(
     upiId?: string | null;
     contactPhone?: string | null;
     lowWalletAlert?: number | null;
-    smsApiKey?: string | null;
     smsFrom?: string | null;
     smsAutoReminders?: boolean;
     smsLanguage?: MessageLanguage;
@@ -129,8 +128,6 @@ export async function updateCableSettings(
       ...(input.upiId !== undefined ? { upiId: input.upiId?.trim() || null } : {}),
       ...(input.contactPhone !== undefined ? { contactPhone: input.contactPhone?.trim() || null } : {}),
       ...(input.lowWalletAlert !== undefined ? { lowWalletAlert: input.lowWalletAlert === null ? null : round2(input.lowWalletAlert) } : {}),
-      // Blank key means "leave as is" (it's never shown back); null clears it
-      ...(input.smsApiKey !== undefined ? (input.smsApiKey === null ? { smsApiKey: null } : input.smsApiKey.trim() ? { smsApiKey: input.smsApiKey.trim() } : {}) : {}),
       ...(input.smsFrom !== undefined ? { smsFrom: input.smsFrom?.trim() || null } : {}),
       ...(input.smsAutoReminders !== undefined ? { smsAutoReminders: input.smsAutoReminders } : {}),
       ...(input.smsLanguage !== undefined ? { smsLanguage: input.smsLanguage } : {}),
@@ -147,7 +144,6 @@ const reminderSelect = { id: true, name: true, provider: true, plan: true, vcNum
  * through the shop's httpSMS gateway. Used by the Send reminders button and the daily cron.
  */
 export async function sendCableReminders(shopId: string, opts: { provider?: string; language: MessageLanguage }) {
-  const gateway = await getShopGateway(shopId);
   const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { name: true, upiId: true, contactPhone: true } });
   if (!shop) throw new ShopError("Shop not found.", 404);
   const subscribers = await prisma.cableSubscriber.findMany({
@@ -155,23 +151,17 @@ export async function sendCableReminders(shopId: string, opts: { provider?: stri
     select: reminderSelect,
   });
   const dues = await subscriberDues(prisma, shopId, subscribers.map((s) => s.id));
-  const day = new Date().toISOString().slice(0, 10);
-  let sent = 0,
-    failed = 0;
+  let queued = 0;
   for (const s of subscribers) {
     const sub = { ...s, expiresAt: s.expiresAt, due: dues.get(s.id) ?? 0 };
     if (!needsReminder(sub)) continue;
     const text = reminderMessage(sub, shop, opts.language);
     if (!text || !s.phone) continue;
-    try {
-      // One SMS per subscriber per day at most (request_id dedupes retries on httpSMS)
-      await sendSms(gateway, s.phone, text, `rem-${s.id}-${day}`);
-      sent += 1;
-    } catch {
-      failed += 1;
-    }
+    await enqueueSms(shopId, s.phone, text, { subscriberId: s.id });
+    queued += 1;
   }
-  return { sent, failed };
+  // The paired phone sends them from its SIM over the next minutes
+  return { queued };
 }
 
 // ---------------------------------------------------------------------------

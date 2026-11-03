@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import prisma from "@/lib/prisma";
 import { ShopError } from "@/lib/shops";
 import {
@@ -13,57 +14,63 @@ import {
   type MessageLanguage,
 } from "@/lib/whatsapp";
 
-// Sending SMS through httpSMS (https://httpsms.com): the operator's own Android phone, running the
-// httpSMS app, sends the message via its SIM. We POST to the API with the shop's key; the sender is
-// the shop's own number, so no DLT/gateway registration is needed.
-
-const HTTPSMS_URL = "https://api.httpsms.com/v1/messages/send";
+// Our own free SMS gateway: messages are queued in OutboundSms, and the shop's Kanakkupulla SMS
+// sender Android app polls its outbox and sends each one through the phone's SIM. No third party.
 
 export class SmsError extends ShopError {}
 
-export interface SmsGateway {
-  apiKey: string;
-  from: string;
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+
+export const newDeviceToken = () => `kst_${randomBytes(24).toString("base64url")}`;
+export const hashDeviceToken = (token: string) => sha256(token);
+
+/** The cable shop a sender-app device token belongs to, or null (wrong/revoked token). */
+export async function shopForDeviceToken(token: string) {
+  const shop = await prisma.shop.findUnique({ where: { smsDeviceTokenHash: sha256(token) }, select: { id: true, type: true, isArchived: true } });
+  return shop && shop.type === "CABLE" && !shop.isArchived ? shop : null;
 }
 
-/** The shop's httpSMS settings, or an error when it isn't set up. */
-export async function getShopGateway(shopId: string): Promise<SmsGateway> {
-  const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { smsApiKey: true, smsFrom: true } });
-  const from = normalizePhone(shop?.smsFrom);
-  if (!shop?.smsApiKey || !from) {
-    throw new SmsError("SMS isn't set up. Add your httpSMS API key and phone number in Settings.", 422);
-  }
-  return { apiKey: shop.smsApiKey, from: `+${from}` };
-}
-
-/** Sends one SMS via httpSMS. Throws SmsError on a bad number or an API failure. */
-export async function sendSms(gateway: SmsGateway, to: string, content: string, requestId?: string) {
+/** Queues one SMS for the shop's sender app. Throws when the phone isn't paired or the number is unusable. */
+export async function enqueueSms(shopId: string, to: string, content: string, meta: { subscriberId?: string; createdById?: string } = {}) {
+  const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { smsDeviceTokenHash: true } });
+  if (!shop?.smsDeviceTokenHash) throw new SmsError("No phone is paired for SMS. Pair the sender app in Settings first.", 422);
   const phone = normalizePhone(to);
   if (!phone) throw new SmsError("No usable mobile number for this subscriber.", 422);
-  let res: Response;
-  try {
-    res = await fetch(HTTPSMS_URL, {
-      method: "POST",
-      headers: { "x-api-key": gateway.apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: gateway.from, to: `+${phone}`, content: plainText(content), ...(requestId ? { request_id: requestId } : {}) }),
-    });
-  } catch {
-    throw new SmsError("Couldn't reach httpSMS. Check the phone's internet and try again.", 502);
-  }
-  if (!res.ok) {
-    // Surface httpSMS's own reason so a bad key vs an unregistered number is clear
-    let detail = "";
-    try {
-      const body = (await res.json()) as { message?: string; data?: unknown };
-      detail = body.message || (typeof body.data === "string" ? body.data : "");
-    } catch {
-      detail = (await res.text().catch(() => "")).slice(0, 140);
-    }
-    const suffix = detail ? ` (${detail})` : "";
-    if (res.status === 401) throw new SmsError(`httpSMS rejected the API key${suffix}. Copy it again from httpsms.com/settings into Settings.`, 502);
-    throw new SmsError(`httpSMS couldn't send the SMS: error ${res.status}${suffix}.`, 502);
-  }
+  return prisma.outboundSms.create({
+    data: { shopId, to: `+${phone}`, content: plainText(content), subscriberId: meta.subscriberId ?? null, createdById: meta.createdById ?? null },
+    select: { id: true },
+  });
 }
+
+/** Messages left in a "sending" claim longer than this are assumed dropped and re-queued. */
+const CLAIM_TIMEOUT_MS = 5 * 60_000;
+const CLAIM_BATCH = 20;
+
+/**
+ * The sender app's poll: re-queues stale claims, then atomically claims up to `CLAIM_BATCH` pending
+ * messages (pending → sending) so a second poll can't grab the same ones, and returns them to send.
+ */
+export async function claimOutbox(shopId: string) {
+  const now = new Date();
+  await prisma.shop.update({ where: { id: shopId }, data: { smsDeviceSeenAt: now } });
+  await prisma.outboundSms.updateMany({
+    where: { shopId, status: "sending", updatedAt: { lt: new Date(now.getTime() - CLAIM_TIMEOUT_MS) } },
+    data: { status: "pending" },
+  });
+  // Claim without a transaction races only with another device on the same shop (not expected); the
+  // timeout re-queue above makes any lost claim self-healing.
+  const pending = await prisma.outboundSms.findMany({ where: { shopId, status: "pending" }, orderBy: { createdAt: "asc" }, take: CLAIM_BATCH, select: { id: true, to: true, content: true } });
+  if (pending.length === 0) return [];
+  await prisma.outboundSms.updateMany({ where: { id: { in: pending.map((m) => m.id) } }, data: { status: "sending", attempts: { increment: 1 } } });
+  return pending;
+}
+
+/** The sender app's report for one message. */
+export async function reportOutbox(shopId: string, id: string, ok: boolean, reason?: string) {
+  await prisma.outboundSms.updateMany({ where: { id, shopId }, data: { status: ok ? "sent" : "failed", reason: ok ? null : (reason ?? "failed").slice(0, 200) } });
+}
+
+// --- Reminder message building (shared by the Send reminders button and the daily cron) ---
 
 export interface ReminderSubscriber {
   name: string;

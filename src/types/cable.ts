@@ -35,7 +35,10 @@ export interface CableShopInfo {
   tcclWalletSyncedAt: string | null;
   lowWalletAlert: number | null;
   /** httpSMS gateway set up (key + number present); the key itself is never sent to the client */
+  /** Phone paired and a SIM number set */
   smsConfigured: boolean;
+  smsPaired: boolean;
+  smsDeviceSeenAt: string | null;
   smsFrom: string | null;
   smsAutoReminders: boolean;
   smsLanguage: "en" | "ta";
