@@ -33,7 +33,7 @@ export const cableSettingsSchema = z.object({
   upiId: optionalText(100).optional(),
   contactPhone: optionalText(20).optional(),
   lowWalletAlert: money("Enter 0 or more.").nullable().optional(),
-  smsApiKey: z.string().trim().max(200).optional(),
+  smsApiKey: z.string().trim().max(1000).optional(),
   smsFrom: optionalText(20).optional(),
   smsAutoReminders: z.boolean().optional(),
   smsLanguage: z.enum(["en", "ta"]).optional(),

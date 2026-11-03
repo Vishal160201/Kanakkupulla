@@ -186,7 +186,7 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
               <label htmlFor="sms-key" className={labelClass}>
                 httpSMS API key {shop?.smsConfigured && <span className="text-emerald-600">· connected</span>}
               </label>
-              <input id="sms-key" type="password" autoComplete="off" value={smsKey} maxLength={200} onChange={(e) => setSmsKey(e.target.value)} placeholder={shop?.smsConfigured ? "•••••••• (leave blank to keep)" : "Paste your API key"} className={inputClass} />
+              <input id="sms-key" type="password" autoComplete="off" value={smsKey} maxLength={1000} onChange={(e) => setSmsKey(e.target.value)} placeholder={shop?.smsConfigured ? "•••••••• (leave blank to keep)" : "Paste your API key"} className={inputClass} />
             </div>
             <div>
               <label htmlFor="sms-from" className={labelClass}>Send from (SIM number)</label>
