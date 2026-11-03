@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { InventoryDialog, primaryButtonClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
-import { formatINR } from "@/components/inventory/inventoryUtils";
-import { CABLE_TEMPLATES, SERVICE_TEXT, formatPhone, messageDate, normalizePhone, planLabel, renderTemplate, waChatUrl, withoutMissing, type CableMessageKind, type MessageLanguage } from "@/lib/whatsapp";
+import { errorMessage, formatINR, sendJson } from "@/components/inventory/inventoryUtils";
+import { CABLE_TEMPLATES, SERVICE_TEXT, formatPhone, messageDate, normalizePhone, planLabel, renderTemplate, smsUrl, waChatUrl, withoutMissing, type CableMessageKind, type MessageLanguage } from "@/lib/whatsapp";
 import type { CableShopInfo } from "@/types/cable";
 import { cn } from "@/lib/utils";
 
 export interface WhatsAppTarget {
+  /** Subscriber id, for sending SMS server-side through the gateway */
+  id: string;
   /** TIC_FIBER (internet) or TCCL (cable TV) */
   provider: string;
   vcNumber?: string | null;
@@ -55,6 +57,7 @@ function defaultKind(t: WhatsAppTarget): CableMessageKind {
  */
 export default function WhatsAppDialog({ target, shop, onClose }: { target: WhatsAppTarget; shop: CableShopInfo; onClose: () => void }) {
   const [language, setLanguage] = useState<MessageLanguage>(storedLanguage);
+  const [sendingSms, setSendingSms] = useState(false);
   const isCable = target.provider === "TCCL";
   // Cable TV has no plan expiry, so only the money messages apply
   const options = isCable ? OPTIONS.filter((o) => o.kind !== "renewalReminder" && o.kind !== "expired") : OPTIONS;
@@ -93,6 +96,18 @@ export default function WhatsAppDialog({ target, shop, onClose }: { target: What
     setKind(k);
     setText(k === "custom" ? "" : fill(k));
   };
+  const sendViaGateway = async () => {
+    setSendingSms(true);
+    try {
+      await sendJson(`/api/cable/subscribers/${encodeURIComponent(target.id)}/sms`, "POST", { text });
+      toast.success(`SMS sent to ${target.name}`);
+      onClose();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSendingSms(false);
+    }
+  };
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -106,14 +121,27 @@ export default function WhatsAppDialog({ target, shop, onClose }: { target: What
     <InventoryDialog
       open
       onClose={onClose}
-      eyebrow="WhatsApp"
+      eyebrow="Message"
       title={`Message ${target.name}`}
-      subtitle={phone ? formatPhone(phone) : target.phone ? `"${target.phone}" isn't a number WhatsApp can use` : "No phone number in TIC Fiber"}
+      subtitle={phone ? formatPhone(phone) : target.phone ? `"${target.phone}" isn't a usable mobile number` : "No phone number on this subscriber"}
       footer={
         <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
           <button type="button" onClick={copy} disabled={!text.trim()} className={secondaryButtonClass}>
             <i className="ph-bold ph-copy" aria-hidden="true" /> Copy
           </button>
+          {!phone ? (
+            <button type="button" disabled className={secondaryButtonClass}>
+              <i className="ph-bold ph-chat-text" aria-hidden="true" /> Send SMS
+            </button>
+          ) : shop.smsConfigured ? (
+            <button type="button" onClick={sendViaGateway} disabled={!text.trim() || sendingSms} className={secondaryButtonClass}>
+              <i className={cn("ph-bold", sendingSms ? "ph-circle-notch animate-spin" : "ph-chat-text")} aria-hidden="true" /> {sendingSms ? "Sending…" : "Send SMS"}
+            </button>
+          ) : (
+            <a href={smsUrl(phone, text)} onClick={onClose} className={cn(secondaryButtonClass, !text.trim() && "pointer-events-none opacity-50")}>
+              <i className="ph-bold ph-chat-text" aria-hidden="true" /> Send SMS
+            </a>
+          )}
           {phone ? (
             <a
               href={waChatUrl(phone, text)}

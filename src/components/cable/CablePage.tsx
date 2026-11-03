@@ -16,7 +16,6 @@ import SubscribersTab from "./SubscribersTab";
 import CollectionsTab from "./CollectionsTab";
 import ComplaintsTab from "./ComplaintsTab";
 import ReportsTab from "./ReportsTab";
-import EquipmentTab from "./EquipmentTab";
 import SubscriberDetailDialog from "./SubscriberDetailDialog";
 import SyncSetupDialog from "./SyncSetupDialog";
 import CableSettingsDialog from "./CableSettingsDialog";
@@ -25,7 +24,6 @@ const TABS = [
   { id: "subscribers", label: "Subscribers", icon: "users-three" },
   { id: "collections", label: "Collections", icon: "hand-coins" },
   { id: "complaints", label: "Complaints", icon: "wrench" },
-  { id: "equipment", label: "Equipment", icon: "package" },
   { id: "reports", label: "Reports", icon: "chart-bar" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
@@ -136,7 +134,7 @@ function CableView({ shopId, provider, tab, onTab, onSetup }: { shopId: string; 
   return (
     <div className="space-y-5 sm:space-y-6">
       <StatusStrip data={data} provider={provider} now={now} onSetup={onSetup} />
-      <div role="tablist" aria-label={`${provider === "TCCL" ? "TCCL" : "TIC Fiber"} sections`} className="grid grid-cols-5 gap-0.5 md:flex md:items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full md:w-auto md:self-start">
+      <div role="tablist" aria-label={`${provider === "TCCL" ? "TCCL" : "TIC Fiber"} sections`} className="grid grid-cols-4 gap-0.5 md:flex md:items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full md:w-auto md:self-start">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -154,10 +152,9 @@ function CableView({ shopId, provider, tab, onTab, onSetup }: { shopId: string; 
           </button>
         ))}
       </div>
-      {tab === "subscribers" && <SubscribersTab data={data} provider={provider} now={now} onOpen={setOpenId} />}
+      {tab === "subscribers" && <SubscribersTab shopId={shopId} data={data} provider={provider} now={now} onOpen={setOpenId} />}
       {tab === "collections" && <CollectionsTab shopId={shopId} provider={provider} data={data} onOpen={setOpenId} />}
       {tab === "complaints" && <ComplaintsTab shopId={shopId} provider={provider} subscribers={data.subscribers} onOpen={setOpenId} />}
-      {tab === "equipment" && <EquipmentTab shopId={shopId} />}
       {tab === "reports" && <ReportsTab shopId={shopId} provider={provider} />}
       {openId && <SubscriberDetailDialog subscriberId={openId} shop={data.shop} onClose={() => setOpenId(null)} />}
     </div>

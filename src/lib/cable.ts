@@ -3,6 +3,8 @@ import type { SessionUser } from "@/lib/authz";
 import { ShopError } from "@/lib/shops";
 import { InventoryValidationError, postLedgerEntry, type Tx } from "@/lib/inventory";
 import { getCableShop } from "@/lib/cableSync";
+import { getShopGateway, needsReminder, reminderMessage, sendSms } from "@/lib/sms";
+import type { MessageLanguage } from "@/lib/whatsapp";
 import { CABLE_LEDGER_CATEGORIES } from "@/lib/shopModules";
 
 // Money side of a cable & internet shop: each renewal the sync detects is owed at the plan's price;
@@ -110,7 +112,15 @@ export async function setPlanPrice(user: SessionUser, planId: string, price: num
 export async function updateCableSettings(
   user: SessionUser,
   shopId: string,
-  input: { upiId?: string | null; contactPhone?: string | null; lowWalletAlert?: number | null }
+  input: {
+    upiId?: string | null;
+    contactPhone?: string | null;
+    lowWalletAlert?: number | null;
+    smsApiKey?: string | null;
+    smsFrom?: string | null;
+    smsAutoReminders?: boolean;
+    smsLanguage?: MessageLanguage;
+  }
 ) {
   await getCableShop(user, shopId, "MANAGE");
   return prisma.shop.update({
@@ -119,9 +129,49 @@ export async function updateCableSettings(
       ...(input.upiId !== undefined ? { upiId: input.upiId?.trim() || null } : {}),
       ...(input.contactPhone !== undefined ? { contactPhone: input.contactPhone?.trim() || null } : {}),
       ...(input.lowWalletAlert !== undefined ? { lowWalletAlert: input.lowWalletAlert === null ? null : round2(input.lowWalletAlert) } : {}),
+      // Blank key means "leave as is" (it's never shown back); null clears it
+      ...(input.smsApiKey !== undefined ? (input.smsApiKey === null ? { smsApiKey: null } : input.smsApiKey.trim() ? { smsApiKey: input.smsApiKey.trim() } : {}) : {}),
+      ...(input.smsFrom !== undefined ? { smsFrom: input.smsFrom?.trim() || null } : {}),
+      ...(input.smsAutoReminders !== undefined ? { smsAutoReminders: input.smsAutoReminders } : {}),
+      ...(input.smsLanguage !== undefined ? { smsLanguage: input.smsLanguage } : {}),
     },
     select: { id: true },
   });
+}
+
+/** The fields a reminder SMS needs for every non-removed subscriber (optionally one provider). */
+const reminderSelect = { id: true, name: true, provider: true, plan: true, vcNumber: true, expiresAt: true, phone: true } as const;
+
+/**
+ * Sends renewal / due reminders by SMS to everyone who needs one (expiring soon, expired or owing),
+ * through the shop's httpSMS gateway. Used by the Send reminders button and the daily cron.
+ */
+export async function sendCableReminders(shopId: string, opts: { provider?: string; language: MessageLanguage }) {
+  const gateway = await getShopGateway(shopId);
+  const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { name: true, upiId: true, contactPhone: true } });
+  if (!shop) throw new ShopError("Shop not found.", 404);
+  const subscribers = await prisma.cableSubscriber.findMany({
+    where: { shopId, goneAt: null, phone: { not: null }, ...(opts.provider ? { provider: opts.provider } : {}) },
+    select: reminderSelect,
+  });
+  const dues = await subscriberDues(prisma, shopId, subscribers.map((s) => s.id));
+  const day = new Date().toISOString().slice(0, 10);
+  let sent = 0,
+    failed = 0;
+  for (const s of subscribers) {
+    const sub = { ...s, expiresAt: s.expiresAt, due: dues.get(s.id) ?? 0 };
+    if (!needsReminder(sub)) continue;
+    const text = reminderMessage(sub, shop, opts.language);
+    if (!text || !s.phone) continue;
+    try {
+      // One SMS per subscriber per day at most (request_id dedupes retries on httpSMS)
+      await sendSms(gateway, s.phone, text, `rem-${s.id}-${day}`);
+      sent += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  return { sent, failed };
 }
 
 // ---------------------------------------------------------------------------

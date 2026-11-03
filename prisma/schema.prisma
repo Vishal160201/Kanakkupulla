@@ -123,6 +123,14 @@ model Shop {
   /// Shown in customer WhatsApp messages (cable shops)
   upiId              String?
   contactPhone       String?
+  /// httpSMS gateway: sends SMS via the operator's own Android SIM. The key is never returned to the client.
+  smsApiKey          String?
+  /// The SIM's phone number messages are sent from (E.164, e.g. +9198…)
+  smsFrom            String?
+  /// Send renewal / due reminders by SMS automatically each day
+  smsAutoReminders   Boolean             @default(false)
+  /// Language for automatic and bulk SMS: "en" or "ta"
+  smsLanguage        String              @default("en")
   cableSubscribers   CableSubscriber[]
   cablePlans         CablePlan[]
   cablePayments      CablePayment[]

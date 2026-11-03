@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import type { CableProvider, CableSubscriberListResponse, CableSubscriberRow } from "@/types/cable";
-import { EmptyState, KpiCard, Pill, SearchInput, cardClass, type PillTone } from "@/components/inventory/InventoryUI";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ConfirmDialog, EmptyState, KpiCard, Pill, SearchInput, cardClass, primaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
+import { errorMessage, sendJson } from "@/components/inventory/inventoryUtils";
+import { useCanManageCable } from "./useCableData";
 import { formatDate, formatINR, useDebouncedValue } from "@/components/inventory/inventoryUtils";
 import { initials } from "@/components/inventory/produce/produceShared";
 import { cn } from "@/lib/utils";
@@ -112,7 +115,7 @@ function SubscriberRow({ s, isCable, now, onOpen }: { s: CableSubscriberRow; isC
 }
 
 /** Subscribers of one provider, with the filters and columns that fit internet or cable. */
-export default function SubscribersTab({ data, provider, now, onOpen }: { data: CableSubscriberListResponse; provider: CableProvider; now: number; onOpen: (id: string) => void }) {
+export default function SubscribersTab({ shopId, data, provider, now, onOpen }: { shopId: string; data: CableSubscriberListResponse; provider: CableProvider; now: number; onOpen: (id: string) => void }) {
   const isCable = provider === "TCCL";
   const FILTERS = isCable ? CABLE_FILTERS : INTERNET_FILTERS;
   const [filter, setFilter] = useState<Filter>("all");
@@ -126,8 +129,37 @@ export default function SubscribersTab({ data, provider, now, onOpen }: { data: 
   const list = searched.filter((s) => matches(s, filter, now)).sort(filter === "dues" ? (a, b) => b.due - a.due : byUrgency(now));
   const totalDue = all.reduce((sum, s) => sum + Math.max(0, s.due), 0);
 
+  const canManage = useCanManageCable();
+  const [confirmSms, setConfirmSms] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
+  // Who an SMS reminder would go to: owing, or (internet only) expiring soon / expired
+  const reminderTargets = all.filter((s) => !s.goneAt && s.phone && (s.due > 0 || (!isCable && ["soon", "expired"].includes(expiryState(s, now))))).length;
+  const sendReminders = async () => {
+    setSendingSms(true);
+    try {
+      const r = await sendJson<{ sent: number; failed: number }>("/api/cable/sms/reminders", "POST", { shopId, provider });
+      toast.success(`${r.sent} SMS sent${r.failed ? `, ${r.failed} failed` : ""}`);
+      setConfirmSms(false);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSendingSms(false);
+    }
+  };
+
   return (
     <div className="space-y-5 sm:space-y-6">
+      {canManage && data.shop.smsConfigured && reminderTargets > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3">
+          <p className="text-sm font-semibold text-slate-600 min-w-0">
+            <i className="ph-bold ph-chat-text text-sky-600 mr-1.5" aria-hidden="true" />
+            {reminderTargets} subscriber{reminderTargets === 1 ? "" : "s"} can get an SMS reminder (expiring, expired or owing).
+          </p>
+          <button type="button" onClick={() => setConfirmSms(true)} className={cn(primaryButtonClass, "shrink-0 bg-sky-600 hover:bg-sky-700 shadow-sky-600/20")}>
+            <i className="ph-bold ph-paper-plane-tilt" aria-hidden="true" /> Send reminders
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Subscribers" value={String(all.length)} hint={isCable ? "In TCCL" : "In TIC Fiber"} icon={isCable ? "television-simple" : "wifi-high"} iconClass="bg-sky-50 text-sky-600" onClick={() => setFilter("all")} />
         {isCable ? (
@@ -203,6 +235,19 @@ export default function SubscribersTab({ data, provider, now, onOpen }: { data: 
           </ul>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmSms}
+        title="Send SMS reminders?"
+        message={`An SMS goes to ${reminderTargets} ${isCable ? "cable" : "internet"} subscriber${reminderTargets === 1 ? "" : "s"} (expiring, expired or owing), from your phone's SIM via httpSMS.`}
+        confirmLabel="Send"
+        busyLabel="Sending…"
+        icon="chat-text"
+        tone="neutral"
+        busy={sendingSms}
+        onConfirm={() => void sendReminders()}
+        onCancel={() => setConfirmSms(false)}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CABLE_TEMPLATES, messageDate, normalizePhone, planLabel, renderTemplate, waChatUrl, withoutMissing } from "@/lib/whatsapp";
+import { CABLE_TEMPLATES, messageDate, normalizePhone, planLabel, plainText, renderTemplate, smsUrl, waChatUrl, withoutMissing } from "@/lib/whatsapp";
 
 describe("normalizePhone", () => {
   it("adds 91 to local numbers and strips formatting", () => {
@@ -56,5 +56,9 @@ describe("templates", () => {
   });
   it("builds wa.me links", () => {
     expect(waChatUrl("919876543210", "Hi there")).toBe("https://wa.me/919876543210?text=Hi%20there");
+  });
+  it("builds sms: links and drops bold markers", () => {
+    expect(plainText("Amount: *₹299*")).toBe("Amount: ₹299");
+    expect(smsUrl("919876543210", "Due *₹299*")).toBe("sms:+919876543210?&body=Due%20%E2%82%B9299");
   });
 });

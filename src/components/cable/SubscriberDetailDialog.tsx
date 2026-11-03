@@ -261,7 +261,7 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
         )}
       </InventoryDialog>
 
-      {chat && s && <WhatsAppDialog target={{ provider: s.provider, vcNumber: s.vcNumber, name: s.name, phone: s.phone, plan: s.plan, expiresAt: s.expiresAt, due: Math.max(0, s.due - (chat.paid ?? 0)), paid: chat.paid }} shop={shop} onClose={() => setChat(null)} />}
+      {chat && s && <WhatsAppDialog key={`${s.id}-${chat.paid ?? ""}`} target={{ id: s.id, provider: s.provider, vcNumber: s.vcNumber, name: s.name, phone: s.phone, plan: s.plan, expiresAt: s.expiresAt, due: Math.max(0, s.due - (chat.paid ?? 0)), paid: chat.paid }} shop={shop} onClose={() => setChat(null)} />}
       <ConfirmDialog
         open={!!voiding}
         title="Void this payment?"

@@ -165,7 +165,7 @@ export default function CollectionsTab({ shopId, provider, data, onOpen }: { sho
 
       <DayCollections shopId={shopId} provider={provider} />
 
-      {chat && <WhatsAppDialog target={{ provider: chat.provider, vcNumber: chat.vcNumber, name: chat.name, phone: chat.phone, plan: chat.plan, expiresAt: chat.expiresAt, due: chat.due }} shop={data.shop} onClose={() => setChat(null)} />}
+      {chat && <WhatsAppDialog key={chat.id} target={{ id: chat.id, provider: chat.provider, vcNumber: chat.vcNumber, name: chat.name, phone: chat.phone, plan: chat.plan, expiresAt: chat.expiresAt, due: chat.due }} shop={data.shop} onClose={() => setChat(null)} />}
     </div>
   );
 }

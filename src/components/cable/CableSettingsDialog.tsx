@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import type { CablePlan } from "@/types/cable";
+import CustomDropdown from "@/components/ui/CustomDropdown";
 import { ErrorState, InventoryDialog, ListSkeleton, MoneyInput, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
 import { errorMessage, formatINR, parseDecimal, roundMoney, sanitizeDecimal, sendJson } from "@/components/inventory/inventoryUtils";
 import { cn } from "@/lib/utils";
@@ -69,11 +70,42 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
   const [phone, setPhone] = useState<string | null>(null);
   const [alert, setAlert] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [smsKey, setSmsKey] = useState("");
+  const [smsFrom, setSmsFrom] = useState<string | null>(null);
+  const [smsLang, setSmsLang] = useState<"en" | "ta" | null>(null);
+  const [smsAuto, setSmsAuto] = useState<boolean | null>(null);
+  const [savingSms, setSavingSms] = useState(false);
 
   // Fields show the saved values until edited
   const upiShown = upiId ?? shop?.upiId ?? "";
   const phoneShown = phone ?? shop?.contactPhone ?? "";
   const alertShown = alert ?? (shop?.lowWalletAlert == null ? "" : String(shop.lowWalletAlert));
+  const smsFromShown = smsFrom ?? shop?.smsFrom ?? "";
+  const smsLangShown = smsLang ?? shop?.smsLanguage ?? "en";
+  const smsAutoShown = smsAuto ?? shop?.smsAutoReminders ?? false;
+
+  const saveSms = async () => {
+    setSavingSms(true);
+    try {
+      await sendJson("/api/cable/settings", "PATCH", {
+        shopId,
+        smsFrom: smsFromShown,
+        smsLanguage: smsLangShown,
+        smsAutoReminders: smsAutoShown,
+        ...(smsKey.trim() ? { smsApiKey: smsKey.trim() } : {}),
+      });
+      toast.success("SMS settings saved");
+      setSmsKey("");
+      setSmsFrom(null);
+      setSmsLang(null);
+      setSmsAuto(null);
+      revalidate();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSavingSms(false);
+    }
+  };
 
   const saveDetails = async () => {
     const alertValue = alertShown.trim() === "" ? null : roundMoney(parseDecimal(alertShown));
@@ -143,6 +175,52 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
             <button type="button" onClick={saveDetails} disabled={saving || !shop || (upiId === null && phone === null && alert === null)} className={cn(primaryButtonClass)}>
               {saving ? <i className="ph ph-circle-notch animate-spin" /> : <i className="ph-bold ph-check" />}
               Save
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <SectionTitle title="SMS reminders (httpSMS)" hint="Send SMS from your own phone's SIM. Install the httpSMS app on an always-on Android phone, then paste its API key and the SIM's number." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="sms-key" className={labelClass}>
+                httpSMS API key {shop?.smsConfigured && <span className="text-emerald-600">· connected</span>}
+              </label>
+              <input id="sms-key" type="password" autoComplete="off" value={smsKey} maxLength={200} onChange={(e) => setSmsKey(e.target.value)} placeholder={shop?.smsConfigured ? "•••••••• (leave blank to keep)" : "Paste your API key"} className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="sms-from" className={labelClass}>Send from (SIM number)</label>
+              <input id="sms-from" value={smsFromShown} maxLength={20} inputMode="tel" onChange={(e) => setSmsFrom(e.target.value)} placeholder="+91 98765 43210" className={inputClass} />
+            </div>
+            <div>
+              <span className={labelClass}>Reminder language</span>
+              <CustomDropdown
+                options={[{ label: "English", value: "en" }, { label: "தமிழ் (Tamil)", value: "ta" }]}
+                value={smsLangShown}
+                onChange={(v) => setSmsLang(v as "en" | "ta")}
+              />
+            </div>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 h-11 self-end">
+              <span className="text-sm font-bold text-slate-700">Daily auto-reminders</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={smsAutoShown}
+                aria-label="Daily auto-reminders"
+                onClick={() => setSmsAuto(!smsAutoShown)}
+                className={cn("w-11 h-6 shrink-0 rounded-full transition-colors relative", smsAutoShown ? "bg-emerald-500" : "bg-slate-300")}
+              >
+                <span className={cn("w-4 h-4 rounded-full bg-white absolute top-1 transition-transform", smsAutoShown ? "left-6" : "left-1")} />
+              </button>
+            </label>
+          </div>
+          <p className="text-[11px] font-medium text-slate-400 mt-2">
+            Auto-reminders text subscribers who are expiring soon, expired or owing — once a day. Needs the phone on with internet and the SIM in it.
+          </p>
+          <div className="mt-3 flex justify-end">
+            <button type="button" onClick={saveSms} disabled={savingSms || !shop} className={cn(primaryButtonClass)}>
+              {savingSms ? <i className="ph ph-circle-notch animate-spin" /> : <i className="ph-bold ph-check" />}
+              Save SMS settings
             </button>
           </div>
         </section>

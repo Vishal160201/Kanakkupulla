@@ -47,6 +47,10 @@ export async function GET(request: Request) {
         tcclWalletBalance: shop.tcclWalletBalance === null ? null : toNumber(shop.tcclWalletBalance),
         tcclWalletSyncedAt: shop.tcclWalletSyncedAt,
         lowWalletAlert: shop.lowWalletAlert === null ? null : toNumber(shop.lowWalletAlert),
+        smsConfigured: !!shop.smsApiKey && !!shop.smsFrom,
+        smsFrom: shop.smsFrom,
+        smsAutoReminders: shop.smsAutoReminders,
+        smsLanguage: shop.smsLanguage === "ta" ? "ta" : "en",
       },
     });
   } catch (error) {

@@ -34,6 +34,11 @@ export interface CableShopInfo {
   tcclWalletBalance: number | null;
   tcclWalletSyncedAt: string | null;
   lowWalletAlert: number | null;
+  /** httpSMS gateway set up (key + number present); the key itself is never sent to the client */
+  smsConfigured: boolean;
+  smsFrom: string | null;
+  smsAutoReminders: boolean;
+  smsLanguage: "en" | "ta";
 }
 
 export interface CableSubscriberListResponse {

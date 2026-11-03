@@ -26,6 +26,16 @@ export function waChatUrl(phone: string, text = ""): string {
   return `https://wa.me/${phone}${body ? `?text=${encodeURIComponent(body)}` : ""}`;
 }
 
+/** SMS has no formatting, so drop the *bold* markers WhatsApp uses. */
+export const plainText = (text: string) => text.replace(/\*(.+?)\*/g, "$1");
+
+/** sms: link that opens the phone's Messages app to `phone` with `text` typed in (bold markers removed). */
+export function smsUrl(phone: string, text = ""): string {
+  const body = plainText(text).trim();
+  // "?&body=" is the form both Android and iOS accept
+  return `sms:+${phone}${body ? `?&body=${encodeURIComponent(body)}` : ""}`;
+}
+
 /** Fills {placeholders}; unknown ones stay as typed so a typo is visible before sending. */
 export function renderTemplate(template: string, vars: Record<string, string | number | null | undefined>): string {
   return template
