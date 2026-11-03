@@ -2,7 +2,6 @@ import prisma from "./prisma";
 import webpush, { WebPushError } from "web-push";
 import nodemailer from "nodemailer";
 import { Prisma, type NotificationType, type NotificationPriority } from "@prisma/client";
-import { botFetch } from "./whatsappBot";
 import { getOwnerNotifications, listRoles } from "./roles";
 import type { NotificationTypeKey } from "./access";
 
@@ -27,9 +26,6 @@ const transporter = emailEnabled
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     })
   : null;
-
-// WhatsApp delivery is temporarily disabled.
-const WHATSAPP_ENABLED = false;
 
 /** Absolute link for an in-app path, or null when no public app URL is configured. */
 function absoluteLink(actionUrl?: string): string | null {
@@ -69,9 +65,9 @@ function wantsType(user: Recipient, type: NotificationType): boolean {
   return true;
 }
 
-/** Sends push / email / WhatsApp for an already-stored notification. Never throws. */
+/** Sends push / email for an already-stored notification. Never throws. */
 async function deliver(user: Recipient, content: NotificationContent): Promise<string[]> {
-  const { title, message, type, actionUrl, priority = "NORMAL" } = content;
+  const { title, message, actionUrl } = content;
   const link = absoluteLink(actionUrl);
   const expiredSubscriptionIds: string[] = [];
 
@@ -109,29 +105,6 @@ async function deliver(user: Recipient, content: NotificationContent): Promise<s
       });
     } catch (e) {
       console.error("Notification email failed:", e);
-    }
-  }
-
-  // 3. WhatsApp
-  if (WHATSAPP_ENABLED && user.phone) {
-    const cleanPhone = user.phone.replace(/[^0-9]/g, "");
-    if (cleanPhone.length >= 10) {
-      let prefix = "*Moondot Notification*";
-      if (priority === "HIGH") prefix = "*High Priority Alert*";
-      else if (type === "BOOKING_CREATED") prefix = "*New Booking Alert*";
-      else if (type === "BOOKING_UPDATED") prefix = "*Status Update*";
-
-      let text = `${prefix}\n\n${message}`;
-      if (link) text += `\n\nView details: ${link}`;
-      try {
-        await botFetch("/api/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: cleanPhone, message: text }),
-        });
-      } catch (e) {
-        console.error("WhatsApp notification failed:", e);
-      }
     }
   }
 

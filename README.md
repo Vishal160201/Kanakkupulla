@@ -17,7 +17,6 @@ Kanakkupulla is a management app for a photography studio. It covers:
 - Prisma 7 with PostgreSQL (Neon / `pg` driver adapters)
 - next-auth 4 (credentials + Google/Apple OAuth)
 - Tailwind CSS, shadcn/base-ui components, Recharts
-- `whatsapp-bot-server/`: a separate Express + Baileys service that sends WhatsApp messages
 
 ## Setup
 
@@ -41,8 +40,6 @@ See `.env.example` for the full list. Required at minimum: `DATABASE_URL` and `N
 | Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` |
 | Cron | `CRON_SECRET` |
 | Primary owner (optional) | `NEXT_PUBLIC_PERSONAL_TRACKER_EMAIL`: personal recycle bin tab and master-admin lock |
-| WhatsApp | `WHATSAPP_BOT_URL`, `WHATSAPP_BOT_SECRET` |
-| Bot server only | `WHATSAPP_BOT_SECRET`, `ALLOWED_ORIGIN` (optional), `PORT` (optional, default 3001) |
 
 ## Scripts
 
@@ -92,15 +89,6 @@ Authorization: Bearer $CRON_SECRET
 ```
 
 Set up your scheduler (Vercel Cron, GitHub Actions, cron-job.org, etc.) to send this header.
-
-## WhatsApp bot
-
-`whatsapp-bot-server/` runs separately (`cd whatsapp-bot-server && npm ci && npm start`, or use its Dockerfile). On first start, scan the QR code from **Settings → Integrations → WhatsApp**.
-
-- Every `/api/*` route on the bot needs the header `x-bot-secret: $WHATSAPP_BOT_SECRET`. If the secret is not set, the bot rejects all requests.
-- Set `WHATSAPP_BOT_SECRET` to the **same value** in the Next.js app and in the bot server. Set `WHATSAPP_BOT_URL` in the Next.js app to the bot's URL.
-- CORS is off by default, because the app calls the bot server-to-server. Set `ALLOWED_ORIGIN` only if a browser must call the bot directly.
-- Session data is stored in `.baileys_auth/`. It is git-ignored; keep it on a persistent volume.
 
 ## Deployment
 

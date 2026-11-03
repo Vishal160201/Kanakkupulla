@@ -9,7 +9,6 @@ import SystemPreferences from "@/components/settings/SystemPreferences";
 import ReminderPreferences from "@/components/settings/ReminderPreferences";
 import RecycleBin from "@/components/settings/RecycleBin";
 import GoogleDriveIntegration from "@/components/settings/integrations/GoogleDriveIntegration";
-import WhatsAppIntegration from "@/components/settings/integrations/WhatsAppIntegration";
 import ShopsSettings from "@/components/settings/shops/ShopsSettings";
 import { Tooltip } from "@/components/ui/Tooltip";
 import OwnersOnlyState from "@/components/settings/common/OwnersOnlyState";
@@ -47,7 +46,6 @@ const GROUPS = [
     label: "Integrations",
     items: [
       { id: "google-drive", label: "Google Drive", icon: "ph-google-logo", access: "owner" },
-      { id: "whatsapp-bot", label: "WhatsApp Bot", icon: "ph-whatsapp-logo", access: "owner" },
     ]
   },
   {
@@ -277,7 +275,6 @@ function SettingsPage() {
               {displayedSection === "layouts" && <LayoutsFieldsBuilder />}
               {displayedSection === "recycle-bin" && <RecycleBin />}
               {displayedSection === "google-drive" && <GoogleDriveIntegration />}
-              {displayedSection === "whatsapp-bot" && <WhatsAppIntegration />}
               {displayedSection === "system" && <SystemPreferences />}
               {displayedSection === "notifications" && <ReminderPreferences />}
               {displayedSection === "shops" && <ShopsSettings />}
