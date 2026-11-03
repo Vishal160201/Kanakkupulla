@@ -77,10 +77,11 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
   const [savingSms, setSavingSms] = useState(false);
 
   // Fields show the saved values until edited
+  const lastTen = (v: string) => v.replace(/\D/g, "").slice(-10);
   const upiShown = upiId ?? shop?.upiId ?? "";
-  const phoneShown = phone ?? shop?.contactPhone ?? "";
+  const phoneShown = phone ?? lastTen(shop?.contactPhone ?? "");
   const alertShown = alert ?? (shop?.lowWalletAlert == null ? "" : String(shop.lowWalletAlert));
-  const smsFromShown = smsFrom ?? shop?.smsFrom ?? "";
+  const smsFromShown = smsFrom ?? lastTen(shop?.smsFrom ?? "");
   const smsLangShown = smsLang ?? shop?.smsLanguage ?? "en";
   const smsAutoShown = smsAuto ?? shop?.smsAutoReminders ?? false;
 
@@ -164,7 +165,10 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
             </div>
             <div>
               <label htmlFor="cable-phone" className={labelClass}>Contact phone</label>
-              <input id="cable-phone" value={phoneShown} maxLength={20} inputMode="tel" onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" className={inputClass} />
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">+91</span>
+                <input id="cable-phone" value={phoneShown} maxLength={10} inputMode="numeric" onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="98765 43210" className={cn(inputClass, "pl-12")} />
+              </div>
             </div>
             <div>
               <label htmlFor="cable-alert" className={labelClass}>Warn below</label>
@@ -190,7 +194,10 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
             </div>
             <div>
               <label htmlFor="sms-from" className={labelClass}>Send from (SIM number)</label>
-              <input id="sms-from" value={smsFromShown} maxLength={20} inputMode="tel" onChange={(e) => setSmsFrom(e.target.value)} placeholder="+91 98765 43210" className={inputClass} />
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">+91</span>
+                <input id="sms-from" value={smsFromShown} maxLength={10} inputMode="numeric" onChange={(e) => setSmsFrom(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="98765 43210" className={cn(inputClass, "pl-12")} />
+              </div>
             </div>
             <div>
               <span className={labelClass}>Reminder language</span>

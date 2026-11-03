@@ -80,6 +80,14 @@ export default function WhatsAppDialog({ target, shop, onClose }: { target: What
   };
   const [kind, setKind] = useState<CableMessageKind | "custom">(defaultKind(target));
   const [text, setText] = useState(() => fill(defaultKind(target)));
+  // Opening a different subscriber reuses this dialog; reset the message to the new person (render-time reset, no effect)
+  const [lastId, setLastId] = useState(target.id);
+  if (lastId !== target.id) {
+    setLastId(target.id);
+    const k = defaultKind(target);
+    setKind(k);
+    setText(fill(k));
+  }
 
   const chooseLanguage = (lang: MessageLanguage) => {
     setLanguage(lang);
