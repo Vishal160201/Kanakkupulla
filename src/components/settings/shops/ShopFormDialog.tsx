@@ -75,9 +75,9 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
     <Dialog open onOpenChange={(open) => !open && !isSaving && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="w-[calc(100vw-2rem)] max-w-[460px] sm:max-w-[460px] rounded-3xl border-0 bg-white p-0 shadow-2xl gap-0 overflow-hidden"
+        className="w-[calc(100vw-2rem)] max-w-[460px] sm:max-w-[460px] max-h-[calc(100dvh-2rem)] flex flex-col rounded-3xl border-0 bg-white p-0 shadow-2xl gap-0 overflow-hidden"
       >
-        <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+        <div className="shrink-0 px-6 pt-6 pb-4 border-b border-slate-100">
           <span className="text-[0.65rem] font-bold text-orange-500 uppercase tracking-[1px]">
             {shop ? "Edit Shop" : "New Shop"}
           </span>
@@ -88,12 +88,14 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
 
         <form
           noValidate
-          className="px-6 py-5 space-y-5"
+          className="flex flex-col flex-1 min-h-0"
           onSubmit={(e) => {
             e.preventDefault();
             handleSubmit();
           }}
         >
+          {/* Fields scroll; the title and buttons stay in view on short screens */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 py-5 space-y-5">
           {/* Preview */}
           <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
             <div
@@ -137,7 +139,7 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
                 </span>
               </div>
             ) : (
-              <div role="radiogroup" aria-labelledby="shop-type-label" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+              <div role="radiogroup" aria-labelledby="shop-type-label" className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
                 {SHOP_TYPES.map((option) => {
                   const isSelected = type === option;
                   return (
@@ -147,11 +149,11 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
                       role="radio"
                       aria-checked={isSelected}
                       onClick={() => setType(option)}
-                      className={`h-10 rounded-lg inline-flex items-center justify-center gap-2 text-sm font-bold transition-all ${
+                      className={`py-2 px-1 rounded-lg inline-flex flex-col items-center justify-center gap-1 text-xs sm:text-[13px] font-bold leading-tight text-center transition-all ${
                         isSelected ? "bg-white text-orange-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
-                      <i aria-hidden="true" className={`ph-bold ${SHOP_TYPE_DETAILS[option].icon}`} />
+                      <i aria-hidden="true" className={`ph-bold ${SHOP_TYPE_DETAILS[option].icon} text-base`} />
                       {SHOP_TYPE_LABELS[option]}
                     </button>
                   );
@@ -249,7 +251,9 @@ export default function ShopFormDialog({ shop, isSaving, serverErrors, onSubmit,
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-2">
+          </div>
+
+          <div className="shrink-0 flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}

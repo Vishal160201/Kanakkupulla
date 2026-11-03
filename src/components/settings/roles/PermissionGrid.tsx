@@ -32,7 +32,7 @@ function ScopeTag({ module }: { module: AccessModule }) {
   );
 }
 
-function ModuleLabel({ module }: { module: AccessModule }) {
+function ModuleLabel({ module, showScope = true }: { module: AccessModule; showScope?: boolean }) {
   return (
     <div className="flex items-start gap-3 min-w-0">
       <div className="w-9 h-9 shrink-0 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
@@ -41,7 +41,7 @@ function ModuleLabel({ module }: { module: AccessModule }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-sm font-bold text-slate-900">{module.label}</span>
-          <ScopeTag module={module} />
+          {showScope && <ScopeTag module={module} />}
         </div>
         <p className="text-[11px] font-medium leading-snug text-slate-400 mt-0.5">{module.description}</p>
       </div>
@@ -82,52 +82,78 @@ function RoleHeading({ label, icon, badge }: { label: string; icon: string; badg
   );
 }
 
-/** Wide table for large screens. */
+/** Section order of the desktop table, with a heading per scope. */
+const SCOPE_GROUPS: { scope: AccessModule["appliesTo"]; title: string }[] = [
+  { scope: "studio", title: "Studio" },
+  { scope: "shop", title: "Each shop" },
+  { scope: "all", title: "All shops" },
+];
+
+/** Wide table for large screens: modules grouped by scope, one fixed-width column per role. */
 function DesktopGrid({ roles, draft }: PermissionGridProps) {
   return (
     <div className="hidden xl:block overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-      <table className="w-full">
+      <table className="w-full table-fixed">
+        <colgroup>
+          <col />
+          <col className="w-[132px]" />
+          {roles.map((role) => (
+            <col key={role.id} className="w-[272px]" />
+          ))}
+        </colgroup>
         <thead>
           <tr className="border-b border-slate-100 bg-slate-50/60">
             <th scope="col" className="text-left px-5 py-3 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
               Module
             </th>
-            <th scope="col" className="px-3 py-3 text-left w-[110px]">
+            <th scope="col" className="px-3 py-3 text-center">
               <RoleHeading label="Owner" icon={ROLE_META.OWNER.icon} badge={ROLE_META.OWNER.badge} />
             </th>
             {roles.map((role) => (
-              <th key={role.id} scope="col" className="px-3 py-3 text-left w-[230px]">
+              <th key={role.id} scope="col" className="px-3 py-3 text-center">
                 <RoleHeading label={role.name} icon={ROLE_META[role.key].icon} badge={ROLE_META[role.key].badge} />
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">
-          {ACCESS_MODULES.map((module) => (
-            <tr key={module.key} className="hover:bg-slate-50/40 transition-colors">
-              <th scope="row" className="px-5 py-3.5 text-left font-normal">
-                <ModuleLabel module={module} />
-              </th>
-              <td className="px-3 py-3.5">
-                <OwnerLevel module={module} />
-              </td>
-              {roles.map((role) => (
-                <td key={role.id} className="px-3 py-3.5">
-                  <span className="relative inline-flex">
-                    <LevelControl
-                      levels={module.levels}
-                      value={draft.levelOf(role.id, module.key)}
-                      onChange={(level) => draft.setLevel(role.id, module.key, level)}
-                      label={`${role.name}: ${module.label}`}
-                      disabled={draft.isSaving}
-                    />
-                    <ChangedDot show={draft.isLevelChanged(role.id, module.key)} />
-                  </span>
-                </td>
+        {SCOPE_GROUPS.map(({ scope, title }) => {
+          const modules = ACCESS_MODULES.filter((m) => m.appliesTo === scope);
+          if (modules.length === 0) return null;
+          return (
+            <tbody key={scope} className="divide-y divide-slate-50 border-t border-slate-100">
+              <tr className="bg-slate-50/40">
+                <th scope="rowgroup" colSpan={2 + roles.length} className="px-5 pt-3 pb-2 text-left font-normal">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">{title}</span>
+                  <span className="ml-2 text-[11px] font-medium text-slate-400">{SCOPE_HINTS[scope]}</span>
+                </th>
+              </tr>
+              {modules.map((module) => (
+                <tr key={module.key} className="hover:bg-slate-50/40 transition-colors">
+                  <th scope="row" className="px-5 py-3 text-left font-normal">
+                    <ModuleLabel module={module} showScope={false} />
+                  </th>
+                  <td className="px-3 py-3 text-center">
+                    <OwnerLevel module={module} />
+                  </td>
+                  {roles.map((role) => (
+                    <td key={role.id} className="px-3 py-3 text-center">
+                      <span className="relative inline-flex">
+                        <LevelControl
+                          levels={module.levels}
+                          value={draft.levelOf(role.id, module.key)}
+                          onChange={(level) => draft.setLevel(role.id, module.key, level)}
+                          label={`${role.name}: ${module.label}`}
+                          disabled={draft.isSaving}
+                        />
+                        <ChangedDot show={draft.isLevelChanged(role.id, module.key)} />
+                      </span>
+                    </td>
+                  ))}
+                </tr>
               ))}
-            </tr>
-          ))}
-        </tbody>
+            </tbody>
+          );
+        })}
       </table>
     </div>
   );

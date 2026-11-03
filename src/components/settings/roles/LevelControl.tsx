@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import type { AccessLevel } from "@/lib/access";
+import { ACCESS_LEVELS, type AccessLevel } from "@/lib/access";
 import { LEVEL_LABELS } from "./roleMeta";
 
 interface LevelControlProps {
@@ -15,6 +15,8 @@ interface LevelControlProps {
   /** Stretch the segments to the container width (mobile accordions). */
   fullWidth?: boolean;
 }
+
+const SLOT = "w-[76px]";
 
 const ACTIVE_STYLES: Record<AccessLevel, string> = {
   NONE: "bg-white text-slate-700 shadow-sm ring-1 ring-slate-200",
@@ -38,6 +40,9 @@ export default function LevelControl({ levels, value, onChange, label, disabled,
     refs.current[next]?.focus();
   };
 
+  // In the table every control has the same three slots, so None / View / Manage line up down a column
+  const slots: readonly (AccessLevel | null)[] = fullWidth ? levels : ACCESS_LEVELS.map((l) => (levels.includes(l) ? l : null));
+
   return (
     <div
       role="radiogroup"
@@ -45,7 +50,9 @@ export default function LevelControl({ levels, value, onChange, label, disabled,
       aria-disabled={disabled || undefined}
       className={`${fullWidth ? "flex w-full" : "inline-flex"} items-center gap-0.5 rounded-xl bg-slate-100 p-0.5`}
     >
-      {levels.map((level, index) => {
+      {slots.map((level) => {
+        if (level === null) return <span key={`empty-${label}`} aria-hidden="true" className={`${SLOT} h-8`} />;
+        const index = levels.indexOf(level);
         const isActive = level === value;
         return (
           <button
@@ -68,7 +75,7 @@ export default function LevelControl({ levels, value, onChange, label, disabled,
                 move(index, -1);
               }
             }}
-            className={`${fullWidth ? "flex-1" : "min-w-[58px]"} h-8 px-2.5 rounded-[10px] text-[11px] font-bold inline-flex items-center justify-center gap-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 disabled:cursor-not-allowed ${
+            className={`${fullWidth ? "flex-1" : SLOT} h-8 px-2 rounded-[10px] text-[11px] font-bold inline-flex items-center justify-center gap-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 disabled:cursor-not-allowed ${
               isActive ? ACTIVE_STYLES[level] : "text-slate-500 hover:text-slate-800 hover:bg-white/60"
             }`}
           >
