@@ -3,7 +3,8 @@
 import type { CableProvider, CableSubscriberListResponse, CableSubscriberRow } from "@/types/cable";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ConfirmDialog, EmptyState, KpiCard, Pill, SearchInput, cardClass, primaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
+import { ConfirmDialog, EmptyState, KpiCard, Pagination, Pill, SearchInput, cardClass, primaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
+import CustomDropdown from "@/components/ui/CustomDropdown";
 import { errorMessage, sendJson } from "@/components/inventory/inventoryUtils";
 import { useCanManageCable } from "./useCableData";
 import { formatDate, formatINR, useDebouncedValue } from "@/components/inventory/inventoryUtils";
@@ -129,6 +130,19 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
   const list = searched.filter((s) => matches(s, filter, now)).sort(filter === "dues" ? (a, b) => b.due - a.due : byUrgency(now));
   const totalDue = all.reduce((sum, s) => sum + Math.max(0, s.due), 0);
 
+  // Pagination (client-side); back to page 1 whenever the filter, search or page size changes
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
+  const pageKey = `${filter}|${debounced}|${pageSize}`;
+  const [lastPageKey, setLastPageKey] = useState(pageKey);
+  if (pageKey !== lastPageKey) {
+    setLastPageKey(pageKey);
+    setPage(1);
+  }
+  const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const paged = list.slice((safePage - 1) * pageSize, safePage * pageSize);
+
   const canManage = useCanManageCable();
   const [confirmSms, setConfirmSms] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
@@ -226,13 +240,26 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
             />
           )
         ) : (
-          <ul className="space-y-1">
-            {list.map((s) => (
-              <li key={s.id}>
-                <SubscriberRow s={s} isCable={isCable} now={now} onOpen={() => onOpen(s.id)} />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-1">
+              {paged.map((s) => (
+                <li key={s.id}>
+                  <SubscriberRow s={s} isCable={isCable} now={now} onOpen={() => onOpen(s.id)} />
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2 text-[0.8rem] font-bold text-slate-500">
+                <span>Per page</span>
+                <div className="w-24">
+                  <CustomDropdown options={["25", "50", "100"]} value={String(pageSize)} onChange={(v) => setPageSize(Number(v))} />
+                </div>
+              </div>
+              <div className="sm:ml-auto">
+                <Pagination page={safePage} pageSize={pageSize} total={list.length} onPageChange={setPage} />
+              </div>
+            </div>
+          </>
         )}
       </div>
 
