@@ -37,6 +37,11 @@ chrome.runtime.onStartup.addListener(schedule);
 chrome.permissions.onAdded.addListener(registerBridge);
 chrome.storage.onChanged.addListener((changes) => changes.appUrl && registerBridge());
 chrome.alarms.onAlarm.addListener((alarm) => alarm.name === ALARM && syncNow());
+chrome.notifications.onClicked.addListener((id) => {
+  if (!id.startsWith("login:")) return;
+  chrome.tabs.create({ url: `https://${id.slice("login:".length)}/` });
+  chrome.notifications.clear(id);
+});
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "syncNow") return false;
   syncNow().then(sendResponse);
@@ -73,11 +78,11 @@ async function syncPortal(portal, appUrl, syncKey) {
   try {
     result = await readPortal(portal);
   } catch (err) {
-    return { ok: false, text: `${portal.name}: ${MESSAGES.NETWORK(portal)}`, detail: String(err?.message ?? err) };
+    return { ok: false, portal, text: `${portal.name}: ${MESSAGES.NETWORK(portal)}`, detail: String(err?.message ?? err) };
   }
   if (!result || result.error) {
     const message = MESSAGES[result?.error] ?? MESSAGES.NETWORK;
-    return { ok: false, text: `${portal.name}: ${message(portal)}`, detail: result?.detail };
+    return { ok: false, portal, code: result?.error, text: `${portal.name}: ${message(portal)}`, detail: result?.detail };
   }
   try {
     const res = await fetch(`${appUrl}/api/cable/sync`, {
@@ -86,7 +91,7 @@ async function syncPortal(portal, appUrl, syncKey) {
       body: JSON.stringify({ provider: portal.id, rows: result.rows, wallet: result.wallet ?? null }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, text: `${portal.name}: ${data.error ?? `Kanakkupulla answered ${res.status}.`}` };
+    if (!res.ok) return { ok: false, portal, text: `${portal.name}: ${data.error ?? `Kanakkupulla answered ${res.status}.`}` };
     const changes = [
       data.created && `${data.created} new`,
       data.updated && `${data.updated} updated`,
@@ -94,10 +99,29 @@ async function syncPortal(portal, appUrl, syncKey) {
       data.charges && `${data.charges} billed`,
       data.gone && `${data.gone} removed`,
     ].filter(Boolean);
-    return { ok: true, text: `${portal.name}: ${data.received} synced${changes.length ? ` (${changes.join(", ")})` : ""}` };
+    return { ok: true, portal, text: `${portal.name}: ${data.received} synced${changes.length ? ` (${changes.join(", ")})` : ""}` };
   } catch (err) {
-    return { ok: false, text: `${portal.name}: ${MESSAGES.NETWORK(portal)}`, detail: String(err?.message ?? err) };
+    return { ok: false, portal, text: `${portal.name}: ${MESSAGES.NETWORK(portal)}`, detail: String(err?.message ?? err) };
   }
+}
+
+/** Notifies once when a portal newly logs out (click opens its login page); clears when it recovers. */
+async function notifyLogouts(results) {
+  const prev = (await chrome.storage.local.get("loggedOut")).loggedOut ?? {};
+  const now = {};
+  for (const r of results) {
+    if (r.code !== "LOGGED_OUT") continue;
+    now[r.portal.id] = true;
+    if (prev[r.portal.id]) continue; // already told them; don't nag every minute
+    chrome.notifications.create(`login:${r.portal.host}`, {
+      type: "basic",
+      iconUrl: "icon128.png",
+      title: `${r.portal.name} — logged out`,
+      message: `Sync paused. Click to open ${r.portal.host} and log in.`,
+      priority: 2,
+    });
+  }
+  await chrome.storage.local.set({ loggedOut: now });
 }
 
 async function runSync() {
@@ -108,5 +132,6 @@ async function runSync() {
 
   const results = [];
   for (const portal of ticked) results.push(await syncPortal(portal, settings.appUrl, settings.syncKey));
+  await notifyLogouts(results);
   return setStatus({ ok: results.every((r) => r.ok), message: results.map((r) => r.text).join(" · ") });
 }

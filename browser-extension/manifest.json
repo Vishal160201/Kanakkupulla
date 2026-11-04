@@ -3,10 +3,11 @@
   "name": "Kanakkupulla Sync",
   "version": "1.0.0",
   "description": "Copies your TIC Fiber and TCCL subscribers into Kanakkupulla every minute, using your logged-in portals.",
-  "permissions": ["alarms", "storage", "offscreen", "scripting"],
+  "permissions": ["alarms", "storage", "offscreen", "scripting", "notifications"],
   "host_permissions": ["https://partner.ticfiber.in/*", "https://sms.tccl.co.in/*"],
   "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "icons": { "48": "icon48.png", "128": "icon128.png" },
   "background": { "service_worker": "background.js" },
-  "action": { "default_popup": "popup.html", "default_title": "Kanakkupulla Sync" },
+  "action": { "default_popup": "popup.html", "default_title": "Kanakkupulla Sync", "default_icon": { "48": "icon48.png", "128": "icon128.png" } },
   "options_ui": { "page": "popup.html", "open_in_tab": true }
 }
