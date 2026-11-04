@@ -221,6 +221,7 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
               )}
               <Field label="Phone" value={s.phone && <a className="text-orange-600 hover:underline" href={`tel:${s.phone}`}>{s.phone}</a>} />
               <Field label="Alternative phone" value={s.altPhone} />
+              <Field label="Group" value={s.groupName} />
               <Field label="Area" value={s.area} />
               {!isCable && <Field label="Last renewal" value={s.renewedAt && formatDate(s.renewedAt)} />}
               <Field label="Activated" value={s.activatedAt && formatDate(s.activatedAt)} />

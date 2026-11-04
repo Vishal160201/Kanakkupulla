@@ -6,15 +6,18 @@ import { FieldError, RequiredMark, inputClass, inputErrorClass, labelClass, prim
 import { errorMessage, sendJson } from "@/components/inventory/inventoryUtils";
 import type { CableSubscriberDetail } from "@/types/cable";
 import { cn } from "@/lib/utils";
-import { useRevalidateCable } from "./useCableData";
+import Autocomplete from "@/components/ui/Autocomplete";
+import { useRevalidateCable, useSubscribers } from "./useCableData";
 
-type Errors = Partial<Record<"name" | "tamilName" | "phone" | "oldVcNumber", string>>;
+type Errors = Partial<Record<"name" | "tamilName" | "phone" | "oldVcNumber" | "groupName", string>>;
 
 /** The shop's corrections to a subscriber. Name and phone stay as typed here even when the portal shows others. */
 export default function EditSubscriberForm({ s, onDone }: { s: CableSubscriberDetail; onDone: () => void }) {
   const revalidate = useRevalidateCable();
   const isCable = s.provider === "TCCL";
-  const [form, setForm] = useState({ name: s.name, tamilName: s.tamilName ?? "", phone: s.phone ?? "", oldVcNumber: s.oldVcNumber ?? "" });
+  const [form, setForm] = useState({ name: s.name, tamilName: s.tamilName ?? "", phone: s.phone ?? "", oldVcNumber: s.oldVcNumber ?? "", groupName: s.groupName ?? "" });
+  // The shop's groups so far (the list is already loaded behind this dialog)
+  const groups = [...new Set((useSubscribers(s.shopId).data?.subscribers ?? []).map((x) => x.groupName).filter((g): g is string => !!g))].sort();
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -30,7 +33,7 @@ export default function EditSubscriberForm({ s, onDone }: { s: CableSubscriberDe
     if (Object.keys(errs).length > 0) return;
     setSaving(true);
     try {
-      await sendJson(`/api/cable/subscribers/${encodeURIComponent(s.id)}`, "PATCH", { name: form.name, tamilName: form.tamilName, phone, oldVcNumber: vc });
+      await sendJson(`/api/cable/subscribers/${encodeURIComponent(s.id)}`, "PATCH", { name: form.name, tamilName: form.tamilName, phone, oldVcNumber: vc, groupName: form.groupName.trim() });
       toast.success("Subscriber updated");
       revalidate();
       onDone();
@@ -68,6 +71,10 @@ export default function EditSubscriberForm({ s, onDone }: { s: CableSubscriberDe
         {field("tamilName", "Name (Tamil)", { maxLength: 100, lang: "ta" })}
         {field("phone", "Mobile", { inputMode: "tel", maxLength: 16, placeholder: `Blank = ${isCable ? "TCCL" : "portal"}'s number` })}
         {isCable && field("oldVcNumber", "Old VC (customer's box)", { inputMode: "numeric", maxLength: 20, placeholder: "When a replacement box is given" })}
+        <div>
+          <span className={labelClass}>Group (area / line)</span>
+          <Autocomplete suggestions={groups} value={form.groupName} onChange={(v) => setForm((f) => ({ ...f, groupName: v.slice(0, 60) }))} placeholder="e.g. Sheet A, North street" />
+        </div>
       </div>
       <p className="text-[11px] font-semibold text-slate-400">The name and mobile you save here stay, even when {isCable ? "TCCL" : "the portal"} shows different ones.</p>
       <div className="flex justify-end gap-2">

@@ -2,14 +2,15 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { InventoryDialog, Pill, primaryButtonClass, secondaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
+import { FieldError, InventoryDialog, Pill, inputClass, inputErrorClass, labelClass, primaryButtonClass, secondaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
 import { errorMessage, sendJson } from "@/components/inventory/inventoryUtils";
 import type { BoxStatus, ImportRow } from "@/lib/cableImport";
 import { cn } from "@/lib/utils";
-import { readSubscriberFile } from "./subscriberFiles";
+import { PasswordNeeded, readSubscriberFile } from "./subscriberFiles";
 import { useRevalidateCable } from "./useCableData";
 
 interface Result {
+  sheet: string | null;
   line: number;
   name: string | null;
   tamilName: string | null;
@@ -34,21 +35,27 @@ export default function ImportSubscribersDialog({ shopId, canSave, onClose }: { 
   const [results, setResults] = useState<Result[] | null>(null);
   const [filter, setFilter] = useState<BoxStatus | "all">("all");
   const [busy, setBusy] = useState<"reading" | "saving" | null>(null);
+  // A password-protected file waiting for its password
+  const [locked, setLocked] = useState<{ file: File; error: string | null } | null>(null);
+  const [password, setPassword] = useState("");
 
-  const pick = async (f: File | undefined) => {
+  const pick = async (f: File | undefined, pw?: string) => {
     if (!f) return;
     setBusy("reading");
     setResults(null);
     setFilter("all");
     try {
-      const read = await readSubscriberFile(f);
+      const read = await readSubscriberFile(f, pw);
       if (read.length === 0) throw new Error("The file has no subscriber rows.");
       const r = await sendJson<{ results: Result[] }>("/api/cable/subscribers/import", "POST", { shopId, apply: false, rows: read });
       setFile(f.name);
       setRows(read);
       setResults(r.results);
+      setLocked(null);
+      setPassword("");
     } catch (err) {
-      toast.error(errorMessage(err));
+      if (err instanceof PasswordNeeded) setLocked({ file: f, error: pw ? err.message : null });
+      else toast.error(errorMessage(err));
     } finally {
       setBusy(null);
       if (input.current) input.current.value = "";
@@ -103,8 +110,42 @@ export default function ImportSubscribersDialog({ shopId, canSave, onClose }: { 
           className="w-full rounded-2xl border-2 border-dashed border-slate-200 hover:border-orange-300 hover:bg-orange-50/40 px-4 py-5 text-sm font-bold text-slate-600 flex items-center justify-center gap-2 transition-colors"
         >
           {busy === "reading" ? <i className="ph ph-circle-notch animate-spin" aria-hidden="true" /> : <i className="ph-bold ph-upload-simple text-orange-600" aria-hidden="true" />}
-          {busy === "reading" ? "Checking with TCCL…" : results ? "Choose another file" : "Choose an Excel or CSV file"}
+          {busy === "reading" ? "Checking with TCCL…" : results || locked ? "Choose another file" : "Choose an Excel or CSV file"}
         </button>
+
+        {locked && (
+          <form
+            noValidate
+            className="rounded-2xl border border-orange-100 bg-orange-50/40 p-4 space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!password) return setLocked({ ...locked, error: "Enter the file's password." });
+              void pick(locked.file, password);
+            }}
+          >
+            <label htmlFor="import-password" className={labelClass}>
+              <i className="ph-bold ph-lock-key mr-1" aria-hidden="true" /> Password for {locked.file.name}
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="import-password"
+                type="password"
+                autoComplete="off"
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={cn(inputClass, "flex-1", locked.error && inputErrorClass)}
+                aria-invalid={!!locked.error}
+              />
+              <button type="submit" disabled={!!busy} className={cn(primaryButtonClass, "h-11 shrink-0")}>
+                {busy === "reading" ? <i className="ph ph-circle-notch animate-spin" aria-hidden="true" /> : <i className="ph-bold ph-lock-key-open" aria-hidden="true" />}
+                Open
+              </button>
+            </div>
+            <FieldError message={locked.error} />
+            <p className="text-[11px] font-semibold text-slate-400">The file is opened on our server and not stored. The password isn&apos;t saved.</p>
+          </form>
+        )}
 
         {results && (
           <>
@@ -127,9 +168,11 @@ export default function ImportSubscribersDialog({ shopId, canSave, onClose }: { 
               ))}
             </div>
             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100 max-h-[45vh] overflow-y-auto">
-              {shown.map((r) => (
-                <li key={r.line} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-                  <span className="w-10 shrink-0 text-[11px] font-bold text-slate-400">#{r.line}</span>
+              {shown.map((r, i) => (
+                <li key={`${r.sheet}-${r.line}-${i}`} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                  <span className="w-16 shrink-0 text-[11px] font-bold text-slate-400 truncate" title={r.sheet ? `${r.sheet}, row ${r.line}` : `Row ${r.line}`}>
+                    {r.sheet ? `${r.sheet} · ${r.line}` : `#${r.line}`}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="font-bold text-slate-800 truncate">
                       {r.name ?? "No name"}

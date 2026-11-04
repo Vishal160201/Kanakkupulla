@@ -29,7 +29,7 @@ export async function GET(request: Request) {
           id: true, provider: true, externalId: true, name: true, phone: true, status: true, plan: true,
           area: true, vcNumber: true, expiresAt: true, renewedAt: true, goneAt: true,
           // Not shown in the list, only searched
-          tamilName: true, oldVcNumber: true, altPhone: true, macId: true, address: true,
+          tamilName: true, oldVcNumber: true, altPhone: true, macId: true, address: true, groupName: true,
         },
       }),
       subscriberDues(prisma, shop.id),

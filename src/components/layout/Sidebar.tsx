@@ -39,12 +39,12 @@ const NAV_ITEMS: NavItem[] = [
     // Album status lives under Bookings but has its own permission.
     access: [{ module: "bookings", path: "/bookings/overview" }, { module: "albums", path: "/bookings/album-status" }],
   },
-  { name: "Daily kanakku", path: "/transactions/overview", activePrefix: "/transactions", icon: "ph-file-text", module: "transactions", access: [{ module: "ledger", path: "/transactions/overview" }] },
+  { name: "Kanakku", path: "/transactions/overview", activePrefix: "/transactions", icon: "ph-file-text", module: "transactions", access: [{ module: "ledger", path: "/transactions/overview" }] },
   { name: "Fertilizer Inventory", path: "/inventory", activePrefix: "/inventory", icon: "ph-package", module: "inventory", access: [{ module: "inventory", path: "/inventory" }] },
   { name: "Farmers", path: "/farmers", activePrefix: "/farmers", icon: "ph-users-three", module: "farmers", access: [{ module: "inventory", path: "/farmers" }] },
   { name: "Produce", path: "/produce", activePrefix: "/produce", icon: "ph-plant", module: "produce", access: [{ module: "inventory", path: "/produce" }] },
-  { name: "TIC Fiber", path: "/subscribers", activePrefix: "/subscribers", icon: "ph-wifi-high", module: "subscribers", access: [{ module: "cable", path: "/subscribers" }], exactActive: true },
   { name: "TCCL", path: "/subscribers/cable", activePrefix: "/subscribers/cable", icon: "ph-television-simple", module: "subscribers", access: [{ module: "cable", path: "/subscribers/cable" }] },
+  { name: "TIC Fiber", path: "/subscribers", activePrefix: "/subscribers", icon: "ph-wifi-high", module: "subscribers", access: [{ module: "cable", path: "/subscribers" }], exactActive: true },
   { name: "Gifts & Frames", path: "/gifts", activePrefix: "/gifts", icon: "ph-gift", module: "gifts", access: [{ module: "gifts", path: "/gifts" }] },
   { name: "Analytics", path: "/analytics", activePrefix: "/analytics", icon: "ph-chart-bar", module: "analytics", access: [{ module: "analytics", path: "/analytics" }] },
 ];
@@ -81,7 +81,11 @@ export default function Sidebar() {
   
   // Modules of the active shop's type that the user may view there (the first viewable
   // sub-page of an item becomes its link).
-  const visibleNavItems = NAV_ITEMS.flatMap((item) => {
+  // Cable shops lead with their subscribers and keep the ledger last
+  const ordered = allowedModules.includes("subscribers")
+    ? [...NAV_ITEMS.filter((item) => item.module !== "transactions"), ...NAV_ITEMS.filter((item) => item.module === "transactions")]
+    : NAV_ITEMS;
+  const visibleNavItems = ordered.flatMap((item) => {
     if (!allowedModules.includes(item.module)) return [];
     const target = item.access.find(({ module }) => can(module, "VIEW"));
     return target ? [{ ...item, path: target.path }] : [];

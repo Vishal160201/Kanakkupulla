@@ -61,18 +61,19 @@ export async function PATCH(request: Request, { params }: Ctx) {
     const current = await prisma.cableSubscriber.findUnique({ where: { id: route.data.id }, select: { shopId: true, name: true, phone: true } });
     if (!current) return NextResponse.json({ error: "Subscriber not found" }, { status: 404 });
     await getCableShop(auth.user, current.shopId, "MANAGE");
-    const { name, tamilName, phone, oldVcNumber } = body.data;
+    const { name, tamilName, phone, oldVcNumber, groupName } = body.data;
     const subscriber = await prisma.cableSubscriber.update({
       where: { id: route.data.id },
       data: {
         tamilName,
         oldVcNumber,
+        groupName,
         // Only an actual change pins the name, so saving other fields doesn't freeze the portal's name
         ...(name !== current.name ? { name, customName: name } : {}),
         // Same for the phone; a blank one hands it back to the portal (restored on the next sync)
         ...(phone === null ? { customPhone: null } : phone !== current.phone ? { phone, customPhone: phone } : {}),
       },
-      select: { id: true, name: true, tamilName: true, phone: true, oldVcNumber: true },
+      select: { id: true, name: true, tamilName: true, phone: true, oldVcNumber: true, groupName: true },
     });
     return NextResponse.json({ subscriber });
   } catch (error) {

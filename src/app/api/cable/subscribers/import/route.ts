@@ -37,6 +37,7 @@ export async function POST(request: Request) {
             data: {
               ...(row.name && row.name !== sub.name ? { name: row.name, customName: row.name } : {}),
               ...(row.tamilName ? { tamilName: row.tamilName } : {}),
+              ...(row.groupName ? { groupName: row.groupName } : {}),
               ...(phone && phone !== sub.phone ? { phone, customPhone: phone } : {}),
               ...(row.oldVcNumber && row.oldVcNumber !== sub.vcNumber ? { oldVcNumber: row.oldVcNumber } : {}),
             },
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       saved,
       results: matched.map(({ row, sub, byOldVc, shared, status }) => ({
+        sheet: row.sheet ?? null,
         line: row.line,
         name: row.name,
         tamilName: row.tamilName,

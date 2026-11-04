@@ -3,10 +3,10 @@
 import type { CableProvider, CableSubscriberListResponse, CableSubscriberRow } from "@/types/cable";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ConfirmDialog, EmptyState, KpiCard, Pagination, Pill, SearchInput, cardClass, primaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
+import { ConfirmDialog, EmptyState, FieldError, InventoryDialog, KpiCard, Pagination, Pill, SearchInput, cardClass, inputClass, inputErrorClass, labelClass, primaryButtonClass, secondaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { errorMessage, sendJson } from "@/components/inventory/inventoryUtils";
-import { useCanManageCable } from "./useCableData";
+import { useCanManageCable, useRevalidateCable } from "./useCableData";
 import { formatDate, formatINR, useDebouncedValue } from "@/components/inventory/inventoryUtils";
 import { initials } from "@/components/inventory/produce/produceShared";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,66 @@ import { SOON_DAYS, expiryLabel, expiryState, type ExpiryState } from "./cableSh
 import { exportSubscribers, type ExportFormat } from "./subscriberFiles";
 import ImportSubscribersDialog from "./ImportSubscribersDialog";
 
-const FILE_ACTIONS: { id: ExportFormat | "import"; label: string; icon: string }[] = [
+const ALL_GROUPS = "All groups";
+const NO_GROUP = "No group";
+
+/** Renames a group for everyone in it (also merges it into an existing group of that name). */
+function RenameGroupDialog({ shopId, from, onClose }: { shopId: string; from: string; onClose: (renamedTo?: string) => void }) {
+  const revalidate = useRevalidateCable();
+  const [to, setTo] = useState(from);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    const name = to.trim();
+    if (!name) return setError("Enter the new name.");
+    if (name === from) return onClose();
+    setSaving(true);
+    try {
+      const r = await sendJson<{ renamed: number }>("/api/cable/groups", "PATCH", { shopId, from, to: name });
+      toast.success(`Group renamed to ${name}`, { description: `${r.renamed} subscriber${r.renamed === 1 ? "" : "s"} moved.` });
+      revalidate();
+      onClose(name);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <InventoryDialog
+      open
+      onClose={() => onClose()}
+      busy={saving}
+      size="sm"
+      eyebrow="Subscriber group"
+      title={`Rename ${from}`}
+      footer={
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={() => onClose()} disabled={saving} className={cn(secondaryButtonClass, "h-10")}>Cancel</button>
+          <button type="submit" form="rename-group" disabled={saving} className={cn(primaryButtonClass, "h-10")}>
+            {saving ? <i className="ph ph-circle-notch animate-spin" aria-hidden="true" /> : <i className="ph-bold ph-check" aria-hidden="true" />} Rename
+          </button>
+        </div>
+      }
+    >
+      <form
+        id="rename-group"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <label htmlFor="rename-group-input" className={labelClass}>New name</label>
+        <input id="rename-group-input" autoFocus value={to} maxLength={60} onChange={(e) => setTo(e.target.value)} className={cn(inputClass, error && inputErrorClass)} aria-invalid={!!error} />
+        <FieldError message={error} />
+        <p className="mt-2 text-[11px] font-semibold text-slate-400">Using the name of another group merges the two.</p>
+      </form>
+    </InventoryDialog>
+  );
+}
+
+const FILE_ACTIONS:{ id: ExportFormat | "import"; label: string; icon: string }[] = [
   { id: "import", label: "Import xlsx / csv", icon: "ph-upload-simple text-orange-500" },
   { id: "xlsx", label: "Export as Excel", icon: "ph-microsoft-excel-logo text-emerald-600" },
   { id: "csv", label: "Export as CSV", icon: "ph-file-csv text-emerald-500" },
@@ -76,12 +135,13 @@ const INTERNET_FILTERS: { id: Filter; label: string }[] = [
   { id: "dues", label: "Dues" },
   { id: "gone", label: "Removed" },
 ];
+// Active first (the default view), All last
 const CABLE_FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
   { id: "active", label: "Active" },
   { id: "inactive", label: "Box off" },
   { id: "dues", label: "Dues" },
   { id: "gone", label: "Removed" },
+  { id: "all", label: "All" },
 ];
 
 const STATE_TONE: Record<ExpiryState, string> = {
@@ -118,7 +178,7 @@ function byUrgency(now: number) {
 
 function SubscriberRow({ s, isCable, now, onOpen }: { s: CableSubscriberRow; isCable: boolean; now: number; onOpen: () => void }) {
   const state = expiryState(s, now);
-  const details = [s.externalId, s.phone, s.area].filter(Boolean).join(" · ");
+  const details = [s.groupName, s.externalId, s.phone, s.area].filter(Boolean).join(" · ");
   return (
     <button
       type="button"
@@ -179,15 +239,18 @@ function SubscriberRow({ s, isCable, now, onOpen }: { s: CableSubscriberRow; isC
 export default function SubscribersTab({ shopId, data, provider, now, onOpen }: { shopId: string; data: CableSubscriberListResponse; provider: CableProvider; now: number; onOpen: (id: string) => void }) {
   const isCable = provider === "TCCL";
   const FILTERS = isCable ? CABLE_FILTERS : INTERNET_FILTERS;
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>(FILTERS[0].id);
   const [search, setSearch] = useState("");
   const debounced = useDebouncedValue(search).trim().toLowerCase();
 
   // A shop has tens to a few thousand subscribers: cheap enough to filter on every render
   const all = data.subscribers.filter((s) => (s.provider === "TCCL") === isCable);
+  const groups = [...new Set(all.map((s) => s.groupName).filter((g): g is string => !!g))].sort();
+  const [group, setGroup] = useState(ALL_GROUPS);
+  const inGroup = group === ALL_GROUPS ? all : all.filter((s) => (group === NO_GROUP ? !s.groupName : s.groupName === group));
   const searched = debounced
-    ? all.filter((s) => [s.name, s.tamilName, s.externalId, s.phone, s.altPhone, s.area, s.address, s.plan, s.vcNumber, s.oldVcNumber, s.macId, s.status].some((v) => v?.toLowerCase().includes(debounced)))
-    : all;
+    ? inGroup.filter((s) => [s.name, s.tamilName, s.groupName, s.externalId, s.phone, s.altPhone, s.area, s.address, s.plan, s.vcNumber, s.oldVcNumber, s.macId, s.status].some((v) => v?.toLowerCase().includes(debounced)))
+    : inGroup;
   const counts = Object.fromEntries(FILTERS.map((f) => [f.id, searched.filter((s) => matches(s, f.id, now)).length])) as Record<Filter, number>;
   const list = searched.filter((s) => matches(s, filter, now)).sort(filter === "dues" ? (a, b) => b.due - a.due : byUrgency(now));
   const totalDue = all.reduce((sum, s) => sum + Math.max(0, s.due), 0);
@@ -195,7 +258,7 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
   // Pagination (client-side); back to page 1 whenever the filter, search or page size changes
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(1);
-  const pageKey = `${filter}|${debounced}|${pageSize}`;
+  const pageKey = `${filter}|${group}|${debounced}|${pageSize}`;
   const [lastPageKey, setLastPageKey] = useState(pageKey);
   if (pageKey !== lastPageKey) {
     setLastPageKey(pageKey);
@@ -207,6 +270,7 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
 
   const canManage = useCanManageCable();
   const [importing, setImporting] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [confirmSms, setConfirmSms] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
   // Who an SMS reminder would go to: owing, or (internet only) expiring soon / expired
@@ -256,6 +320,18 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
       <div className={cn(cardClass, "p-4 sm:p-5")}>
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
           <SearchInput value={search} onChange={setSearch} placeholder={isCable ? "Search name, Tamil name, ID, phone, VC or old VC" : "Search name, ID, phone, area or plan"} />
+          {groups.length > 0 && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="w-full lg:w-44">
+                <CustomDropdown options={[ALL_GROUPS, ...groups, NO_GROUP]} value={group} onChange={setGroup} />
+              </div>
+              {canManage && group !== ALL_GROUPS && group !== NO_GROUP && (
+                <button type="button" onClick={() => setRenaming(group)} aria-label={`Rename group ${group}`} title="Rename group" className="h-[45px] w-[45px] shrink-0 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 flex items-center justify-center">
+                  <i className="ph-bold ph-pencil-simple" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-5 lg:flex bg-slate-50 border border-slate-200 rounded-xl p-1 lg:ml-auto" role="radiogroup" aria-label="Subscriber filter">
             {FILTERS.map((f) => (
               <button
@@ -327,6 +403,16 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
         )}
       </div>
 
+      {renaming && (
+        <RenameGroupDialog
+          shopId={shopId}
+          from={renaming}
+          onClose={(to) => {
+            setRenaming(null);
+            if (to) setGroup(to);
+          }}
+        />
+      )}
       {importing && <ImportSubscribersDialog shopId={shopId} canSave={canManage} onClose={() => setImporting(false)} />}
       <ConfirmDialog
         open={confirmSms}

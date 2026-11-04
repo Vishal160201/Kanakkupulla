@@ -26,6 +26,8 @@ export interface CableSubscriberRow {
   /** Shop-entered (not from the portal) */
   tamilName: string | null;
   oldVcNumber: string | null;
+  /** The shop's area / line group */
+  groupName: string | null;
   altPhone: string | null;
   macId: string | null;
   address: string | null;
@@ -94,6 +96,7 @@ export interface CableComplaint {
 }
 
 export interface CableSubscriberDetail extends Omit<CableSubscriberRow, "openComplaints"> {
+  shopId: string;
   createdOn: string | null;
   activatedAt: string | null;
   renewals: CableRenewal[];

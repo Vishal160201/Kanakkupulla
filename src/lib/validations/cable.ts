@@ -52,6 +52,14 @@ export const subscriberEditSchema = z.object({
     .nullish()
     .transform((v) => v?.replace(/\s/g, "") || null)
     .refine((v) => v === null || /^\d{6,20}$/.test(v), { message: "A VC number is digits only." }),
+  groupName: optionalText(60),
+});
+
+/** Renames a subscriber group (area / line) for everyone in it. */
+export const groupRenameSchema = z.object({
+  shopId: idSchema,
+  from: z.string().trim().min(1).max(60),
+  to: z.string({ message: "Enter the new name." }).trim().min(1, "Enter the new name.").max(60, "Keep it under 60 characters."),
 });
 
 const cell = (max: number) => z.string().trim().max(max).nullable();
@@ -60,7 +68,7 @@ export const subscriberImportSchema = z.object({
   shopId: idSchema,
   apply: z.boolean(),
   rows: z
-    .array(z.object({ line: z.number().int(), name: cell(100), tamilName: cell(100), vcNumber: cell(30), oldVcNumber: cell(30), phone: cell(20) }))
+    .array(z.object({ sheet: cell(100).optional(), line: z.number().int(), name: cell(100), tamilName: cell(100), vcNumber: cell(30), oldVcNumber: cell(30), phone: cell(20), groupName: cell(60).optional() }))
     .min(1, "The file has no subscriber rows.")
     .max(10_000, "Import at most 10,000 rows at a time."),
 });

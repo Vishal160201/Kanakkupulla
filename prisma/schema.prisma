@@ -483,6 +483,8 @@ model CableSubscriber {
   tamilName   String?
   /// The VC number of the box this subscriber had before (TCCL)
   oldVcNumber String?
+  /// The shop's own grouping (area / line, e.g. a sheet of the old register)
+  groupName   String?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   shop        Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
