@@ -140,7 +140,9 @@ function SubscriberRow({ s, isCable, now, onOpen }: { s: CableSubscriberRow; isC
         <div className="text-[11px] font-semibold text-slate-400 truncate">{details}</div>
       </div>
       <div className="hidden lg:block w-[200px] shrink-0 text-xs font-semibold text-slate-500 truncate" title={s.plan ?? undefined}>
-        {isCable ? (s.vcNumber ? `VC ${s.vcNumber}` : "—") : (s.plan ?? "—")}
+        {/* The customer's own box; a replacement lent while it's repaired (TCCL's VC) shows only in the details */}
+        {isCable ? ((s.oldVcNumber ?? s.vcNumber) ? `VC ${s.oldVcNumber ?? s.vcNumber}` : "—") : (s.plan ?? "—")}
+        {isCable && s.oldVcNumber && <div className="text-[10px] font-bold text-amber-700">Replacement box given</div>}
       </div>
       <div className="hidden sm:block text-right shrink-0 w-[150px]">
         {isCable ? (

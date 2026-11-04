@@ -67,7 +67,7 @@ export default function EditSubscriberForm({ s, onDone }: { s: CableSubscriberDe
         {field("name", "Name (English)", { maxLength: 100 }, true)}
         {field("tamilName", "Name (Tamil)", { maxLength: 100, lang: "ta" })}
         {field("phone", "Mobile", { inputMode: "tel", maxLength: 16, placeholder: `Blank = ${isCable ? "TCCL" : "portal"}'s number` })}
-        {isCable && field("oldVcNumber", "Old VC number", { inputMode: "numeric", maxLength: 20 })}
+        {isCable && field("oldVcNumber", "Old VC (customer's box)", { inputMode: "numeric", maxLength: 20, placeholder: "When a replacement box is given" })}
       </div>
       <p className="text-[11px] font-semibold text-slate-400">The name and mobile you save here stay, even when {isCable ? "TCCL" : "the portal"} shows different ones.</p>
       <div className="flex justify-end gap-2">

@@ -203,8 +203,14 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
               <Field label={isCable ? "Set-top box" : "Status"} value={<Pill tone={s.status === "Active" ? "green" : "slate"}>{s.status}</Pill>} />
               {isCable ? (
                 <>
-                  <Field label="VC number" value={s.vcNumber} />
-                  <Field label="Old VC number" value={s.oldVcNumber} />
+                  {s.oldVcNumber ? (
+                    <>
+                      <Field label="Old VC (customer's box)" value={s.oldVcNumber} />
+                      <Field label="New VC (replacement box)" value={s.vcNumber} />
+                    </>
+                  ) : (
+                    <Field label="VC number" value={s.vcNumber} />
+                  )}
                   <Field label="STB serial" value={s.macId} />
                 </>
               ) : (
