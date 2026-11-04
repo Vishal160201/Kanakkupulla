@@ -3,6 +3,7 @@ import prisma, { toNumber } from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
 import { getCableShop } from "@/lib/cableSync";
 import { subscriberDues } from "@/lib/cable";
+import { isDeviceConnected } from "@/lib/sms";
 import { inventoryErrorResponse } from "@/lib/inventoryHttp";
 import { parseSearchParams } from "@/lib/validations/http";
 import { cableShopQuery } from "@/lib/validations/cable";
@@ -50,6 +51,7 @@ export async function GET(request: Request) {
         smsConfigured: !!shop.smsDeviceTokenHash && !!shop.smsFrom,
         smsPaired: !!shop.smsDeviceTokenHash,
         smsDeviceSeenAt: shop.smsDeviceSeenAt,
+        smsConnected: !!shop.smsDeviceTokenHash && isDeviceConnected(shop.smsDeviceSeenAt),
         smsFrom: shop.smsFrom,
         smsAutoReminders: shop.smsAutoReminders,
         smsLanguage: shop.smsLanguage === "ta" ? "ta" : "en",

@@ -34,11 +34,12 @@ export interface CableShopInfo {
   tcclWalletBalance: number | null;
   tcclWalletSyncedAt: string | null;
   lowWalletAlert: number | null;
-  /** httpSMS gateway set up (key + number present); the key itself is never sent to the client */
   /** Phone paired and a SIM number set */
   smsConfigured: boolean;
   smsPaired: boolean;
   smsDeviceSeenAt: string | null;
+  /** The paired phone polled within the last couple of minutes */
+  smsConnected: boolean;
   smsFrom: string | null;
   smsAutoReminders: boolean;
   smsLanguage: "en" | "ta";

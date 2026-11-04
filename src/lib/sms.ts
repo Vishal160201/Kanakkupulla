@@ -41,6 +41,10 @@ export async function shopForDevice(token: string, deviceId: string | null) {
   return now?.smsDeviceId === deviceId ? { shop } : { error: "device" as const };
 }
 
+/** The sender app polls every ~20s, so a phone not seen for this long is treated as disconnected. */
+export const DEVICE_ONLINE_MS = 2 * 60_000;
+export const isDeviceConnected = (seenAt: Date | null, now = Date.now()) => !!seenAt && now - seenAt.getTime() < DEVICE_ONLINE_MS;
+
 /** The shop's latest outbox messages, newest first, for the sender app's queue view. */
 export function recentOutbox(shopId: string) {
   return prisma.outboundSms.findMany({

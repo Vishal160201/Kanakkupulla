@@ -5,7 +5,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 
 import prisma from "@/lib/prisma";
-import { needsReminder, reminderMessage, shopForDevice, type ReminderSubscriber } from "@/lib/sms";
+import { isDeviceConnected, needsReminder, reminderMessage, shopForDevice, type ReminderSubscriber } from "@/lib/sms";
 
 const shop = { name: "Nila Cable", upiId: "nila@upi", contactPhone: "9876543210" };
 const base: ReminderSubscriber = { name: "Kumar", provider: "TIC_FIBER", plan: "TIC_GOLD_75MBPS_UL_499", vcNumber: null, expiresAt: null, phone: "9000000001", due: 0 };
@@ -83,5 +83,14 @@ describe("shopForDevice (one phone per token)", () => {
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     };
     expect(await shopForDevice("kst_x", "phone-b")).toEqual({ error: "device" });
+  });
+});
+
+describe("isDeviceConnected", () => {
+  const now = Date.parse("2026-11-04T11:00:00Z");
+  it("connected only when the phone polled in the last 2 minutes", () => {
+    expect(isDeviceConnected(new Date(now - 30_000), now)).toBe(true);
+    expect(isDeviceConnected(new Date(now - 3 * 60_000), now)).toBe(false);
+    expect(isDeviceConnected(null, now)).toBe(false);
   });
 });

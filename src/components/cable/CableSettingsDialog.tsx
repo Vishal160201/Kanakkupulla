@@ -239,10 +239,21 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-slate-600 min-w-0">
                   {shop?.smsPaired ? (
-                    <>
-                      <i className="ph-bold ph-device-mobile text-emerald-600 mr-1" aria-hidden="true" />
-                      Phone paired{shop.smsDeviceSeenAt ? ` · last seen ${new Date(shop.smsDeviceSeenAt).toLocaleString("en-IN")}` : " · waiting for first poll"}
-                    </>
+                    shop.smsConnected ? (
+                      <>
+                        <i className="ph-bold ph-device-mobile text-emerald-600 mr-1" aria-hidden="true" />
+                        <span className="text-emerald-700">Connected</span>
+                        {shop.smsDeviceSeenAt && ` · last seen ${new Date(shop.smsDeviceSeenAt).toLocaleString("en-IN")}`}
+                      </>
+                    ) : (
+                      <>
+                        <i className="ph-bold ph-device-mobile-slash text-amber-600 mr-1" aria-hidden="true" />
+                        <span className="text-amber-700">Not connected</span>
+                        {shop.smsDeviceSeenAt
+                          ? ` · last seen ${new Date(shop.smsDeviceSeenAt).toLocaleString("en-IN")}. Open the sender app on the phone.`
+                          : " · paired, but the phone hasn't connected yet. Open the sender app."}
+                      </>
+                    )
                   ) : (
                     <><i className="ph-bold ph-device-mobile-slash text-slate-400 mr-1" aria-hidden="true" /> No phone paired yet.</>
                   )}
