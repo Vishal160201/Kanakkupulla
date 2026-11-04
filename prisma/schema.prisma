@@ -135,6 +135,8 @@ model Shop {
   smsDeviceTokenHash String?             @unique
   /// Last time the sender app polled (shows whether the phone is connected)
   smsDeviceSeenAt    DateTime?
+  /// The one phone allowed to use the token: bound on its first poll, cleared on re-pair
+  smsDeviceId        String?
   outboundSms        OutboundSms[]
   cableSubscribers   CableSubscriber[]
   cablePlans         CablePlan[]

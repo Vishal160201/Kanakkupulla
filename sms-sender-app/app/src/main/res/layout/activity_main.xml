@@ -1,65 +1,247 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="28dp"
+        android:paddingBottom="32dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Kanakkupulla SMS Sender"
-            android:textSize="20sp"
+            android:text="Kanakkupulla"
+            android:textAllCaps="true"
+            android:letterSpacing="0.08"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/secondary" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SMS Sender"
+            android:textSize="34sp"
             android:textStyle="bold"
-            android:paddingBottom="16dp" />
+            android:textColor="@color/label" />
 
-        <Button
-            android:id="@+id/scanButton"
+        <!-- ===== Connected view ===== -->
+        <LinearLayout
+            android:id="@+id/connectedGroup"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Scan QR to connect" />
+            android:orientation="vertical">
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Or enter manually" android:textStyle="bold" android:paddingTop="24dp" />
+            <!-- Status card: tap to show details -->
+            <LinearLayout
+                android:id="@+id/statusCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/bg_card_ripple"
+                android:clickable="true"
+                android:focusable="true"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kanakkupulla address" android:paddingTop="8dp" />
-        <EditText
-            android:id="@+id/urlInput"
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:id="@+id/statusDot"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@drawable/dot"
+                        android:backgroundTint="@color/idle" />
+
+                    <TextView
+                        android:id="@+id/statusText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:text="Stopped"
+                        android:textSize="17sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/label" />
+
+                    <ImageView
+                        android:id="@+id/statusChevron"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_chevron" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/statusDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:lineSpacingMultiplier="1.35"
+                    android:textSize="14sp"
+                    android:textColor="@color/secondary"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginBottom="8dp"
+                android:text="Queue"
+                android:textAllCaps="true"
+                android:textSize="13sp"
+                android:textColor="@color/secondary" />
+
+            <LinearLayout
+                android:id="@+id/queueList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical" />
+
+            <Button
+                android:id="@+id/reconfigureButton"
+                style="@style/PillButton"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/bg_btn_soft"
+                android:text="Reconfigure"
+                android:textColor="@color/accent" />
+
+            <Button
+                android:id="@+id/stopButton"
+                style="@style/PillButton"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_btn_plain"
+                android:text="Stop"
+                android:textColor="@color/danger" />
+        </LinearLayout>
+
+        <!-- ===== Setup view (first run or Reconfigure) ===== -->
+        <LinearLayout
+            android:id="@+id/setupGroup"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="https://kanakkupulla.vercel.app"
-            android:inputType="textUri" />
+            android:orientation="vertical">
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pairing token" android:paddingTop="16dp" />
-        <EditText
-            android:id="@+id/tokenInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="kst_..."
-            android:inputType="text" />
+            <LinearLayout
+                android:id="@+id/scanButton"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="28dp"
+                android:background="@drawable/bg_btn_primary"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/startButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Save and start" />
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_qr" />
 
-        <Button
-            android:id="@+id/stopButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Stop" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="Scan QR to connect"
+                    android:textSize="17sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginBottom="8dp"
+                android:text="Or enter manually"
+                android:textAllCaps="true"
+                android:textSize="13sp"
+                android:textColor="@color/secondary" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView style="@style/FieldLabel" android:text="Kanakkupulla address" />
+                    <EditText
+                        android:id="@+id/urlInput"
+                        style="@style/Field"
+                        android:hint="https://kanakkupulla.vercel.app"
+                        android:inputType="textUri" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="16dp"
+                    android:background="@color/separator" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView style="@style/FieldLabel" android:text="Pairing token" />
+                    <EditText
+                        android:id="@+id/tokenInput"
+                        style="@style/Field"
+                        android:hint="kst_…"
+                        android:fontFamily="monospace"
+                        android:inputType="text|textNoSuggestions" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/startButton"
+                style="@style/PillButton"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_btn_soft"
+                android:text="Save and start"
+                android:textColor="@color/accent" />
+
+            <Button
+                android:id="@+id/cancelButton"
+                style="@style/PillButton"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_btn_plain"
+                android:text="Cancel"
+                android:textColor="@color/label" />
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/statusText"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingTop="20dp"
-            android:text="Stopped" />
+            android:layout_marginTop="20dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:lineSpacingMultiplier="1.2"
+            android:text="Keep this phone on, online and charging. Queued SMS are sent through its SIM."
+            android:textSize="13sp"
+            android:textColor="@color/secondary" />
     </LinearLayout>
 </ScrollView>

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   try {
     const shop = await getCableShop(auth.user, body.data.shopId, "MANAGE");
     const token = newDeviceToken();
-    await prisma.shop.update({ where: { id: shop.id }, data: { smsDeviceTokenHash: hashDeviceToken(token), smsDeviceSeenAt: null } });
+    await prisma.shop.update({ where: { id: shop.id }, data: { smsDeviceTokenHash: hashDeviceToken(token), smsDeviceSeenAt: null, smsDeviceId: null } });
     return NextResponse.json({ token });
   } catch (error) {
     return inventoryErrorResponse(error, "Failed to pair the phone");

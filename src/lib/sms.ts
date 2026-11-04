@@ -24,10 +24,31 @@ const sha256 = (value: string) => createHash("sha256").update(value).digest("hex
 export const newDeviceToken = () => `kst_${randomBytes(24).toString("base64url")}`;
 export const hashDeviceToken = (token: string) => sha256(token);
 
-/** The cable shop a sender-app device token belongs to, or null (wrong/revoked token). */
-export async function shopForDeviceToken(token: string) {
-  const shop = await prisma.shop.findUnique({ where: { smsDeviceTokenHash: sha256(token) }, select: { id: true, type: true, isArchived: true } });
-  return shop && shop.type === "CABLE" && !shop.isArchived ? shop : null;
+/**
+ * The cable shop a sender-app token belongs to. One token = one phone: the first device to poll is
+ * bound to it, and any other device is refused until the shop re-pairs (which clears the binding).
+ */
+export async function shopForDevice(token: string, deviceId: string | null) {
+  const shop = await prisma.shop.findUnique({ where: { smsDeviceTokenHash: sha256(token) }, select: { id: true, type: true, isArchived: true, smsDeviceId: true } });
+  if (!shop || shop.type !== "CABLE" || shop.isArchived) return { error: "token" as const };
+  if (!deviceId) return { error: "device" as const };
+  if (shop.smsDeviceId === deviceId) return { shop };
+  if (shop.smsDeviceId) return { error: "device" as const };
+  // Bind only if still unbound, so two phones polling at once can't both win
+  const bound = await prisma.shop.updateMany({ where: { id: shop.id, smsDeviceId: null }, data: { smsDeviceId: deviceId } });
+  if (bound.count === 1) return { shop };
+  const now = await prisma.shop.findUnique({ where: { id: shop.id }, select: { smsDeviceId: true } });
+  return now?.smsDeviceId === deviceId ? { shop } : { error: "device" as const };
+}
+
+/** The shop's latest outbox messages, newest first, for the sender app's queue view. */
+export function recentOutbox(shopId: string) {
+  return prisma.outboundSms.findMany({
+    where: { shopId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: { id: true, to: true, content: true, status: true, reason: true, createdAt: true },
+  });
 }
 
 /** Queues one SMS for the shop's sender app. Throws when the phone isn't paired or the number is unusable. */
