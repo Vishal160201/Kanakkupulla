@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import type { CablePlan } from "@/types/cable";
@@ -109,6 +109,18 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
       setSavingSms(false);
     }
   };
+
+  // While the pairing QR is up, poll faster and close it the moment the phone connects.
+  useEffect(() => {
+    if (!pairToken) return;
+    if (shop?.smsConnected) {
+      setPairToken(null);
+      setPairQr(null);
+      return;
+    }
+    const t = setInterval(revalidate, 3000);
+    return () => clearInterval(t);
+  }, [pairToken, shop?.smsConnected, revalidate]);
 
   const pairPhone = async () => {
     setPairing(true);
