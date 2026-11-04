@@ -38,6 +38,33 @@ export const cableSettingsSchema = z.object({
   smsLanguage: z.enum(["en", "ta"]).optional(),
 });
 
+/** Shop edits to a subscriber. A blank phone goes back to the portal's number on the next sync. */
+export const subscriberEditSchema = z.object({
+  name: z.string({ message: "Enter the name." }).trim().min(1, "Enter the name.").max(100, "Keep the name under 100 characters."),
+  tamilName: optionalText(100),
+  phone: z
+    .string()
+    .nullish()
+    .transform((v) => v?.replace(/[\s-]/g, "") || null)
+    .refine((v) => v === null || /^\+?\d{10,13}$/.test(v), { message: "Enter a 10-digit mobile number." }),
+  oldVcNumber: z
+    .string()
+    .nullish()
+    .transform((v) => v?.replace(/\s/g, "") || null)
+    .refine((v) => v === null || /^\d{6,20}$/.test(v), { message: "A VC number is digits only." }),
+});
+
+const cell = (max: number) => z.string().trim().max(max).nullable();
+/** Rows read from an imported sheet; `apply: false` only previews the matches. */
+export const subscriberImportSchema = z.object({
+  shopId: idSchema,
+  apply: z.boolean(),
+  rows: z
+    .array(z.object({ line: z.number().int(), name: cell(100), tamilName: cell(100), vcNumber: cell(30), oldVcNumber: cell(30), phone: cell(20) }))
+    .min(1, "The file has no subscriber rows.")
+    .max(10_000, "Import at most 10,000 rows at a time."),
+});
+
 export const cableSmsSchema = z.object({ text: z.string().trim().min(1, "Enter a message.").max(2000) });
 export const outboxReportSchema = z.object({ id: idSchema, ok: z.boolean(), reason: z.string().max(200).optional() });
 export const cableRemindersSchema = z.object({ shopId: idSchema, provider: z.enum(["TIC_FIBER", "TCCL"]).optional() });

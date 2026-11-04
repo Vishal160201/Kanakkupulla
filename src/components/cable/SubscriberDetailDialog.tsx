@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { expiryLabel } from "./cableShared";
 import { useCanManageCable, useRevalidateCable, useSubscriber } from "./useCableData";
 import CollectPaymentForm from "./CollectPaymentForm";
+import EditSubscriberForm from "./EditSubscriberForm";
 import ComplaintForm, { ComplaintRow } from "./ComplaintForm";
 import WhatsAppDialog from "./WhatsAppDialog";
 
@@ -121,7 +122,7 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
   const { data, error, mutate } = useSubscriber(subscriberId);
   const revalidate = useRevalidateCable();
   const canManage = useCanManageCable();
-  const [panel, setPanel] = useState<"collect" | "complaint" | null>(null);
+  const [panel, setPanel] = useState<"collect" | "complaint" | "edit" | null>(null);
   const [chat, setChat] = useState<{ paid?: number } | null>(null);
   const [voiding, setVoiding] = useState<CablePayment | null>(null);
   const [busy, setBusy] = useState(false);
@@ -145,7 +146,7 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
 
   return (
     <>
-      <InventoryDialog open onClose={onClose} eyebrow={isCable ? "TCCL cable TV" : "TIC Fiber internet"} title={s?.name ?? "Subscriber"} subtitle={s ? [s.externalId, s.area].filter(Boolean).join(" · ") : undefined} size="lg">
+      <InventoryDialog open onClose={onClose} eyebrow={isCable ? "TCCL cable TV" : "TIC Fiber internet"} title={s ? (s.tamilName ? `${s.name} (${s.tamilName})` : s.name) : "Subscriber"} subtitle={s ? [s.externalId, s.area].filter(Boolean).join(" · ") : undefined} size="lg">
         {error ? (
           <ErrorState message={errorMessage(error)} onRetry={() => mutate()} />
         ) : !s ? (
@@ -164,12 +165,15 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
                 <div className="text-[10px] font-extrabold uppercase tracking-[1.2px] text-slate-400">{s.due < 0 ? "Paid in advance" : "Due"}</div>
                 <div className={cn("text-2xl font-black", s.due > 0 ? "text-rose-600" : s.due < 0 ? "text-emerald-700" : "text-slate-900")}>{formatINR(Math.abs(s.due))}</div>
               </div>
-              <div className="grid grid-cols-3 sm:flex gap-2">
+              <div className={cn("grid sm:flex gap-2", canManage ? "grid-cols-4" : "grid-cols-1")}>
                 <button type="button" onClick={() => setChat({})} className={cn(secondaryButtonClass, "px-3")}>
                   <i className="ph-fill ph-whatsapp-logo text-emerald-600" aria-hidden="true" /> <span className="hidden sm:inline">WhatsApp</span>
                 </button>
                 {canManage && (
                   <>
+                    <button type="button" onClick={() => setPanel(panel === "edit" ? null : "edit")} aria-label="Edit subscriber" className={cn(secondaryButtonClass, "px-3")}>
+                      <i className="ph-bold ph-pencil-simple" aria-hidden="true" /> <span className="hidden sm:inline">Edit</span>
+                    </button>
                     <button type="button" onClick={() => setPanel(panel === "complaint" ? null : "complaint")} className={cn(secondaryButtonClass, "px-3")}>
                       <i className="ph-bold ph-wrench" aria-hidden="true" /> <span className="hidden sm:inline">Complaint</span>
                     </button>
@@ -193,12 +197,14 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
               />
             )}
             {panel === "complaint" && <ComplaintForm subscriberId={s.id} onDone={() => setPanel(null)} />}
+            {panel === "edit" && <EditSubscriberForm key={`${s.id}-${s.name}-${s.phone}`} s={s} onDone={() => setPanel(null)} />}
 
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Field label={isCable ? "Set-top box" : "Status"} value={<Pill tone={s.status === "Active" ? "green" : "slate"}>{s.status}</Pill>} />
               {isCable ? (
                 <>
                   <Field label="VC number" value={s.vcNumber} />
+                  <Field label="Old VC number" value={s.oldVcNumber} />
                   <Field label="STB serial" value={s.macId} />
                 </>
               ) : (

@@ -92,6 +92,13 @@ describe("diffSubscribers", () => {
     expect(d.updates.map((u) => u.id)).toEqual(["id-kumar@"]);
     expect(d.creates).toEqual([]);
   });
+
+  it("keeps a name and phone the shop edited instead of the portal's", () => {
+    const edited = { ...existing(sub()), name: "Kumar (shop)", phone: "9876543210", customName: "Kumar (shop)", customPhone: "9876543210" };
+    expect(diffSubscribers([edited], [sub()]).updates).toEqual([]);
+    const d = diffSubscribers([edited], [sub({ Status: "Inactive" })]);
+    expect(d.updates[0].data).toMatchObject({ name: "Kumar (shop)", phone: "9876543210", status: "Inactive" });
+  });
 });
 
 describe("TCCL", () => {

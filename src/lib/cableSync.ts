@@ -110,7 +110,7 @@ export function ticRowToSubscriber(row: Record<string, string>): SubscriberField
   };
 }
 
-type Existing = SubscriberFields & { id: string; goneAt: Date | null; billedTotal?: { toString(): string } | number | null };
+type Existing = SubscriberFields & { id: string; goneAt: Date | null; billedTotal?: { toString(): string } | number | null; customName?: string | null; customPhone?: string | null };
 
 const same = (a: unknown, b: unknown) => (a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : a === b);
 
@@ -147,14 +147,16 @@ export function diffSubscribers<T extends SubscriberFields>(existing: Existing[]
   const updates: { id: string; data: SubscriberFields }[] = [];
   const renewals: { subscriberId: string; plan: string | null; renewedAt: Date | null; previousExpiry: Date; expiresAt: Date }[] = [];
 
-  for (const sub of incoming) {
-    if (seen.has(sub.externalId)) continue;
-    seen.add(sub.externalId);
-    const old = byId.get(sub.externalId);
+  for (const raw of incoming) {
+    if (seen.has(raw.externalId)) continue;
+    seen.add(raw.externalId);
+    const old = byId.get(raw.externalId);
     if (!old) {
-      creates.push(sub);
+      creates.push(raw);
       continue;
     }
+    // A name / phone the shop typed in wins over the portal's
+    const sub = { ...raw, name: old.customName ?? raw.name, phone: old.customPhone ?? raw.phone };
     if (old.goneAt || SYNCED_FIELDS.some((f) => !same(old[f], sub[f]))) updates.push({ id: old.id, data: pickFields(sub) });
     if (old.expiresAt && sub.expiresAt && sub.expiresAt > old.expiresAt) {
       renewals.push({ subscriberId: old.id, plan: sub.plan, renewedAt: sub.renewedAt, previousExpiry: old.expiresAt, expiresAt: sub.expiresAt });

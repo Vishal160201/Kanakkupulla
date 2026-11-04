@@ -5,8 +5,9 @@ import { getCableShop } from "@/lib/cableSync";
 import { subscriberDues } from "@/lib/cable";
 import { userNames } from "@/lib/cableUsers";
 import { inventoryErrorResponse } from "@/lib/inventoryHttp";
-import { parseParams } from "@/lib/validations/http";
+import { parseJsonBody, parseParams } from "@/lib/validations/http";
 import { idParams } from "@/lib/validations/common";
+import { subscriberEditSchema } from "@/lib/validations/cable";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -43,5 +44,38 @@ export async function GET(_request: Request, { params }: Ctx) {
     });
   } catch (error) {
     return inventoryErrorResponse(error, "Failed to load subscriber");
+  }
+}
+
+// PATCH /api/cable/subscribers/[id] — the shop corrects a subscriber's name / phone (kept over the portal's on
+// every sync) and fills in the Tamil name and old VC number.
+export async function PATCH(request: Request, { params }: Ctx) {
+  const auth = await requireUser();
+  if (auth.error) return auth.error;
+  const route = parseParams(await params, idParams);
+  if (route.error) return route.error;
+  const body = await parseJsonBody(request, subscriberEditSchema);
+  if (body.error) return body.error;
+
+  try {
+    const current = await prisma.cableSubscriber.findUnique({ where: { id: route.data.id }, select: { shopId: true, name: true, phone: true } });
+    if (!current) return NextResponse.json({ error: "Subscriber not found" }, { status: 404 });
+    await getCableShop(auth.user, current.shopId, "MANAGE");
+    const { name, tamilName, phone, oldVcNumber } = body.data;
+    const subscriber = await prisma.cableSubscriber.update({
+      where: { id: route.data.id },
+      data: {
+        tamilName,
+        oldVcNumber,
+        // Only an actual change pins the name, so saving other fields doesn't freeze the portal's name
+        ...(name !== current.name ? { name, customName: name } : {}),
+        // Same for the phone; a blank one hands it back to the portal (restored on the next sync)
+        ...(phone === null ? { customPhone: null } : phone !== current.phone ? { phone, customPhone: phone } : {}),
+      },
+      select: { id: true, name: true, tamilName: true, phone: true, oldVcNumber: true },
+    });
+    return NextResponse.json({ subscriber });
+  } catch (error) {
+    return inventoryErrorResponse(error, "Failed to update the subscriber");
   }
 }

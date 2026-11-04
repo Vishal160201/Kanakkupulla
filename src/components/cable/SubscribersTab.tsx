@@ -11,6 +11,61 @@ import { formatDate, formatINR, useDebouncedValue } from "@/components/inventory
 import { initials } from "@/components/inventory/produce/produceShared";
 import { cn } from "@/lib/utils";
 import { SOON_DAYS, expiryLabel, expiryState, type ExpiryState } from "./cableShared";
+import { exportSubscribers, type ExportFormat } from "./subscriberFiles";
+import ImportSubscribersDialog from "./ImportSubscribersDialog";
+
+const FILE_ACTIONS: { id: ExportFormat | "import"; label: string; icon: string }[] = [
+  { id: "import", label: "Import xlsx / csv", icon: "ph-upload-simple text-orange-500" },
+  { id: "xlsx", label: "Export as Excel", icon: "ph-microsoft-excel-logo text-emerald-600" },
+  { id: "csv", label: "Export as CSV", icon: "ph-file-csv text-emerald-500" },
+  { id: "pdf", label: "Export as PDF", icon: "ph-file-pdf text-rose-500" },
+];
+
+/** One button for getting subscribers in and out as files. Exports the list as filtered and searched. */
+function FileMenu({ list, isCable, onImport }: { list: CableSubscriberRow[]; isCable: boolean; onImport: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const run = async (id: ExportFormat | "import") => {
+    setOpen(false);
+    if (id === "import") return onImport();
+    if (list.length === 0) return toast.error("No subscribers to export.");
+    setBusy(true);
+    try {
+      await exportSubscribers(list, id);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        disabled={busy}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="h-[45px] w-full lg:w-auto px-4 rounded-xl border border-slate-200 bg-white shadow-sm font-bold text-sm text-slate-700 flex items-center justify-center gap-2 transition-all hover:shadow-md hover:border-slate-300"
+      >
+        <i className={busy ? "ph ph-circle-notch animate-spin" : "ph-bold ph-swap"} aria-hidden="true" /> Import / Export
+        <i className="ph-bold ph-caret-down text-xs text-slate-400" aria-hidden="true" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" aria-hidden="true" onClick={() => setOpen(false)} />
+          <div role="menu" className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden py-1">
+            {FILE_ACTIONS.filter((a) => isCable || a.id !== "import").map((a) => (
+              <button key={a.id} type="button" role="menuitem" onClick={() => void run(a.id)} className="w-full text-left px-4 py-2.5 text-[0.85rem] font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
+                <i className={`ph-bold ${a.icon} text-lg`} aria-hidden="true" /> {a.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 type Filter = "all" | "soon" | "expired" | "active" | "inactive" | "dues" | "gone";
 
@@ -75,7 +130,10 @@ function SubscriberRow({ s, isCable, now, onOpen }: { s: CableSubscriberRow; isC
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-bold text-sm text-slate-900 truncate">{s.name}</span>
+          <span className="font-bold text-sm text-slate-900 truncate">
+            {s.name}
+            {s.tamilName && <span className="font-semibold text-slate-500"> ({s.tamilName})</span>}
+          </span>
           <Pill tone={state === "gone" ? "slate" : statusTone(s.status)}>{state === "gone" ? "Removed" : s.status}</Pill>
           {s.openComplaints > 0 && <Pill tone="amber" icon="wrench">{s.openComplaints}</Pill>}
         </div>
@@ -125,7 +183,9 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
 
   // A shop has tens to a few thousand subscribers: cheap enough to filter on every render
   const all = data.subscribers.filter((s) => (s.provider === "TCCL") === isCable);
-  const searched = debounced ? all.filter((s) => [s.name, s.externalId, s.phone, s.area, s.plan, s.vcNumber].some((v) => v?.toLowerCase().includes(debounced))) : all;
+  const searched = debounced
+    ? all.filter((s) => [s.name, s.tamilName, s.externalId, s.phone, s.altPhone, s.area, s.address, s.plan, s.vcNumber, s.oldVcNumber, s.macId, s.status].some((v) => v?.toLowerCase().includes(debounced)))
+    : all;
   const counts = Object.fromEntries(FILTERS.map((f) => [f.id, searched.filter((s) => matches(s, f.id, now)).length])) as Record<Filter, number>;
   const list = searched.filter((s) => matches(s, filter, now)).sort(filter === "dues" ? (a, b) => b.due - a.due : byUrgency(now));
   const totalDue = all.reduce((sum, s) => sum + Math.max(0, s.due), 0);
@@ -144,6 +204,7 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
   const paged = list.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const canManage = useCanManageCable();
+  const [importing, setImporting] = useState(false);
   const [confirmSms, setConfirmSms] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
   // Who an SMS reminder would go to: owing, or (internet only) expiring soon / expired
@@ -192,7 +253,7 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
 
       <div className={cn(cardClass, "p-4 sm:p-5")}>
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
-          <SearchInput value={search} onChange={setSearch} placeholder={isCable ? "Search name, ID, phone, area or VC" : "Search name, ID, phone, area or plan"} />
+          <SearchInput value={search} onChange={setSearch} placeholder={isCable ? "Search name, Tamil name, ID, phone, VC or old VC" : "Search name, ID, phone, area or plan"} />
           <div className="grid grid-cols-5 lg:flex bg-slate-50 border border-slate-200 rounded-xl p-1 lg:ml-auto" role="radiogroup" aria-label="Subscriber filter">
             {FILTERS.map((f) => (
               <button
@@ -211,6 +272,7 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
               </button>
             ))}
           </div>
+          <FileMenu list={list} isCable={isCable} onImport={() => setImporting(true)} />
         </div>
 
         {list.length > 0 && (
@@ -263,6 +325,7 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
         )}
       </div>
 
+      {importing && <ImportSubscribersDialog shopId={shopId} canSave={canManage} onClose={() => setImporting(false)} />}
       <ConfirmDialog
         open={confirmSms}
         title="Send SMS reminders?"

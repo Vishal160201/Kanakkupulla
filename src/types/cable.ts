@@ -23,6 +23,12 @@ export interface CableSubscriberRow {
   /** Renewal amounts minus payments; negative = paid in advance */
   due: number;
   openComplaints: number;
+  /** Shop-entered (not from the portal) */
+  tamilName: string | null;
+  oldVcNumber: string | null;
+  altPhone: string | null;
+  macId: string | null;
+  address: string | null;
 }
 
 export interface CableShopInfo {
@@ -88,9 +94,6 @@ export interface CableComplaint {
 }
 
 export interface CableSubscriberDetail extends Omit<CableSubscriberRow, "openComplaints"> {
-  altPhone: string | null;
-  macId: string | null;
-  address: string | null;
   createdOn: string | null;
   activatedAt: string | null;
   renewals: CableRenewal[];

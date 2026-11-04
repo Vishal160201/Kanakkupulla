@@ -476,6 +476,13 @@ model CableSubscriber {
   expiresAt   DateTime?
   /// Set when the subscriber no longer appears in the portal; cleared if they come back
   goneAt      DateTime?
+  /// Name / phone typed in by the shop: kept in `name` / `phone` instead of the portal's value on every sync
+  customName  String?
+  customPhone String?
+  /// Shop-entered extras the portal doesn't have
+  tamilName   String?
+  /// The VC number of the box this subscriber had before (TCCL)
+  oldVcNumber String?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   shop        Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
