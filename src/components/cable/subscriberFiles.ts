@@ -63,12 +63,15 @@ export async function readSubscriberFile(file: File): Promise<ImportRow[]> {
   const ext = file.name.toLowerCase().split(".").pop();
   if (ext === "csv") return readSheet(parseCsv(await file.text()));
   if (ext !== "xlsx") throw new Error("Choose an Excel (.xlsx) or CSV file.");
+  const buf = await file.arrayBuffer();
+  // A password-protected workbook is an OLE container (D0 CF 11 E0), not a zip
+  if (new Uint8Array(buf, 0, 4).join() === "208,207,17,224") throw new Error("This Excel file has a password. Open it in Excel, remove the password and save it again.");
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   try {
-    await wb.xlsx.load(await file.arrayBuffer());
+    await wb.xlsx.load(buf);
   } catch {
-    throw new Error("Couldn't open this Excel file. If it has a password, open it in Excel, remove the password and save it again.");
+    throw new Error("Couldn't read this Excel file. Open it in Excel and save it again (or save it as CSV), then import that.");
   }
   const ws = wb.worksheets[0];
   if (!ws) throw new Error("The Excel file has no sheets.");
