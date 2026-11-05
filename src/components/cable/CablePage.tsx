@@ -14,9 +14,11 @@ import { requestExtensionSync } from "./extensionSync";
 import { useCanManageCable, useRevalidateCable, useSubscribers } from "./useCableData";
 import SubscribersTab from "./SubscribersTab";
 import CollectionsTab from "./CollectionsTab";
+import GroupingTab from "./GroupingTab";
 import ComplaintsTab from "./ComplaintsTab";
 import ReportsTab from "./ReportsTab";
 import SubscriberDetailDialog from "./SubscriberDetailDialog";
+import { TCCL_PAY_DAY, dayOfMonth } from "@/lib/cableMonthly";
 import SyncSetupDialog from "./SyncSetupDialog";
 import CableSettingsDialog from "./CableSettingsDialog";
 
@@ -25,6 +27,7 @@ const TABS = [
   { id: "collections", label: "Collections", icon: "hand-coins" },
   { id: "complaints", label: "Complaints", icon: "wrench" },
   { id: "reports", label: "Reports", icon: "chart-bar" },
+  { id: "grouping", label: "Grouping", icon: "folders" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 const isTab = (v: unknown): v is Tab => TABS.some((t) => t.id === v);
@@ -134,7 +137,20 @@ function CableView({ shopId, provider, tab, onTab, onSetup }: { shopId: string; 
   return (
     <div className="space-y-5 sm:space-y-6">
       <StatusStrip data={data} provider={provider} now={now} onSetup={onSetup} />
-      <div role="tablist" aria-label={`${provider === "TCCL" ? "TCCL" : "TIC Fiber"} sections`} className="grid grid-cols-4 gap-0.5 md:flex md:items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full md:w-auto md:self-start">
+      {provider === "TCCL" && dayOfMonth(new Date(now)) >= TCCL_PAY_DAY - 3 && dayOfMonth(new Date(now)) <= TCCL_PAY_DAY && (
+        <div className="flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800" role="status">
+          <i className="ph-bold ph-calendar-check text-lg shrink-0" aria-hidden="true" />
+          <span className="flex-1 min-w-0">
+            {dayOfMonth(new Date(now)) === TCCL_PAY_DAY ? "Pay TCCL today" : `Pay TCCL by the ${TCCL_PAY_DAY}th`}: <span className="font-extrabold">{formatINR(data.tcclMonth.billed, { decimals: false })}</span> billed this month · {formatINR(data.tcclMonth.collected, { decimals: false })} collected so far.
+          </span>
+          {tab !== "collections" && (
+            <button type="button" onClick={() => onTab("collections")} className="shrink-0 px-3 py-1.5 rounded-lg bg-white/80 border border-current/20 font-bold text-xs hover:bg-white">
+              Collections
+            </button>
+          )}
+        </div>
+      )}
+      <div role="tablist" aria-label={`${provider === "TCCL" ? "TCCL" : "TIC Fiber"} sections`} className="grid grid-cols-5 gap-0.5 md:flex md:items-center bg-white border border-slate-200 rounded-2xl p-1 shadow-sm w-full md:w-auto md:self-start">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -153,6 +169,7 @@ function CableView({ shopId, provider, tab, onTab, onSetup }: { shopId: string; 
         ))}
       </div>
       {tab === "subscribers" && <SubscribersTab shopId={shopId} data={data} provider={provider} now={now} onOpen={setOpenId} />}
+      {tab === "grouping" && <GroupingTab shopId={shopId} provider={provider} subscribers={data.subscribers} />}
       {tab === "collections" && <CollectionsTab shopId={shopId} provider={provider} data={data} onOpen={setOpenId} />}
       {tab === "complaints" && <ComplaintsTab shopId={shopId} provider={provider} subscribers={data.subscribers} onOpen={setOpenId} />}
       {tab === "reports" && <ReportsTab shopId={shopId} provider={provider} />}

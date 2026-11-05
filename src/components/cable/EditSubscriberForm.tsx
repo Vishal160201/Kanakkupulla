@@ -2,22 +2,27 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { FieldError, RequiredMark, inputClass, inputErrorClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
-import { errorMessage, sendJson } from "@/components/inventory/inventoryUtils";
+import { FieldError, MoneyInput, RequiredMark, inputClass, inputErrorClass, labelClass, primaryButtonClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
+import { errorMessage, formatINR, parseDecimal, roundMoney, sanitizeDecimal, sendJson } from "@/components/inventory/inventoryUtils";
+import { houseFee } from "@/lib/cableMonthly";
 import type { CableSubscriberDetail } from "@/types/cable";
 import { cn } from "@/lib/utils";
 import Autocomplete from "@/components/ui/Autocomplete";
 import { useRevalidateCable, useSubscribers } from "./useCableData";
 
-type Errors = Partial<Record<"name" | "tamilName" | "phone" | "oldVcNumber" | "groupName", string>>;
+type Errors = Partial<Record<"name" | "tamilName" | "phone" | "oldVcNumber" | "groupName" | "monthlyFee", string>>;
 
 /** The shop's corrections to a subscriber. Name and phone stay as typed here even when the portal shows others. */
 export default function EditSubscriberForm({ s, onDone }: { s: CableSubscriberDetail; onDone: () => void }) {
   const revalidate = useRevalidateCable();
   const isCable = s.provider === "TCCL";
-  const [form, setForm] = useState({ name: s.name, tamilName: s.tamilName ?? "", phone: s.phone ?? "", oldVcNumber: s.oldVcNumber ?? "", groupName: s.groupName ?? "" });
-  // The shop's groups so far (the list is already loaded behind this dialog)
-  const groups = [...new Set((useSubscribers(s.shopId).data?.subscribers ?? []).map((x) => x.groupName).filter((g): g is string => !!g))].sort();
+  const [form, setForm] = useState({ name: s.name, tamilName: s.tamilName ?? "", phone: s.phone ?? "", oldVcNumber: s.oldVcNumber ?? "", groupName: s.groupName ?? "", monthlyFee: s.monthlyFee === null ? "" : String(s.monthlyFee) });
+  const [nodeHouse, setNodeHouse] = useState(s.nodeHouse);
+  // The shop's groups so far and its monthly amounts (the list is already loaded behind this dialog)
+  const list = useSubscribers(s.shopId).data;
+  const groups = [...new Set((list?.subscribers ?? []).map((x) => x.groupName).filter((g): g is string => !!g))].sort();
+  const rates = { monthlyFee: list?.shop.cableMonthlyFee ?? null, nodeFee: list?.shop.cableNodeFee ?? null };
+  const pays = houseFee(rates, { monthlyFee: form.monthlyFee.trim() === "" ? null : parseDecimal(form.monthlyFee), nodeHouse });
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -29,11 +34,13 @@ export default function EditSubscriberForm({ s, onDone }: { s: CableSubscriberDe
     if (phone && !/^\+?\d{10,13}$/.test(phone)) errs.phone = "Enter a 10-digit mobile number.";
     const vc = form.oldVcNumber.replace(/\s/g, "");
     if (vc && !/^\d{6,20}$/.test(vc)) errs.oldVcNumber = "A VC number is digits only.";
+    const fee = form.monthlyFee.trim() === "" ? null : roundMoney(parseDecimal(form.monthlyFee));
+    if (fee !== null && !Number.isFinite(fee)) errs.monthlyFee = "Enter the amount as a number.";
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
     setSaving(true);
     try {
-      await sendJson(`/api/cable/subscribers/${encodeURIComponent(s.id)}`, "PATCH", { name: form.name, tamilName: form.tamilName, phone, oldVcNumber: vc, groupName: form.groupName.trim() });
+      await sendJson(`/api/cable/subscribers/${encodeURIComponent(s.id)}`, "PATCH", { name: form.name, tamilName: form.tamilName, phone, oldVcNumber: vc, groupName: form.groupName.trim(), ...(isCable ? { nodeHouse, monthlyFee: fee } : {}) });
       toast.success("Subscriber updated");
       revalidate();
       onDone();
@@ -70,12 +77,37 @@ export default function EditSubscriberForm({ s, onDone }: { s: CableSubscriberDe
         {field("name", "Name (English)", { maxLength: 100 }, true)}
         {field("tamilName", "Name (Tamil)", { maxLength: 100, lang: "ta" })}
         {field("phone", "Mobile", { inputMode: "tel", maxLength: 16, placeholder: `Blank = ${isCable ? "TCCL" : "portal"}'s number` })}
-        {isCable && field("oldVcNumber", "Old VC (customer's box)", { inputMode: "numeric", maxLength: 20, placeholder: "When a replacement box is given" })}
+        {isCable && field("oldVcNumber", "Customer's own VC", { inputMode: "numeric", maxLength: 20, placeholder: "Only while a temp box is given" })}
         <div>
           <span className={labelClass}>Group (area / line)</span>
           <Autocomplete suggestions={groups} value={form.groupName} onChange={(v) => setForm((f) => ({ ...f, groupName: v.slice(0, 60) }))} placeholder="e.g. Sheet A, North street" />
         </div>
       </div>
+      {isCable && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 h-[45px] self-end">
+            <span className="text-sm font-bold text-slate-700">Node in this house</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={nodeHouse}
+              aria-label="Node in this house"
+              onClick={() => setNodeHouse(!nodeHouse)}
+              className={cn("w-11 h-6 shrink-0 rounded-full transition-colors relative", nodeHouse ? "bg-emerald-500" : "bg-slate-300")}
+            >
+              <span className={cn("w-4 h-4 rounded-full bg-white absolute top-1 transition-transform", nodeHouse ? "left-6" : "left-1")} />
+            </button>
+          </div>
+          <div>
+            <label htmlFor="sub-edit-monthlyFee" className={labelClass}>Own monthly amount</label>
+            <MoneyInput id="sub-edit-monthlyFee" value={form.monthlyFee} onChange={(v) => setForm((f) => ({ ...f, monthlyFee: sanitizeDecimal(v, 2) }))} placeholder="Blank = usual, 0 = free" hasError={!!errors.monthlyFee} />
+            <FieldError message={errors.monthlyFee} />
+          </div>
+          <p className="sm:col-span-2 text-[11px] font-semibold text-slate-500">
+            {pays === null ? "Set the monthly amount in Settings to bill houses every month." : pays === 0 ? "Free: no monthly charge." : `Pays ${formatINR(pays, { decimals: false })} a month.`}
+          </p>
+        </div>
+      )}
       <p className="text-[11px] font-semibold text-slate-400">The name and mobile you save here stay, even when {isCable ? "TCCL" : "the portal"} shows different ones.</p>
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onDone} disabled={saving} className={cn(secondaryButtonClass, "h-10")}>Cancel</button>

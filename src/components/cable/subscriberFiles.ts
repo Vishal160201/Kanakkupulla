@@ -1,11 +1,11 @@
 // Export the Subscribers list as xlsx / csv / pdf, and read an imported xlsx / csv into rows.
 import type { CableSubscriberRow } from "@/types/cable";
-import { boxStatus, parseCsv, readSheet, type ImportRow } from "@/lib/cableImport";
+import { boxStatus, parseCsv, readSheet, tempVc, type ImportRow } from "@/lib/cableImport";
 
 export type ExportFormat = "xlsx" | "csv" | "pdf";
 
-const HEAD = ["Group", "Name (English)", "Name (Tamil)", "Account", "VC number", "Old VC", "Mobile", "Box status", "Due", "Area"];
-const toRow = (s: CableSubscriberRow) => [s.groupName ?? "", s.name, s.tamilName ?? "", s.externalId, s.vcNumber ?? "", s.oldVcNumber ?? "", s.phone ?? "", boxStatus(s), s.due, s.area ?? ""];
+const HEAD = ["Group", "Name (English)", "Name (Tamil)", "Account", "VC number", "Temp VC", "Mobile", "Box status", "Due", "Area"];
+const toRow = (s: CableSubscriberRow) => [s.groupName ?? "", s.name, s.tamilName ?? "", s.externalId, s.oldVcNumber ?? s.vcNumber ?? "", tempVc(s) ?? "", s.phone ?? "", boxStatus(s), s.due, s.area ?? ""];
 const fileName = (ext: string) => `tccl-subscribers-${new Date().toISOString().slice(0, 10)}.${ext}`;
 
 function download(blob: Blob, name: string) {

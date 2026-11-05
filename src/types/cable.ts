@@ -28,6 +28,10 @@ export interface CableSubscriberRow {
   oldVcNumber: string | null;
   /** The shop's area / line group */
   groupName: string | null;
+  /** Cable TV: keeps a node (pays the node amount) */
+  nodeHouse: boolean;
+  /** Cable TV: this house's own monthly amount (0 = free); null = the shop's */
+  monthlyFee: number | null;
   altPhone: string | null;
   macId: string | null;
   address: string | null;
@@ -42,6 +46,9 @@ export interface CableShopInfo {
   tcclWalletBalance: number | null;
   tcclWalletSyncedAt: string | null;
   lowWalletAlert: number | null;
+  /** Cable TV monthly amount (null = dues follow TCCL's bills) and the node houses' amount */
+  cableMonthlyFee: number | null;
+  cableNodeFee: number | null;
   /** Phone paired and a SIM number set */
   smsConfigured: boolean;
   smsPaired: boolean;
@@ -59,13 +66,15 @@ export interface CableSubscriberListResponse {
   syncedAt: string | null;
   tcclSyncedAt: string | null;
   hasSyncKey: boolean;
+  /** This month ("2026-11"): what TCCL billed the shop (paid to TCCL on the 15th) and cable money collected */
+  tcclMonth: { month: string; billed: number; collected: number };
   shop: CableShopInfo;
 }
 
 export interface CableRenewal {
   id: string;
   /** RENEWAL (internet), BILL (TCCL monthly bill) or OPENING (balance carried over from TCCL) */
-  kind: "RENEWAL" | "BILL" | "OPENING";
+  kind: "RENEWAL" | "BILL" | "OPENING" | "MONTHLY";
   plan: string | null;
   /** null until the plan has a price */
   amount: number | null;

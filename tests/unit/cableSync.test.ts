@@ -130,6 +130,15 @@ describe("TCCL", () => {
     expect(tcclRowToSubscriber(tccl({ account_number: "" }))).toBeNull();
   });
 
+  it("leaves the balance alone for a customer only the STB list shows", () => {
+    const boxOnly: Record<string, string> = tccl();
+    delete boxOnly.total_bill_amount;
+    delete boxOnly.total_paid_amount;
+    const s = tcclRowToSubscriber(boxOnly)!;
+    expect(s.billed).toBeUndefined();
+    expect(tcclCharges([], [s]).charges).toEqual([]);
+  });
+
   it("carries the TCCL balance over once, then charges each rise in the billed total", () => {
     const first = tcclCharges([], [tcclRowToSubscriber(tccl())!]);
     expect(first.charges).toEqual([{ externalId: "C2128032", kind: "OPENING", amount: 300 }]);

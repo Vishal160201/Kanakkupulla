@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchRows, parseCsv, readSheet } from "@/lib/cableImport";
+import { matchRows, parseCsv, readSheet, tempVc } from "@/lib/cableImport";
 
 describe("parseCsv", () => {
   it("handles BOM, quotes, escaped quotes and CRLF", () => {
@@ -40,6 +40,32 @@ describe("readSheet", () => {
     ]);
   });
 
+  it("reads a second VC number as a temp box: the first stays the customer's own", () => {
+    const rows = readSheet([
+      ["S.NO", "NAME", "NAME (English)", "", "", "", ""],
+      ["1", "கணேசன்", "Ganesan", "3103100183", "9876543210", "3103106220", ""],
+      ["2", "காளி", "Kali", "3102010547", "9876543211", "3102010547", ""], // same number twice: no temp box
+      ["3", "மணி", "Mani", "3102000002", "9876543212", "", ""],
+    ]);
+    expect(rows.map((r) => [r.name, r.oldVcNumber, r.vcNumber])).toEqual([
+      ["Ganesan", "3103100183", "3103106220"],
+      ["Kali", null, "3102010547"],
+      ["Mani", null, "3102000002"],
+    ]);
+  });
+
+  it("reads our export's VC number + Temp VC columns", () => {
+    const rows = readSheet([
+      ["Name (English)", "VC number", "Temp VC", "Mobile"],
+      ["Ganesan", "3103100183", "3103106220", "9876543210"],
+      ["Mani", "3102000002", "", "9876543212"],
+    ]);
+    expect(rows.map((r) => [r.name, r.oldVcNumber, r.vcNumber])).toEqual([
+      ["Ganesan", "3103100183", "3103106220"],
+      ["Mani", "3102000002", null],
+    ]);
+  });
+
   it("refuses a sheet without a VC column", () => {
     expect(() => readSheet([["Name", "Mobile"]])).toThrow(/No VC number column/);
   });
@@ -65,5 +91,13 @@ describe("matchRows", () => {
   it("flags a subscriber claimed by two rows", () => {
     const m = matchRows([row("3100000001"), row(null, "3100000001")], subs);
     expect(m.every((x) => x.shared)).toBe(true);
+  });
+});
+
+describe("tempVc", () => {
+  it("is TCCL's VC only while the customer's own box is elsewhere", () => {
+    expect(tempVc({ vcNumber: "3102000002", oldVcNumber: "3102000001" })).toBe("3102000002");
+    expect(tempVc({ vcNumber: "3102000001", oldVcNumber: "3102000001" })).toBeNull(); // own box back
+    expect(tempVc({ vcNumber: "3102000001", oldVcNumber: null })).toBeNull();
   });
 });

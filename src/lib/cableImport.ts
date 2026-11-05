@@ -24,6 +24,7 @@ const HEADERS: Record<string, keyof Omit<ImportRow, "line" | "sheet">> = {
   mobile: "phone", phone: "phone", mobileno: "phone", phoneno: "phone", phonenumber: "phone", mobilenumber: "phone",
   group: "groupName", groupname: "groupName", areagroup: "groupName", sheet: "groupName", line: "groupName",
 };
+const TEMP_HEADERS = new Set(["tempvc", "tempvcnumber"]);
 const key = (h: string) => h.replace(/^﻿/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 const digits = (v: string) => v.replace(/[\s-]/g, "");
 
@@ -62,14 +63,18 @@ function blockFields(head: string[], data: string[][], from: number, to: number)
     const v = values(c);
     return v.length >= Math.max(2, data.length * 0.3) && v.filter(test).length >= v.length * 0.6;
   };
+  // Our export: "VC number" is the customer's own box and "Temp VC" the one lent meanwhile (TCCL's)
+  const hasTemp = head.slice(from, to).some((h) => TEMP_HEADERS.has(key(h)));
   for (let c = from; c < to; c++) {
-    let f = HEADERS[key(head[c] ?? "")];
+    const h = key(head[c] ?? "");
+    let f = hasTemp && TEMP_HEADERS.has(h) ? "vcNumber" : HEADERS[h];
+    if (hasTemp && f === "vcNumber" && !TEMP_HEADERS.has(h)) f = "oldVcNumber";
     // "NAME" over Tamil text is the Tamil name (sheets with NAME + NAME (English))
     if (f === "name" && values(c).filter(isTamil).length > values(c).length / 2) f = "tamilName";
     if (f && !taken.has(f)) { fields[c] = f; taken.add(f); }
   }
   for (let c = from; c < to; c++) {
-    if (fields[c] || HEADERS[key(head[c] ?? "")]) continue;
+    if (fields[c] || HEADERS[key(head[c] ?? "")] || TEMP_HEADERS.has(key(head[c] ?? ""))) continue;
     const f = mostly(c, isVc) ? "vcNumber" : mostly(c, isMobile) ? "phone" : undefined;
     if (f && !taken.has(f)) { fields[c] = f; taken.add(f); }
   }
@@ -104,6 +109,9 @@ export function readSheet(cells: string[][], sheet: string | null = null): Impor
         const v = (r[c] ?? "").trim();
         if (f && v && row[f] === null) row[f] = f === "vcNumber" || f === "oldVcNumber" || f === "phone" ? digits(v) : v;
       }
+      // Two VC numbers for one person: the first is their own box, the second a temp one (TCCL's for now)
+      const second = row.vcNumber && !row.oldVcNumber ? r.slice(from, to).map((v, c) => (fields[from + c] ? "" : digits(v ?? "").trim())).find((v) => isVc(v) && v !== row.vcNumber) : undefined;
+      if (second) [row.oldVcNumber, row.vcNumber] = [row.vcNumber, second];
       if (row.phone?.length === 12 && row.phone.startsWith("91")) row.phone = row.phone.slice(2);
       // Hand-typed sheets leave "Murugan -" / "மணி." behind
       row.name = row.name?.replace(/[\s.\-]+$/, "") || null;
@@ -118,6 +126,9 @@ export function readSheet(cells: string[][], sheet: string | null = null): Impor
 }
 
 export type BoxStatus = "Box active" | "Box deactivated" | "Not in TCCL" | "Not found in TCCL" | "No VC";
+
+/** TCCL's box when it's a temp one, lent while the customer's own box (old VC, the stable number) is repaired. */
+export const tempVc = (s: { vcNumber: string | null; oldVcNumber: string | null }) => (s.oldVcNumber && s.vcNumber && s.oldVcNumber !== s.vcNumber ? s.vcNumber : null);
 
 export const boxStatus = (s: { status: string; goneAt: string | Date | null }): BoxStatus => (s.goneAt ? "Not in TCCL" : s.status === "Active" ? "Box active" : "Box deactivated");
 

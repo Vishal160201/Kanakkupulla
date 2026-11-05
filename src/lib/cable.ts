@@ -6,6 +6,7 @@ import { getCableShop } from "@/lib/cableSync";
 import { enqueueSms, needsReminder, reminderMessage } from "@/lib/sms";
 import type { MessageLanguage } from "@/lib/whatsapp";
 import { CABLE_LEDGER_CATEGORIES } from "@/lib/shopModules";
+import { nextMonth, toMonth } from "@/lib/cableMonthly";
 
 // Money side of a cable & internet shop: each renewal the sync detects is owed at the plan's price;
 // payments collected against it post to Daily Kanakku in the same transaction.
@@ -119,9 +120,14 @@ export async function updateCableSettings(
     smsFrom?: string | null;
     smsAutoReminders?: boolean;
     smsLanguage?: MessageLanguage;
+    cableMonthlyFee?: number | null;
+    cableNodeFee?: number | null;
   }
 ) {
-  await getCableShop(user, shopId, "MANAGE");
+  const shop = await getCableShop(user, shopId, "MANAGE");
+  const fee = (v: number | null | undefined) => (v === undefined ? {} : { value: v === null ? null : round2(v) });
+  const monthly = fee(input.cableMonthlyFee);
+  const node = fee(input.cableNodeFee);
   return prisma.shop.update({
     where: { id: shopId },
     data: {
@@ -131,6 +137,10 @@ export async function updateCableSettings(
       ...(input.smsFrom !== undefined ? { smsFrom: input.smsFrom?.trim() || null } : {}),
       ...(input.smsAutoReminders !== undefined ? { smsAutoReminders: input.smsAutoReminders } : {}),
       ...(input.smsLanguage !== undefined ? { smsLanguage: input.smsLanguage } : {}),
+      ...("value" in monthly ? { cableMonthlyFee: monthly.value } : {}),
+      ...("value" in node ? { cableNodeFee: node.value } : {}),
+      // Turning monthly billing on: this month's dues are already in from TCCL, so the first charge is next month's
+      ...(monthly.value != null && (shop.cableMonthlyFee === null || !shop.cableBillingFrom) ? { cableBillingFrom: nextMonth(toMonth(new Date())), cableBilledMonth: null } : {}),
     },
     select: { id: true },
   });
@@ -206,9 +216,7 @@ export async function updateComplaint(
 // Reports
 // ---------------------------------------------------------------------------
 
-const monthKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" });
-/** "2026-11" in India time. */
-export const toMonth = (d: Date) => monthKey.format(d).slice(0, 7);
+export { toMonth };
 
 /** The last `count` months, oldest first ("2026-06" … "2026-11"). */
 export function lastMonths(count: number, now = new Date()) {

@@ -36,6 +36,8 @@ export const cableSettingsSchema = z.object({
   smsFrom: optionalText(20).optional(),
   smsAutoReminders: z.boolean().optional(),
   smsLanguage: z.enum(["en", "ta"]).optional(),
+  cableMonthlyFee: money("Enter 0 or more.").nullable().optional(),
+  cableNodeFee: money("Enter 0 or more.").nullable().optional(),
 });
 
 /** Shop edits to a subscriber. A blank phone goes back to the portal's number on the next sync. */
@@ -53,6 +55,9 @@ export const subscriberEditSchema = z.object({
     .transform((v) => v?.replace(/\s/g, "") || null)
     .refine((v) => v === null || /^\d{6,20}$/.test(v), { message: "A VC number is digits only." }),
   groupName: optionalText(60),
+  /** Cable TV: keeps a node; its own monthly amount (null = the shop's, 0 = free) */
+  nodeHouse: z.boolean().optional(),
+  monthlyFee: money("Enter 0 or more.").nullable().optional(),
 });
 
 /** Renames a subscriber group (area / line) for everyone in it. */
@@ -60,6 +65,13 @@ export const groupRenameSchema = z.object({
   shopId: idSchema,
   from: z.string().trim().min(1).max(60),
   to: z.string({ message: "Enter the new name." }).trim().min(1, "Enter the new name.").max(60, "Keep it under 60 characters."),
+});
+
+/** Puts subscribers in a group (a new name makes a new group); null takes them out of their group. */
+export const groupAssignSchema = z.object({
+  shopId: idSchema,
+  ids: z.array(idSchema).min(1, "Pick at least one subscriber.").max(10_000),
+  groupName: z.string().trim().min(1, "Enter the group name.").max(60, "Keep it under 60 characters.").nullable(),
 });
 
 const cell = (max: number) => z.string().trim().max(max).nullable();

@@ -8,6 +8,8 @@ import { errorMessage, formatDate, formatINR, parseDecimal, roundMoney, sanitize
 import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/utils";
 import { expiryLabel } from "./cableShared";
+import { tempVc } from "@/lib/cableImport";
+import { houseFee } from "@/lib/cableMonthly";
 import { useCanManageCable, useRevalidateCable, useSubscriber } from "./useCableData";
 import CollectPaymentForm from "./CollectPaymentForm";
 import EditSubscriberForm from "./EditSubscriberForm";
@@ -51,7 +53,7 @@ function RenewalRow({ renewal, canManage }: { renewal: CableRenewal; canManage: 
     <li className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
       <div className="min-w-0">
         <div className="font-bold text-slate-800 truncate">
-          {renewal.kind === "RENEWAL" ? (renewal.plan ?? "Plan not shown") : renewal.kind === "BILL" ? "Cable TV bill" : "Opening balance from TCCL"}
+          {renewal.kind === "RENEWAL" || renewal.kind === "MONTHLY" ? (renewal.plan ?? "Plan not shown") : renewal.kind === "BILL" ? "Cable TV bill" : "Opening balance from TCCL"}
         </div>
         <div className="text-[11px] font-semibold text-slate-400">
           {renewal.kind === "RENEWAL" ? (
@@ -126,6 +128,7 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
   const [chat, setChat] = useState<{ paid?: number } | null>(null);
   const [voiding, setVoiding] = useState<CablePayment | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmPermanent, setConfirmPermanent] = useState(false);
   const s = data?.subscriber;
   const isCable = s?.provider === "TCCL";
 
@@ -137,6 +140,23 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
       toast.success("Payment voided", { description: "Its Daily Kanakku entry was removed." });
       setVoiding(null);
       revalidate();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // The customer keeps the temp box: it becomes their VC and the old one is forgotten
+  const makePermanent = async () => {
+    if (!s) return;
+    setBusy(true);
+    try {
+      await sendJson(`/api/cable/subscribers/${encodeURIComponent(s.id)}`, "PATCH", { name: s.name, tamilName: s.tamilName ?? "", phone: s.phone ?? "", oldVcNumber: "", groupName: s.groupName ?? "" });
+      toast.success("Temp box made permanent", { description: `VC ${s.vcNumber} is now ${s.name}'s box.` });
+      setConfirmPermanent(false);
+      revalidate();
+      void mutate();
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -203,13 +223,21 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
               <Field label={isCable ? "Set-top box" : "Status"} value={<Pill tone={s.status === "Active" ? "green" : "slate"}>{s.status}</Pill>} />
               {isCable ? (
                 <>
-                  {s.oldVcNumber ? (
-                    <>
-                      <Field label="Old VC (customer's box)" value={s.oldVcNumber} />
-                      <Field label="New VC (replacement box)" value={s.vcNumber} />
-                    </>
-                  ) : (
-                    <Field label="VC number" value={s.vcNumber} />
+                  <Field label="VC number" value={s.oldVcNumber ?? s.vcNumber} />
+                  {tempVc(s) && (
+                    <Field
+                      label="Temp VC (until their box is repaired)"
+                      value={
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="text-amber-700">{tempVc(s)}</span>
+                          {canManage && (
+                            <button type="button" onClick={() => setConfirmPermanent(true)} className="text-xs font-bold text-orange-600 hover:underline">
+                              Make permanent
+                            </button>
+                          )}
+                        </span>
+                      }
+                    />
                   )}
                   <Field label="STB serial" value={s.macId} />
                 </>
@@ -222,6 +250,15 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
               <Field label="Phone" value={s.phone && <a className="text-orange-600 hover:underline" href={`tel:${s.phone}`}>{s.phone}</a>} />
               <Field label="Alternative phone" value={s.altPhone} />
               <Field label="Group" value={s.groupName} />
+              {isCable && shop.cableMonthlyFee !== null && (
+                <Field
+                  label="Monthly amount"
+                  value={(() => {
+                    const fee = houseFee({ monthlyFee: shop.cableMonthlyFee, nodeFee: shop.cableNodeFee }, s);
+                    return `${fee ? formatINR(fee, { decimals: false }) : "Free"}${s.nodeHouse ? " · node house" : ""}`;
+                  })()}
+                />
+              )}
               <Field label="Area" value={s.area} />
               {!isCable && <Field label="Last renewal" value={s.renewedAt && formatDate(s.renewedAt)} />}
               <Field label="Activated" value={s.activatedAt && formatDate(s.activatedAt)} />
@@ -285,6 +322,18 @@ export default function SubscriberDetailDialog({ subscriberId, shop, onClose }: 
         busy={busy}
         onConfirm={() => void doVoid()}
         onCancel={() => setVoiding(null)}
+      />
+      <ConfirmDialog
+        open={confirmPermanent}
+        title="Make the temp box permanent?"
+        message={s && <>VC {s.vcNumber} becomes {s.name}&apos;s own box and VC {s.oldVcNumber} is removed from their details.</>}
+        confirmLabel="Make permanent"
+        busyLabel="Saving…"
+        icon="check-circle"
+        tone="neutral"
+        busy={busy}
+        onConfirm={() => void makePermanent()}
+        onCancel={() => setConfirmPermanent(false)}
       />
     </>
   );

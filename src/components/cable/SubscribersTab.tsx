@@ -3,75 +3,20 @@
 import type { CableProvider, CableSubscriberListResponse, CableSubscriberRow } from "@/types/cable";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ConfirmDialog, EmptyState, FieldError, InventoryDialog, KpiCard, Pagination, Pill, SearchInput, cardClass, inputClass, inputErrorClass, labelClass, primaryButtonClass, secondaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
+import { ConfirmDialog, EmptyState, KpiCard, Pagination, Pill, SearchInput, cardClass, primaryButtonClass, type PillTone } from "@/components/inventory/InventoryUI";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { errorMessage, sendJson } from "@/components/inventory/inventoryUtils";
-import { useCanManageCable, useRevalidateCable } from "./useCableData";
+import { useCanManageCable } from "./useCableData";
 import { formatDate, formatINR, useDebouncedValue } from "@/components/inventory/inventoryUtils";
 import { initials } from "@/components/inventory/produce/produceShared";
 import { cn } from "@/lib/utils";
 import { SOON_DAYS, expiryLabel, expiryState, type ExpiryState } from "./cableShared";
 import { exportSubscribers, type ExportFormat } from "./subscriberFiles";
 import ImportSubscribersDialog from "./ImportSubscribersDialog";
+import { tempVc } from "@/lib/cableImport";
 
 const ALL_GROUPS = "All groups";
 const NO_GROUP = "No group";
-
-/** Renames a group for everyone in it (also merges it into an existing group of that name). */
-function RenameGroupDialog({ shopId, from, onClose }: { shopId: string; from: string; onClose: (renamedTo?: string) => void }) {
-  const revalidate = useRevalidateCable();
-  const [to, setTo] = useState(from);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    const name = to.trim();
-    if (!name) return setError("Enter the new name.");
-    if (name === from) return onClose();
-    setSaving(true);
-    try {
-      const r = await sendJson<{ renamed: number }>("/api/cable/groups", "PATCH", { shopId, from, to: name });
-      toast.success(`Group renamed to ${name}`, { description: `${r.renamed} subscriber${r.renamed === 1 ? "" : "s"} moved.` });
-      revalidate();
-      onClose(name);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <InventoryDialog
-      open
-      onClose={() => onClose()}
-      busy={saving}
-      size="sm"
-      eyebrow="Subscriber group"
-      title={`Rename ${from}`}
-      footer={
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={() => onClose()} disabled={saving} className={cn(secondaryButtonClass, "h-10")}>Cancel</button>
-          <button type="submit" form="rename-group" disabled={saving} className={cn(primaryButtonClass, "h-10")}>
-            {saving ? <i className="ph ph-circle-notch animate-spin" aria-hidden="true" /> : <i className="ph-bold ph-check" aria-hidden="true" />} Rename
-          </button>
-        </div>
-      }
-    >
-      <form
-        id="rename-group"
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <label htmlFor="rename-group-input" className={labelClass}>New name</label>
-        <input id="rename-group-input" autoFocus value={to} maxLength={60} onChange={(e) => setTo(e.target.value)} className={cn(inputClass, error && inputErrorClass)} aria-invalid={!!error} />
-        <FieldError message={error} />
-        <p className="mt-2 text-[11px] font-semibold text-slate-400">Using the name of another group merges the two.</p>
-      </form>
-    </InventoryDialog>
-  );
-}
 
 const FILE_ACTIONS:{ id: ExportFormat | "import"; label: string; icon: string }[] = [
   { id: "import", label: "Import xlsx / csv", icon: "ph-upload-simple text-orange-500" },
@@ -200,9 +145,9 @@ function SubscriberRow({ s, isCable, now, onOpen }: { s: CableSubscriberRow; isC
         <div className="text-[11px] font-semibold text-slate-400 truncate">{details}</div>
       </div>
       <div className="hidden lg:block w-[200px] shrink-0 text-xs font-semibold text-slate-500 truncate" title={s.plan ?? undefined}>
-        {/* The customer's own box; a replacement lent while it's repaired (TCCL's VC) shows only in the details */}
+        {/* The customer's own box (stable); a temp box lent while it's repaired is TCCL's current VC */}
         {isCable ? ((s.oldVcNumber ?? s.vcNumber) ? `VC ${s.oldVcNumber ?? s.vcNumber}` : "—") : (s.plan ?? "—")}
-        {isCable && s.oldVcNumber && <div className="text-[10px] font-bold text-amber-700">Replacement box given</div>}
+        {isCable && tempVc(s) && <div className="text-[10px] font-bold text-amber-700">Temp VC {tempVc(s)}</div>}
       </div>
       <div className="hidden sm:block text-right shrink-0 w-[150px]">
         {isCable ? (
@@ -270,7 +215,6 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
 
   const canManage = useCanManageCable();
   const [importing, setImporting] = useState(false);
-  const [renaming, setRenaming] = useState<string | null>(null);
   const [confirmSms, setConfirmSms] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
   // Who an SMS reminder would go to: owing, or (internet only) expiring soon / expired
@@ -321,34 +265,12 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
           <SearchInput value={search} onChange={setSearch} placeholder={isCable ? "Search name, Tamil name, ID, phone, VC or old VC" : "Search name, ID, phone, area or plan"} />
           {groups.length > 0 && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <div className="w-full lg:w-44">
-                <CustomDropdown options={[ALL_GROUPS, ...groups, NO_GROUP]} value={group} onChange={setGroup} />
-              </div>
-              {canManage && group !== ALL_GROUPS && group !== NO_GROUP && (
-                <button type="button" onClick={() => setRenaming(group)} aria-label={`Rename group ${group}`} title="Rename group" className="h-[45px] w-[45px] shrink-0 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 flex items-center justify-center">
-                  <i className="ph-bold ph-pencil-simple" aria-hidden="true" />
-                </button>
-              )}
+            <div className="w-full lg:w-44 shrink-0">
+              <CustomDropdown options={[ALL_GROUPS, ...groups, NO_GROUP]} value={group} onChange={setGroup} />
             </div>
           )}
-          <div className="grid grid-cols-5 lg:flex bg-slate-50 border border-slate-200 rounded-xl p-1 lg:ml-auto" role="radiogroup" aria-label="Subscriber filter">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="radio"
-                aria-checked={filter === f.id}
-                onClick={() => setFilter(f.id)}
-                className={cn(
-                  "min-w-0 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap truncate",
-                  filter === f.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
-                )}
-              >
-                {f.label}
-                <span className="hidden sm:inline ml-1 text-slate-400 font-semibold">{counts[f.id]}</span>
-              </button>
-            ))}
+          <div className="w-full lg:w-44 lg:ml-auto shrink-0">
+            <CustomDropdown options={FILTERS.map((f) => ({ value: f.id, label: `${f.label} (${counts[f.id]})` }))} value={filter} onChange={(v) => setFilter(v as Filter)} />
           </div>
           <FileMenu list={list} isCable={isCable} onImport={() => setImporting(true)} />
         </div>
@@ -403,16 +325,6 @@ export default function SubscribersTab({ shopId, data, provider, now, onOpen }: 
         )}
       </div>
 
-      {renaming && (
-        <RenameGroupDialog
-          shopId={shopId}
-          from={renaming}
-          onClose={(to) => {
-            setRenaming(null);
-            if (to) setGroup(to);
-          }}
-        />
-      )}
       {importing && <ImportSubscribersDialog shopId={shopId} canSave={canManage} onClose={() => setImporting(false)} />}
       <ConfirmDialog
         open={confirmSms}

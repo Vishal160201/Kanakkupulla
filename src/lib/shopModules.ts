@@ -61,6 +61,7 @@ export function isPathAllowedForShopType(pathname: string, type: ShopTypeName): 
 
 /** Where to land after switching to a shop of this type. */
 export function landingPathForShopType(type: ShopTypeName): string {
+  if (type === "CABLE") return "/subscribers/cable";
   return type === "STUDIO" ? "/dashboard/overview" : "/transactions/overview";
 }
 

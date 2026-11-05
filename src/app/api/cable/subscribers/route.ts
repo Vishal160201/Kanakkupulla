@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma, { toNumber } from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
-import { getCableShop } from "@/lib/cableSync";
+import { addMonthlyCharges, getCableShop } from "@/lib/cableSync";
 import { subscriberDues } from "@/lib/cable";
+import { toMonth } from "@/lib/cableMonthly";
 import { isDeviceConnected } from "@/lib/sms";
 import { inventoryErrorResponse } from "@/lib/inventoryHttp";
 import { parseSearchParams } from "@/lib/validations/http";
@@ -20,8 +21,11 @@ export async function GET(request: Request) {
 
   try {
     const shop = await getCableShop(auth.user, query.data.shopId);
+    // A new month's charges, if no sync has added them yet (the extension isn't running)
+    if (shop.cableMonthlyFee !== null && shop.cableBillingFrom && shop.cableBilledMonth !== toMonth(new Date())) await prisma.$transaction((tx) => addMonthlyCharges(tx, shop.id));
     // shortcut: whole list in one response; page it on the server if a shop passes a few thousand subscribers
-    const [subscribers, dues, openComplaints] = await Promise.all([
+    const month = toMonth(new Date());
+    const [subscribers, dues, openComplaints, collected] = await Promise.all([
       prisma.cableSubscriber.findMany({
         where: { shopId: shop.id },
         orderBy: [{ expiresAt: "asc" }, { name: "asc" }],
@@ -30,17 +34,21 @@ export async function GET(request: Request) {
           area: true, vcNumber: true, expiresAt: true, renewedAt: true, goneAt: true,
           // Not shown in the list, only searched
           tamilName: true, oldVcNumber: true, altPhone: true, macId: true, address: true, groupName: true,
+          nodeHouse: true, monthlyFee: true,
         },
       }),
       subscriberDues(prisma, shop.id),
       prisma.cableComplaint.groupBy({ by: ["subscriberId"], where: { shopId: shop.id, fixedAt: null }, _count: { _all: true } }),
+      // Cable TV money collected this month (India time), set against what goes to TCCL on the 15th
+      prisma.cablePayment.aggregate({ where: { shopId: shop.id, voidedAt: null, subscriber: { provider: "TCCL" }, date: { gte: new Date(`${month}-01T00:00:00+05:30`) } }, _sum: { amount: true } }),
     ]);
     const complaintsOf = new Map(openComplaints.map((c) => [c.subscriberId, c._count._all]));
     return NextResponse.json({
-      subscribers: subscribers.map((s) => ({ ...s, due: dues.get(s.id) ?? 0, openComplaints: complaintsOf.get(s.id) ?? 0 })),
+      subscribers: subscribers.map((s) => ({ ...s, monthlyFee: s.monthlyFee === null ? null : toNumber(s.monthlyFee), due: dues.get(s.id) ?? 0, openComplaints: complaintsOf.get(s.id) ?? 0 })),
       syncedAt: shop.syncedAt,
       tcclSyncedAt: shop.tcclSyncedAt,
       hasSyncKey: !!shop.syncKeyHash,
+      tcclMonth: { month, billed: shop.tcclBillMonth === month ? toNumber(shop.tcclBillAmount) : 0, collected: toNumber(collected._sum.amount) },
       shop: {
         name: shop.name,
         upiId: shop.upiId,
@@ -50,6 +58,8 @@ export async function GET(request: Request) {
         tcclWalletBalance: shop.tcclWalletBalance === null ? null : toNumber(shop.tcclWalletBalance),
         tcclWalletSyncedAt: shop.tcclWalletSyncedAt,
         lowWalletAlert: shop.lowWalletAlert === null ? null : toNumber(shop.lowWalletAlert),
+        cableMonthlyFee: shop.cableMonthlyFee === null ? null : toNumber(shop.cableMonthlyFee),
+        cableNodeFee: shop.cableNodeFee === null ? null : toNumber(shop.cableNodeFee),
         smsConfigured: !!shop.smsDeviceTokenHash && !!shop.smsFrom,
         smsPaired: !!shop.smsDeviceTokenHash,
         smsDeviceSeenAt: shop.smsDeviceSeenAt,

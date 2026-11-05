@@ -75,6 +75,9 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
   const [smsLang, setSmsLang] = useState<"en" | "ta" | null>(null);
   const [smsAuto, setSmsAuto] = useState<boolean | null>(null);
   const [savingSms, setSavingSms] = useState(false);
+  const [fee, setFee] = useState<string | null>(null);
+  const [nodeFee, setNodeFee] = useState<string | null>(null);
+  const [savingFees, setSavingFees] = useState(false);
   const [pairToken, setPairToken] = useState<string | null>(null);
   const [pairQr, setPairQr] = useState<string | null>(null);
   const [pairing, setPairing] = useState(false);
@@ -88,6 +91,27 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
   const smsFromShown = smsFrom ?? lastTen(shop?.smsFrom ?? "");
   const smsLangShown = smsLang ?? shop?.smsLanguage ?? "en";
   const smsAutoShown = smsAuto ?? shop?.smsAutoReminders ?? false;
+  const feeShown = fee ?? (shop?.cableMonthlyFee == null ? "" : String(shop.cableMonthlyFee));
+  const nodeFeeShown = nodeFee ?? (shop?.cableNodeFee == null ? "" : String(shop.cableNodeFee));
+
+  const saveFees = async () => {
+    const amount = (v: string) => (v.trim() === "" ? null : roundMoney(parseDecimal(v)));
+    const monthly = amount(feeShown);
+    const node = amount(nodeFeeShown);
+    if ((monthly !== null && !Number.isFinite(monthly)) || (node !== null && !Number.isFinite(node))) return toast.error("Enter the amounts as numbers.");
+    setSavingFees(true);
+    try {
+      await sendJson("/api/cable/settings", "PATCH", { shopId, cableMonthlyFee: monthly, cableNodeFee: node });
+      toast.success("Monthly amounts saved", { description: monthly === null ? "Dues follow TCCL's bills." : !shop?.cableMonthlyFee ? "Houses are charged from next month." : undefined });
+      setFee(null);
+      setNodeFee(null);
+      revalidate();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSavingFees(false);
+    }
+  };
 
   const saveSms = async () => {
     setSavingSms(true);
@@ -177,6 +201,26 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
           <button type="button" onClick={onSyncSetup} className={secondaryButtonClass}>
             <i className="ph-bold ph-plugs-connected" aria-hidden="true" /> Sync setup
           </button>
+        </section>
+
+        <section>
+          <SectionTitle title="Cable TV monthly amount" hint="What each house pays a month. A house pays the full month once its box is on at any time in it, new connections too. A box off all month isn't charged. Set a house's own amount (0 = free) in its Edit." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="cable-fee" className={labelClass}>Monthly amount</label>
+              <MoneyInput id="cable-fee" value={feeShown} onChange={(v) => setFee(sanitizeDecimal(v, 2))} placeholder="e.g. 250" />
+            </div>
+            <div>
+              <label htmlFor="cable-node-fee" className={labelClass}>Node houses pay</label>
+              <MoneyInput id="cable-node-fee" value={nodeFeeShown} onChange={(v) => setNodeFee(sanitizeDecimal(v, 2))} placeholder="Blank = monthly amount" />
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button type="button" onClick={saveFees} disabled={savingFees || !shop || (fee === null && nodeFee === null)} className={cn(primaryButtonClass)}>
+              {savingFees ? <i className="ph ph-circle-notch animate-spin" /> : <i className="ph-bold ph-check" />}
+              Save
+            </button>
+          </div>
         </section>
 
         <section>

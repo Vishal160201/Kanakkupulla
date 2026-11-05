@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
-import prisma from "@/lib/prisma";
+import prisma, { toNumber } from "@/lib/prisma";
+import type { Tx } from "@/lib/inventory";
+import { monthlyChargeRows, monthsToCharge, toMonth } from "@/lib/cableMonthly";
 import { can, type SessionUser } from "@/lib/authz";
 import type { AccessLevel } from "@/lib/access";
 import { getAccessibleShop, ShopError } from "@/lib/shops";
@@ -82,8 +84,9 @@ export function tcclRowToSubscriber(row: Record<string, string>): SyncedSubscrib
     activatedAt: parseTcclDate(row.installation_date),
     renewedAt: null,
     expiresAt: null,
-    billed: money(row.total_bill_amount),
-    paid: money(row.total_paid_amount),
+    // Missing for customers only the STB list shows: their balance waits for the customer list
+    billed: row.total_bill_amount === undefined ? undefined : money(row.total_bill_amount),
+    paid: row.total_paid_amount === undefined ? undefined : money(row.total_paid_amount),
   };
 }
 
@@ -193,7 +196,10 @@ export async function applySubscriberSync(shopId: string, provider: CableProvide
       }
 
       let charged = 0;
+      let tcclBill = {};
       if (provider === TCCL) {
+        // With a fixed monthly amount, dues are the shop's monthly charges rather than TCCL's bills
+        const monthly = (await tx.shop.findUnique({ where: { id: shopId }, select: { cableMonthlyFee: true } }))?.cableMonthlyFee != null;
         const idOf = new Map([...existing.map((e) => [e.externalId, e.id] as const), ...created.map((c) => [c.externalId, c.id] as const)]);
         const { charges, billedTotals } = tcclCharges(
           existing.map((e) => ({ externalId: e.externalId, billedTotal: e.billedTotal === null ? null : Number(e.billedTotal) })),
@@ -203,8 +209,15 @@ export async function applySubscriberSync(shopId: string, provider: CableProvide
           const subscriberId = idOf.get(c.externalId);
           return subscriberId ? [{ subscriberId, kind: c.kind, amount: c.amount, plan: c.kind === "OPENING" ? "Opening balance from TCCL" : "Cable TV bill", renewedAt: now }] : [];
         });
-        if (rows.length) await tx.cableRenewal.createMany({ data: rows });
-        charged = rows.length;
+        if (rows.length && !monthly) await tx.cableRenewal.createMany({ data: rows });
+        charged = monthly ? await addMonthlyCharges(tx, shopId, now) : rows.length;
+        // TCCL's bills this month (paid to TCCL on the 15th): bill rises, and new connections' first bills
+        const billedNow = round2(charges.filter((c) => c.kind === "BILL" || existing.length > 0).reduce((sum, c) => sum + Math.max(0, c.amount), 0));
+        if (billedNow > 0) {
+          const shop = await tx.shop.findUnique({ where: { id: shopId }, select: { tcclBillMonth: true, tcclBillAmount: true } });
+          const month = toMonth(now);
+          tcclBill = { tcclBillMonth: month, tcclBillAmount: round2((shop?.tcclBillMonth === month ? toNumber(shop.tcclBillAmount) : 0) + billedNow) };
+        }
         // New customers got their billed total when created; remember changes for the others
         for (const e of existing) {
           const billed = billedTotals.get(e.externalId);
@@ -216,12 +229,41 @@ export async function applySubscriberSync(shopId: string, provider: CableProvide
 
       if (goneIds.length) await tx.cableSubscriber.updateMany({ where: { id: { in: goneIds } }, data: { goneAt: now } });
       const walletData = wallet === null ? {} : provider === TCCL ? { tcclWalletBalance: wallet, tcclWalletSyncedAt: now } : { walletBalance: wallet, walletSyncedAt: now };
-      await tx.shop.update({ where: { id: shopId }, data: { ...(provider === TCCL ? { tcclSyncedAt: now } : { syncedAt: now }), ...walletData } });
+      await tx.shop.update({ where: { id: shopId }, data: { ...(provider === TCCL ? { tcclSyncedAt: now } : { syncedAt: now }), ...walletData, ...tcclBill } });
       return { created: creates.length, updated: updates.length, renewals: renewals.length, charges: charged, gone: goneIds.length, syncedAt: now };
     },
     { timeout: 60_000 }
   );
 }
+
+/**
+ * Charges the month's fixed amount to every cable house with the box on that isn't charged for it yet (and
+ * catches up months no sync ran in). Runs on every sync, inside the caller's transaction; returns how many.
+ */
+export async function addMonthlyCharges(db: Tx, shopId: string, now = new Date()) {
+  const shop = await db.shop.findUnique({ where: { id: shopId }, select: { cableMonthlyFee: true, cableNodeFee: true, cableBillingFrom: true, cableBilledMonth: true } });
+  if (!shop || shop.cableMonthlyFee === null || !shop.cableBillingFrom) return 0;
+  const current = toMonth(now);
+  const periods = monthsToCharge(shop.cableBillingFrom, shop.cableBilledMonth, current);
+  if (periods.length === 0) return 0;
+  const [houses, charged] = await Promise.all([
+    db.cableSubscriber.findMany({ where: { shopId, provider: "TCCL", goneAt: null, status: "Active" }, select: { id: true, status: true, monthlyFee: true, nodeHouse: true } }),
+    db.cableRenewal.findMany({ where: { period: { in: periods }, subscriber: { shopId } }, select: { subscriberId: true, period: true } }),
+  ]);
+  const done = new Set(charged.map((c) => `${c.subscriberId}|${c.period}`));
+  const rows = monthlyChargeRows(
+    { monthlyFee: toNumber(shop.cableMonthlyFee), nodeFee: shop.cableNodeFee === null ? null : toNumber(shop.cableNodeFee) },
+    houses.map((h) => ({ ...h, monthlyFee: h.monthlyFee === null ? null : toNumber(h.monthlyFee) })),
+    periods,
+    now
+  ).filter((r) => !done.has(`${r.subscriberId}|${r.period}`));
+  // Two requests at once can both try a row: the unique (subscriber, month) keeps one
+  if (rows.length) await db.cableRenewal.createMany({ data: rows, skipDuplicates: true });
+  if (shop.cableBilledMonth !== current) await db.shop.update({ where: { id: shopId }, data: { cableBilledMonth: current } });
+  return rows.length;
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export const hashSyncKey = (key: string) => createHash("sha256").update(key).digest("hex");
 

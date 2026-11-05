@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kanakkupulla Sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Copies your TIC Fiber and TCCL subscribers into Kanakkupulla every minute, using your logged-in portals.",
   "permissions": ["alarms", "storage", "offscreen", "scripting", "notifications"],
   "host_permissions": ["https://partner.ticfiber.in/*", "https://sms.tccl.co.in/*"],
