@@ -6,7 +6,7 @@ import type { CableProvider, CableSubscriberListResponse, CableSubscriberRow } f
 import DatePickerInput from "@/components/ui/DatePickerInput";
 import { Tooltip } from "@/components/ui/Tooltip";
 import CustomDropdown from "@/components/ui/CustomDropdown";
-import { EmptyState, ErrorState, InventoryDialog, KpiCard, ListSkeleton, SearchInput, cardClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
+import { EmptyState, ErrorState, InventoryDialog, KpiCard, ListSkeleton, Pagination, SearchInput, cardClass, secondaryButtonClass } from "@/components/inventory/InventoryUI";
 import { errorMessage, formatDate, formatINR, roundMoney, sendJson, todayISO, useDebouncedValue } from "@/components/inventory/inventoryUtils";
 import { cn } from "@/lib/utils";
 import { useCanManageCable, useCollections, useRevalidateCable } from "./useCableData";
@@ -166,6 +166,20 @@ export default function CollectionsTab({ shopId, provider, data, onOpen }: { sho
   const groups = groupNames.filter((g) => byGroup.has(g)).map((g) => [g, byGroup.get(g)!.sort((a, b) => a.name.localeCompare(b.name))] as [string, CableSubscriberRow[]]);
   const total = list.reduce((sum, s) => sum + s.due, 0);
 
+  // Pages of the round (in register order); back to page 1 when the group, search or page size changes
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(1);
+  const pageKey = `${shownGroup}|${q}|${pageSize}`;
+  const [lastPageKey, setLastPageKey] = useState(pageKey);
+  if (pageKey !== lastPageKey) {
+    setLastPageKey(pageKey);
+    setPage(1);
+  }
+  const ordered = groups.flatMap(([, subs]) => subs);
+  const safePage = Math.min(page, Math.max(1, Math.ceil(ordered.length / pageSize)));
+  const onPage = new Set(ordered.slice((safePage - 1) * pageSize, safePage * pageSize).map((s) => s.id));
+  const pageGroups = groups.map(([g, subs]) => [g, subs, subs.filter((s) => onPage.has(s.id))] as const).filter(([, , shown]) => shown.length > 0);
+
   const undo = async (paymentId: string, name: string) => {
     try {
       await sendJson(`/api/cable/payments/${encodeURIComponent(paymentId)}/void`, "POST");
@@ -233,8 +247,9 @@ export default function CollectionsTab({ shopId, provider, data, onOpen }: { sho
         ) : list.length === 0 ? (
           <EmptyState icon="magnifying-glass" title="No matching houses" message={`Nothing matches "${search.trim()}".`} />
         ) : (
+          <>
           <div className="space-y-4">
-            {groups.map(([name, subs]) => (
+            {pageGroups.map(([name, subs, shown]) => (
               <div key={name}>
                 <div className="flex items-center justify-between px-2.5 pb-1 text-[10px] font-extrabold uppercase tracking-[1.2px] text-slate-400">
                   <span>{name}</span>
@@ -243,13 +258,25 @@ export default function CollectionsTab({ shopId, provider, data, onOpen }: { sho
                   </span>
                 </div>
                 <ul className="space-y-0.5">
-                  {subs.map((s) => (
+                  {shown.map((s) => (
                     <DueRow key={s.id} s={s} canManage={canManage} paying={paying === s.id} onPay={() => void pay(s)} onOther={() => setOther(s)} onOpen={() => onOpen(s.id)} onChat={() => setChat(s)} />
                   ))}
                 </ul>
               </div>
             ))}
           </div>
+          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-2 text-[0.8rem] font-bold text-slate-500">
+              <span>Per page</span>
+              <div className="w-24">
+                <CustomDropdown options={["25", "50", "100"]} value={String(pageSize)} onChange={(v) => setPageSize(Number(v))} />
+              </div>
+            </div>
+            <div className="sm:ml-auto">
+              <Pagination page={safePage} pageSize={pageSize} total={ordered.length} onPageChange={setPage} />
+            </div>
+          </div>
+          </>
         )}
       </section>
 
