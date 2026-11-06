@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["sin1"]
+  "regions": ["sin1"],
+  "crons": [
+    { "path": "/api/cron/reminders", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/cable-sms-reminders", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/daily-reminders", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/purge-recycle-bin", "schedule": "0 21 * * *" }
+  ]
 }

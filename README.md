@@ -60,10 +60,10 @@ See `.env.example` for the full list. Required at minimum: `DATABASE_URL` and `N
 
 Schema changes are managed with Prisma Migrate. Migrations live in `prisma/migrations/`:
 
-- `0_init` is the baseline. It matches the schema the existing (`db push`-managed) production database already has.
-- `1_invoices_and_shops` adds `Shop`, `Invoice`, `InvoiceLineItem`, the optional `Transaction.shopId` and new `Transaction` indexes.
-- `2_money_decimal_and_indexes` stores money as `numeric(12,2)` and adds indexes and cascades.
-- `3_multi_shop` creates "Main Shop", moves every existing transaction into it, makes `Transaction.shopId` required, stores the default shop in the `default_shop_id` system setting, and drops the removed `CategoryBudget` table (it refuses to run if that table has rows).
+- `00_init` is the baseline. It matches the schema the existing (`db push`-managed) production database already has.
+- `01_invoices_and_shops` adds `Shop`, `Invoice`, `InvoiceLineItem`, the optional `Transaction.shopId` and new `Transaction` indexes.
+- `02_money_decimal_and_indexes` stores money as `numeric(12,2)` and adds indexes and cascades.
+- `03_multi_shop` creates "Main Shop", moves every existing transaction into it, makes `Transaction.shopId` required, stores the default shop in the `default_shop_id` system setting, and drops the removed `CategoryBudget` table (it refuses to run if that table has rows).
 
 Steps:
 
@@ -71,11 +71,11 @@ Steps:
 - **Existing database** (created earlier with `prisma db push`): mark the baseline as applied once, then deploy as usual:
 
   ```bash
-  npx prisma migrate resolve --applied 0_init
-  npx prisma migrate deploy   # applies 1_invoices_and_shops, 2_money_decimal_and_indexes, ...
+  npx prisma migrate resolve --applied 00_init
+  npx prisma migrate deploy   # applies 01_invoices_and_shops, 02_money_decimal_and_indexes, ...
   ```
 
-  Before resolving, you can check that the live database matches the baseline. Run `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`; the output should contain only the statements from `1_invoices_and_shops` and later migrations.
+  Before resolving, you can check that the live database matches the baseline. Run `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`; the output should contain only the statements from `01_invoices_and_shops` and later migrations.
 - **Changing the schema:** edit `prisma/schema.prisma`, run `npm run db:migrate:dev -- --name <change>` against a development database, then commit the generated migration.
 
 Do not use `db push --accept-data-loss` against shared or production databases.
@@ -88,7 +88,9 @@ Do not use `db push --accept-data-loss` against shared or production databases.
 Authorization: Bearer $CRON_SECRET
 ```
 
-Set up your scheduler (Vercel Cron, GitHub Actions, cron-job.org, etc.) to send this header.
+On Vercel, `vercel.json` schedules them daily (times in UTC; Hobby fires within the hour) and Vercel sends this
+header itself once `CRON_SECRET` is set in the project's environment variables. Elsewhere, use any scheduler
+(GitHub Actions, cron-job.org, etc.) that sends the header.
 
 ## Deployment
 
@@ -103,4 +105,4 @@ The build does not run migrations. Apply them as a separate release step with `n
 
 Production runs on Vercel (https://kanakkupulla.vercel.app), deployed from `main`. Functions run in `sin1` (Singapore, `vercel.json`) next to the Neon database in `ap-southeast-1`; keep them in the same region, since every query otherwise crosses continents. Vercel only runs `npm run build`, so apply pending migrations with `npm run db:migrate` against the production database right before pushing a change that needs them.
 
-`2_money_decimal_and_indexes` converts money columns from `double precision` to `numeric(12,2)` (values are rounded to 2 decimal places) and turns `Notification.priority` into an enum. Take a database backup (Neon branch) before applying it.
+`02_money_decimal_and_indexes` converts money columns from `double precision` to `numeric(12,2)` (values are rounded to 2 decimal places) and turns `Notification.priority` into an enum. Take a database backup (Neon branch) before applying it.

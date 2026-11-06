@@ -3,7 +3,9 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const connectionString = process.env.DATABASE_URL || '';
+// pg already treats sslmode=require as verify-full (and warns on every cold start that this will change);
+// saying verify-full keeps today's behaviour, full certificate checks, without the warning.
+const connectionString = (process.env.DATABASE_URL || '').replace(/([?&]sslmode=)(prefer|require|verify-ca)\b/, '$1verify-full');
 
 function createBaseClient() {
   const pool = new Pool({
