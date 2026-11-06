@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Svg, Defs, ClipPath, Path, Image as SvgImage, Circle, Line, Polygon } from '@react-pdf/renderer';
+import { View, Text, StyleSheet, Svg, Defs, ClipPath, Path, Image as SvgImage, Line, Polygon } from '@react-pdf/renderer';
 import type { InvoiceViewModel } from '../types/invoiceViewModel';
 import { StatusPill } from '../ui/StatusPill';
 import { colors, typography } from '../theme/invoiceTheme';
@@ -14,8 +14,8 @@ const styles = StyleSheet.create({
 
   row: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 18, height: 140 },
   heroSpace: { width: 98 },
-  brand: { width: 118, alignItems: 'center', paddingTop: 4 },
-  brandName: { fontFamily: typography.serif, fontSize: 15, letterSpacing: 2, color: colors.ink, marginTop: 6 },
+  brand: { width: 118, alignItems: 'center', paddingTop: 22 },
+  brandName: { fontFamily: typography.serif, fontSize: 15, letterSpacing: 2, color: colors.ink },
   brandStudio: { fontFamily: typography.sans, fontSize: 7, letterSpacing: 4, color: colors.gold, marginTop: 1 },
   brandTagline: { fontFamily: typography.sans, fontSize: 5.5, letterSpacing: 1.4, color: colors.muted, marginTop: 7, textTransform: 'uppercase' },
   title: { flex: 1, alignItems: 'center', paddingTop: 8, paddingHorizontal: 10 },
@@ -26,17 +26,6 @@ const styles = StyleSheet.create({
   number: { fontFamily: typography.sans, fontSize: 14, fontWeight: 700, color: colors.gold, marginTop: 2, marginBottom: 6 },
   metaValue: { fontFamily: typography.sans, fontSize: 9, fontWeight: 700, color: colors.ink, marginTop: 2 },
 });
-
-/** Circle mark with a crescent and a dot, drawn as vectors. */
-const LogoMark = () => (
-  <Svg width={30} height={32} viewBox="0 0 30 32">
-    <Line x1={15} y1={4.5} x2={15} y2={7} stroke={colors.gold} strokeWidth={0.9} />
-    <Circle cx={15} cy={3} r={1.8} fill={colors.gold} />
-    <Circle cx={15} cy={19} r={11.5} stroke={colors.gold} strokeWidth={1.1} fill="none" />
-    <Circle cx={16.5} cy={20.5} r={8} fill={colors.gold} />
-    <Circle cx={13} cy={17} r={7.6} fill={colors.page} />
-  </Svg>
-);
 
 const Ornament = () => (
   <Svg width={120} height={8} viewBox="0 0 120 8">
@@ -65,7 +54,6 @@ export const Header = ({ viewModel: vm }: { viewModel: InvoiceViewModel }) => (
     <View style={styles.row}>
       <View style={styles.heroSpace} />
       <View style={styles.brand}>
-        <LogoMark />
         <Text style={styles.brandName}>MOONDOT</Text>
         <Text style={styles.brandStudio}>STUDIO</Text>
         <Text style={styles.brandTagline}>{vm.studio.tagline}</Text>
@@ -83,12 +71,6 @@ export const Header = ({ viewModel: vm }: { viewModel: InvoiceViewModel }) => (
         <StatusPill status={vm.status} label={vm.statusLabel} />
         <Text style={styles.metaLabel}>Invoice date</Text>
         <Text style={styles.metaValue}>{vm.invoiceDate}</Text>
-        {vm.dueDate && (
-          <>
-            <Text style={styles.metaLabel}>Due date</Text>
-            <Text style={[styles.metaValue, vm.status === 'OVERDUE' ? { color: colors.red } : {}]}>{vm.dueDate}</Text>
-          </>
-        )}
       </View>
     </View>
   </>

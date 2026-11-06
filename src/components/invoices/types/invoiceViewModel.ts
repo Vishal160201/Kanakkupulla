@@ -46,7 +46,6 @@ export interface InvoiceViewModel {
   status: InvoiceStatus;
   statusLabel: string;
   invoiceDate: string;
-  dueDate?: string;
 
   /** Couple photo (Drive) or the placeholder, already cropped to the header frame */
   heroImageUrl: string;

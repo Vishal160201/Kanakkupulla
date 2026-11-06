@@ -131,12 +131,11 @@ export const buildInvoiceViewModel = (
   if (paidP > 0) summaryRows.push({ label: 'Amount paid', value: `- ${formatCurrency(rupees(Math.min(paidP, totalP)))}`, tone: 'paid' });
   if (overpaidP > 0) summaryRows.push({ label: 'Overpaid', value: formatCurrency(rupees(overpaidP)), tone: 'paid' });
 
-  const dueDate = formatDate(booking.date);
   const amountCard: AmountCard =
     status === 'PAID'
       ? { tone: 'paid', title: 'Total amount', amount: formatAmountDigits(rupees(totalP)), note: overpaidP > 0 ? `Overpaid by ${formatCurrency(rupees(overpaidP))}` : 'Paid in full' }
       : status === 'OVERDUE'
-        ? { tone: 'overdue', title: 'Amount overdue', amount: formatAmountDigits(rupees(balanceP)), note: dueDate ? `Was due on ${dueDate}` : 'Payment overdue' }
+        ? { tone: 'overdue', title: 'Amount overdue', amount: formatAmountDigits(rupees(balanceP)), note: 'Payment is overdue' }
         : { tone: 'due', title: 'Amount due', amount: formatAmountDigits(rupees(balanceP)), note: 'Balance to be paid' };
 
   const steps = buildPaymentSteps(
@@ -206,7 +205,6 @@ export const buildInvoiceViewModel = (
     status,
     statusLabel: STATUS_LABEL[status],
     invoiceDate: formatDate(invoice.createdAt) ?? '',
-    dueDate: status === 'PAID' ? undefined : dueDate,
     heroImageUrl: heroImageUrl ?? assets.photoPlaceholder,
     studio: { name: studioName, tagline: setting('studio_tagline') ?? 'Capturing your memories' },
     billTo: {
