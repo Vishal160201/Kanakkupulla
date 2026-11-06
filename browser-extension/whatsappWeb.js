@@ -63,8 +63,8 @@ async function attachInWhatsApp(pdfBase64, filename, text) {
   return { ok: true, stage: "attached", message: "PDF and message attached." };
 }
 
-// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars -- used by background.js via importScripts
 /** Called from the background worker: opens (or reuses) the WhatsApp Web tab on the client's chat and attaches. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used by background.js via importScripts
 async function whatsappSend({ phone, text, filename, pdfBase64 }) {
   if (!/^\d{11,15}$/.test(String(phone))) return { ok: false, message: "That mobile number isn't usable." };
   if (typeof pdfBase64 !== "string" || pdfBase64.length > 20_000_000) return { ok: false, message: "The invoice PDF couldn't be read." };
