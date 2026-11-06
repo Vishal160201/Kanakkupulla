@@ -12,13 +12,14 @@ const HERO_SHAPE = `M0 0 L140 0 ${HERO_EDGE.slice(HERO_EDGE.indexOf('C'))} Z`;
 
 const styles = StyleSheet.create({
 
-  row: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 18, height: 140 },
+  // All three columns share one centre line, whatever their heights
+  row: { flexDirection: 'row', alignItems: 'center', height: 140 },
   heroSpace: { width: 98 },
-  brand: { width: 118, alignItems: 'center', paddingTop: 22 },
+  brand: { width: 118, alignItems: 'center' },
   brandName: { fontFamily: typography.serif, fontSize: 15, letterSpacing: 2, color: colors.ink },
   brandStudio: { fontFamily: typography.sans, fontSize: 7, letterSpacing: 4, color: colors.gold, marginTop: 1 },
   brandTagline: { fontFamily: typography.sans, fontSize: 5.5, letterSpacing: 1.4, color: colors.muted, marginTop: 7, textTransform: 'uppercase' },
-  title: { flex: 1, alignItems: 'center', paddingTop: 8, paddingHorizontal: 10 },
+  title: { flex: 1, alignItems: 'center', paddingHorizontal: 10 },
   titleText: { fontFamily: typography.serif, fontSize: 32, letterSpacing: 2, color: colors.ink },
   thanks: { fontFamily: typography.script, fontSize: 11.5, color: colors.gold, marginTop: 5, textAlign: 'center', lineHeight: 1.15 },
   meta: { width: 118, alignItems: 'flex-end' },
@@ -49,11 +50,14 @@ export const HeroPhoto = ({ src }: { src: string }) => (
   </Svg>
 );
 
-export const Header = ({ viewModel: vm }: { viewModel: InvoiceViewModel }) => (
-  <>
+export const Header = ({ viewModel: vm }: { viewModel: InvoiceViewModel }) => {
+  const hasPhoto = !!vm.heroImageUrl;
+  // Long numbers (MDorder-1F0974) step down so they stay on one line
+  const numberSize = vm.invoiceNumber.length > 10 ? 12 : 14;
+  return (
     <View style={styles.row}>
-      <View style={styles.heroSpace} />
-      <View style={styles.brand}>
+      {hasPhoto && <View style={styles.heroSpace} />}
+      <View style={[styles.brand, hasPhoto ? {} : { alignItems: 'flex-start' }]}>
         <Text style={styles.brandName}>MOONDOT</Text>
         <Text style={styles.brandStudio}>STUDIO</Text>
         <Text style={styles.brandTagline}>{vm.studio.tagline}</Text>
@@ -67,11 +71,11 @@ export const Header = ({ viewModel: vm }: { viewModel: InvoiceViewModel }) => (
       </View>
       <View style={styles.meta}>
         <Text style={[styles.metaLabel, { marginTop: 0 }]}>Invoice no.</Text>
-        <Text style={styles.number}>{vm.invoiceNumber}</Text>
+        <Text style={[styles.number, { fontSize: numberSize }]}>{vm.invoiceNumber}</Text>
         <StatusPill status={vm.status} label={vm.statusLabel} />
         <Text style={styles.metaLabel}>Invoice date</Text>
         <Text style={styles.metaValue}>{vm.invoiceDate}</Text>
       </View>
     </View>
-  </>
-);
+  );
+};
