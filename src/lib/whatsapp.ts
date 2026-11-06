@@ -185,3 +185,131 @@ export const SERVICE_TEXT: Record<"internet" | "cable", Record<MessageLanguage, 
 export function messageDate(iso: string, language: MessageLanguage): string {
   return new Date(iso).toLocaleDateString(language === "ta" ? "ta-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 }
+
+export type StudioMessageKind = "bookingConfirmed" | "shootReminder" | "paymentDue" | "thanks" | "galleryReady" | "albumReady";
+
+// Messages to a studio client about their booking; same rules as the cable ones above.
+export const STUDIO_TEMPLATES: Record<MessageLanguage, Record<StudioMessageKind, string>> = {
+  en: {
+    bookingConfirmed: `Hi {customer},
+
+Your *{category}* shoot with {shop} is confirmed.
+
+Date: *{date}*
+Time: {time}
+Venue: {venue}
+Package: {package}
+Advance received: {paid}
+Balance: {due}
+
+Thank you,
+{shop}
+{phone}`,
+    shootReminder: `Hi {customer},
+
+A reminder that your *{category}* shoot is coming up.
+
+Date: *{date}*
+Time: {time}
+Venue: {venue}
+
+See you there!
+{shop}
+{phone}`,
+    paymentDue: `Hi {customer},
+
+A gentle reminder: *{due}* is pending for your {category} shoot.
+
+Shoot date: {date}
+Pay by UPI: {upi}
+Help: {phone}
+
+Thank you,
+{shop}`,
+    thanks: `Hi {customer},
+
+We received *{paid}* for your {category} shoot. Thank you!
+
+Balance: {due}
+
+{shop}`,
+    galleryReady: `Hi {customer},
+
+Your {category} photos are ready!
+
+View them here: {gallery}
+
+Thank you for choosing us,
+{shop}`,
+    albumReady: `Hi {customer},
+
+Good news: your {category} album is ready. Please let us know a convenient time to collect it.
+
+Balance: {due}
+Help: {phone}
+
+Thank you,
+{shop}`,
+  },
+  ta: {
+    bookingConfirmed: `வணக்கம் {customer},
+
+{shop} உடன் உங்கள் *{category}* படப்பிடிப்பு உறுதி செய்யப்பட்டது.
+
+தேதி: *{date}*
+நேரம்: {time}
+இடம்: {venue}
+பேக்கேஜ்: {package}
+பெற்ற முன்பணம்: {paid}
+மீதித் தொகை: {due}
+
+நன்றி,
+{shop}
+{phone}`,
+    shootReminder: `வணக்கம் {customer},
+
+உங்கள் *{category}* படப்பிடிப்பு விரைவில் நடைபெற உள்ளது என்பதை நினைவூட்டுகிறோம்.
+
+தேதி: *{date}*
+நேரம்: {time}
+இடம்: {venue}
+
+சந்திப்போம்!
+{shop}
+{phone}`,
+    paymentDue: `வணக்கம் {customer},
+
+உங்கள் {category} படப்பிடிப்புக்கான *{due}* இன்னும் செலுத்தப்படவில்லை. தயவுசெய்து விரைவில் செலுத்தவும்.
+
+படப்பிடிப்பு தேதி: {date}
+UPI மூலம் செலுத்த: {upi}
+உதவிக்கு: {phone}
+
+நன்றி,
+{shop}`,
+    thanks: `வணக்கம் {customer},
+
+உங்கள் {category} படப்பிடிப்புக்கான *{paid}* பெற்றுக்கொண்டோம். நன்றி!
+
+மீதித் தொகை: {due}
+
+{shop}`,
+    galleryReady: `வணக்கம் {customer},
+
+உங்கள் {category} புகைப்படங்கள் தயாராக உள்ளன!
+
+இங்கே பார்க்கவும்: {gallery}
+
+எங்களைத் தேர்ந்தெடுத்ததற்கு நன்றி,
+{shop}`,
+    albumReady: `வணக்கம் {customer},
+
+உங்கள் {category} ஆல்பம் தயாராக உள்ளது. பெற்றுக்கொள்ள வசதியான நேரத்தைத் தெரிவிக்கவும்.
+
+மீதித் தொகை: {due}
+உதவிக்கு: {phone}
+
+நன்றி,
+{shop}`,
+  },
+};

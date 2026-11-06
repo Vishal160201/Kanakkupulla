@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CABLE_TEMPLATES, messageDate, normalizePhone, planLabel, plainText, renderTemplate, smsUrl, waChatUrl, withoutMissing } from "@/lib/whatsapp";
+import { CABLE_TEMPLATES, STUDIO_TEMPLATES, messageDate, normalizePhone, planLabel, plainText, renderTemplate, smsUrl, waChatUrl, withoutMissing } from "@/lib/whatsapp";
 
 describe("normalizePhone", () => {
   it("adds 91 to local numbers and strips formatting", () => {
@@ -60,5 +60,22 @@ describe("templates", () => {
   it("builds sms: links and drops bold markers", () => {
     expect(plainText("Amount: *₹299*")).toBe("Amount: ₹299");
     expect(smsUrl("919876543210", "Due *₹299*")).toBe("sms:+919876543210?&body=Due%20%E2%82%B9299");
+  });
+});
+
+describe("STUDIO_TEMPLATES", () => {
+  const vars = { customer: "Arun", category: "Wedding", date: "28 Jun 2026", time: "10:00 AM", venue: "Tenkasi", package: "", paid: "₹10,000", due: "", gallery: "", upi: "studio@upi", phone: "+91 73737 87172", shop: "Moondot Studio" };
+  it("fills every placeholder in both languages", () => {
+    for (const lang of ["en", "ta"] as const) {
+      for (const template of Object.values(STUDIO_TEMPLATES[lang])) {
+        expect(renderTemplate(withoutMissing(template, vars), vars)).not.toMatch(/\{[a-zA-Z]+\}/);
+      }
+    }
+  });
+  it("drops the lines whose value the booking doesn't have", () => {
+    const text = renderTemplate(withoutMissing(STUDIO_TEMPLATES.en.bookingConfirmed, vars), vars);
+    expect(text).toContain("Advance received: ₹10,000");
+    expect(text).not.toContain("Balance");
+    expect(text).not.toContain("Package");
   });
 });

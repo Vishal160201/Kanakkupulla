@@ -129,6 +129,10 @@ export interface BookingDetailResponse {
   transactions?: BookingTransaction[];
   createdBy?: { name?: string | null; email?: string | null } | null;
   updatedBy?: { name?: string | null; email?: string | null } | null;
+  galleryUrl?: string | null;
+  packageName?: string | null;
+  /** The studio's name, phone and UPI ID for messages to the client (GET /api/bookings/[id]) */
+  studio?: { name: string; phone: string; upiId: string };
 }
 
 /** Booking detail with customData/inclusions parsed. */

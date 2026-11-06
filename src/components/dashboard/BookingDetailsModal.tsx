@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
@@ -14,6 +15,7 @@ import LayoutSectionCard from "@/components/bookings/booking-details/LayoutSecti
 import SupplementaryCards from "@/components/bookings/booking-details/SupplementaryCards";
 import FinancialsCard from "@/components/bookings/booking-details/FinancialsCard";
 import { BookingActionBar, DeleteBookingDialog } from "@/components/bookings/booking-details/BookingDetailsFooter";
+import BookingWhatsAppDialog from "@/components/bookings/booking-details/BookingWhatsAppDialog";
 
 const EXCLUDED_SECTION_TITLES = ['financials', 'financial', 'focus'];
 
@@ -47,6 +49,7 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
   const isVisible = standaloneBookingId ? true : isBookingDetailsOpen;
 
   const details = useBookingDetails(bookingDetailsId, closeBookingDetails);
+  const [isMessageOpen, setIsMessageOpen] = useState(false);
   const { booking, bookingError, layoutSchema, teamUsers } = details;
 
   const albumDesignerId = (() => {
@@ -101,6 +104,7 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
             onDelete={() => details.setIsDeleteConfirmOpen(true)}
             onExport={details.exportBooking}
             onGenerateInvoice={details.generateInvoice}
+            onMessage={() => setIsMessageOpen(true)}
             onChangeStatus={details.changeStatus}
           />
           </div>
@@ -162,6 +166,7 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
         isDeleting={details.isDeleting}
         onConfirm={details.confirmDelete}
       />
+      {isMessageOpen && booking && <BookingWhatsAppDialog key={booking.id} booking={booking} onClose={() => setIsMessageOpen(false)} />}
     </div>
   );
 

@@ -19,6 +19,8 @@ interface BookingDetailsHeaderProps {
   onDelete: () => void;
   onExport: () => void;
   onGenerateInvoice: () => void;
+  /** Opens the WhatsApp / SMS message to the client */
+  onMessage: () => void;
   onChangeStatus: (status: string) => void;
 }
 
@@ -104,7 +106,7 @@ function MetaItem({ icon, iconBg, label, value, round }: { icon: React.ReactNode
 }
 
 export default function BookingDetailsHeader(props: BookingDetailsHeaderProps) {
-  const { booking, canManage, isExporting, isGeneratingInvoice, onDelete, onExport, onGenerateInvoice } = props;
+  const { booking, canManage, isExporting, isGeneratingInvoice, onDelete, onExport, onGenerateInvoice, onMessage } = props;
 
   return (
     <header className="shrink-0 sticky top-0 z-40 bg-[#F5F6F8] px-4 md:px-6 py-3 pb-2">
@@ -128,6 +130,17 @@ export default function BookingDetailsHeader(props: BookingDetailsHeaderProps) {
                 </span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={onMessage}
+              aria-label="Message the client on WhatsApp"
+              className="group flex items-center justify-center p-2 rounded-xl transition-all duration-300 hover:bg-emerald-50 hover:px-3"
+            >
+              <i className="ph-fill ph-whatsapp-logo text-xl text-emerald-600 shrink-0" aria-hidden="true" />
+              <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 font-bold text-sm text-emerald-700 whitespace-nowrap">
+                WhatsApp
+              </span>
+            </button>
             <button
               type="button"
               onClick={onExport}
