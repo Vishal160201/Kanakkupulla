@@ -15,5 +15,7 @@ declare module "next-auth/jwt" {
     role?: "OWNER" | "MEMBER";
     status?: "ACTIVE" | "PENDING" | "INACTIVE";
     refreshedAt?: number;
+    /** When this session signed in; a later password change ends it */
+    signedInAt?: number;
   }
 }

@@ -30,7 +30,8 @@ export async function GET(request: Request) {
     const results: SearchResult[] = [];
 
     // Search Bookings (and associated Client)
-    const bookings = await prisma.booking.findMany({
+    const canSeeBookings = await can(auth.user, "bookings", "VIEW");
+    const bookings = !canSeeBookings ? [] : await prisma.booking.findMany({
       where: {
         deletedAt: null,
         OR: [

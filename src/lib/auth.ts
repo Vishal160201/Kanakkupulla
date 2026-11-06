@@ -7,6 +7,7 @@ import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import type { JWT } from "next-auth/jwt";
 import { identifierLookup } from "@/lib/auth/username";
+import { MINUTE, clientIp, rateLimit } from "@/lib/rateLimit";
 
 const ROLE_REFRESH_MS = 60 * 1000;
 
@@ -31,7 +32,6 @@ export const authOptions: NextAuthOptions = {
           name: "Google Drive",
           clientId: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          checks: ["none"],
           authorization: {
             params: {
               scope: "openid email profile https://www.googleapis.com/auth/drive.file",
@@ -40,7 +40,6 @@ export const authOptions: NextAuthOptions = {
               response_type: "code",
             },
           },
-          allowDangerousEmailAccountLinking: true,
         }),
       ]
       : []),
@@ -59,9 +58,17 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email or username", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials");
+        }
+
+        const ip = clientIp(req?.headers as Record<string, string> | undefined);
+        const allowed =
+          (await rateLimit(`login:id:${credentials.email.trim().toLowerCase()}`, 10, 15 * MINUTE)) &&
+          (await rateLimit(`login:ip:${ip}`, 50, 15 * MINUTE));
+        if (!allowed) {
+          throw new Error("Too many attempts. Please wait a few minutes and try again.");
         }
 
         const user = await prisma.user.findUnique({
@@ -101,7 +108,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ account, profile }) {
+    async signIn({ account, profile, user }) {
       if (account?.provider === "google-drive") {
         try {
           if (!account.providerAccountId) return false;
@@ -172,9 +179,14 @@ export const authOptions: NextAuthOptions = {
           return '/settings?section=google-drive&success=DriveConnected';
         } catch (error) {
           console.error("[auth] Google Drive linking failed", error);
-          const message = error instanceof Error ? error.message : "Unknown error";
-          return `/settings?error=DriveIntegrationFailed&details=${encodeURIComponent(message)}`;
+          return `/settings?error=DriveIntegrationFailed&details=${encodeURIComponent("Couldn't connect Google Drive. Please try again.")}`;
         }
+      }
+      // Google / Apple sign-in is only for people already added in Settings → Users (no self sign-up)
+      if (account?.provider === "google" || account?.provider === "apple") {
+        const email = (profile?.email ?? user?.email)?.toLowerCase();
+        const dbUser = email ? await prisma.user.findUnique({ where: { email }, select: { status: true } }) : null;
+        return !!dbUser && dbUser.status !== "INACTIVE";
       }
       return true;
     },
@@ -201,6 +213,7 @@ export const authOptions: NextAuthOptions = {
         token.role = dbUser.role || "MEMBER";
         token.status = dbUser.status;
         token.refreshedAt = Date.now();
+        token.signedInAt = Date.now();
         return token;
       }
 
@@ -209,10 +222,12 @@ export const authOptions: NextAuthOptions = {
       if (token.sub && Date.now() - (token.refreshedAt ?? 0) > ROLE_REFRESH_MS) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
-          select: { role: true, status: true },
+          select: { role: true, status: true, passwordChangedAt: true },
         });
         token.role = dbUser?.role;
         token.status = dbUser ? dbUser.status : "INACTIVE";
+        // A password change signs out sessions started before it (the proxy treats INACTIVE as signed out)
+        if (dbUser?.passwordChangedAt && dbUser.passwordChangedAt.getTime() > (token.signedInAt ?? 0)) token.status = "INACTIVE";
         token.refreshedAt = Date.now();
       }
       return token;

@@ -7,6 +7,12 @@ import { formatAssignments, setUserAssignments, userAssignmentsSelect, validateA
 import { parseJsonBody } from "@/lib/validations/http";
 import { userUpdateSchema } from "@/lib/validations/users";
 
+/** The personal-tracker account is the primary owner: only they can change or delete it (the UI hides it too). */
+const PRIMARY_OWNER_EMAIL = process.env.NEXT_PUBLIC_PERSONAL_TRACKER_EMAIL?.toLowerCase();
+const primaryOwnerLocked = (target: { id: string; email: string | null }, callerId: string) =>
+  !!PRIMARY_OWNER_EMAIL && target.email?.toLowerCase() === PRIMARY_OWNER_EMAIL && target.id !== callerId;
+const PRIMARY_OWNER_ERROR = "Only the primary owner can change this account.";
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -20,10 +26,11 @@ export async function PUT(
     if (parsed.error) return parsed.error;
     const { status, name, username, phone, isOwner, assignments } = parsed.data;
 
-    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, email: true } });
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+    if (primaryOwnerLocked(user, auth.user.id)) return NextResponse.json({ error: PRIMARY_OWNER_ERROR }, { status: 403 });
 
     const willBeOwner = isOwner ?? user.role === "OWNER";
     if (user.role === "OWNER" && !willBeOwner) {
@@ -93,10 +100,11 @@ export async function DELETE(
       return NextResponse.json({ error: "You cannot delete your own account" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+    if (primaryOwnerLocked(user, currentUserId)) return NextResponse.json({ error: PRIMARY_OWNER_ERROR }, { status: 403 });
 
     await prisma.$transaction(async tx => {
       await tx.account.deleteMany({ where: { userId: id } });

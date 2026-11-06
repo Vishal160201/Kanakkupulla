@@ -704,6 +704,8 @@ model User {
   status             UserStatus         @default(ACTIVE)
   whatsappNotifs     Boolean            @default(false)
   notificationPrefs  Json?
+  /// Sessions signed in before this are ended (set when the password changes)
+  passwordChangedAt  DateTime?
   accounts           Account[]
   createdBookings    Booking[]          @relation("BookingCreatedBy")
   updatedBookings    Booking[]          @relation("BookingUpdatedBy")
@@ -921,4 +923,13 @@ model InvoiceLineItem {
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+}
+
+/// Fixed-window counters for rate limiting (src/lib/rateLimit.ts); old rows are purged daily
+model RateLimit {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@index([windowStart])
 }

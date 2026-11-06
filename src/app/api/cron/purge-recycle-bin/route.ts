@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyCronRequest } from "@/lib/authz";
 import { purgeEntry } from "@/lib/recycleBin";
+import { purgeRateLimits } from "@/lib/rateLimit";
 
 export async function GET(request: Request) {
   const denied = verifyCronRequest(request);
   if (denied) return denied;
 
   try {
+    await purgeRateLimits();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 

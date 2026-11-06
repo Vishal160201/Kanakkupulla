@@ -4,9 +4,12 @@ import crypto from "crypto";
 import { parseJsonBody } from "@/lib/validations/http";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 import { identifierLookup } from "@/lib/auth/username";
+import { MINUTE, limitRequest } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    const limited = await limitRequest(req, "forgot-password", 5, 15 * MINUTE);
+    if (limited) return limited;
     const parsed = await parseJsonBody(req, forgotPasswordSchema);
     if (parsed.error) return parsed.error;
     const user = await prisma.user.findUnique({

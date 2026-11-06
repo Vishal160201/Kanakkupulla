@@ -33,7 +33,10 @@ export async function GET() {
       orderBy: { name: "asc" },
       take: 500,
     });
-    const users = rows.map(({ shopMemberships, ...user }) => (isOwner ? { ...user, assignments: formatAssignments(shopMemberships) } : user));
+    // Non-owners only need names for picklists, not the team's contact details
+    const users = rows.map(({ shopMemberships, ...user }) =>
+      isOwner ? { ...user, assignments: formatAssignments(shopMemberships) } : { id: user.id, idNumber: user.idNumber, name: user.name, role: user.role, status: user.status }
+    );
 
     if (isOwner) {
       const activeTokens = await prisma.passwordResetToken.findMany({
@@ -42,7 +45,7 @@ export async function GET() {
       });
       
       const usersWithTokens = users.map(user => {
-        if (!user.email) return user;
+        if (!("email" in user) || !user.email) return user;
         const userToken = activeTokens.find(t => t.email.toLowerCase() === user.email!.toLowerCase());
         if (userToken) {
           return { ...user, tempPassword: userToken.token };

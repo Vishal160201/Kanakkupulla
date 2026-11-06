@@ -178,8 +178,18 @@ export async function sendCableReminders(shopId: string, opts: { provider?: stri
 // Complaints
 // ---------------------------------------------------------------------------
 
+/** Complaints go only to people who work in the shop (owners + its members), the same list the picker shows. */
+async function assertAssignable(shopId: string, assignedToId: string | null | undefined) {
+  if (!assignedToId) return;
+  const ok = await prisma.user.count({
+    where: { id: assignedToId, status: "ACTIVE", OR: [{ role: "OWNER" }, { shopMemberships: { some: { shopId } } }] },
+  });
+  if (!ok) throw new ShopError("That person doesn't work in this shop.", 422);
+}
+
 export async function createComplaint(user: SessionUser, subscriberId: string, input: { issue: string; notes?: string | null; assignedToId?: string | null }) {
   const subscriber = await subscriberForWrite(user, subscriberId);
+  await assertAssignable(subscriber.shopId, input.assignedToId);
   return prisma.cableComplaint.create({
     data: {
       shopId: subscriber.shopId,
@@ -201,6 +211,7 @@ export async function updateComplaint(
   const complaint = await prisma.cableComplaint.findUnique({ where: { id: complaintId } });
   if (!complaint) throw new ShopError("Complaint not found.", 404);
   await getCableShop(user, complaint.shopId, "MANAGE");
+  if (input.assignedToId !== complaint.assignedToId) await assertAssignable(complaint.shopId, input.assignedToId);
   return prisma.cableComplaint.update({
     where: { id: complaintId },
     data: {

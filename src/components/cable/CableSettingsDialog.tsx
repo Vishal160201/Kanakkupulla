@@ -134,14 +134,14 @@ export default function CableSettingsDialog({ shopId, onSyncSetup, onClose }: { 
     }
   };
 
-  // While the pairing QR is up, poll faster and close it the moment the phone connects.
+  // While the pairing QR is up, poll faster and close it the moment the phone connects
+  // (the close is a render-time reset, not an effect).
+  if (pairToken && shop?.smsConnected) {
+    setPairToken(null);
+    setPairQr(null);
+  }
   useEffect(() => {
-    if (!pairToken) return;
-    if (shop?.smsConnected) {
-      setPairToken(null);
-      setPairQr(null);
-      return;
-    }
+    if (!pairToken || shop?.smsConnected) return;
     const t = setInterval(revalidate, 3000);
     return () => clearInterval(t);
   }, [pairToken, shop?.smsConnected, revalidate]);

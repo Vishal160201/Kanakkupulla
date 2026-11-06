@@ -3,9 +3,12 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { parseJsonBody } from "@/lib/validations/http";
 import { resetPasswordSchema } from "@/lib/validations/auth";
+import { MINUTE, limitRequest } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    const limited = await limitRequest(req, "reset-password", 10, 15 * MINUTE);
+    if (limited) return limited;
     const parsed = await parseJsonBody(req, resetPasswordSchema);
     if (parsed.error) return parsed.error;
     const { token, password } = parsed.data;
@@ -37,7 +40,8 @@ export async function POST(req: Request) {
 
     await prisma.user.update({
       where: { id: existingUser.id },
-      data: { password: hashedPassword },
+      // Signs out every session started before now (src/lib/auth.ts)
+      data: { password: hashedPassword, passwordChangedAt: new Date() },
     });
 
     await prisma.passwordResetToken.delete({

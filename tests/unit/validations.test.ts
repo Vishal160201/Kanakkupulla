@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { asJsonRecord, numeric, parseDateInput, pickCustomFields } from "@/lib/validations/common";
 import { transactionCreateSchema } from "@/lib/validations/transactions";
 import { issuesToErrors } from "@/lib/validations/http";
+import { resetPasswordSchema } from "@/lib/validations/auth";
 
 describe("numeric", () => {
   it("accepts numbers and formatted strings", () => {
@@ -69,5 +70,12 @@ describe("transactionCreateSchema", () => {
     const errors = issuesToErrors(result.error!);
     expect(errors.amount).toBe("Amount must be a positive number.");
     expect(errors.type).toBe("Type must be INCOME or EXPENSE.");
+  });
+});
+
+describe("resetPasswordSchema", () => {
+  it("needs at least 8 characters", () => {
+    expect(resetPasswordSchema.safeParse({ token: "t", password: "1234567" }).success).toBe(false);
+    expect(resetPasswordSchema.safeParse({ token: "t", password: "12345678" }).success).toBe(true);
   });
 });

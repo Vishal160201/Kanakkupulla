@@ -45,7 +45,7 @@ export default function ImportSubscribersDialog({ shopId, canSave, onClose }: { 
     setResults(null);
     setFilter("all");
     try {
-      const read = await readSubscriberFile(f, pw);
+      const read = await readSubscriberFile(f, shopId, pw);
       if (read.length === 0) throw new Error("The file has no subscriber rows.");
       const r = await sendJson<{ results: Result[] }>("/api/cable/subscribers/import", "POST", { shopId, apply: false, rows: read });
       setFile(f.name);

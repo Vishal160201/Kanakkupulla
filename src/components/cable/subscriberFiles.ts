@@ -103,7 +103,7 @@ export async function xlsxSheets(buf: ArrayBuffer) {
 }
 
 /** Rows of an .xlsx (every sheet) or .csv file. Throws a message the user can act on, or PasswordNeeded. */
-export async function readSubscriberFile(file: File, password?: string): Promise<ImportRow[]> {
+export async function readSubscriberFile(file: File, shopId: string, password?: string): Promise<ImportRow[]> {
   const ext = file.name.toLowerCase().split(".").pop();
   if (ext === "csv") return readSheet(parseCsv(await file.text()));
   if (ext !== "xlsx") throw new Error("Choose an Excel (.xlsx) or CSV file.");
@@ -112,6 +112,7 @@ export async function readSubscriberFile(file: File, password?: string): Promise
   if (new Uint8Array(buf, 0, 4).join() === "208,207,17,224") {
     if (!password) throw new PasswordNeeded();
     const form = new FormData();
+    form.set("shopId", shopId);
     form.set("file", file);
     form.set("password", password);
     const res = await fetch("/api/cable/subscribers/decrypt", { method: "POST", body: form });

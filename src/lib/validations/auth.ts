@@ -15,6 +15,6 @@ export const resetPasswordSchema = z.object({
   token: z.string({ message: "Missing required fields" }).min(1, "Missing required fields").max(512),
   password: z
     .string({ message: "Missing required fields" })
-    .min(6, "Password must be at least 6 characters")
+    .min(8, "Password must be at least 8 characters")
     .max(200, "Password is too long"),
 });
