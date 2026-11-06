@@ -127,7 +127,7 @@ export default function GiftsPage() {
               grid-template-columns: repeat(3, minmax(0, 1fr));
             }
           }
-          @media (min-width: 1024px) {
+          @media (min-width: 1280px) {
             .stat-cards-grid {
               grid-template-columns: repeat(5, minmax(0, 1fr));
               gap: 1.5rem;

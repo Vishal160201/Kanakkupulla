@@ -48,7 +48,7 @@ function ModePill({ label, value, iconClass, iconColor }: { label: string; value
 
 export default function OverviewKpiCards({ todayIncome, todayExpense, todayNet, todayCashNet, todayUpiNet, highestExpenseCategory }: OverviewKpiCardsProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-5 mb-8">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-5 mb-8">
       {/* Today's Income */}
       <Link href="/transactions/allTransactions?view=day&type=INCOME" className="block outline-none group min-w-0">
         <div className="bg-white rounded-lg sm:rounded-[18px] md:rounded-[22px] p-3 sm:p-4 md:p-5 shadow-sm sm:shadow-[0_18px_45px_rgba(15,23,42,0.08)] border border-slate-100/80 flex flex-col justify-between h-[130px] md:h-[150px] animate-slide-up hover:shadow-md hover:-translate-y-0.5 hover:border-orange-200 transition-all relative overflow-hidden group-focus-visible:ring-2 group-focus-visible:ring-orange-200" style={{ animationDelay: "100ms" }}>

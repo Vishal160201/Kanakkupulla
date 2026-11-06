@@ -156,8 +156,8 @@ export default function BookingsLayout({
 
   return (
     <div className="view-section active">
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
-        <div className="flex overflow-x-auto hide-scrollbar w-full lg:w-auto min-w-0 pb-1 -mx-2 px-2 lg:mx-0 lg:px-0" style={{ gap: "10px" }}>
+      <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center mb-6 gap-4">
+        <div className="flex overflow-x-auto hide-scrollbar w-full xl:w-auto min-w-0 pb-1 -mx-2 px-2 xl:mx-0 xl:px-0" style={{ gap: "10px" }}>
           {canViewBookings && (
           <Link 
           href="/bookings/overview"
@@ -196,9 +196,9 @@ export default function BookingsLayout({
         )}
         </div>
         
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-start lg:justify-end">
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-start xl:justify-end">
           {isTable && (
-            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
             {hasActiveFilters ? (
               <div className="flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100 overflow-x-auto hide-scrollbar max-w-full">
                 <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#ea580c" }}>Filtered by:</span>

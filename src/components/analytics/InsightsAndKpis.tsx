@@ -33,7 +33,7 @@ export function KpiStrip({ metrics }: { metrics: AnalyticsMetrics }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 fade-in-up delay-200">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 fade-in-up delay-200">
       {kpis.map((kpi, idx) => (
         <div key={idx} className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-3 relative overflow-hidden group hover:shadow-md transition-shadow">
           <div className={`w-10 h-10 rounded-xl ${kpi.bg} ${kpi.color} flex items-center justify-center shrink-0 transition-transform group-hover:scale-110`}>

@@ -106,7 +106,7 @@ function BookingsDataView() {
 
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-6">
         <CalendarWidget />
         <div>
           <UpcomingShoots bookings={bookings} />
@@ -127,7 +127,7 @@ function BookingsSkeleton() {
           <div key={i} className="bg-white rounded-2xl h-[120px] border border-gray-100"></div>
         ))}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-6">
         <div className="bg-white rounded-2xl h-[500px]"></div>
         <div className="bg-white rounded-2xl h-[500px]"></div>
       </div>

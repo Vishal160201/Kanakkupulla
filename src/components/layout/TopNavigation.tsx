@@ -113,7 +113,7 @@ export default function TopNavigation() {
         {title && title === "Moondot studio" ? (
           <StudioBrand />
         ) : (
-          title && <h1 className="text-xl md:text-2xl lg:text-4xl font-extrabold text-slate-900 tracking-tight hidden sm:block truncate">{title}</h1>
+          title && <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl font-extrabold text-slate-900 tracking-tight hidden sm:block truncate">{title}</h1>
         )}
       </div>
 

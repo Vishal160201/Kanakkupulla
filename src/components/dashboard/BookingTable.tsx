@@ -63,7 +63,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
     <div className="bg-white border border-gray-200 rounded-2xl md:rounded-3xl p-3 md:p-6 shadow-sm overflow-hidden flex flex-col">
       
       {/* Card List (phones and tablets; the table needs laptop width) */}
-      <div className="block lg:hidden space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
+      <div className="block xl:hidden space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
         {sorted.map(b => {
           const d = new Date(b.date);
           const displayDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -120,7 +120,7 @@ export default function BookingTable({ bookings, currentPage = 1, totalPages = 1
       </div>
 
       {/* Table Layout (laptop and up). Header and rows share ROW_GRID so the columns line up. */}
-      <div className="hidden lg:block overflow-x-auto w-full">
+      <div className="hidden xl:block overflow-x-auto w-full">
         <div className="min-w-[760px]">
           <div className={`${ROW_GRID} px-4 py-3 border-b border-gray-200 text-slate-500 font-extrabold text-[0.7rem] uppercase tracking-[1px] sticky top-0 z-10 bg-white`}>
             <div className="min-w-0 truncate">Client</div>
