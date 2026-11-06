@@ -18,8 +18,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Failed to fetch thumbnail" }, { status: response.status });
     }
 
-    const buffer = await response.arrayBuffer();
+    // Served from our own domain, so pass through images only (an HTML or SVG file could run script here)
     const contentType = response.headers.get("Content-Type") || "image/jpeg";
+    if (!/^image\/(png|jpe?g|gif|webp|avif|heic|heif|bmp)\b/i.test(contentType)) {
+      return NextResponse.json({ error: "Not an image" }, { status: 415 });
+    }
+    const buffer = await response.arrayBuffer();
 
     return new NextResponse(buffer, {
       status: 200,

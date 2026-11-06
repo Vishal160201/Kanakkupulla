@@ -3,6 +3,7 @@ import { asJsonRecord, numeric, parseDateInput, pickCustomFields } from "@/lib/v
 import { transactionCreateSchema } from "@/lib/validations/transactions";
 import { issuesToErrors } from "@/lib/validations/http";
 import { resetPasswordSchema } from "@/lib/validations/auth";
+import { pushSubscriptionSchema } from "@/lib/validations/notifications";
 
 describe("numeric", () => {
   it("accepts numbers and formatted strings", () => {
@@ -77,5 +78,23 @@ describe("resetPasswordSchema", () => {
   it("needs at least 8 characters", () => {
     expect(resetPasswordSchema.safeParse({ token: "t", password: "1234567" }).success).toBe(false);
     expect(resetPasswordSchema.safeParse({ token: "t", password: "12345678" }).success).toBe(true);
+  });
+});
+
+describe("pushSubscriptionSchema", () => {
+  const keys = { auth: "a", p256dh: "p" };
+  const ok = (endpoint: string) => pushSubscriptionSchema.safeParse({ endpoint, keys }).success;
+  it("accepts the browsers' push services", () => {
+    expect(ok("https://fcm.googleapis.com/fcm/send/abc")).toBe(true);
+    expect(ok("https://updates.push.services.mozilla.com/wpush/v2/abc")).toBe(true);
+    expect(ok("https://web.push.apple.com/abc")).toBe(true);
+    expect(ok("https://wns2-db5p.notify.windows.com/w/?token=abc")).toBe(true);
+  });
+  it("rejects internal or look-alike hosts, so the server can't be made to call them", () => {
+    expect(ok("http://127.0.0.1:9999/x")).toBe(false);
+    expect(ok("http://169.254.169.254/latest/meta-data")).toBe(false);
+    expect(ok("http://fcm.googleapis.com/fcm/send/abc")).toBe(false);
+    expect(ok("https://fcm.googleapis.com.evil.example/x")).toBe(false);
+    expect(ok("https://evilpush.apple.com.attacker.io/x")).toBe(false);
   });
 });

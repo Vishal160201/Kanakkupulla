@@ -20,7 +20,13 @@ export async function rateLimit(key: string, limit: number, windowMs: number): P
   return row.count <= limit;
 }
 
-/** Best-effort client IP from the proxy headers (Vercel sets x-forwarded-for). */
+/** Forgets a counter, e.g. after a successful sign-in. */
+export async function clearRateLimit(key: string) {
+  await prisma.rateLimit.deleteMany({ where: { key } });
+}
+
+/** Client IP from the proxy headers. Vercel overwrites x-forwarded-for with the real client IP; when self-hosted
+ * without a proxy that does the same, the header can be spoofed (shortcut: fine on Vercel, revisit if self-hosting). */
 export function clientIp(headers: Headers | Record<string, string | string[] | undefined> | undefined): string {
   const get = (name: string): string | undefined => {
     if (!headers) return undefined;

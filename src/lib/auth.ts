@@ -7,7 +7,7 @@ import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import type { JWT } from "next-auth/jwt";
 import { identifierLookup } from "@/lib/auth/username";
-import { MINUTE, clientIp, rateLimit } from "@/lib/rateLimit";
+import { MINUTE, clearRateLimit, clientIp, rateLimit } from "@/lib/rateLimit";
 
 const ROLE_REFRESH_MS = 60 * 1000;
 
@@ -63,24 +63,25 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials");
         }
 
+        const user = await prisma.user.findUnique({
+          where: identifierLookup(credentials.email),
+        });
+
+        // Email and username share one counter. 10 tries per account from one IP (cleared by a successful
+        // sign-in, so a stranger's guesses can't lock the owner out), 100 per account from anywhere, 50 per IP.
         const ip = clientIp(req?.headers as Record<string, string> | undefined);
+        const who = user?.id ?? credentials.email.trim().toLowerCase();
+        const accountFromIp = `login:account-ip:${who}:${ip}`;
         const allowed =
-          (await rateLimit(`login:id:${credentials.email.trim().toLowerCase()}`, 10, 15 * MINUTE)) &&
+          (await rateLimit(accountFromIp, 10, 15 * MINUTE)) &&
+          (await rateLimit(`login:account:${who}`, 100, 15 * MINUTE)) &&
           (await rateLimit(`login:ip:${ip}`, 50, 15 * MINUTE));
         if (!allowed) {
           throw new Error("Too many attempts. Please wait a few minutes and try again.");
         }
 
-        const user = await prisma.user.findUnique({
-          where: identifierLookup(credentials.email),
-        });
-
         if (!user || !user?.password) {
           throw new Error("Invalid credentials");
-        }
-
-        if (user.status === "INACTIVE") {
-          throw new Error("Account deactivated");
         }
 
         const isCorrectPassword = await bcrypt.compare(
@@ -103,6 +104,12 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials");
         }
 
+        // Only after the right password, so the message can't be used to find deactivated accounts
+        if (user.status === "INACTIVE") {
+          throw new Error("Account deactivated");
+        }
+
+        await clearRateLimit(accountFromIp);
         return user;
       },
     }),
