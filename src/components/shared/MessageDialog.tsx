@@ -36,6 +36,7 @@ export default function MessageDialog<K extends string>({
   fill,
   onSendSms,
   note,
+  extras,
   onClose,
 }: {
   name: string;
@@ -48,6 +49,8 @@ export default function MessageDialog<K extends string>({
   onSendSms?: (text: string) => Promise<void>;
   /** Shown under the message, e.g. what's missing from the templates */
   note?: React.ReactNode;
+  /** Extra controls under the message (e.g. attaching an invoice); they can read and change the text */
+  extras?: (api: { text: string; setText: (text: string) => void }) => React.ReactNode;
   onClose: () => void;
 }) {
   const [language, setLanguage] = useState<MessageLanguage>(storedLanguage);
@@ -181,6 +184,7 @@ export default function MessageDialog<K extends string>({
           aria-label="Message"
           className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm leading-relaxed text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
         />
+        {extras?.({ text, setText })}
         {note && <p className="text-xs font-semibold text-slate-400">{note}</p>}
       </div>
     </InventoryDialog>

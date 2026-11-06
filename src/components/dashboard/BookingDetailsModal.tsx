@@ -166,7 +166,7 @@ export default function BookingDetailsModal({ standaloneBookingId }: { standalon
         isDeleting={details.isDeleting}
         onConfirm={details.confirmDelete}
       />
-      {isMessageOpen && booking && <BookingWhatsAppDialog key={booking.id} booking={booking} onClose={() => setIsMessageOpen(false)} />}
+      {isMessageOpen && booking && <BookingWhatsAppDialog key={booking.id} booking={booking} canManage={canManageBookings} onClose={() => setIsMessageOpen(false)} />}
     </div>
   );
 

@@ -28,6 +28,7 @@ export async function GET(
           client: true,
           order: true,
           transactions: { where: { deletedAt: null } },
+          invoice: { select: { id: true, invoiceNumber: true, deletedAt: true } },
           createdBy: { select: { name: true, email: true } },
           updatedBy: { select: { name: true, email: true } },
         },

@@ -5,6 +5,7 @@ import { formatINR } from "@/components/inventory/inventoryUtils";
 import { STUDIO_DETAILS } from "@/lib/constants";
 import { STUDIO_TEMPLATES, messageDate, renderTemplate, withoutMissing, type MessageLanguage, type StudioMessageKind } from "@/lib/whatsapp";
 import type { BookingDetail } from "@/types/bookings";
+import InvoiceAttachment from "./InvoiceAttachment";
 
 const OPTIONS: MessageOption<StudioMessageKind>[] = [
   { kind: "bookingConfirmed", label: "Booking confirmed", icon: "ph-calendar-check" },
@@ -28,7 +29,7 @@ function defaultKind(booking: BookingDetail, due: number): StudioMessageKind {
 }
 
 /** WhatsApp / SMS the booking's client from ready-made studio messages. */
-export default function BookingWhatsAppDialog({ booking, onClose }: { booking: BookingDetail; onClose: () => void }) {
+export default function BookingWhatsAppDialog({ booking, canManage, onClose }: { booking: BookingDetail; canManage: boolean; onClose: () => void }) {
   const cd = booking.customData;
   // Same totals as the Financials card
   const total = Number(booking.order?.package || cd?.fld_b_package || 0);
@@ -57,5 +58,15 @@ export default function BookingWhatsAppDialog({ booking, onClose }: { booking: B
     return renderTemplate(withoutMissing(STUDIO_TEMPLATES[lang][k], vars), vars);
   };
 
-  return <MessageDialog name={name} phone={phone} options={OPTIONS} initialKind={defaultKind(booking, due)} fill={fill} onClose={onClose} />;
+  return (
+    <MessageDialog
+      name={name}
+      phone={phone}
+      options={OPTIONS}
+      initialKind={defaultKind(booking, due)}
+      fill={fill}
+      extras={({ text, setText }) => <InvoiceAttachment booking={booking} canManage={canManage} text={text} setText={setText} />}
+      onClose={onClose}
+    />
+  );
 }
