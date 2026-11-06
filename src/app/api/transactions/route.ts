@@ -164,7 +164,7 @@ export async function POST(request: Request) {
         title: "Payment Received",
         message: `A payment of ₹${parsedAmount} was logged via ${paymentMode}.`,
         type: "PAYMENT_RECEIVED",
-        actionUrl: `/transactions`,
+        actionUrl: `/transactions/details/${newTransaction.id}`,
         entityId: newTransaction.id,
         entityType: "transaction",
         skipUserId: userId

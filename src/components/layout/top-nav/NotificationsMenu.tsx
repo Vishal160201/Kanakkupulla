@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { fetcher } from "@/lib/fetcher";
+import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { useDismiss } from "./useDismiss";
 
 interface AppNotification {
@@ -16,6 +17,8 @@ interface AppNotification {
   isRead: boolean;
   createdAt: string;
   actionUrl?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
 }
 
 interface NotificationsResponse {
@@ -49,7 +52,7 @@ function NotificationIcon({ type }: { type: string }) {
 
 interface NotificationItemProps {
   notification: AppNotification;
-  onOpen: (id: string, link?: string | null) => void;
+  onOpen: (notification: AppNotification) => void;
   onSnooze: (id: string, e: React.MouseEvent) => void;
 }
 
@@ -58,12 +61,12 @@ function NotificationItem({ notification, onOpen, onSnooze }: NotificationItemPr
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onOpen(notification.id, notification.actionUrl)}
+      onClick={() => onOpen(notification)}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onOpen(notification.id, notification.actionUrl);
+          onOpen(notification);
         }
       }}
       className={`p-4 border-b border-gray-50 flex gap-3 cursor-pointer transition-colors group ${!notification.isRead ? 'bg-blue-50/30 hover:bg-blue-50/60' : 'bg-white hover:bg-slate-50'}`}
@@ -100,6 +103,7 @@ const GROUP_HEADING = "bg-slate-50 px-4 py-1.5 border-b border-gray-100 text-[0.
 
 export default function NotificationsMenu() {
   const router = useRouter();
+  const { openGiftOrderDetails } = useGlobalForm();
   const { data: session } = useSession();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -139,12 +143,19 @@ export default function NotificationsMenu() {
     setDeltaY(0);
   };
 
-  const handleMarkAsRead = async (id: string, link?: string | null) => {
+  // Opens the record the notification is about; older notifications only stored a list page as their link
+  const openTarget = ({ actionUrl, entityType, entityId }: AppNotification) => {
+    if (entityType === "transaction" && entityId) return router.push(`/transactions/details/${entityId}`);
+    if (entityType === "order" && entityId) return openGiftOrderDetails(entityId);
+    if (actionUrl) router.push(actionUrl);
+  };
+
+  const handleMarkAsRead = async (notification: AppNotification) => {
     try {
-      await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
+      await fetch(`/api/notifications/${notification.id}/read`, { method: "PATCH" });
       mutateNotifications();
       setIsNotificationsOpen(false);
-      if (link) router.push(link);
+      openTarget(notification);
     } catch {
       // Ignore: the list refreshes on the next poll.
     }
