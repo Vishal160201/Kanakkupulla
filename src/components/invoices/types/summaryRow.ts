@@ -1,5 +1,5 @@
 export interface SummaryRow {
   label: string;
   value: string;
-  isTotal?: boolean;
+  tone?: 'discount' | 'paid' | 'strong';
 }

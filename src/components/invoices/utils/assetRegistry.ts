@@ -1,34 +1,26 @@
-const ASSET_DIR = 'booking-invoice-assets';
+// PDF-sized copies of the artwork (public/booking-invoice-assets/pdf/); the originals are several MB each.
+const ASSET_DIR = 'booking-invoice-assets/pdf';
 
 export interface InvoiceAssets {
-  baseUrl: string;
-  floral: string;
   stamp: string;
-  heroFrame: string;
-  googleReview: string;
-  texture: string;
+  floralSprig: string;
+  floralCorner: string;
+  google: string;
   photoPlaceholder: string;
-  // Not shipped in public/booking-invoice-assets yet; optional so nothing requests a missing file.
-  logo?: string;
-  photoMaskClip?: string;
 }
 
 /**
- * Builds absolute URLs for the static invoice assets. @react-pdf/renderer fetches
- * images server-side, so they must be absolute; `baseUrl` is the app origin
- * (e.g. process.env.NEXTAUTH_URL or the request origin).
+ * Asset locations for @react-pdf/renderer, which loads images while rendering on the server:
+ * `base` is an absolute origin (https://…) or a local folder path (the public/ directory).
  */
-export const createInvoiceAssets = (baseUrl: string): InvoiceAssets => {
-  const origin = baseUrl.replace(/\/+$/, '');
-  const resolve = (filename: string) => `${origin}/${ASSET_DIR}/${filename}`;
-
+export const createInvoiceAssets = (base: string): InvoiceAssets => {
+  const root = base.replace(/\/+$/, '');
+  const resolve = (file: string) => `${root}/${ASSET_DIR}/${file}`;
   return {
-    baseUrl: origin,
-    floral: resolve('floralPartialPaid.png'),
-    stamp: resolve('mdStamp.png'),
-    heroFrame: resolve('bookingInvoice.png'),
-    googleReview: resolve('google.png'),
-    texture: resolve('floralFullyPaid.png'),
-    photoPlaceholder: resolve('couple.png'),
+    stamp: resolve('stamp.png'),
+    floralSprig: resolve('floral-sprig.png'),
+    floralCorner: resolve('floral-corner.png'),
+    google: resolve('google.png'),
+    photoPlaceholder: resolve('couple.jpg'),
   };
 };

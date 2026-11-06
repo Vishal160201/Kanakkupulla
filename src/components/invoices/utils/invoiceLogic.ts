@@ -1,208 +1,244 @@
 import type { Booking, Client } from '@prisma/client';
 import type { InvoiceLineItemRow, InvoiceRow, TransactionRow } from '@/lib/prisma';
-import { InvoiceViewModel, InvoiceLineItemVM, SummaryCardVariant } from '../types/invoiceViewModel';
-import { InvoiceStatus } from '../types/invoiceStatus';
-import { SummaryRow } from '../types/summaryRow';
-import { PaymentStep } from '../types/paymentProgress';
-import { formatCurrency } from './currency';
-import { formatDate } from './date';
-import { colors } from '../theme/invoiceTheme';
+import type { InvoiceViewModel, InvoiceLineItemVM, InfoLine, EventDetail, AmountCard, PaymentMethods } from '../types/invoiceViewModel';
+import type { InvoiceStatus } from '../types/invoiceStatus';
+import type { SummaryRow } from '../types/summaryRow';
+import type { PaymentStep } from '../types/paymentProgress';
+import type { GlyphName } from '../icons/glyphs';
+import { formatAmountDigits, formatCurrency } from './currency';
+import { formatDate, formatShortDate } from './date';
 import { createInvoiceAssets } from './assetRegistry';
+import { getPdfMetadata } from './metadata';
+import { INVOICE_CONSTANTS } from '../theme/constants';
 import { STUDIO_DETAILS } from '@/lib/constants';
+import { DEFAULT_INVOICE_TERMS } from '@/lib/invoiceSettings';
 
 type FullBooking = Booking & { client: Client };
 type FullInvoice = InvoiceRow & { lineItems: InvoiceLineItemRow[] };
+type Payment = Pick<TransactionRow, 'amount' | 'date' | 'status'>;
 
 export interface BuildInvoiceViewModelOptions {
-  /** App origin used to build absolute asset URLs, e.g. process.env.NEXTAUTH_URL ?? new URL(request.url).origin */
-  baseUrl: string;
-  qrCodeDataUrl?: string;
-  /** Overrides the hero image resolved from booking.customData. */
+  /** Where the artwork lives: the app origin (https://…) or the local public/ folder */
+  assetBase: string;
+  /** The couple photo from Drive, already cropped (data URL); the placeholder is used without one */
   heroImageUrl?: string;
+  /** Names of the booking's photographers (resolved from their user ids) */
+  photographerNames?: string[];
+  /** Today, for the overdue check (tests pass a fixed date) */
+  now?: Date;
 }
+
+
+const STATUS_LABEL: Record<InvoiceStatus, string> = {
+  PENDING: 'Pending',
+  PARTIALLY_PAID: 'Partially paid',
+  PAID: 'Paid in full',
+  OVERDUE: 'Overdue',
+};
+
+const num = (value: unknown): number => {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+/** Money to whole paise, so float sums never print ₹0.01 balances. */
+const paise = (value: unknown) => Math.round(num(value) * 100);
+const rupees = (p: number) => p / 100;
+
+const text = (value: unknown): string | undefined => {
+  const s = typeof value === 'string' ? value.trim() : '';
+  return s || undefined;
+};
+const lines = (...entries: [GlyphName, string | undefined][]): InfoLine[] =>
+  entries.filter((e): e is [GlyphName, string] => !!e[1]).map(([icon, t]) => ({ icon, text: t }));
+
+/** Icon for a line item from its wording (album, drone, video…); a camera otherwise. */
+export const itemIcon = (description: string): GlyphName => {
+  const d = description.toLowerCase();
+  if (/album|book|print/.test(d)) return 'album';
+  if (/drone|aerial/.test(d)) return 'drone';
+  if (/light/.test(d)) return 'light';
+  if (/video|film|cinema|reel/.test(d)) return 'video';
+  return 'camera';
+};
+
+/** Up to three steps: paid instalments (later ones merged) then what's still due. */
+export const buildPaymentSteps = (
+  payments: { amount: number; date: Date }[],
+  balance: number,
+  dueCaption: string,
+  overdue: boolean
+): PaymentStep[] => {
+  const max = INVOICE_CONSTANTS.maxPaymentSteps;
+  const slots = balance > 0 ? max - 1 : max;
+  const paid: { amount: number; date: Date; count: number }[] = payments.map((p) => ({ ...p, count: 1 }));
+  if (paid.length > slots) {
+    const merged = paid.splice(slots - 1);
+    paid.push({ amount: merged.reduce((s, p) => s + p.amount, 0), date: merged[merged.length - 1].date, count: merged.length });
+  }
+  const steps: PaymentStep[] = paid.map((p, i) => {
+    const last = i === paid.length - 1;
+    const label =
+      i === 0 ? (last && balance <= 0 && p.count === 1 ? 'Full payment' : 'Advance')
+      : last && balance <= 0 ? 'Final payment'
+      : p.count > 1 ? `Payments ${i + 1}–${i + p.count}`
+      : `Payment ${i + 1}`;
+    const date = formatShortDate(p.date);
+    return { label, state: 'done', caption: date ? `Paid · ${date}` : 'Paid', amount: formatCurrency(p.amount) };
+  });
+  if (balance > 0) {
+    steps.push({
+      label: steps.length === 0 ? 'Full payment' : 'Balance',
+      state: overdue ? 'overdue' : 'due',
+      caption: overdue ? 'Overdue' : `Due · ${dueCaption}`,
+      amount: formatCurrency(balance),
+    });
+  }
+  return steps;
+};
 
 export const buildInvoiceViewModel = (
   invoice: FullInvoice,
   booking: FullBooking,
-  transactions: TransactionRow[],
+  transactions: Payment[],
   settings: Record<string, string>,
-  { baseUrl, qrCodeDataUrl, heroImageUrl: heroImageOverride }: BuildInvoiceViewModelOptions
+  { assetBase, heroImageUrl, photographerNames = [], now = new Date() }: BuildInvoiceViewModelOptions
 ): InvoiceViewModel => {
-  const assets = createInvoiceAssets(baseUrl);
+  const assets = createInvoiceAssets(assetBase);
+  const setting = (key: string) => text(settings[key]);
 
-  // Calculate Totals (Removed GST completely)
-  const safeNumber = (val: unknown): number => {
-    if (!val) return 0;
-    if (typeof val === 'number') return val;
-    const decimal = val as { toNumber?: () => number };
-    if (typeof decimal.toNumber === 'function') return decimal.toNumber();
-    if (typeof val === 'string') return Number(val) || 0;
-    return Number(val) || 0;
-  };
-  
-  const subtotal = invoice.lineItems.reduce((acc, item) => acc + safeNumber(item.amount), 0);
-  const discount = safeNumber(invoice.discount);
-  const total = subtotal - discount;
-  
-  // Calculate Paid and Balance
-  const amountPaid = transactions
-    .filter(t => t.status === 'SETTLED' || t.status === 'COMPLETED')
-    .reduce((acc, t) => acc + safeNumber(t.amount), 0);
-    
-  let balanceDue = total - amountPaid;
-  if (balanceDue < 0) balanceDue = 0; // clamp display
-
-  // Determine Status
-  let status: InvoiceStatus = 'PENDING';
-  if (balanceDue === 0 && total > 0) {
-    status = 'PAID';
-  } else if (amountPaid > 0 && balanceDue > 0) {
-    status = 'PARTIALLY_PAID';
-  } else if (new Date() > new Date(booking.date) && balanceDue > 0) {
-    status = 'OVERDUE';
-  }
-
-  const statusColorMap: Record<InvoiceStatus, string> = {
-    PENDING: colors.pendingOrange,
-    PARTIALLY_PAID: colors.pendingOrange,
-    PAID: colors.successGreen,
-    OVERDUE: colors.overdueRed,
-  };
-
-  const statusTextMap: Record<InvoiceStatus, string> = {
-    PENDING: 'PENDING',
-    PARTIALLY_PAID: 'PARTIALLY PAID',
-    PAID: 'PAID IN FULL',
-    OVERDUE: 'OVERDUE',
-  };
-
-  // Build Summary Rows
-  const summaryRows: SummaryRow[] = [
-    { label: 'Subtotal', value: formatCurrency(subtotal) },
-  ];
-  if (discount > 0) {
-    summaryRows.push({ label: 'Discount', value: `-${formatCurrency(discount)}` });
-  }
-  summaryRows.push({ label: 'Total', value: formatCurrency(total) });
-  summaryRows.push({ label: 'Amount Paid', value: `-${formatCurrency(amountPaid)}` });
-  summaryRows.push({ label: 'Balance Due', value: formatCurrency(balanceDue), isTotal: true });
-
-  // Summary Card Variant
-  const summaryCardVariant: SummaryCardVariant = status === 'PAID' ? {
-    theme: 'success',
-    title: 'PAID IN FULL',
-    amount: formatCurrency(0),
-    subLabel: 'Payment Completed'
-  } : {
-    theme: 'dark',
-    title: 'AMOUNT DUE',
-    amount: formatCurrency(balanceDue),
-    subLabel: 'Balance to be paid'
-  };
-
-  // Build Dynamic Payment Progress Timeline
-  const paymentPercentage = total > 0 ? Math.min(100, Math.round((amountPaid / total) * 100)) : 100;
-  const steps: PaymentStep[] = [];
-  
-  const sortedTransactions = [...transactions]
-    .filter(t => t.status === 'SETTLED' || t.status === 'COMPLETED')
+  // ---- Money (in paise) ----
+  const subtotalP = invoice.lineItems.reduce((s, li) => s + paise(li.amount), 0);
+  const discountP = Math.min(Math.max(paise(invoice.discount), 0), subtotalP);
+  const totalP = subtotalP - discountP;
+  const settled = transactions
+    .filter((t) => t.status === 'SETTLED' || t.status === 'COMPLETED')
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const paidP = settled.reduce((s, t) => s + paise(t.amount), 0);
+  const balanceP = Math.max(totalP - paidP, 0);
+  const overpaidP = Math.max(paidP - totalP, 0);
 
-  sortedTransactions.forEach((t, i) => {
-    steps.push({
-      label: i === 0 ? 'Advance' : `Payment ${i + 1}`,
-      amount: formatCurrency(safeNumber(t.amount)),
-      completed: true,
-      date: formatDate(t.date),
-    });
+  // ---- Status ----
+  const eventDate = new Date(booking.date);
+  const eventPassed = !Number.isNaN(eventDate.getTime()) && now > eventDate;
+  let status: InvoiceStatus = 'PENDING';
+  if (balanceP === 0 && totalP > 0) status = 'PAID';
+  else if (paidP > 0 && balanceP > 0) status = 'PARTIALLY_PAID';
+  else if (eventPassed && balanceP > 0) status = 'OVERDUE';
+
+  const summaryRows: SummaryRow[] = [{ label: 'Subtotal', value: formatCurrency(rupees(subtotalP)) }];
+  if (discountP > 0) summaryRows.push({ label: 'Discount', value: `- ${formatCurrency(rupees(discountP))}`, tone: 'discount' });
+  if (discountP > 0 && paidP > 0) summaryRows.push({ label: 'Total', value: formatCurrency(rupees(totalP)), tone: 'strong' });
+  if (paidP > 0) summaryRows.push({ label: 'Amount paid', value: `- ${formatCurrency(rupees(Math.min(paidP, totalP)))}`, tone: 'paid' });
+  if (overpaidP > 0) summaryRows.push({ label: 'Overpaid', value: formatCurrency(rupees(overpaidP)), tone: 'paid' });
+
+  const dueDate = formatDate(booking.date);
+  const amountCard: AmountCard =
+    status === 'PAID'
+      ? { tone: 'paid', title: 'Total amount', amount: formatAmountDigits(rupees(totalP)), note: overpaidP > 0 ? `Overpaid by ${formatCurrency(rupees(overpaidP))}` : 'Paid in full' }
+      : status === 'OVERDUE'
+        ? { tone: 'overdue', title: 'Amount overdue', amount: formatAmountDigits(rupees(balanceP)), note: dueDate ? `Was due on ${dueDate}` : 'Payment overdue' }
+        : { tone: 'due', title: 'Amount due', amount: formatAmountDigits(rupees(balanceP)), note: 'Balance to be paid' };
+
+  const steps = buildPaymentSteps(
+    settled.map((t) => ({ amount: rupees(paise(t.amount)), date: new Date(t.date) })),
+    rupees(balanceP),
+    eventPassed ? 'On delivery' : 'Before event',
+    status === 'OVERDUE'
+  );
+
+  // ---- Line items ----
+  const inclusions = Array.isArray(booking.inclusions) ? booking.inclusions.filter((v): v is string => typeof v === 'string' && !!v.trim()) : [];
+  const onlyPackageLine = invoice.lineItems.length === 1 && invoice.lineItems[0].description.endsWith(' Package');
+  const items: InvoiceLineItemVM[] = invoice.lineItems.map((li) => {
+    const [title, ...rest] = li.description.split('\n');
+    const subtitle = text(rest.join(' ')) ?? (onlyPackageLine ? text([booking.packageName, inclusions.join(' · ')].filter(Boolean).join(' — ')) : undefined);
+    return {
+      title: title.trim(),
+      subtitle,
+      icon: itemIcon(li.description),
+      qty: String(li.quantity),
+      unitPrice: formatCurrency(num(li.rate)),
+      total: formatCurrency(num(li.amount)),
+    };
   });
 
-  // Add pending balance step if not fully paid
-  if (balanceDue > 0) {
-    steps.push({
-      label: steps.length === 0 ? 'Full Payment' : steps.length === 1 ? 'Second Payment' : 'Final Payment',
-      amount: formatCurrency(balanceDue),
-      completed: false,
-    });
+  // ---- People and event ----
+  const studioName = setting('studio_name') ?? STUDIO_DETAILS.name;
+  const studioPhone = setting('studio_phone') ?? STUDIO_DETAILS.phone;
+  const studioEmail = setting('studio_email') ?? STUDIO_DETAILS.email;
+  const venue = text(booking.location);
+  const eventWhen = [formatDate(booking.date), text(booking.time)].filter(Boolean).join(', ') || undefined;
+  const photographers = photographerNames.filter(Boolean).join(', ') || undefined;
+  const event: EventDetail[] = (
+    [
+      ['calendar', 'Event date', eventWhen],
+      ['pin', 'Venue', venue],
+      ['users', 'Package', text(booking.packageName) ?? text(booking.category && `${booking.category} package`)],
+      ['camera', photographerNames.length > 1 ? 'Photographers' : 'Photographer', photographers],
+    ] as [GlyphName, string, string | undefined][]
+  )
+    .filter((e) => !!e[2])
+    .map(([icon, label, value]) => ({ icon, label, value: value! }));
+
+  // ---- Payment methods (unpaid invoices only) ----
+  let payment: PaymentMethods | undefined;
+  if (status !== 'PAID') {
+    const accountNumber = setting('studio_bank_account_number');
+    const ifsc = setting('studio_bank_ifsc');
+    const waDigits = studioPhone.replace(/\D/g, '');
+    payment = {
+      upiId: setting('studio_upi_id') ?? STUDIO_DETAILS.upiId,
+      bank: accountNumber && ifsc ? { accountName: setting('studio_bank_account_name') ?? studioName, accountNumber, ifsc, bankName: setting('studio_bank_name') } : undefined,
+      whatsapp: waDigits.length >= 10
+        ? {
+            phone: studioPhone,
+            link: `https://wa.me/${waDigits.length === 10 ? `91${waDigits}` : waDigits}?text=${encodeURIComponent(`Hi, sharing the payment for invoice ${invoice.invoiceNumber} (${formatCurrency(rupees(balanceP))}).`)}`,
+          }
+        : undefined,
+    };
   }
 
-  // Hero Image resolution hierarchy: Album Cover -> Booking Thumbnail -> Fallback Placeholder
-  const bookingCustomData = booking.customData as { albumCoverUrl?: string; thumbnailUrl?: string } | null;
-  const heroImageUrl = heroImageOverride || bookingCustomData?.albumCoverUrl || bookingCustomData?.thumbnailUrl || assets.photoPlaceholder;
-
-  // Build Line Items
-  const items: InvoiceLineItemVM[] = invoice.lineItems.map(li => ({
-    description: li.description,
-    qty: li.quantity,
-    unitPrice: formatCurrency(safeNumber(li.rate)),
-    total: formatCurrency(safeNumber(li.amount)),
-  }));
-
-  if (items.length === 0) {
-    items.push({
-      description: 'No items found',
-      qty: 0,
-      unitPrice: formatCurrency(0),
-      total: formatCurrency(0),
-    });
-  }
-
-  // Footer notes
-  const footerNotes = [
-    '50% advance is required to confirm the booking.',
-    'Balance to be cleared before the event or delivery.',
-    'Album delivery within 30 working days after the event.',
-    'Raw photos/videos will not be shared.',
-    'Cancellation 15 days before the event is non-refundable.'
-  ];
+  const terms = setting('studio_terms')?.split('\n').map((t) => t.trim()).filter(Boolean) ?? DEFAULT_INVOICE_TERMS;
+  const meta = getPdfMetadata(invoice.invoiceNumber);
 
   return {
     invoiceNumber: invoice.invoiceNumber,
-    clientName: booking.client.name,
-    clientPhone: booking.client.phone,
-    clientEmail: booking.client.email || 'N/A',
-    clientAddress: 'N/A',
-    
-    fromName: settings.studio_name || STUDIO_DETAILS.name,
-    fromPhone: settings.studio_phone || STUDIO_DETAILS.phone,
-    fromEmail: settings.studio_email || STUDIO_DETAILS.email,
-    fromAddress: settings.studio_address || STUDIO_DETAILS.address,
-    
-    formattedInvoiceDate: formatDate(invoice.createdAt),
-    formattedDueDate: formatDate(booking.date), 
-    
-    eventDate: formatDate(booking.date),
-    venue: booking.location || 'N/A',
-    packageName: booking.packageName || 'N/A',
-    photographers: booking.photographers ? String(booking.photographers) : 'Team Moondot',
-    
     status,
-    statusText: statusTextMap[status],
-    statusColor: statusColorMap[status],
-    
-    heroImageUrl,
-    qrCodeDataUrl: qrCodeDataUrl || '',
-    
+    statusLabel: STATUS_LABEL[status],
+    invoiceDate: formatDate(invoice.createdAt) ?? '',
+    dueDate: status === 'PAID' ? undefined : dueDate,
+    heroImageUrl: heroImageUrl ?? assets.photoPlaceholder,
+    studio: { name: studioName, tagline: setting('studio_tagline') ?? 'Capturing your memories' },
+    billTo: {
+      name: booking.client.name,
+      lines: lines(['phone', text(booking.client.phone)], ['mail', text(booking.client.email)], ['calendar', formatDate(booking.date) && `Event date: ${formatDate(booking.date)}`], ['pin', venue && `Venue: ${venue}`]),
+    },
+    from: {
+      name: studioName,
+      lines: lines(['pin', setting('studio_address') ?? STUDIO_DETAILS.address], ['file', setting('studio_gstin') && `GSTIN: ${setting('studio_gstin')}`], ['phone', studioPhone], ['mail', studioEmail]),
+    },
+    event,
     items,
-    summaryCardVariant,
     summaryRows,
+    balanceDue: formatCurrency(rupees(balanceP)),
+    balanceDueAmount: rupees(balanceP),
+    amountCard,
     paymentProgress: {
-      percentage: paymentPercentage,
-      steps
+      percentage: totalP > 0 ? Math.min(100, Math.round((paidP / totalP) * 100)) : 0,
+      paid: formatCurrency(rupees(Math.min(paidP, totalP))),
+      total: formatCurrency(rupees(totalP)),
+      steps,
     },
-    
-    footerMode: status === 'PAID' ? 'review' : 'payment',
-    footerNotes,
-    
-    socials: {
-      instagram: settings.studio_instagram || 'instagram.com/moondot.studio',
-      website: settings.studio_website || 'www.moondotstudio.com',
-      phone: settings.studio_phone || STUDIO_DETAILS.phone,
-      email: settings.studio_email || STUDIO_DETAILS.email,
-    },
-
+    payment,
+    review: status === 'PAID' ? { url: setting('studio_review_url') } : undefined,
+    terms,
+    contacts: lines(
+      ['instagram', setting('studio_instagram') ?? 'instagram.com/moondot.studio'],
+      ['globe', setting('studio_website') ?? 'www.moondotstudio.com'],
+      ['phone', studioPhone],
+      ['mail', studioEmail]
+    ),
     assets,
-
-    settings
+    meta: { title: meta.title, subject: meta.subject, keywords: meta.keywords, templateVersion: INVOICE_CONSTANTS.templateVersion },
   };
 };

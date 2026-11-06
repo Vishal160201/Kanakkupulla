@@ -1,67 +1,75 @@
-import { InvoiceStatus } from './invoiceStatus';
-import { SummaryRow } from './summaryRow';
-import { PaymentProgress } from './paymentProgress';
+import type { InvoiceStatus } from './invoiceStatus';
+import type { SummaryRow } from './summaryRow';
+import type { PaymentProgress } from './paymentProgress';
 import type { InvoiceAssets } from '../utils/assetRegistry';
+import type { GlyphName } from '../icons/glyphs';
+
+/** One icon + text line; blank values are dropped before they get here. */
+export interface InfoLine {
+  icon: GlyphName;
+  text: string;
+}
 
 export interface InvoiceLineItemVM {
-  description: string;
-  qty: number;
+  title: string;
+  subtitle?: string;
+  icon: GlyphName;
+  qty: string;
   unitPrice: string;
   total: string;
 }
 
-export interface SummaryCardVariant {
-  theme: 'dark' | 'success';
+export interface EventDetail {
+  icon: GlyphName;
+  label: string;
+  value: string;
+}
+
+/** Big amount card: amount is digits only ("30,000"); the ₹ sign is drawn in a font that has it. */
+export interface AmountCard {
+  tone: 'due' | 'overdue' | 'paid';
   title: string;
   amount: string;
-  subLabel: string;
+  note: string;
+}
+
+export interface PaymentMethods {
+  upiId?: string;
+  /** PNG data URL of a UPI QR that pre-fills the balance; set by the PDF route */
+  qrCodeDataUrl?: string;
+  bank?: { accountName?: string; accountNumber: string; ifsc: string; bankName?: string };
+  whatsapp?: { phone: string; link: string };
 }
 
 export interface InvoiceViewModel {
   invoiceNumber: string;
-  clientName: string;
-  clientPhone: string;
-  clientEmail: string;
-  clientAddress: string;
-  
-  fromName: string;
-  fromPhone: string;
-  fromEmail: string;
-  fromAddress: string;
-  
-  formattedInvoiceDate: string;
-  formattedDueDate: string;
-  
-  eventDate: string;
-  venue: string;
-  packageName: string;
-  photographers: string;
-  
   status: InvoiceStatus;
-  statusText: string;
-  statusColor: string;
-  
-  heroImageUrl: string;
-  qrCodeDataUrl: string;
-  
-  items: InvoiceLineItemVM[];
-  
-  summaryCardVariant: SummaryCardVariant;
-  summaryRows: SummaryRow[];
-  paymentProgress: PaymentProgress;
-  
-  footerMode: 'payment' | 'review';
-  footerNotes: string[];
-  
-  socials: {
-    instagram: string;
-    website: string;
-    phone: string;
-    email: string;
-  };
-  
-  /** Absolute URLs for static PDF assets, resolved against the app origin. */
-  assets: InvoiceAssets;
+  statusLabel: string;
+  invoiceDate: string;
+  dueDate?: string;
 
-  settings: Record<string, string>;
+  /** Couple photo (Drive) or the placeholder, already cropped to the header frame */
+  heroImageUrl: string;
+
+  studio: { name: string; tagline: string };
+  billTo: { name: string; lines: InfoLine[] };
+  from: { name: string; lines: InfoLine[] };
+  event: EventDetail[];
+
+  items: InvoiceLineItemVM[];
+  /** Subtotal, discount, total, paid… (pre-formatted, zero rows left out) */
+  summaryRows: SummaryRow[];
+  balanceDue: string;
+  /** Unformatted balance, for the UPI QR amount */
+  balanceDueAmount: number;
+  amountCard: AmountCard;
+  paymentProgress: PaymentProgress;
+
+  payment?: PaymentMethods;
+  review?: { url?: string };
+  terms: string[];
+  contacts: InfoLine[];
+
+  assets: InvoiceAssets;
+  meta: { title: string; subject: string; keywords: string; templateVersion: string };
 }

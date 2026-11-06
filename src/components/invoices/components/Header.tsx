@@ -1,215 +1,95 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image as PdfImage } from '@react-pdf/renderer';
-import { InvoiceViewModel } from '../types/invoiceViewModel';
-import { colors, spacing, typography } from '../theme/invoiceTheme';
+import { View, Text, StyleSheet, Svg, Defs, ClipPath, Path, Image as SvgImage, Circle, Line, Polygon } from '@react-pdf/renderer';
+import type { InvoiceViewModel } from '../types/invoiceViewModel';
+import { StatusPill } from '../ui/StatusPill';
+import { colors, typography } from '../theme/invoiceTheme';
+
+// The couple photo sits in the page's top-left corner with a sweeping right edge, outlined in gold.
+const HERO_W = 140;
+const HERO_H = 186;
+const HERO_EDGE = 'M140 0 C137 38 125 74 101 103 C77 133 39 157 0 186';
+const HERO_SHAPE = `M0 0 L140 0 ${HERO_EDGE.slice(HERO_EDGE.indexOf('C'))} Z`;
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginBottom: 20,
-    minHeight: 180,
-  },
-  heroImageWrapper: {
-    position: 'absolute',
-    top: -30,
-    left: -40,
-    width: 280, // matched to frame size
-    height: 310,
-    zIndex: 1,
-  },
-  heroImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  },
-  heroFrame: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    zIndex: 2,
-  },
-  logoCol: {
-    width: '30%',
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingTop: 20,
-    marginLeft: 180, // push past the absolute image
-  },
-  logoIconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  logoInnerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.gold,
-    position: 'absolute',
-    top: 6,
-    right: 12,
-  },
-  brandName: {
-    fontFamily: typography.fontFamily,
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: 2,
-    color: colors.primaryText,
-  },
-  brandSub: {
-    fontFamily: typography.fontFamily,
-    fontSize: 5,
-    letterSpacing: 1.5,
-    color: colors.secondaryText,
-    marginTop: 2,
-  },
-  titleCol: {
-    width: '35%',
-    alignItems: 'center',
-    paddingTop: 15,
-  },
-  invoiceTitle: {
-    fontFamily: typography.serifFamily,
-    fontSize: 42,
-    color: colors.primaryText,
-    letterSpacing: 6,
-    marginBottom: 8,
-  },
-  decorativeLineWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    justifyContent: 'center',
-  },
-  decorativeLine: {
-    height: 1,
-    backgroundColor: colors.gold,
-    width: 30,
-  },
-  decorativeDiamond: {
-    width: 5,
-    height: 5,
-    backgroundColor: colors.gold,
-    transform: 'rotate(45deg)',
-    marginHorizontal: 8,
-  },
-  tagline: {
-    fontFamily: typography.cursiveFamily,
-    fontSize: 14,
-    color: colors.primaryText,
-    textAlign: 'center',
-  },
-  detailsCol: {
-    width: '25%',
-    alignItems: 'flex-end',
-    paddingTop: 10,
-  },
-  invoiceNumber: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.xl,
-    fontWeight: 700,
-    color: colors.gold,
-    marginBottom: spacing.md,
-  },
-  statusPill: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  statusText: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.xxs,
-    fontWeight: 700,
-    letterSpacing: 1,
-  },
-  dateGrid: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-  },
-  dateLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 6,
-    color: colors.secondaryText,
-    marginBottom: 2,
-  },
-  dateValue: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.xs,
-    fontWeight: 700,
-    color: colors.primaryText,
-    marginBottom: 8,
-  },
+
+  row: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 18, height: 140 },
+  heroSpace: { width: 98 },
+  brand: { width: 118, alignItems: 'center', paddingTop: 4 },
+  brandName: { fontFamily: typography.serif, fontSize: 15, letterSpacing: 2, color: colors.ink, marginTop: 6 },
+  brandStudio: { fontFamily: typography.sans, fontSize: 7, letterSpacing: 4, color: colors.gold, marginTop: 1 },
+  brandTagline: { fontFamily: typography.sans, fontSize: 5.5, letterSpacing: 1.4, color: colors.muted, marginTop: 7, textTransform: 'uppercase' },
+  title: { flex: 1, alignItems: 'center', paddingTop: 8, paddingHorizontal: 10 },
+  titleText: { fontFamily: typography.serif, fontSize: 32, letterSpacing: 2, color: colors.ink },
+  thanks: { fontFamily: typography.script, fontSize: 11.5, color: colors.gold, marginTop: 5, textAlign: 'center', lineHeight: 1.15 },
+  meta: { width: 118, alignItems: 'flex-end' },
+  metaLabel: { fontFamily: typography.sans, fontSize: 6.5, letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', marginTop: 8 },
+  number: { fontFamily: typography.sans, fontSize: 14, fontWeight: 700, color: colors.gold, marginTop: 2, marginBottom: 6 },
+  metaValue: { fontFamily: typography.sans, fontSize: 9, fontWeight: 700, color: colors.ink, marginTop: 2 },
 });
 
-interface HeaderProps {
-  viewModel: InvoiceViewModel;
-}
+/** Circle mark with a crescent and a dot, drawn as vectors. */
+const LogoMark = () => (
+  <Svg width={30} height={32} viewBox="0 0 30 32">
+    <Line x1={15} y1={4.5} x2={15} y2={7} stroke={colors.gold} strokeWidth={0.9} />
+    <Circle cx={15} cy={3} r={1.8} fill={colors.gold} />
+    <Circle cx={15} cy={19} r={11.5} stroke={colors.gold} strokeWidth={1.1} fill="none" />
+    <Circle cx={16.5} cy={20.5} r={8} fill={colors.gold} />
+    <Circle cx={13} cy={17} r={7.6} fill={colors.page} />
+  </Svg>
+);
 
-export const Header = ({ viewModel }: HeaderProps) => {
-  let statusColor = colors.pendingOrange;
-  if (viewModel.status === 'PAID') statusColor = colors.successGreen;
-  if (viewModel.status === 'OVERDUE') statusColor = colors.overdueRed;
+const Ornament = () => (
+  <Svg width={120} height={8} viewBox="0 0 120 8">
+    <Line x1={6} y1={4} x2={52} y2={4} stroke={colors.gold} strokeWidth={0.7} />
+    <Polygon points="60,0.5 63.5,4 60,7.5 56.5,4" fill={colors.gold} />
+    <Line x1={68} y1={4} x2={114} y2={4} stroke={colors.gold} strokeWidth={0.7} />
+  </Svg>
+);
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.heroImageWrapper}>
-        <PdfImage src={viewModel.heroImageUrl} style={styles.heroImage} />
-        <PdfImage src={viewModel.assets.heroFrame} style={styles.heroFrame} />
-      </View>
+/** Placed at the page root so it reaches the page corner (outside the content padding). */
+export const HeroPhoto = ({ src }: { src: string }) => (
+  <Svg width={HERO_W + 4} height={HERO_H + 4} viewBox={`0 0 ${HERO_W + 4} ${HERO_H + 4}`}>
+    <Defs>
+      <ClipPath id="hero">
+        <Path d={HERO_SHAPE} />
+      </ClipPath>
+    </Defs>
+    {/* Inside <Svg>, react-pdf's Image takes src + style size; x/y/clipPath aren't in its types */}
+    <SvgImage src={src} style={{ width: HERO_W, height: HERO_H }} {...({ x: 0, y: 0, clipPath: 'url(#hero)' } as object)} />
+    <Path d={HERO_EDGE} stroke={colors.gold} strokeWidth={2.2} fill="none" />
+  </Svg>
+);
 
-      <View style={styles.logoCol}>
-        <View style={styles.logoIconWrapper}>
-          <View style={styles.logoInnerDot} />
-        </View>
+export const Header = ({ viewModel: vm }: { viewModel: InvoiceViewModel }) => (
+  <>
+    <View style={styles.row}>
+      <View style={styles.heroSpace} />
+      <View style={styles.brand}>
+        <LogoMark />
         <Text style={styles.brandName}>MOONDOT</Text>
-        <Text style={[styles.brandName, { fontSize: typography.sizes.xs, letterSpacing: 4 }]}>STUDIO</Text>
-        <Text style={styles.brandSub}>CAPTURING YOUR MEMORIES</Text>
+        <Text style={styles.brandStudio}>STUDIO</Text>
+        <Text style={styles.brandTagline}>{vm.studio.tagline}</Text>
       </View>
-
-      <View style={styles.titleCol}>
-        <Text style={styles.invoiceTitle}>INVOICE</Text>
-        <View style={styles.decorativeLineWrapper}>
-          <View style={styles.decorativeLine} />
-          <View style={styles.decorativeDiamond} />
-          <View style={styles.decorativeLine} />
+      <View style={styles.title}>
+        <Text style={styles.titleText}>INVOICE</Text>
+        <View style={{ marginTop: 6 }}>
+          <Ornament />
         </View>
-        <Text style={styles.tagline}>Thank you for trusting us with your special moments.</Text>
+        <Text style={styles.thanks}>{vm.status === 'PAID' ? 'Thank you for trusting us!' : 'Thank you for trusting us with your special moments.'}</Text>
       </View>
-
-      <View style={styles.detailsCol}>
-        <Text style={styles.invoiceNumber}>#{viewModel.invoiceNumber}</Text>
-        <View style={[styles.statusPill, { borderColor: statusColor }]}>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusText, { color: statusColor }]}>{viewModel.status}</Text>
-        </View>
-        <View style={styles.dateGrid}>
-          <Text style={styles.dateLabel}>Invoice Date</Text>
-          <Text style={styles.dateValue}>{viewModel.formattedInvoiceDate}</Text>
-          <Text style={styles.dateLabel}>Due Date</Text>
-          <Text style={styles.dateValue}>{viewModel.formattedDueDate}</Text>
-        </View>
+      <View style={styles.meta}>
+        <Text style={[styles.metaLabel, { marginTop: 0 }]}>Invoice no.</Text>
+        <Text style={styles.number}>{vm.invoiceNumber}</Text>
+        <StatusPill status={vm.status} label={vm.statusLabel} />
+        <Text style={styles.metaLabel}>Invoice date</Text>
+        <Text style={styles.metaValue}>{vm.invoiceDate}</Text>
+        {vm.dueDate && (
+          <>
+            <Text style={styles.metaLabel}>Due date</Text>
+            <Text style={[styles.metaValue, vm.status === 'OVERDUE' ? { color: colors.red } : {}]}>{vm.dueDate}</Text>
+          </>
+        )}
       </View>
     </View>
-  );
-};
+  </>
+);

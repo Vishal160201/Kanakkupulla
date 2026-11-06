@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { renderToBuffer } from '@react-pdf/renderer';
-import InvoiceDocument from '@/components/invoices/InvoiceDocument';
-import QRCode from 'qrcode';
-import { initFonts } from '@/components/invoices/theme/invoiceTheme';
+import sharp from 'sharp';
 import { buildInvoiceViewModel } from '@/components/invoices/utils/invoiceLogic';
+import { renderInvoicePdf } from '@/components/invoices/renderInvoicePdf';
 import { requireAccess } from '@/lib/authz';
 import { fetchDriveFile } from '@/lib/googleDriveAuth';
 
@@ -63,44 +61,37 @@ export async function GET(
       else if (typeof s.value === 'number' || typeof s.value === 'boolean') settings[s.key] = String(s.value);
     }
 
-    let qrCodeDataUrl = '';
-    if (settings.studio_upi_id) {
-      const upiUrl = `upi://pay?pa=${encodeURIComponent(settings.studio_upi_id)}&pn=${encodeURIComponent(settings.studio_bank_name || 'Studio')}`;
-      qrCodeDataUrl = await QRCode.toDataURL(upiUrl, { margin: 1, width: 200, color: { dark: '#000000', light: '#ffffff' } });
-    }
-
-    // Embed the hero image as a data URL: the PDF renderer can't reach the session-protected thumbnail proxy
+    // The couple photo (first Drive attachment), cropped to the header frame; embedded as a data URL because
+    // the PDF renderer can't reach the session-protected thumbnail proxy. Any failure falls back to the placeholder.
     let heroImageUrl: string | undefined;
-    {
-      const fileId = heroFileId(booking.attachments);
-      if (fileId) {
-        try {
-          const res = await fetchDriveFile({ user: auth.user }, fileId);
-          const contentType = res.headers.get('Content-Type') || '';
-          if (res.ok && /^image\/(png|jpe?g)$/.test(contentType)) {
-            heroImageUrl = `data:${contentType};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
-          }
-        } catch (e) {
-          console.error('Invoice hero image unavailable:', e);
+    const fileId = heroFileId(booking.attachments);
+    if (fileId) {
+      try {
+        const res = await fetchDriveFile({ user: auth.user }, fileId);
+        if (res.ok && /^image\//.test(res.headers.get('Content-Type') || '')) {
+          const jpeg = await sharp(Buffer.from(await res.arrayBuffer())).rotate().resize(600, 820, { fit: 'cover', position: 'attention' }).jpeg({ quality: 80 }).toBuffer();
+          heroImageUrl = `data:image/jpeg;base64,${jpeg.toString('base64')}`;
         }
+      } catch (e) {
+        console.error('Invoice hero image unavailable:', e);
       }
     }
 
-    const viewModel = buildInvoiceViewModel(
-      invoice,
-      booking,
-      transactions,
-      settings,
-      {
-        baseUrl: process.env.NEXTAUTH_URL ?? new URL(req.url).origin,
-        qrCodeDataUrl: qrCodeDataUrl || undefined,
-        heroImageUrl,
-      }
-    );
+    const photographerIds = Array.isArray(booking.photographers)
+      ? booking.photographers.flatMap((p) => (typeof p === 'string' ? [p] : p && typeof p === 'object' && 'id' in p && typeof p.id === 'string' ? [p.id] : []))
+      : [];
+    const photographers = photographerIds.length
+      ? await prisma.user.findMany({ where: { id: { in: photographerIds } }, select: { id: true, name: true } })
+      : [];
+    const photographerNames = photographerIds.map((pid) => photographers.find((u) => u.id === pid)?.name).filter((n): n is string => !!n);
 
-    initFonts();
-    
-    const pdf = await renderToBuffer(InvoiceDocument({ viewModel }));
+    const viewModel = buildInvoiceViewModel(invoice, booking, transactions, settings, {
+      assetBase: process.env.NEXTAUTH_URL ?? new URL(req.url).origin,
+      heroImageUrl,
+      photographerNames,
+    });
+
+    const pdf = await renderInvoicePdf(viewModel);
 
     const headers = new Headers();
     headers.set('Content-Type', 'application/pdf');

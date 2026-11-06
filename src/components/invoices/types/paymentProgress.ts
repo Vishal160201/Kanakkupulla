@@ -1,11 +1,14 @@
 export interface PaymentStep {
   label: string;
-  amount: string; // pre-formatted currency string
-  completed: boolean;
-  date?: string; // pre-formatted date string
+  state: 'done' | 'due' | 'overdue';
+  /** "Paid · 3 Nov" / "Due · Before event" */
+  caption: string;
+  amount: string;
 }
 
 export interface PaymentProgress {
   percentage: number;
+  paid: string;
+  total: string;
   steps: PaymentStep[];
 }

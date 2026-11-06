@@ -6,6 +6,7 @@ import UserManagement from "@/components/settings/UserManagement";
 import RolesPermissions from "@/components/settings/RolesPermissions";
 import LayoutsFieldsBuilder from "@/components/settings/LayoutsFieldsBuilder";
 import SystemPreferences from "@/components/settings/SystemPreferences";
+import InvoiceDetailsSettings from "@/components/settings/InvoiceDetailsSettings";
 import ReminderPreferences from "@/components/settings/ReminderPreferences";
 import RecycleBin from "@/components/settings/RecycleBin";
 import GoogleDriveIntegration from "@/components/settings/integrations/GoogleDriveIntegration";
@@ -27,6 +28,7 @@ const GROUPS = [
       { id: "system", label: "System Preferences", icon: "ph-gear-fine", access: "owner" },
       { id: "notifications", label: "Notification Preferences", icon: "ph-bell", access: "owner" },
       { id: "shops", label: "Shops", icon: "ph-storefront", access: "owner" },
+      { id: "invoice", label: "Invoice Details", icon: "ph-receipt", access: "owner" },
     ]
   },
   {
@@ -278,6 +280,7 @@ function SettingsPage() {
               {displayedSection === "system" && <SystemPreferences />}
               {displayedSection === "notifications" && <ReminderPreferences />}
               {displayedSection === "shops" && <ShopsSettings />}
+              {displayedSection === "invoice" && <InvoiceDetailsSettings />}
             </>
           )}
         </div>

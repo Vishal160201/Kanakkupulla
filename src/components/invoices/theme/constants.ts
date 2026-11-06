@@ -1,9 +1,9 @@
 export const INVOICE_CONSTANTS = {
-  pageDimensions: {
-    paddingTop: 30,
-    paddingBottom: 40,
-    paddingHorizontal: 40,
-  },
+  page: { paddingTop: 0, paddingBottom: 56, paddingHorizontal: 32 },
+  /** Payment progress never shows more than this many steps; later payments are merged. */
   maxPaymentSteps: 3,
-  maxLineItemsBeforePagination: 15,
+  /** Rows on the first page before the table continues (header repeated) on the next. */
+  firstPageRows: 8,
+  rowsPerPage: 16,
+  templateVersion: 'v2',
 };

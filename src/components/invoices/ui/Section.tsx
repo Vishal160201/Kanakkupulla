@@ -1,22 +1,15 @@
 import React from 'react';
 import { View, StyleSheet } from '@react-pdf/renderer';
 import type { Style } from '@react-pdf/types';
+import { colors, radius } from '../theme/invoiceTheme';
 
 const styles = StyleSheet.create({
-  section: {
-    marginBottom: 24,
-    paddingHorizontal: 40,
-  }
+  card: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: radius.md },
 });
 
-interface SectionProps {
-  children: React.ReactNode;
-  style?: Style;
-  wrap?: boolean;
-}
-
-export const Section = ({ children, style, wrap = true }: SectionProps) => (
-  <View style={style ? [styles.section, style] : [styles.section]} wrap={wrap}>
+/** The white rounded card every block sits in. */
+export const Section = ({ children, style, wrap = false }: { children: React.ReactNode; style?: Style | Style[]; wrap?: boolean }) => (
+  <View style={[styles.card, ...(Array.isArray(style) ? style : style ? [style] : [])]} wrap={wrap}>
     {children}
   </View>
 );

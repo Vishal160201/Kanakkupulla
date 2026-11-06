@@ -98,3 +98,18 @@ describe("pushSubscriptionSchema", () => {
     expect(ok("https://evilpush.apple.com.attacker.io/x")).toBe(false);
   });
 });
+
+describe("invoiceSettingsSchema", () => {
+  it("accepts real formats and blanks", async () => {
+    const { invoiceSettingsSchema } = await import("@/lib/validations/settings");
+    expect(invoiceSettingsSchema.safeParse({ studio_gstin: "33abcde1234f1z5", studio_bank_ifsc: "hdfc0001234", studio_upi_id: "moondot@okaxis", studio_bank_account_number: "50200012345678", studio_gstin_extra: undefined }).success).toBe(false);
+    const ok = invoiceSettingsSchema.safeParse({ studio_gstin: "33abcde1234f1z5", studio_bank_ifsc: "hdfc0001234", studio_upi_id: "moondot@okaxis", studio_bank_account_number: "50200012345678", studio_email: "" });
+    expect(ok.success && ok.data.studio_gstin).toBe("33ABCDE1234F1Z5");
+  });
+  it("rejects malformed GSTIN, IFSC, UPI, account and review link", async () => {
+    const { invoiceSettingsSchema } = await import("@/lib/validations/settings");
+    for (const bad of [{ studio_gstin: "32ABCDE1234" }, { studio_bank_ifsc: "HDFC1234" }, { studio_upi_id: "moondot" }, { studio_bank_account_number: "12ab" }, { studio_review_url: "javascript:alert(1)" }]) {
+      expect(invoiceSettingsSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+});

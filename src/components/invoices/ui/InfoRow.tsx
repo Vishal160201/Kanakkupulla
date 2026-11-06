@@ -1,37 +1,29 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { colors, spacing, typography } from '../theme/invoiceTheme';
+import { Icon } from '../icons';
+import type { GlyphName } from '../icons/glyphs';
+import { colors, typography } from '../theme/invoiceTheme';
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  iconWrapper: {
-    width: 20,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  text: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.sm,
-    color: colors.secondaryText,
-    flexShrink: 1,
-  }
+  row: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 },
+  icon: { width: 14, paddingTop: 1 },
+  text: { flex: 1, fontFamily: typography.sans, fontSize: 8.5, color: colors.text, lineHeight: 1.35 },
+  tile: { backgroundColor: colors.tile, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
 });
 
-interface InfoRowProps {
-  icon?: React.ReactNode;
-  label?: string;
-  value: string;
-}
-
-export const InfoRow = ({ icon, label, value }: InfoRowProps) => (
+/** Icon + text line (text wraps inside the card). */
+export const InfoRow = ({ icon, text }: { icon: GlyphName; text: string }) => (
   <View style={styles.row}>
-    {icon && <View style={styles.iconWrapper}>{icon}</View>}
-    <Text style={styles.text}>
-      {label ? `${label}: ` : ''}{value}
-    </Text>
+    <View style={styles.icon}>
+      <Icon name={icon} color={colors.muted} size={9} />
+    </View>
+    <Text style={styles.text}>{text}</Text>
+  </View>
+);
+
+/** Round cream tile with a gold icon, as in the card headers. */
+export const IconTile = ({ icon, size = 30, color = colors.gold }: { icon: GlyphName; size?: number; color?: string }) => (
+  <View style={[styles.tile, { width: size, height: size }]}>
+    <Icon name={icon} color={color} size={size * 0.5} />
   </View>
 );

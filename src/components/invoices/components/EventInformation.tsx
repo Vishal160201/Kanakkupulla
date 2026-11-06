@@ -1,127 +1,37 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { InvoiceViewModel } from '../types/invoiceViewModel';
-import { CalendarIcon, LocationIcon, PackageIcon, CameraIcon } from '../icons';
-import { colors, typography, radius } from '../theme/invoiceTheme';
+import type { InvoiceViewModel } from '../types/invoiceViewModel';
+import { Section } from '../ui/Section';
+import { IconTile } from '../ui/InfoRow';
+import { colors, typography } from '../theme/invoiceTheme';
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-    marginTop: 10,
-  },
-  innerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: colors.cardBackground,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  titleWrapper: {
-    position: 'absolute',
-    top: -8,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 2,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  titleText: {
-    backgroundColor: colors.background, // match page background so the border line is cleanly cut
-    paddingHorizontal: 12,
-    fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.xs,
-    fontWeight: 700,
-    color: colors.gold,
-    letterSpacing: 2,
-  },
-  itemCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    paddingHorizontal: 4,
-  },
-  iconWrapper: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.goldLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  textWrapper: {
-    flexShrink: 1,
-  },
-  label: {
-    fontFamily: typography.fontFamily,
-    fontSize: 6,
-    fontWeight: 700,
-    color: colors.primaryText,
-    letterSpacing: 1.5,
-    marginBottom: 2,
-  },
-  value: {
-    fontFamily: typography.fontFamily,
-    fontSize: 8,
-    color: colors.secondaryText,
-  }
+  card: { marginTop: 8, paddingVertical: 9, paddingHorizontal: 12 },
+  title: { fontFamily: typography.sans, fontSize: 7.5, fontWeight: 700, letterSpacing: 1.4, color: colors.gold, textAlign: 'center', marginBottom: 7 },
+  row: { flexDirection: 'row' },
+  item: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  divider: { borderLeftWidth: 1, borderLeftColor: colors.rule },
+  text: { flex: 1, marginLeft: 7 },
+  label: { fontFamily: typography.sans, fontSize: 6, fontWeight: 700, letterSpacing: 0.9, color: colors.muted, textTransform: 'uppercase' },
+  value: { fontFamily: typography.sans, fontSize: 8, color: colors.ink, marginTop: 2, lineHeight: 1.3 },
 });
 
-interface EventInformationProps {
-  viewModel: InvoiceViewModel;
-}
-
-export const EventInformation = ({ viewModel }: EventInformationProps) => (
-  <View style={styles.container}>
-    <View style={styles.innerContainer}>
-      <View style={styles.titleWrapper}>
-        <Text style={styles.titleText}>EVENT INFORMATION</Text>
+export const EventInformation = ({ viewModel: vm }: { viewModel: InvoiceViewModel }) => {
+  if (vm.event.length === 0) return null;
+  return (
+    <Section style={styles.card}>
+      <Text style={styles.title}>EVENT INFORMATION</Text>
+      <View style={styles.row}>
+        {vm.event.map((e, i) => (
+          <View key={e.label} style={[styles.item, { flex: e.icon === 'pin' ? 1.45 : 1 }, i > 0 ? styles.divider : {}]}>
+            <IconTile icon={e.icon} size={24} />
+            <View style={styles.text}>
+              <Text style={styles.label}>{e.label}</Text>
+              <Text style={styles.value}>{e.value}</Text>
+            </View>
+          </View>
+        ))}
       </View>
-      <View style={styles.itemCol}>
-        <View style={styles.iconWrapper}>
-          <CalendarIcon color={colors.gold} size={12} />
-        </View>
-        <View style={styles.textWrapper}>
-          <Text style={styles.label}>EVENT DATE</Text>
-          <Text style={styles.value}>{viewModel.eventDate}</Text>
-        </View>
-      </View>
-
-      <View style={styles.itemCol}>
-        <View style={styles.iconWrapper}>
-          <LocationIcon color={colors.gold} size={12} />
-        </View>
-        <View style={styles.textWrapper}>
-          <Text style={styles.label}>VENUE</Text>
-          <Text style={styles.value}>{viewModel.venue}</Text>
-        </View>
-      </View>
-
-      <View style={styles.itemCol}>
-        <View style={styles.iconWrapper}>
-          <PackageIcon color={colors.gold} size={12} />
-        </View>
-        <View style={styles.textWrapper}>
-          <Text style={styles.label}>PACKAGE</Text>
-          <Text style={styles.value}>{viewModel.packageName}</Text>
-        </View>
-      </View>
-
-      <View style={styles.itemCol}>
-        <View style={styles.iconWrapper}>
-          <CameraIcon color={colors.gold} size={12} />
-        </View>
-        <View style={styles.textWrapper}>
-          <Text style={styles.label}>PHOTOGRAPHER</Text>
-          <Text style={styles.value}>{viewModel.photographers}</Text>
-        </View>
-      </View>
-    </View>
-  </View>
-);
+    </Section>
+  );
+};
