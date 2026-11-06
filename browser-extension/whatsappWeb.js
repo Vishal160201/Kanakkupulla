@@ -31,33 +31,41 @@ async function attachInWhatsApp(pdfBase64, filename, text) {
   if (state !== "chat") return { ok: false, message: "WhatsApp Web didn't open the chat in time. Use the invoice link instead." };
   const compose = composeBox();
 
-  // 2. Open the attach menu, then hand the PDF to its document input (no file picker opens)
-  const attach = document.querySelector(
-    'footer [data-icon="plus-rounded"], footer [data-icon="plus"], footer [data-icon="attach-menu-plus"], footer [data-icon="clip"], footer [title="Attach"], footer [aria-label="Attach"]'
-  );
-  (attach?.closest('button, [role="button"]') ?? attach)?.click();
-  const input = await until(() => {
-    const inputs = [...document.querySelectorAll('input[type="file"]')];
-    return inputs.find((i) => !i.accept || i.accept === "*" || !/image|video/.test(i.accept));
-  }, 5_000);
-  if (!input) return { ok: false, message: "Couldn't find WhatsApp Web's attach option; the extension needs an update. Use the invoice link instead." };
+  // 2. Paste the PDF into the chat box, as Ctrl+V with a copied file would: WhatsApp opens its own preview with a
+  //    caption box. (Its Document menu only opens the computer's file picker, which an extension can't fill.)
   const bytes = Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0));
   const files = new DataTransfer();
   files.items.add(new File([bytes], filename, { type: "application/pdf" }));
-  input.files = files.files;
-  input.dispatchEvent(new Event("change", { bubbles: true }));
-
-  // 3. The message goes in the preview's caption box
-  if (!text) return { ok: true, stage: "attached", message: "PDF attached." };
+  compose.focus();
+  compose.dispatchEvent(new ClipboardEvent("paste", { clipboardData: files, bubbles: true, cancelable: true }));
   const caption = await until(() => {
-    const boxes = [...document.querySelectorAll('[contenteditable="true"]')].filter((e) => e !== compose && !e.closest("#side") && !e.closest("footer"));
+    const boxes = [...document.querySelectorAll('[contenteditable="true"]')].filter((e) => e !== compose && !e.closest("#side"));
     return boxes[boxes.length - 1];
-  }, 8_000);
-  if (!caption) return { ok: true, stage: "attachedNoCaption", message: "PDF attached; add the message yourself." };
+  }, 15_000);
+  if (!caption) {
+    const previewed = (document.body?.innerText || "").includes(filename);
+    return previewed
+      ? { ok: true, stage: "attachedNoCaption", message: "PDF attached; add the message yourself." }
+      : { ok: false, message: "WhatsApp Web didn't take the PDF; the extension needs an update. Use the invoice link instead." };
+  }
+
+  // 3. The message goes in the caption, line by line. Lines are joined with Shift+Enter (a new line) and never a
+  //    plain Enter, which would send.
+  if (!text) return { ok: true, stage: "attached", message: "PDF attached." };
   caption.focus();
-  // Line by line: inserting "\n" directly doubles the blank lines in WhatsApp's editor
+  // Put the cursor at the end of the caption box (focus alone doesn't always place it)
+  const range = document.createRange();
+  range.selectNodeContents(caption);
+  range.collapse(false);
+  getSelection().removeAllRanges();
+  getSelection().addRange(range);
+  const newLine = () => {
+    for (const type of ["keydown", "keypress", "keyup"]) {
+      caption.dispatchEvent(new KeyboardEvent(type, { key: "Enter", code: "Enter", keyCode: 13, which: 13, shiftKey: true, bubbles: true, cancelable: true }));
+    }
+  };
   text.split("\n").forEach((line, i) => {
-    if (i > 0) document.execCommand("insertLineBreak");
+    if (i > 0) newLine();
     if (line) document.execCommand("insertText", false, line);
   });
   return { ok: true, stage: "attached", message: "PDF and message attached." };
@@ -86,7 +94,7 @@ async function whatsappSend({ phone, text, filename, pdfBase64 }) {
     }, 30_000);
   });
   try {
-    const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: attachInWhatsApp, args: [pdfBase64, String(filename || "Invoice.pdf"), String(text || "")] });
+    const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", func: attachInWhatsApp, args: [pdfBase64, String(filename || "Invoice.pdf"), String(text || "")] });
     return result ?? { ok: false, message: "WhatsApp Web didn't answer. Use the invoice link instead." };
   } catch (err) {
     return { ok: false, message: `Couldn't work in WhatsApp Web: ${err?.message ?? err}` };
