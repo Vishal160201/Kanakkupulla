@@ -20,7 +20,7 @@ export const EventInformation = ({ viewModel: vm }: { viewModel: InvoiceViewMode
   if (vm.event.length === 0) return null;
   return (
     <Section style={styles.card}>
-      <Text style={styles.title}>EVENT INFORMATION</Text>
+      <Text style={styles.title}>{vm.detailsTitle}</Text>
       <View style={styles.row}>
         {vm.event.map((e, i) => (
           <View key={e.label} style={[styles.item, { flex: e.icon === 'pin' ? 1.45 : 1 }, i > 0 ? styles.divider : {}]}>

@@ -56,7 +56,7 @@ export function useGiftOrderDetails(orderId: string | null, onDeleted?: () => vo
   const [isSaving, setIsSaving] = useState(false);
 
   // Exporting state
-  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const isGeneratingInvoice = false; // the PDF opens in a new tab, nothing to wait for
   const [isExporting, setIsExporting] = useState(false);
 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
@@ -247,22 +247,10 @@ export function useGiftOrderDetails(orderId: string | null, onDeleted?: () => vo
     }
   };
 
-  const generateInvoice = async () => {
+  /** Opens the order's invoice PDF (rendered on the server in the same design as booking invoices). */
+  const generateInvoice = () => {
     if (!order) return;
-    setIsGeneratingInvoice(true);
-    // Give the off-screen invoice template a tick to render before rasterising it.
-    setTimeout(async () => {
-      try {
-        const element = document.getElementById('gift-invoice-template');
-        if (!element) return;
-        await exportElementToPdf(element, `Invoice_${order.orderNumber || order.id.slice(-6).toUpperCase()}.pdf`);
-        showNotification("Invoice generated successfully!", "success");
-      } catch {
-        showNotification("Failed to generate invoice", "error");
-      } finally {
-        setIsGeneratingInvoice(false);
-      }
-    }, 100);
+    window.open(`/api/gifts/orders/${encodeURIComponent(order.id)}/invoice`, "_blank");
   };
 
   const exportOrder = async () => {

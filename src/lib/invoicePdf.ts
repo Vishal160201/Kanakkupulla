@@ -1,8 +1,14 @@
 import prisma from '@/lib/prisma';
 import sharp from 'sharp';
-import { buildInvoiceViewModel } from '@/components/invoices/utils/invoiceLogic';
+import { buildInvoiceViewModel, buildOrderInvoiceViewModel, orderNumberOf } from '@/components/invoices/utils/invoiceLogic';
 import { renderInvoicePdf } from '@/components/invoices/renderInvoicePdf';
 import { fetchDriveFile } from '@/lib/googleDriveAuth';
+
+/** Any photo, cropped to the invoice's header frame, as a data URL the PDF renderer can embed. */
+async function cropToHeroFrame(image: Buffer): Promise<string> {
+  const jpeg = await sharp(image).rotate().resize(600, 820, { fit: 'cover', position: 'attention' }).jpeg({ quality: 80 }).toBuffer();
+  return `data:image/jpeg;base64,${jpeg.toString('base64')}`;
+}
 
 /** First attachment that references a Drive file (`{ id }` or `{ fileId }`). */
 function heroFileId(attachments: unknown): string | null {
@@ -62,8 +68,7 @@ export async function renderBookingInvoice(invoiceId: string, { driveUserId, ori
     try {
       const res = await fetchDriveFile({ user: { id: driveUserId } }, fileId);
       if (res.ok && /^image\//.test(res.headers.get('Content-Type') || '')) {
-        const jpeg = await sharp(Buffer.from(await res.arrayBuffer())).rotate().resize(600, 820, { fit: 'cover', position: 'attention' }).jpeg({ quality: 80 }).toBuffer();
-        heroImageUrl = `data:image/jpeg;base64,${jpeg.toString('base64')}`;
+        heroImageUrl = await cropToHeroFrame(Buffer.from(await res.arrayBuffer()));
       }
     } catch (e) {
       console.error('Invoice hero image unavailable:', e);
@@ -86,4 +91,45 @@ export async function renderBookingInvoice(invoiceId: string, { driveUserId, ori
 
   const pdf = await renderInvoicePdf(viewModel);
   return { pdf, filename: `${invoice.invoiceNumber.replace(/[^A-Za-z0-9_-]/g, '')}.pdf` };
+}
+
+/** The order's first image attachment (pasted image or Drive file), cropped for the header; undefined if none or unreadable. */
+async function orderHeroImage(customData: unknown, driveUserId: string | null | undefined): Promise<string | undefined> {
+  if (!customData || typeof customData !== 'object') return undefined;
+  for (const value of Object.values(customData as Record<string, unknown>)) {
+    try {
+      if (typeof value === 'string' && value.startsWith('data:image/')) {
+        return await cropToHeroFrame(Buffer.from(value.slice(value.indexOf(',') + 1), 'base64'));
+      }
+      const drive = value && typeof value === 'object' && 'driveFile' in value ? (value as { driveFile?: Record<string, unknown> }).driveFile : undefined;
+      const fileId = drive && (drive.id ?? drive.driveFileId);
+      const mime = drive && typeof drive.mimeType === 'string' ? drive.mimeType : 'image/';
+      if (typeof fileId === 'string' && mime.startsWith('image/') && driveUserId) {
+        const res = await fetchDriveFile({ user: { id: driveUserId } }, fileId);
+        if (res.ok && /^image\//.test(res.headers.get('Content-Type') || '')) return await cropToHeroFrame(Buffer.from(await res.arrayBuffer()));
+      }
+    } catch (e) {
+      console.error('Order invoice image unavailable:', e);
+    }
+  }
+  return undefined;
+}
+
+/** A gift/frame order's invoice PDF, with the same figures as the order screen; null when the order is gone. */
+export async function renderOrderInvoice(orderId: string, { driveUserId, origin }: { driveUserId?: string | null; origin: string }) {
+  const order = await prisma.productOrder.findUnique({
+    where: { id: orderId },
+    include: { product: { select: { name: true, description: true } }, transactions: { where: { deletedAt: null, type: 'INCOME' }, select: { amount: true, date: true } } },
+  });
+  if (!order) return null;
+  const settingsRecords = await prisma.systemSetting.findMany({ where: { key: { startsWith: 'studio_' } }, select: { key: true, value: true } });
+  const settings: Record<string, string> = {};
+  for (const s of settingsRecords) if (typeof s.value === 'string' || typeof s.value === 'number') settings[s.key] = String(s.value);
+
+  const viewModel = buildOrderInvoiceViewModel({ ...order, payments: order.transactions }, settings, {
+    assetBase: origin,
+    heroImageUrl: await orderHeroImage(order.customData, driveUserId),
+  });
+  const pdf = await renderInvoicePdf(viewModel);
+  return { pdf, filename: `Invoice-${orderNumberOf(order).replace(/[^A-Za-z0-9_-]/g, '')}.pdf` };
 }

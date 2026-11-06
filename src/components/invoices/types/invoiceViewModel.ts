@@ -47,12 +47,14 @@ export interface InvoiceViewModel {
   statusLabel: string;
   invoiceDate: string;
 
-  /** Couple photo (Drive) or the placeholder, already cropped to the header frame */
-  heroImageUrl: string;
+  /** Photo for the header corner (couple photo / order reference image), cropped to the frame; floral artwork without one */
+  heroImageUrl?: string;
 
   studio: { name: string; tagline: string };
   billTo: { name: string; lines: InfoLine[] };
   from: { name: string; lines: InfoLine[] };
+  /** Title of the details card ("EVENT INFORMATION" / "ORDER INFORMATION") */
+  detailsTitle: string;
   event: EventDetail[];
 
   items: InvoiceLineItemVM[];

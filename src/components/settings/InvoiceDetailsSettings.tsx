@@ -57,7 +57,10 @@ const GROUPS: { title: string; icon: string; description: string; fields: Field[
     title: "Terms & conditions",
     icon: "ph-list-checks",
     description: "One term per line",
-    fields: [{ key: "studio_terms", label: "Terms", multiline: true, wide: true }],
+    fields: [
+      { key: "studio_terms", label: "Booking invoices", multiline: true, wide: true },
+      { key: "studio_order_terms", label: "Gift & frame order invoices", multiline: true, wide: true },
+    ],
   },
 ];
 
@@ -172,7 +175,7 @@ export default function InvoiceDetailsSettings() {
                     {f.multiline ? (
                       <textarea
                         id={id}
-                        rows={f.key === "studio_terms" ? 6 : 2}
+                        rows={f.key.endsWith("_terms") ? 5 : 2}
                         value={values[f.key] ?? ""}
                         placeholder={placeholder}
                         onChange={(e) => set(f.key, e.target.value)}

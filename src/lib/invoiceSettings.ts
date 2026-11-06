@@ -17,6 +17,7 @@ export const INVOICE_SETTING_KEYS = [
   "studio_website",
   "studio_review_url",
   "studio_terms",
+  "studio_order_terms",
 ] as const;
 
 export type InvoiceSettingKey = (typeof INVOICE_SETTING_KEYS)[number];
@@ -27,6 +28,13 @@ export const DEFAULT_INVOICE_TERMS = [
   "Album delivery within 30 working days after the event.",
   "Raw photos/videos will not be shared.",
   "Cancellation 15 days before the event is non-refundable.",
+];
+
+/** Gift / frame order invoices (the old order invoice's wording). */
+export const DEFAULT_ORDER_TERMS = [
+  "Please note that all invoices are due by the designated due date.",
+  "For any questions about this invoice, please contact us.",
+  "Thank you for choosing Moondot Studio for your special moments.",
 ];
 
 /** What the invoice uses when a setting is left blank (shown as placeholders in the editor). */
@@ -40,4 +48,5 @@ export const INVOICE_SETTING_DEFAULTS: Partial<Record<InvoiceSettingKey, string>
   studio_instagram: "instagram.com/moondot.studio",
   studio_website: "www.moondotstudio.com",
   studio_terms: DEFAULT_INVOICE_TERMS.join("\n"),
+  studio_order_terms: DEFAULT_ORDER_TERMS.join("\n"),
 };

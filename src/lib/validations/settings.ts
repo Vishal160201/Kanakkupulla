@@ -61,5 +61,6 @@ export const invoiceSettingsSchema = z
     studio_website: text(120),
     studio_review_url: z.string().trim().max(500).optional().refine((v) => !v || /^https:\/\/\S+$/.test(v), "Paste the full https:// review link"),
     studio_terms: text(2000),
+    studio_order_terms: text(2000),
   })
   .strict();

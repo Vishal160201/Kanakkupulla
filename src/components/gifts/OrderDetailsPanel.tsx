@@ -11,7 +11,6 @@ import { DueCollectionPanel, RollbackWarning } from "./order-details/OrderInline
 import OrderInfoCard from "./order-details/OrderInfoCard";
 import FinancialsCard from "./order-details/FinancialsCard";
 import AttachmentsCard, { hasAttachments } from "./order-details/AttachmentsCard";
-import GiftInvoiceTemplate from "./order-details/GiftInvoiceTemplate";
 import DiscountConfirmDialog from "./order-details/DiscountConfirmDialog";
 import { useAccess } from "@/hooks/useAccess";
 
@@ -128,8 +127,7 @@ function OrderDetailsBody({ orderId }: { orderId: string | null }) {
         </div>
       </main>
 
-      {/* Off-screen Invoice Template */}
-      <GiftInvoiceTemplate order={order} customData={customData} />
+
 
       {/* Discount Confirmation Dialog */}
       <DiscountConfirmDialog

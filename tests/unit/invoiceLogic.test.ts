@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildInvoiceViewModel, buildPaymentSteps, itemIcon } from "@/components/invoices/utils/invoiceLogic";
+import { buildInvoiceViewModel, buildOrderInvoiceViewModel, buildPaymentSteps, itemIcon } from "@/components/invoices/utils/invoiceLogic";
 import { formatCurrency } from "@/components/invoices/utils/currency";
 import { formatDate } from "@/components/invoices/utils/date";
 
@@ -123,5 +123,49 @@ describe("invoice details", () => {
     // 18:30 UTC is already the next day in India
     expect(formatDate(new Date("2026-11-07T18:30:00Z"))).toBe("8 November 2026");
     expect(formatDate(null)).toBeUndefined();
+  });
+});
+
+describe("order invoice", () => {
+  const order = (extra: Record<string, unknown> = {}) => ({
+    id: "cmorder000000000001f0974", orderNumber: "#MDorder-1F0974", clientName: "Vellathai", clientPhone: "9042412862",
+    quantity: 2, status: "PROCESSING", date: day("2026-10-20"), createdAt: day("2026-10-20"), dueDate: day("2026-11-20"),
+    discountAmount: 100, customData: { amount: 2200, advanceAmount: 500 }, product: { name: "Photoframe 12x18", description: "Wooden frame" },
+    payments: [{ amount: 500, date: day("2026-10-20") }],
+    ...extra,
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const buildOrder = (o: any, settings: Record<string, string> = {}) => buildOrderInvoiceViewModel(o, settings, { assetBase: "https://example.test", now: NOW });
+
+  it("uses the order screen's figures: amount minus discount minus payments", () => {
+    const vm = buildOrder(order());
+    expect(vm.invoiceNumber).toBe("MDorder-1F0974");
+    expect(vm.status).toBe("PARTIALLY_PAID");
+    expect(vm.summaryRows.map((r) => `${r.label} ${r.value}`)).toEqual(["Subtotal ₹2,200", "Discount - ₹100", "Total ₹2,100", "Amount paid - ₹500"]);
+    expect(vm.balanceDue).toBe("₹1,600");
+    expect(vm.items).toEqual([{ title: "Photoframe 12x18", subtitle: "Wooden frame", icon: "image", qty: "2", unitPrice: "₹1,100", total: "₹2,200" }]);
+  });
+
+  it("shows the order's details and no couple placeholder", () => {
+    const vm = buildOrder(order());
+    expect(vm.detailsTitle).toBe("ORDER INFORMATION");
+    expect(vm.event.map((e) => `${e.label}: ${e.value}`)).toEqual(["Order date: 20 October 2026", "Delivery date: 20 November 2026", "Product: Photoframe 12x18", "Status: In production"]);
+    expect(vm.heroImageUrl).toBeUndefined();
+    expect(vm.terms[0]).toMatch(/due by the designated due date/);
+  });
+
+  it("is overdue once the delivery date passes with nothing paid, and paid when settled", () => {
+    expect(buildOrder(order({ payments: [], dueDate: day("2026-10-01") })).status).toBe("OVERDUE");
+    expect(buildOrder(order({ payments: [{ amount: 2100, date: day("2026-10-25") }] })).status).toBe("PAID");
+  });
+
+  it("falls back to the id for orders without a number, and to customData's discount", () => {
+    const vm = buildOrder(order({ orderNumber: null, discountAmount: 0, customData: { amount: 1000, discountAmount: 200 } }));
+    expect(vm.invoiceNumber).toBe("MDorder-1F0974");
+    expect(vm.summaryRows).toContainEqual({ label: "Discount", value: "- ₹200", tone: "discount" });
+  });
+
+  it("uses the order terms from settings when set", () => {
+    expect(buildOrder(order(), { studio_order_terms: "Collect within 7 days\nNo returns on custom prints" }).terms).toEqual(["Collect within 7 days", "No returns on custom prints"]);
   });
 });

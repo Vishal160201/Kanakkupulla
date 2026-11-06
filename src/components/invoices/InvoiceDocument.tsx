@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Page, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, StyleSheet, Image as PdfImage } from '@react-pdf/renderer';
 import type { InvoiceViewModel } from './types/invoiceViewModel';
 import { Header, HeroPhoto } from './components/Header';
 import { BillingSection } from './components/BillingSection';
@@ -28,7 +28,12 @@ export default function InvoiceDocument({ viewModel: vm }: { viewModel: InvoiceV
       <Page size="A4" style={styles.page}>
         <BackgroundDecoration assets={vm.assets} />
         <View style={{ position: 'absolute', top: 0, left: 0 }}>
-          <HeroPhoto src={vm.heroImageUrl} />
+          {vm.heroImageUrl ? (
+            <HeroPhoto src={vm.heroImageUrl} />
+          ) : (
+            // No photo (e.g. a gift order without a reference image): floral artwork in the corner instead
+            <PdfImage src={vm.assets.floralCorner} style={{ width: 150, height: 150, opacity: 0.85 }} />
+          )}
         </View>
         <Header viewModel={vm} />
         <BillingSection viewModel={vm} />
