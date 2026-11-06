@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/notifications";
 import { requireAccess } from "@/lib/authz";
-import { STUDIO_DETAILS } from "@/lib/constants";
+import { getStudioContact } from "@/lib/studioContact";
 import { trashBooking } from "@/lib/recycleBin";
 import { parseJsonBody, parseSearchParams } from "@/lib/validations/http";
 import { bookingDeleteQuerySchema, bookingUpdateApiSchema } from "@/lib/validations/booking";
@@ -21,7 +21,7 @@ export async function GET(
 
   try {
     const id = (await params).id;
-    const [booking, studioRows] = await Promise.all([
+    const [booking, studio] = await Promise.all([
       prisma.booking.findUnique({
         where: { id },
         include: {
@@ -33,26 +33,12 @@ export async function GET(
           updatedBy: { select: { name: true, email: true } },
         },
       }),
-      // For the WhatsApp messages to the client
-      prisma.systemSetting.findMany({
-        where: { key: { in: ["studio_name", "studio_phone", "studio_upi_id"] } },
-        select: { key: true, value: true },
-      }),
+      getStudioContact(), // for the WhatsApp messages to the client
     ]);
 
     if (!booking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
-
-    const setting = (key: string) => {
-      const value = studioRows.find((r) => r.key === key)?.value;
-      return typeof value === "string" && value.trim() ? value : null;
-    };
-    const studio = {
-      name: setting("studio_name") ?? STUDIO_DETAILS.name,
-      phone: setting("studio_phone") ?? STUDIO_DETAILS.phone,
-      upiId: setting("studio_upi_id") ?? STUDIO_DETAILS.upiId,
-    };
 
     return NextResponse.json({ ...booking, studio }, {
       headers: { "Cache-Control": "private, no-store" },

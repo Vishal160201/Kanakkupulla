@@ -90,10 +90,10 @@ const PaymentMethods = ({ payment }: { payment: Methods }) => {
   if (payment.whatsapp)
     cols.push(
       <View key="wa" style={styles.col}>
-        <ColHead icon="whatsapp" title="WHATSAPP" sub="Send your payment screenshot" />
+        <ColHead icon="whatsapp" title="WHATSAPP" sub="Message us once you've paid" />
         <Link src={payment.whatsapp.link} style={styles.button}>
           <Icon name="whatsapp" color={colors.white} size={9} />
-          <Text style={styles.buttonText}>Chat on WhatsApp</Text>
+          <Text style={styles.buttonText}>Send payment proof</Text>
         </Link>
         <Text style={styles.phone}>{payment.whatsapp.phone}</Text>
       </View>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CABLE_TEMPLATES, STUDIO_TEMPLATES, messageDate, normalizePhone, planLabel, plainText, renderTemplate, smsUrl, waChatUrl, withoutMissing } from "@/lib/whatsapp";
+import { CABLE_TEMPLATES, ORDER_TEMPLATES, STUDIO_TEMPLATES, messageDate, normalizePhone, planLabel, plainText, renderTemplate, smsUrl, waChatUrl, withoutMissing } from "@/lib/whatsapp";
 
 describe("normalizePhone", () => {
   it("adds 91 to local numbers and strips formatting", () => {
@@ -77,5 +77,16 @@ describe("STUDIO_TEMPLATES", () => {
     expect(text).toContain("Advance received: ₹10,000");
     expect(text).not.toContain("Balance");
     expect(text).not.toContain("Package");
+  });
+});
+
+describe("ORDER_TEMPLATES", () => {
+  const vars = { customer: "Vellathai", product: "Photoframe", qty: 1, orderNo: "MDorder-1F0974", delivery: "11 Nov 2026", total: "₹1,100", paid: "₹500", due: "₹600", upi: "studio@upi", phone: "+91 73737 87172", shop: "Moondot Studio" };
+  it("fills every placeholder in both languages", () => {
+    for (const lang of ["en", "ta"] as const) {
+      for (const template of Object.values(ORDER_TEMPLATES[lang])) {
+        expect(renderTemplate(withoutMissing(template, vars), vars)).not.toMatch(/\{[a-zA-Z]+\}/);
+      }
+    }
   });
 });

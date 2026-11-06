@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { readInvoiceToken } from "@/lib/invoiceLink";
-import { renderBookingInvoice } from "@/lib/invoicePdf";
+import { renderBookingInvoice, renderOrderInvoice } from "@/lib/invoicePdf";
 import { MINUTE, limitRequest } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
@@ -17,12 +17,20 @@ const gone = () =>
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const limited = await limitRequest(request, "invoice-link", 30, MINUTE);
   if (limited) return limited;
-  const invoiceId = readInvoiceToken((await params).token);
-  if (!invoiceId) return gone();
+  const target = readInvoiceToken((await params).token);
+  if (!target) return gone();
+  const origin = process.env.NEXTAUTH_URL ?? new URL(request.url).origin;
   try {
-    // The couple photo comes from the Drive of whoever created the booking (placeholder if not connected)
-    const owner = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { booking: { select: { createdById: true } } } });
-    const result = await renderBookingInvoice(invoiceId, { driveUserId: owner?.booking.createdById, origin: process.env.NEXTAUTH_URL ?? new URL(request.url).origin });
+    let result;
+    if (target.kind === "order") {
+      // A Drive reference image is read with the Drive of whoever recorded the order's payment
+      const payment = await prisma.transaction.findFirst({ where: { productOrderId: target.id }, select: { userId: true }, orderBy: { createdAt: "asc" } });
+      result = await renderOrderInvoice(target.id, { driveUserId: payment?.userId, origin });
+    } else {
+      // The couple photo comes from the Drive of whoever created the booking (placeholder if not connected)
+      const owner = await prisma.invoice.findUnique({ where: { id: target.id }, select: { booking: { select: { createdById: true } } } });
+      result = await renderBookingInvoice(target.id, { driveUserId: owner?.booking.createdById, origin });
+    }
     if (!result) return gone();
     return new NextResponse(new Uint8Array(result.pdf), {
       headers: {

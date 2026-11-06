@@ -1,3 +1,5 @@
+importScripts("whatsappWeb.js");
+
 // Every minute: read each ticked portal (TIC Fiber, TCCL) in the offscreen document and post it to Kanakkupulla.
 
 const ALARM = "sync";
@@ -42,10 +44,20 @@ chrome.notifications.onClicked.addListener((id) => {
   chrome.tabs.create({ url: `https://${id.slice("login:".length)}/` });
   chrome.notifications.clear(id);
 });
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "syncNow") return false;
-  syncNow().then(sendResponse);
-  return true;
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "syncNow") {
+    syncNow().then(sendResponse);
+    return true;
+  }
+  if (message?.type === "whatsappSend") {
+    // Only the saved Kanakkupulla site (through bridge.js) may ask for this
+    chrome.storage.local.get("appUrl").then(({ appUrl }) => {
+      if (!appUrl || sender.origin !== appUrl) return sendResponse({ ok: false, message: "Open this from your Kanakkupulla site." });
+      whatsappSend(message).then(sendResponse, (err) => sendResponse({ ok: false, message: String(err?.message ?? err) }));
+    });
+    return true;
+  }
+  return false;
 });
 
 async function setStatus(status) {

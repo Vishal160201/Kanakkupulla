@@ -1,13 +1,42 @@
 {
   "manifest_version": 3,
   "name": "Kanakkupulla Sync",
-  "version": "1.0.1",
-  "description": "Copies your TIC Fiber and TCCL subscribers into Kanakkupulla every minute, using your logged-in portals.",
-  "permissions": ["alarms", "storage", "offscreen", "scripting", "notifications"],
-  "host_permissions": ["https://partner.ticfiber.in/*", "https://sms.tccl.co.in/*"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
-  "icons": { "48": "icon48.png", "128": "icon128.png" },
-  "background": { "service_worker": "background.js" },
-  "action": { "default_popup": "popup.html", "default_title": "Kanakkupulla Sync", "default_icon": { "48": "icon48.png", "128": "icon128.png" } },
-  "options_ui": { "page": "popup.html", "open_in_tab": true }
+  "version": "1.2.0",
+  "description": "Copies your TIC Fiber and TCCL subscribers into Kanakkupulla every minute, and attaches invoice PDFs in WhatsApp Web chats for you to send.",
+  "permissions": [
+    "alarms",
+    "notifications",
+    "offscreen",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://partner.ticfiber.in/*",
+    "https://sms.tccl.co.in/*",
+    "https://web.whatsapp.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Kanakkupulla Sync",
+    "default_icon": {
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "popup.html",
+    "open_in_tab": true
+  }
 }

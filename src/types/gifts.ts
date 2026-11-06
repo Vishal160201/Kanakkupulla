@@ -86,6 +86,8 @@ export interface GiftOrdersResponse {
 /** GET /api/gifts/orders/[id] */
 export interface GiftOrderResponse {
   order?: GiftOrder;
+  /** The studio's name, phone and UPI ID for messages to the client */
+  studio?: { name: string; phone: string; upiId: string };
 }
 
 /** GET /api/gifts/products */

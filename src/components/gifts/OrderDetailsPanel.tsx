@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
+import OrderWhatsAppDialog from "./order-details/OrderWhatsAppDialog";
 import { AlertTriangle, ArrowLeft, Download, Loader2, Receipt } from "@/components/ui/icons";
 import { useGlobalForm } from "@/components/providers/GlobalFormProvider";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -18,7 +20,8 @@ import { useAccess } from "@/hooks/useAccess";
 function OrderDetailsBody({ orderId }: { orderId: string | null }) {
   const { closeGiftOrderDetails, openTransactionDetails } = useGlobalForm();
   const details = useGiftOrderDetails(orderId, closeGiftOrderDetails);
-  const { order, error, customData, totals, edit, exporting, status, collection } = details;
+  const { order, studio, error, customData, totals, edit, exporting, status, collection } = details;
+  const [isMessageOpen, setIsMessageOpen] = useState(false);
   // Status changes, edits and payment collection need Gifts Manage.
   const canManage = useAccess().can("gifts", "MANAGE");
 
@@ -68,6 +71,14 @@ function OrderDetailsBody({ orderId }: { orderId: string | null }) {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsMessageOpen(true)}
+            aria-label="Message the client on WhatsApp"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-xl font-bold text-sm transition-colors shadow-sm"
+          >
+            <i className="ph-fill ph-whatsapp-logo text-base" aria-hidden="true" /> <span className="hidden sm:inline">WhatsApp</span>
+          </button>
           <button
             type="button"
             onClick={exporting.exportOrder}
@@ -137,6 +148,7 @@ function OrderDetailsBody({ orderId }: { orderId: string | null }) {
         onCancel={() => collection.setPendingDiscountConfirm(null)}
         onConfirm={collection.handleConfirmCollection}
       />
+      {isMessageOpen && <OrderWhatsAppDialog key={order.id} order={order} totals={totals} studio={studio} onClose={() => setIsMessageOpen(false)} />}
     </motion.div>
   );
 }

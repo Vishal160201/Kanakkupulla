@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import MessageDialog, { type MessageOption } from "@/components/shared/MessageDialog";
 import { formatINR } from "@/components/inventory/inventoryUtils";
 import { STUDIO_DETAILS } from "@/lib/constants";
 import { STUDIO_TEMPLATES, messageDate, renderTemplate, withoutMissing, type MessageLanguage, type StudioMessageKind } from "@/lib/whatsapp";
 import type { BookingDetail } from "@/types/bookings";
-import InvoiceAttachment from "./InvoiceAttachment";
+import InvoiceAttachment, { type InvoiceSource } from "@/components/shared/InvoiceAttachment";
+import { generateInvoiceAction } from "@/app/actions";
 
 const OPTIONS: MessageOption<StudioMessageKind>[] = [
   { kind: "bookingConfirmed", label: "Booking confirmed", icon: "ph-calendar-check" },
@@ -58,6 +60,27 @@ export default function BookingWhatsAppDialog({ booking, canManage, onClose }: {
     return renderTemplate(withoutMissing(STUDIO_TEMPLATES[lang][k], vars), vars);
   };
 
+  // The booking's invoice, created on first use by someone who can manage bookings (like the Invoice button)
+  const existing = booking.invoice && !booking.invoice.deletedAt ? booking.invoice : null;
+  const [invoiceId, setInvoiceId] = useState<string | null>(existing?.id ?? null);
+  const invoiceSource: InvoiceSource | null =
+    existing || canManage
+      ? {
+          number: existing?.invoiceNumber,
+          resolve: async () => {
+            let current = invoiceId;
+            if (!current) {
+              const res = await generateInvoiceAction(booking.id);
+              if (!res.success || !res.invoiceId) throw new Error(res.error || "Couldn't create the invoice");
+              current = res.invoiceId;
+              setInvoiceId(current);
+            }
+            const id = encodeURIComponent(current);
+            return { pdfUrl: `/api/invoices/${id}/pdf`, linkUrl: `/api/invoices/${id}/share-link` };
+          },
+        }
+      : null;
+
   return (
     <MessageDialog
       name={name}
@@ -65,7 +88,7 @@ export default function BookingWhatsAppDialog({ booking, canManage, onClose }: {
       options={OPTIONS}
       initialKind={defaultKind(booking, due)}
       fill={fill}
-      extras={({ text, setText }) => <InvoiceAttachment booking={booking} canManage={canManage} text={text} setText={setText} />}
+      extras={invoiceSource ? ({ text, setText }) => <InvoiceAttachment source={invoiceSource} phone={phone} text={text} setText={setText} /> : undefined}
       onClose={onClose}
     />
   );

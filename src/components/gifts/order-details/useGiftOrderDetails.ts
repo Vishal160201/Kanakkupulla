@@ -42,6 +42,7 @@ function buildEditForm(order: GiftOrder): GiftOrderEditForm {
 export function useGiftOrderDetails(orderId: string | null, onDeleted?: () => void) {
   const { data, error, mutate } = useSWR<GiftOrderResponse>(orderId ? `/api/gifts/orders/${orderId}` : null, fetcher);
   const order = data?.order;
+  const studio = data?.studio;
 
   // Custom notification state (kept for parity: it is set but not rendered anywhere yet)
   const [notification, setNotification] = useState<OrderNotification>(null);
@@ -270,6 +271,7 @@ export function useGiftOrderDetails(orderId: string | null, onDeleted?: () => vo
 
   return {
     order,
+    studio,
     error,
     customData,
     totals: { totalAmount, advanceAmount, collectedAmount, discountAmountValue, dueAmount, progressPercent },

@@ -313,3 +313,117 @@ UPI மூலம் செலுத்த: {upi}
 {shop}`,
   },
 };
+
+export type OrderMessageKind = "orderConfirmed" | "readyForPickup" | "paymentDue" | "thanks" | "delivered";
+
+// Messages to a gift / frame order's client; same rules as the cable and studio ones above.
+export const ORDER_TEMPLATES: Record<MessageLanguage, Record<OrderMessageKind, string>> = {
+  en: {
+    orderConfirmed: `Hi {customer},
+
+Your order with {shop} is confirmed.
+
+Order: {orderNo}
+Item: {product}
+Quantity: {qty}
+Ready by: *{delivery}*
+Total: {total}
+Advance received: {paid}
+Balance: {due}
+
+Thank you,
+{shop}
+{phone}`,
+    readyForPickup: `Hi {customer},
+
+Good news: your *{product}* is ready. Please collect it at your convenience.
+
+Order: {orderNo}
+Balance: *{due}*
+Pay by UPI: {upi}
+Help: {phone}
+
+Thank you,
+{shop}`,
+    paymentDue: `Hi {customer},
+
+A gentle reminder: *{due}* is pending for your order of {product}.
+
+Order: {orderNo}
+Pay by UPI: {upi}
+Help: {phone}
+
+Thank you,
+{shop}`,
+    thanks: `Hi {customer},
+
+We received *{paid}* for your order of {product}. Thank you!
+
+Order: {orderNo}
+Balance: {due}
+
+{shop}`,
+    delivered: `Hi {customer},
+
+Your {product} has been delivered. We hope you love it!
+
+Order: {orderNo}
+
+Thank you for choosing us,
+{shop}`,
+  },
+  ta: {
+    orderConfirmed: `வணக்கம் {customer},
+
+{shop} இல் உங்கள் ஆர்டர் உறுதி செய்யப்பட்டது.
+
+ஆர்டர்: {orderNo}
+பொருள்: {product}
+எண்ணிக்கை: {qty}
+தயாராகும் நாள்: *{delivery}*
+மொத்தம்: {total}
+பெற்ற முன்பணம்: {paid}
+மீதித் தொகை: {due}
+
+நன்றி,
+{shop}
+{phone}`,
+    readyForPickup: `வணக்கம் {customer},
+
+உங்கள் *{product}* தயாராக உள்ளது. வசதியான நேரத்தில் பெற்றுக்கொள்ளவும்.
+
+ஆர்டர்: {orderNo}
+மீதித் தொகை: *{due}*
+UPI மூலம் செலுத்த: {upi}
+உதவிக்கு: {phone}
+
+நன்றி,
+{shop}`,
+    paymentDue: `வணக்கம் {customer},
+
+உங்கள் {product} ஆர்டருக்கான *{due}* இன்னும் செலுத்தப்படவில்லை. தயவுசெய்து விரைவில் செலுத்தவும்.
+
+ஆர்டர்: {orderNo}
+UPI மூலம் செலுத்த: {upi}
+உதவிக்கு: {phone}
+
+நன்றி,
+{shop}`,
+    thanks: `வணக்கம் {customer},
+
+உங்கள் {product} ஆர்டருக்கான *{paid}* பெற்றுக்கொண்டோம். நன்றி!
+
+ஆர்டர்: {orderNo}
+மீதித் தொகை: {due}
+
+{shop}`,
+    delivered: `வணக்கம் {customer},
+
+உங்கள் {product} வழங்கப்பட்டது. உங்களுக்குப் பிடிக்கும் என நம்புகிறோம்!
+
+ஆர்டர்: {orderNo}
+
+எங்களைத் தேர்ந்தெடுத்ததற்கு நன்றி,
+{shop}`,
+  },
+};

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAccess } from "@/lib/authz";
+import { getStudioContact } from "@/lib/studioContact";
 import { broadcastNotification } from "@/lib/notifications";
 import type { Prisma } from "@prisma/client";
 import { parseJsonBody } from "@/lib/validations/http";
@@ -16,19 +17,22 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const order = await prisma.productOrder.findUnique({
-      where: { id },
-      include: {
-        product: true,
-        transactions: { where: { deletedAt: null } },
-      }
-    });
+    const [order, studio] = await Promise.all([
+      prisma.productOrder.findUnique({
+        where: { id },
+        include: {
+          product: true,
+          transactions: { where: { deletedAt: null } },
+        }
+      }),
+      getStudioContact(), // for the WhatsApp messages to the client
+    ]);
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ order });
+    return NextResponse.json({ order, studio });
   } catch (error) {
     console.error("Failed to fetch gift order:", error);
     return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
