@@ -6,6 +6,8 @@ declare module "next-auth" {
       id: string;
       role: "OWNER" | "MEMBER";
       status?: "ACTIVE" | "PENDING" | "INACTIVE";
+      /** Can open the personal money tracker (/money); the allowed email itself stays server-side */
+      moneyTracker?: boolean;
     };
   }
 }

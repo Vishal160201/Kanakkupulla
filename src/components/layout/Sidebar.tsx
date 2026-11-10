@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useMobileNav } from "../providers/MobileNavProvider";
 import { useSyncExternalStore } from "react";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -27,6 +28,9 @@ interface NavItem {
   /** Active only on an exact path match (so a parent item doesn't light up on a child's route). */
   exactActive?: boolean;
 }
+
+/** The personal money tracker: shown only to the one account allowed to open it. */
+const MONEY_ITEM = { name: "Money", path: "/money", activePrefix: "/money", icon: "ph-wallet" };
 
 const NAV_ITEMS: NavItem[] = [
   { name: "Dashboard", path: "/dashboard/overview", activePrefix: "/dashboard", icon: "ph-house", module: "dashboard", access: [{ module: "dashboard", path: "/dashboard/overview" }] },
@@ -72,6 +76,7 @@ export default function Sidebar() {
   const can = useActiveShopCan();
   const { canView: canOpenSettings } = useRecycleBinAccess();
   const isCollapsed = useSyncExternalStore(subscribeCollapsed, getCollapsedSnapshot, getCollapsedServerSnapshot);
+  const { data: session } = useSession();
 
   if (pathname.startsWith('/settings')) {
     return null;
@@ -90,6 +95,9 @@ export default function Sidebar() {
     const target = item.access.find(({ module }) => can(module, "VIEW"));
     return target ? [{ ...item, path: target.path }] : [];
   });
+  const navItems: Pick<NavItem, "name" | "path" | "activePrefix" | "icon" | "exactActive">[] = session?.user?.moneyTracker
+    ? [...visibleNavItems, MONEY_ITEM]
+    : visibleNavItems;
 
   return (
     <>
@@ -129,7 +137,7 @@ export default function Sidebar() {
       </div>
       
       <ul className="list-none mt-10 flex flex-col gap-2">
-        {visibleNavItems.map((item) => {
+        {navItems.map((item) => {
           const isActive = item.exactActive ? pathname === item.activePrefix : pathname === item.activePrefix || pathname.startsWith(`${item.activePrefix}/`);
           return (
             <li key={item.path}>

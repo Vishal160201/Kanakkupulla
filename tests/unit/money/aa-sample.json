@@ -1,0 +1,16 @@
+{
+  "Account": {
+    "type": "deposit",
+    "maskedAccNumber": "XXXXXXXX2222",
+    "Summary": { "currentBalance": "21300.00", "currency": "INR" },
+    "Transactions": {
+      "startDate": "2026-09-01",
+      "endDate": "2026-11-02",
+      "Transaction": [
+        { "txnId": "T2", "type": "CREDIT", "mode": "UPI", "amount": "2500.00", "currentBalance": "21300.00", "transactionTimestamp": "2026-11-01T09:05:00+05:30", "valueDate": "2026-11-01", "narration": "UPI/CR/100000000044/ACCOUNT HOLDER/HDFC/SELF", "reference": "100000000044" },
+        { "txnId": "T1", "type": "DEBIT", "mode": "UPI", "amount": 1200, "currentBalance": "18800.00", "transactionTimestamp": "2026-09-14T10:42:13+05:30", "valueDate": "2026-09-14", "narration": "UPI/DR/200000000011/ACCOUNT HOLDER-HDFC", "reference": "200000000011" },
+        { "txnId": "T3", "type": "REFUND", "amount": "1.00", "transactionTimestamp": "2026-11-02T00:00:00+05:30" }
+      ]
+    }
+  }
+}

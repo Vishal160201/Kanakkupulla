@@ -7,6 +7,7 @@ import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import type { JWT } from "next-auth/jwt";
 import { identifierLookup } from "@/lib/auth/username";
+import { canUseMoneyTracker } from "@/lib/money/access";
 import { MINUTE, clearRateLimit, clientIp, rateLimit } from "@/lib/rateLimit";
 
 const ROLE_REFRESH_MS = 60 * 1000;
@@ -203,6 +204,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub as string;
         session.user.role = token.role ?? "MEMBER";
         session.user.status = token.status;
+        session.user.moneyTracker = canUseMoneyTracker(token.email ?? session.user.email);
       }
       return session;
     },

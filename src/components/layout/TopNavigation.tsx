@@ -17,6 +17,8 @@ import { useAccess } from "@/hooks/useAccess";
 const AVATAR_BUTTON = "w-[45px] h-[45px] rounded-full flex items-center justify-center font-extrabold text-base cursor-pointer shadow-sm transition-colors";
 
 function getTitle(pathname: string) {
+  // First: /money has its own transactions and settings tabs
+  if (pathname === "/money" || pathname.startsWith("/money/")) return "Money";
   if (pathname.includes("bookings")) return "Bookings Management";
   if (pathname.includes("galleries")) return "Galleries Management";
   if (pathname.includes("analytics")) return "Analytics";

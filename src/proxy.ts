@@ -1,5 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import { canUseMoneyTracker } from "@/lib/money/access";
 
 export default withAuth(
   function proxy(req) {
@@ -24,6 +25,12 @@ export default withAuth(
       return NextResponse.redirect(new URL('/dashboard/overview', req.url));
     }
 
+    // The personal money tracker is private to one account
+    const path = req.nextUrl.pathname;
+    if ((path === '/money' || path.startsWith('/money/')) && !canUseMoneyTracker(token?.email)) {
+      return NextResponse.redirect(new URL('/dashboard/overview', req.url));
+    }
+
     // Module access (analytics, inventory, …) is per shop role: enforced by the APIs and the
     // client route guard, since it needs the database.
 
@@ -41,5 +48,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/", "/dashboard/:path*", "/inventory/:path*", "/inventory", "/farmers/:path*", "/farmers", "/produce/:path*", "/produce", "/subscribers/:path*", "/subscribers", "/bookings/:path*", "/transactions/:path*", "/analytics/:path*", "/gifts/:path*", "/settings/:path*", "/invoice", "/login"],
+  matcher: ["/", "/dashboard/:path*", "/inventory/:path*", "/inventory", "/farmers/:path*", "/farmers", "/produce/:path*", "/produce", "/subscribers/:path*", "/subscribers", "/bookings/:path*", "/transactions/:path*", "/analytics/:path*", "/gifts/:path*", "/settings/:path*", "/invoice", "/money", "/money/:path*", "/login"],
 };

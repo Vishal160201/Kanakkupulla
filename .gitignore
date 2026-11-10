@@ -84,3 +84,6 @@ personal expense tracker.txt
 
 # allow the env template
 !.env.example
+
+# Money tracker: real bank statements and sheets used as local test fixtures, never committed
+/data/
