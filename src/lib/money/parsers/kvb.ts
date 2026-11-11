@@ -30,6 +30,7 @@ export function parseKvb(pages: PdfPage[]): ParsedStatement {
     startKey: "date",
     isRowStart: (cell) => DATE_RE.test(cell.split(" ")[0] ?? ""),
     continuationKeys: ["date", "valueDate", "particulars", "ref"],
+    mergeWithin: 7,
   });
 
   let opening: string | null = null;
@@ -64,7 +65,7 @@ export function parseKvb(pages: PdfPage[]): ParsedStatement {
     });
   });
 
-  const account = /Account\s*(?:No|Number)\.?\s*:?\s*(\d[\d\s]{5,})/i.exec(all)?.[1]?.replace(/\s/g, "") ?? null;
+  const account = /(?:Account|Acc\.?)\s*(?:No|Number)\.?[ \t]*:?[ \t]*(\d[\d \t]{5,24})/i.exec(all)?.[1]?.replace(/\s/g, "") ?? null;
   const period = /(\d{2}-[A-Za-z]{3}-\d{4})\s*(?:to|-|–)\s*(\d{2}-[A-Za-z]{3}-\d{4})/i.exec(all);
   if (opening == null) opening = openingFromFirstRow(rows);
 

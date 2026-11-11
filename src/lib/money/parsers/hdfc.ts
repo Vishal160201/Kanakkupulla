@@ -54,7 +54,7 @@ export function parseHdfc(pages: PdfPage[]): ParsedStatement {
   });
 
   const summary = readSummary(all);
-  const account = /Account\s*(?:No|Number)\.?\s*:?\s*(\d[\d\s]{5,})/i.exec(all)?.[1]?.replace(/\s/g, "") ?? null;
+  const account = /Account\s*(?:No|Number)\.?[ \t]*:?[ \t]*(\d[\d \t]{5,24})/i.exec(all)?.[1]?.replace(/\s/g, "") ?? null;
   const period = /From\s*:?\s*(\d{2}\/\d{2}\/\d{2,4})\s*To\s*:?\s*(\d{2}\/\d{2}\/\d{2,4})/i.exec(all);
 
   const opening = summary?.opening ?? openingFromFirstRow(rows);

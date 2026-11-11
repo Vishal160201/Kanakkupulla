@@ -3,7 +3,7 @@ import { readPdfLines } from "@/lib/money/parsers/pdfText";
 import { detectHdfc, parseHdfc } from "@/lib/money/parsers/hdfc";
 import { detectKvb, parseKvb } from "@/lib/money/parsers/kvb";
 import { validateStatement } from "@/lib/money/parsers/validate";
-import { hdfcPdf, kvbPdf, type HdfcRow } from "./statementPdf";
+import { hdfcPdf, kvbPdf, kvbStaggeredPdf, type HdfcRow } from "./statementPdf";
 
 const HDFC_ROWS: HdfcRow[] = [
   { date: "30/10/26", narration: ["UPI-ACCOUNT HOLDER-me@okhdfc-", "KVBL0001234-100000000011-SELF"], ref: "0000100000000011", valueDate: "30/10/26", withdrawal: "4,500.00", balance: "15,500.00" },
@@ -100,6 +100,31 @@ describe("KVB statement PDF", () => {
     expect(st.rows[0].narration).toBe("UPI/DR/200000000011/ACCOUNT HOLDER-HDFC/me@okhdfc");
     expect(st.rows[1]).toMatchObject({ direction: "CREDIT", amount: "2500.00", txnTime: "09:05:00" });
     expect(st.rows.some((r) => r.narration.includes("KVB"))).toBe(false);
+    expect(validateStatement(st).warnings).toEqual([]);
+  });
+});
+
+describe("KVB statement PDF, real layout (each row over 4 staggered lines)", () => {
+  it("reads every row across pages, with times, refs and the account number", async () => {
+    const rows = [
+      { date: "01-Sep-2026", time: "19:16:45", valueDate: "01-Sep-2026", particulars: ["UPI-CR-300000000001-AC", "COUNT HOLDER-HDFC-5010"], ref: "300000000001", credit: "2,500.00", balance: "7,500.00" },
+      { date: "03-Sep-2026", time: "15:02:48", valueDate: "03-Sep-2026", particulars: ["UPI-DR-300000000002-SH", "OP-YESB-1234"], ref: "300000000002", debit: "1,200.00", balance: "6,300.00" },
+      { date: "06-Sep-2026", time: "14:09:02", valueDate: "06-Sep-2026", particulars: ["10001291012156-", ""], ref: "300000000003", credit: "649.00", balance: "6,949.00" },
+      { date: "14-Sep-2026", time: "18:46:27", valueDate: "14-Sep-2026", particulars: ["UPI-DR-300000000004-AR", "UN KUMAR-UTIB-9"], ref: "300000000004", debit: "4,198.00", balance: "2,751.00" },
+    ];
+    const pages = await readPdfLines(kvbStaggeredPdf({ opening: "5,000.00", rows, pageBreakAfter: 2 }));
+    expect(detectKvb(pages)).toBe(true);
+    const st = parseKvb(pages);
+    expect(st.accountLast4).toBe("2222");
+    expect([st.openingBalance, st.closingBalance, st.periodFrom, st.periodTo]).toEqual(["5000.00", "2751.00", "2026-09-01", "2026-11-11"]);
+    expect(st.rows.map((r) => [r.txnDate, r.txnTime, r.refNo, r.direction, r.amount, r.balanceAfter])).toEqual([
+      ["2026-09-01", "19:16:45", "300000000001", "CREDIT", "2500.00", "7500.00"],
+      ["2026-09-03", "15:02:48", "300000000002", "DEBIT", "1200.00", "6300.00"],
+      ["2026-09-06", "14:09:02", "300000000003", "CREDIT", "649.00", "6949.00"],
+      ["2026-09-14", "18:46:27", "300000000004", "DEBIT", "4198.00", "2751.00"],
+    ]);
+    expect(st.rows[0].narration).toBe("UPI-CR-300000000001-AC COUNT HOLDER-HDFC-5010");
+    expect(st.rows.some((r) => /computer-generated/.test(r.narration))).toBe(false);
     expect(validateStatement(st).warnings).toEqual([]);
   });
 });

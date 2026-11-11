@@ -105,3 +105,55 @@ export function kvbPdf(opts: { opening: string; openingDate: string; rows: KvbRo
   table(doc, KVB_HEADERS, rows, 32);
   return new Uint8Array(doc.output("arraybuffer"));
 }
+
+/**
+ * KVB's real layout: each transaction is printed over 4 staggered lines (reference just above the
+ * date, then the date with the start of the particulars, then value date and amounts, then the
+ * time with the rest of the particulars). Synthetic data, real geometry (PDF points).
+ */
+export function kvbStaggeredPdf(opts: { opening: string; rows: KvbRow[]; pageBreakAfter?: number }): Uint8Array {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const header = (y: number) => {
+    doc.setFontSize(8);
+    [["Txn Date", 44], ["Value Date", 103], ["Particulars", 163], ["Ref. No.", 318], ["Debit", 378], ["Credit", 438], ["Balance", 498]].forEach(([t, x]) => doc.text(String(t), Number(x), y));
+  };
+  doc.setFontSize(15);
+  doc.text("ACCOUNT STATEMENT", 32, 60);
+  doc.setFontSize(10);
+  doc.text("Acc.No.", 340, 110);
+  doc.text(": 1273000000002222", 403, 110);
+  doc.text("8-12 SAMPLE STREET", 36, 122);
+  doc.text("St. Period", 340, 180);
+  doc.text(": 01-Sep-2026 to 11-Nov-2026", 403, 180);
+  doc.text("SB - KVB SAVINGS", 403, 195);
+  header(345);
+  doc.setFontSize(8);
+  doc.text("01-SEP-2026", 43, 377);
+  doc.text("01-SEP-2026", 105, 377);
+  doc.text("B/F...", 165, 377);
+  doc.text(opts.opening, 536, 377, { align: "right" });
+  let y = 405;
+  opts.rows.forEach((r, i) => {
+    if (opts.pageBreakAfter && i === opts.pageBreakAfter) {
+      doc.setFontSize(10);
+      doc.text("Note: This is a computer-generated statement.", 20, 800);
+      doc.addPage();
+      header(110);
+      y = 140;
+    }
+    doc.setFontSize(8);
+    doc.text(r.ref, 322, y - 4);
+    doc.text(r.date.toUpperCase(), 43, y);
+    doc.text(r.particulars[0], 165, y);
+    doc.text(r.valueDate.toUpperCase(), 105, y + 5);
+    doc.text(r.debit ?? "0.00", r.debit ? 411 : 396, y + 5, { align: "right" });
+    doc.text(r.credit ?? "0.00", r.credit ? 476 : 456, y + 5, { align: "right" });
+    doc.text(r.balance, 536, y + 5, { align: "right" });
+    doc.text(r.time, 43, y + 10);
+    if (r.particulars[1]) doc.text(r.particulars[1], 163, y + 10);
+    y += 30;
+  });
+  doc.setFontSize(10);
+  doc.text("Note: This is a computer-generated statement.", 20, 800);
+  return new Uint8Array(doc.output("arraybuffer"));
+}

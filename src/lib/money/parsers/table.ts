@@ -69,6 +69,11 @@ export function extractRows(
     isRowStart: (cell: string) => boolean;
     continuationKeys: string[];
     stopAt?: RegExp;
+    /**
+     * Lines closer than this (PDF units) are one transaction printed over several lines.
+     * KVB staggers each row: reference above, date, value date and amounts, then time.
+     */
+    mergeWithin?: number;
   },
 ): RawRow[] {
   const rows: RawRow[] = [];
@@ -83,8 +88,8 @@ export function extractRows(
     let current: RawRow | null = null;
     const start = header ? header.index + 1 : 0;
 
-    for (let i = start; i < page.lines.length; i++) {
-      const line = page.lines[i];
+    const lines = opts.mergeWithin ? mergeClose(page.lines.slice(start), opts.mergeWithin) : page.lines.slice(start);
+    for (const line of lines) {
       if (opts.stopAt?.test(line.text)) {
         stopped = true;
         return;
@@ -111,6 +116,23 @@ export function extractRows(
     }
   });
   return rows;
+}
+
+/** Joins runs of lines that sit within `gap` of each other into one line (items kept top to bottom). */
+function mergeClose(lines: PdfLine[], gap: number): PdfLine[] {
+  const out: PdfLine[] = [];
+  for (const line of lines) {
+    const last = out.at(-1);
+    const prevY = last ? (last as PdfLine & { lastY?: number }).lastY ?? last.y : null;
+    if (last && prevY != null && prevY - line.y <= gap) {
+      last.items = [...last.items, ...line.items];
+      last.text = `${last.text} ${line.text}`;
+      (last as PdfLine & { lastY?: number }).lastY = line.y;
+    } else {
+      out.push({ ...line, items: [...line.items] });
+    }
+  }
+  return out;
 }
 
 export const cellText = (row: RawRow, key: string) => (row.cells[key] ?? []).join(" ").replace(/\s+/g, " ").trim();
