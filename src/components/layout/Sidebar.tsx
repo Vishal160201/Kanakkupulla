@@ -30,7 +30,7 @@ interface NavItem {
 }
 
 /** The personal money tracker: shown only to the one account allowed to open it. */
-const MONEY_ITEM = { name: "Money", path: "/money", activePrefix: "/money", icon: "ph-wallet" };
+const MONEY_ITEM = { name: "My Wallet", path: "/money", activePrefix: "/money", icon: "ph-wallet" };
 
 const NAV_ITEMS: NavItem[] = [
   { name: "Dashboard", path: "/dashboard/overview", activePrefix: "/dashboard", icon: "ph-house", module: "dashboard", access: [{ module: "dashboard", path: "/dashboard/overview" }] },

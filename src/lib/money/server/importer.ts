@@ -10,7 +10,8 @@ import { parseAaJson } from "../parsers/aaJson";
 import { validateStatement, type ValidationResult } from "../parsers/validate";
 import { StatementParseError, type ParsedRow, type ParsedStatement } from "../parsers/types";
 import { applyRules } from "../rules";
-import { extractCounterparty, dateFromIso } from "../text";
+import { extractCounterparty, dateFromIso, isoDate as isoDay } from "../text";
+import { matchTypedEntries } from "../matching";
 import { loadAccounts, loadCategories, loadRules } from "./rows";
 import { runSelfTransferMatching } from "./matching";
 
@@ -144,7 +145,7 @@ export async function commitStatement(
   statement: ParsedStatement,
   bytes: Uint8Array,
   opts: { accountId: string | null; filename: string },
-): Promise<{ importId: string; inserted: number; skipped: number; selfTransfers: number; status: "OK" | "NEEDS_REVIEW" }> {
+): Promise<{ importId: string; inserted: number; skipped: number; selfTransfers: number; replaced: number; status: "OK" | "NEEDS_REVIEW" }> {
   const accounts = await loadAccounts(userId);
   const account = pickAccount(statement, accounts, opts.accountId);
   if (!account) throw new ImportError("Choose which account this file belongs to.");
@@ -210,8 +211,58 @@ export async function commitStatement(
     return { importId: imp.id, inserted: created.count, status: imp.status };
   });
 
+  const replaced = await replaceTypedEntries(userId, result.importId);
   const selfTransfers = await runSelfTransferMatching(userId);
-  return { ...result, skipped: statement.rows.length - result.inserted, selfTransfers };
+  return { ...result, skipped: statement.rows.length - result.inserted, selfTransfers, replaced };
+}
+
+const KEEP_KINDS = new Set(["SELF_TRANSFER", "PASS_THROUGH", "REIMBURSEMENT", "CARD_PAYMENT"]);
+
+/**
+ * Entries you typed in that this import now has for real (same account, direction and amount,
+ * within 3 days) are replaced by the statement's rows. What you set on the typed entry carries
+ * over: category, note, commitment and schedule links, pay-outs, and a self-transfer pairing.
+ */
+export async function replaceTypedEntries(userId: string, importId: string): Promise<number> {
+  const fresh = await prisma.moneyTransaction.findMany({ where: { userId, importId } });
+  if (fresh.length === 0) return 0;
+  const accountIds = [...new Set(fresh.map((r) => r.accountId))];
+  const dates = fresh.map((r) => r.txnDate.getTime());
+  const from = new Date(Math.min(...dates) - 4 * 86_400_000);
+  const to = new Date(Math.max(...dates) + 4 * 86_400_000);
+  const typed = await prisma.moneyTransaction.findMany({ where: { userId, importId: null, accountId: { in: accountIds }, txnDate: { gte: from, lte: to } } });
+  if (typed.length === 0) return 0;
+
+  const shape = (r: (typeof fresh)[number]) => ({ id: r.id, accountId: r.accountId, txnDate: isoDay(r.txnDate), amount: r.amount.toFixed(2), direction: r.direction });
+  const pairs = matchTypedEntries(fresh.map(shape), typed.map(shape));
+  const byId = new Map([...fresh, ...typed].map((r) => [r.id, r]));
+
+  for (const [rowId, typedId] of pairs) {
+    const row = byId.get(rowId)!;
+    const old = byId.get(typedId)!;
+    // The other side of the typed entry's pair (e.g. the KVB half of a typed transfer)
+    const partnerId = old.linkedTxnId ?? (await prisma.moneyTransaction.findFirst({ where: { userId, linkedTxnId: old.id }, select: { id: true } }))?.id ?? null;
+    await prisma.$transaction([
+      prisma.moneyTransaction.updateMany({ where: { userId, linkedTxnId: old.id }, data: { linkedTxnId: null } }),
+      prisma.moneyTransaction.update({ where: { id: old.id }, data: { linkedTxnId: null } }),
+      prisma.moneyCommitmentSchedule.updateMany({ where: { transactionId: old.id }, data: { transactionId: row.id } }),
+      prisma.moneyCommitment.updateMany({ where: { userId, payoutTxnId: old.id }, data: { payoutTxnId: row.id } }),
+      prisma.moneyTransaction.update({
+        where: { id: row.id },
+        data: {
+          categoryId: old.categoryId ?? row.categoryId,
+          note: old.note ?? row.note,
+          commitmentId: old.commitmentId ?? row.commitmentId,
+          ...(KEEP_KINDS.has(old.kind) ? { kind: old.kind } : {}),
+          ...(old.kind === "CARD_PAYMENT" && old.counterAccountId ? { counterAccountId: old.counterAccountId } : {}),
+          ...(partnerId && partnerId !== row.id ? { linkedTxnId: partnerId } : {}),
+        },
+      }),
+      ...(partnerId && partnerId !== row.id ? [prisma.moneyTransaction.update({ where: { id: partnerId }, data: { linkedTxnId: row.id } })] : []),
+      prisma.moneyTransaction.delete({ where: { id: old.id } }),
+    ]);
+  }
+  return pairs.length;
 }
 
 /** Deletes an import and its rows; transfers they were paired with go back to unmatched. */

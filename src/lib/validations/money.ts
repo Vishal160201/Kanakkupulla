@@ -208,3 +208,13 @@ export const moneyRestoreSchema = z.object({
   commitments: z.array(z.record(z.string(), z.unknown())).max(1000),
   preferences: z.unknown().optional(),
 });
+
+export const moneyTransferSchema = z
+  .object({
+    fromAccountId: id,
+    toAccountId: id,
+    txnDate: isoDay("Date"),
+    amount: positive("Amount"),
+    note: optionalText(500),
+  })
+  .refine((t) => t.fromAccountId !== t.toAccountId, { message: "Pick two different accounts.", path: ["toAccountId"] });

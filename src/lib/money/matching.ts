@@ -136,3 +136,32 @@ export function scheduleSuggestions(txns: MatchTxn[], entries: ScheduleCandidate
   }
   return out;
 }
+
+/**
+ * Entries you typed in that a statement now has for real: same account, direction and amount,
+ * dated within `days` of each other. Each side is used once; the nearest date wins.
+ * Returns [statementRowId, typedEntryId] pairs.
+ */
+export function matchTypedEntries(
+  statementRows: { id: string; accountId: string; txnDate: string; amount: string; direction: "DEBIT" | "CREDIT" }[],
+  typed: { id: string; accountId: string; txnDate: string; amount: string; direction: "DEBIT" | "CREDIT" }[],
+  days = 3,
+): [string, string][] {
+  const used = new Set<string>();
+  const pairs: [string, string][] = [];
+  const candidates = statementRows.flatMap((row) =>
+    typed
+      .filter((t) => t.accountId === row.accountId && t.direction === row.direction && t.amount === row.amount)
+      .map((t) => ({ row, t, gap: Math.abs(daysBetween(row.txnDate, t.txnDate)) }))
+      .filter((c) => c.gap <= days),
+  );
+  candidates.sort((a, b) => a.gap - b.gap);
+  const rowUsed = new Set<string>();
+  for (const c of candidates) {
+    if (used.has(c.t.id) || rowUsed.has(c.row.id)) continue;
+    pairs.push([c.row.id, c.t.id]);
+    used.add(c.t.id);
+    rowUsed.add(c.row.id);
+  }
+  return pairs;
+}

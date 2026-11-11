@@ -10,6 +10,7 @@ import { useMoneyAccounts, useMoneyCategories } from "./hooks";
 import { send } from "./ui";
 
 const LAST_ACCOUNT = "money.quickAdd.account";
+const LAST_TRANSFER = "money.quickAdd.transfer";
 const CATEGORY_USE = "money.quickAdd.categoryUse";
 
 const read = <T,>(key: string, fallback: T): T => {
@@ -61,7 +62,9 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
   const amountRef = useRef<HTMLInputElement>(null);
 
   const [amount, setAmount] = useState("");
-  const [direction, setDirection] = useState<"DEBIT" | "CREDIT">("DEBIT");
+  const [mode, setMode] = useState<"DEBIT" | "CREDIT" | "TRANSFER">("DEBIT");
+  const [fromId, setFromId] = useState<string>(() => read<{ from?: string }>(LAST_TRANSFER, {}).from ?? "");
+  const [toId, setToId] = useState<string>(() => read<{ to?: string }>(LAST_TRANSFER, {}).to ?? "");
   const [accountId, setAccountId] = useState<string>(() => read(LAST_ACCOUNT, ""));
   const [categoryId, setCategoryId] = useState("");
   const [what, setWhat] = useState("");
@@ -70,11 +73,18 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const isSpend = direction === "DEBIT";
+  const isTransfer = mode === "TRANSFER";
+  const direction: "DEBIT" | "CREDIT" = mode === "CREDIT" ? "CREDIT" : "DEBIT";
+  const isSpend = mode === "DEBIT";
 
   // Cards first (daily spends), then bank accounts
   const ordered = useMemo(() => [...accounts.filter((a) => a.type === "CREDIT_CARD"), ...accounts.filter((a) => a.type === "BANK")], [accounts]);
   const chosenAccount = ordered.find((a) => a.id === accountId) ?? ordered[0];
+  // Transfers: from a bank account (personal one first), to another bank account (available money first) or a card
+  const banks = useMemo(() => accounts.filter((a) => a.type === "BANK"), [accounts]);
+  const fromAccount = banks.find((a) => a.id === fromId) ?? banks.find((a) => !a.isPool) ?? banks[0];
+  const toChoices = useMemo(() => [...banks.filter((a) => a.isPool), ...banks.filter((a) => !a.isPool), ...accounts.filter((a) => a.type === "CREDIT_CARD")].filter((a) => a.id !== fromAccount?.id), [accounts, banks, fromAccount]);
+  const toAccount = toChoices.find((a) => a.id === toId) ?? toChoices[0];
 
   // Most used categories first
   const sortedCategories = useMemo(() => {
@@ -108,6 +118,34 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
     if (!value || value.startsWith("-") || Number(value) === 0) {
       setError("Enter the amount.");
       amountRef.current?.focus();
+      return;
+    }
+    if (isTransfer) {
+      if (!fromAccount || !toAccount) {
+        setError("Add two accounts in Settings first.");
+        return;
+      }
+      setError("");
+      setBusy(true);
+      const res = await send<{ kind: string }>("/api/money/transactions/transfer", "POST", {
+        fromAccountId: fromAccount.id,
+        toAccountId: toAccount.id,
+        txnDate: date,
+        amount: value,
+        note: what.trim() || null,
+      });
+      setBusy(false);
+      if (!res.ok) return;
+      write(LAST_TRANSFER, { from: fromAccount.id, to: toAccount.id });
+      toast.success(res.data.kind === "CARD_PAYMENT" ? `${formatINR(value)} paid to ${toAccount.name}` : `${formatINR(value)} moved from ${fromAccount.name} to ${toAccount.name}`);
+      void mutate((key) => typeof key === "string" && key.startsWith("/api/money/"));
+      if (again) {
+        setAmount("");
+        setWhat("");
+        amountRef.current?.focus();
+      } else {
+        onClose();
+      }
       return;
     }
     if (!chosenAccount) {
@@ -160,27 +198,32 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
       <DialogContent
         showCloseButton={false}
+        // A plain dim backdrop: iOS Safari paints coloured blocks over a blurred backdrop while this sheet scrolls
+        overlayClassName="bg-slate-900/45 supports-[backdrop-filter]:backdrop-blur-none"
         className="w-[calc(100vw-1rem)] max-w-[500px] sm:max-w-[500px] max-h-[calc(100dvh-1rem)] flex flex-col rounded-[28px] border-0 bg-white p-0 shadow-2xl gap-0 overflow-hidden"
       >
         {/* Header */}
         <div className="shrink-0 flex items-start justify-between gap-3 px-5 pt-6 pb-4">
           <div>
-            <DialogTitle className="text-2xl font-extrabold tracking-tight text-slate-900">Quick add</DialogTitle>
-            <p className="mt-0.5 text-sm font-medium text-slate-500">{isSpend ? "Add an expense in seconds" : "Add money you received"}</p>
+            <DialogTitle className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 whitespace-nowrap">Quick add</DialogTitle>
+            <p className="mt-0.5 text-sm font-medium text-slate-500">{isTransfer ? "Between your accounts" : isSpend ? "Add an expense" : "Add money you received"}</p>
           </div>
-          <div role="radiogroup" aria-label="Spend or income" className="flex shrink-0 rounded-2xl bg-slate-100 p-1">
-            {(["DEBIT", "CREDIT"] as const).map((d) => (
+          <div role="radiogroup" aria-label="Spend, income or transfer" className="flex shrink-0 rounded-2xl bg-slate-100 p-1">
+            {(["DEBIT", "CREDIT", "TRANSFER"] as const).map((d) => (
               <button
                 key={d}
                 type="button"
                 role="radio"
-                aria-checked={direction === d}
-                onClick={() => setDirection(d)}
-                className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
-                  direction === d ? `bg-white shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${d === "DEBIT" ? "text-rose-500" : "text-emerald-600"}` : "text-slate-500 hover:text-slate-700"
+                aria-checked={mode === d}
+                onClick={() => {
+                  setMode(d);
+                  setError("");
+                }}
+                className={`rounded-xl px-2.5 sm:px-4 py-2 text-[13px] sm:text-sm font-bold transition ${
+                  mode === d ? `bg-white shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${d === "DEBIT" ? "text-rose-500" : d === "CREDIT" ? "text-emerald-600" : "text-sky-600"}` : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                {d === "DEBIT" ? "Spend" : "Income"}
+                {d === "DEBIT" ? "Spend" : d === "CREDIT" ? "Income" : "Transfer"}
               </button>
             ))}
           </div>
@@ -188,7 +231,7 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
 
         <form
           noValidate
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 space-y-5"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 space-y-5 [transform:translateZ(0)]"
           onSubmit={(e) => {
             e.preventDefault();
             void save(false);
@@ -196,14 +239,14 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
         >
           {/* Amount */}
           <div
-            className={`flex items-center gap-4 rounded-3xl border-2 bg-gradient-to-br px-4 py-3.5 shadow-[0_6px_20px_rgba(16,185,129,0.08)] transition ${
+            className={`flex items-center gap-4 rounded-3xl border-2 bg-gradient-to-br px-4 py-3.5 transition ${
               error && !normaliseMoney(amount)
                 ? "border-rose-300 from-rose-50/60 to-white"
                 : "border-emerald-200 from-emerald-50/70 to-white focus-within:border-emerald-400"
             }`}
           >
-            <span className={`w-12 h-12 shrink-0 rounded-full text-white flex items-center justify-center text-2xl shadow-[0_6px_14px_rgba(0,0,0,0.15)] ${isSpend ? "bg-gradient-to-br from-rose-500 to-pink-500" : "bg-gradient-to-br from-emerald-500 to-teal-500"}`}>
-              <i aria-hidden="true" className="ph-bold ph-currency-inr" />
+            <span className={`w-12 h-12 shrink-0 rounded-full text-white flex items-center justify-center text-2xl ${isTransfer ? "bg-gradient-to-br from-sky-500 to-indigo-500" : isSpend ? "bg-gradient-to-br from-rose-500 to-pink-500" : "bg-gradient-to-br from-emerald-500 to-teal-500"}`}>
+              <i aria-hidden="true" className={`ph-bold ${isTransfer ? "ph-arrows-left-right" : "ph-currency-inr"}`} />
             </span>
             <input
               ref={amountRef}
@@ -222,9 +265,10 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Category */}
+          {!isTransfer && (
           <div>
             <p className={sectionLabel}>Category</p>
-            <div role="radiogroup" aria-label="Category" className="grid grid-cols-4 gap-2.5">
+            <div role="radiogroup" aria-label="Category" className="grid grid-cols-3 min-[440px]:grid-cols-4 gap-2 sm:gap-2.5">
               {sortedCategories.map((c) => {
                 const on = categoryId === c.id;
                 return (
@@ -234,23 +278,28 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
                     role="radio"
                     aria-checked={on}
                     onClick={() => setCategoryId(on ? "" : c.id)}
-                    className={`flex flex-col items-center gap-2 rounded-2xl border px-1 pt-3 pb-2.5 text-center transition active:scale-95 ${
-                      on ? "bg-white" : "border-slate-100 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.05)] hover:shadow-[0_4px_14px_rgba(15,23,42,0.08)]"
+                    className={`flex flex-col items-center gap-2 rounded-2xl border px-1 pt-3 pb-2.5 text-center transition-colors active:bg-slate-50 ${
+                      on ? "" : "border-slate-200/80 bg-white"
                     }`}
-                    style={on ? { borderColor: c.color, boxShadow: `0 0 0 2px ${c.color}, 0 6px 16px ${c.color}33` } : undefined}
+                    style={on ? { borderColor: c.color, backgroundColor: `${c.color}10`, boxShadow: `0 0 0 1.5px ${c.color}` } : undefined}
                   >
                     <span
                       className="w-12 h-12 rounded-2xl text-white flex items-center justify-center text-2xl"
-                      style={{ background: `linear-gradient(145deg, ${c.color}, ${c.color}d9)`, boxShadow: `0 6px 14px ${c.color}55` }}
+                      style={{ background: `linear-gradient(145deg, ${c.color}, ${c.color}d9)` }}
                     >
                       <i aria-hidden="true" className={`ph-fill ${c.icon}`} />
                     </span>
-                    <span className="line-clamp-2 px-0.5 text-[12px] font-semibold leading-tight text-slate-700">{c.name}</span>
+                    {/* Long names break at "/" or with a hyphen instead of spilling past the tile */}
+                    <span lang="en" className="line-clamp-2 w-full px-0.5 text-[12px] font-semibold leading-tight text-slate-700 break-words">
+                      {c.name.replace(/\//g, "/\u200b")}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
+
+          )}
 
           {/* What for */}
           <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/10 transition">
@@ -261,14 +310,48 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
               value={what}
               maxLength={200}
               onChange={(e) => setWhat(e.target.value)}
-              placeholder="What for? (optional: Swiggy, auto, tea...)"
+              placeholder={isTransfer ? "Note (optional)" : "What for? (optional: Swiggy, auto, tea...)"}
               aria-label="What for"
               className="min-w-0 flex-1 h-9 bg-transparent text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400"
             />
           </div>
 
+          {/* Transfer: from and to */}
+          {isTransfer && (
+            <>
+              {([
+                ["From", banks, fromAccount, (id: string) => setFromId(id)],
+                ["To", toChoices, toAccount, (id: string) => setToId(id)],
+              ] as const).map(([label, list, chosen, pick]) => (
+                <div key={label}>
+                  <p className={sectionLabel}>{label}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {list.map((a) => {
+                      const on = chosen?.id === a.id;
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => pick(a.id)}
+                          aria-pressed={on}
+                          className={`inline-flex items-center gap-2 rounded-2xl border px-3.5 py-2.5 text-sm font-semibold transition-colors ${on ? "" : "border-slate-200/80 bg-white text-slate-700"}`}
+                          style={on ? { borderColor: a.color, color: a.color, backgroundColor: `${a.color}12`, boxShadow: `0 0 0 1px ${a.color}` } : undefined}
+                        >
+                          <i aria-hidden="true" className={`${on ? "ph-fill" : "ph"} ${a.type === "CREDIT_CARD" ? "ph-credit-card" : "ph-bank"} text-lg`} style={on ? undefined : { color: "#334155" }} />
+                          {a.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              {toAccount?.type === "CREDIT_CARD" && <p className="-mt-2 text-[11px] font-semibold text-slate-500">Saved as a card bill payment: it lowers {toAccount.name}&apos;s used amount.</p>}
+              {toAccount?.type === "BANK" && <p className="-mt-2 text-[11px] font-semibold text-slate-500">Saved as a self transfer: left out of income and spending. When the statements come in, they replace it.</p>}
+            </>
+          )}
+
           {/* Paid with */}
-          {ordered.length > 0 && (
+          {!isTransfer && ordered.length > 0 && (
             <div>
               <p className={sectionLabel}>{isSpend ? "Paid with" : "Received in"}</p>
               <div className="flex flex-wrap gap-2">
@@ -280,7 +363,7 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
                       type="button"
                       onClick={() => setAccountId(a.id)}
                       aria-pressed={on}
-                      className={`inline-flex items-center gap-2 rounded-2xl border px-3.5 py-2.5 text-sm font-semibold transition ${on ? "" : "border-slate-100 bg-white text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)]"}`}
+                      className={`inline-flex items-center gap-2 rounded-2xl border px-3.5 py-2.5 text-sm font-semibold transition-colors ${on ? "" : "border-slate-200/80 bg-white text-slate-700"}`}
                       style={on ? { borderColor: a.color, color: a.color, backgroundColor: `${a.color}12`, boxShadow: `0 0 0 1px ${a.color}` } : undefined}
                     >
                       <i aria-hidden="true" className={`${on ? "ph-fill" : "ph"} ${a.type === "CREDIT_CARD" ? "ph-credit-card" : "ph-bank"} text-lg`} style={on ? undefined : { color: "#334155" }} />
@@ -312,7 +395,7 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
                       }
                     }}
                     className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
-                      on ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-[0_6px_14px_rgba(16,185,129,0.3)]" : "border border-slate-100 bg-white text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)]"
+                      on ? "border border-emerald-500 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white" : "border border-slate-200/80 bg-white text-slate-700"
                     }`}
                   >
                     <i aria-hidden="true" className="ph ph-calendar-blank text-lg" />
@@ -332,13 +415,13 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
         </form>
 
         {/* Footer */}
-        <div className="shrink-0 flex gap-2.5 border-t border-slate-100 bg-white px-5 py-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
+        <div className="shrink-0 flex gap-2 sm:gap-2.5 border-t border-slate-100 bg-white px-4 sm:px-5 py-3 sm:py-3.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
             aria-label="Close"
-            className="h-14 w-14 shrink-0 rounded-2xl bg-white text-slate-500 shadow-[0_2px_10px_rgba(15,23,42,0.1)] flex items-center justify-center text-xl hover:text-slate-700"
+            className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-2xl border border-slate-200/80 bg-white text-slate-500 flex items-center justify-center text-xl hover:text-slate-700"
           >
             <i aria-hidden="true" className="ph-bold ph-x" />
           </button>
@@ -346,16 +429,18 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={() => save(true)}
             disabled={busy}
-            className="h-14 flex-1 rounded-2xl border-2 border-emerald-200 bg-white text-[15px] font-bold text-emerald-700 hover:bg-emerald-50 inline-flex items-center justify-center gap-2 transition"
+            aria-label="Save and add another"
+            className="h-12 sm:h-14 min-w-0 flex-1 rounded-2xl border-2 border-emerald-200 bg-white px-3 text-sm sm:text-[15px] font-bold text-emerald-700 hover:bg-emerald-50 inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition"
           >
-            <i aria-hidden="true" className="ph-bold ph-plus text-lg" />
-            <span className="truncate">Save &amp; add another</span>
+            <i aria-hidden="true" className="ph-bold ph-plus text-base sm:text-lg" />
+            <span className="sm:hidden">Add another</span>
+            <span className="hidden sm:inline">Save &amp; add another</span>
           </button>
           <button
             type="button"
             onClick={() => save(false)}
             disabled={busy}
-            className="h-14 flex-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-base font-extrabold text-white shadow-[0_8px_20px_rgba(16,185,129,0.35)] inline-flex items-center justify-center gap-2 transition hover:brightness-105"
+            className="h-12 sm:h-14 min-w-0 flex-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-base font-extrabold text-white inline-flex items-center justify-center gap-2 whitespace-nowrap transition hover:brightness-105"
           >
             <i aria-hidden="true" className={`ph-bold ${busy ? "ph-circle-notch animate-spin" : "ph-check"} text-lg`} />
             Save

@@ -135,3 +135,22 @@ describe("counterparties from narrations", () => {
     expect(normaliseRef("-")).toBe("");
   });
 });
+
+describe("typed entries a statement brings in for real", () => {
+  it("pairs same account, direction and amount within 3 days, nearest first", async () => {
+    const { matchTypedEntries } = await import("@/lib/money/matching");
+    const rows = [
+      { id: "s1", accountId: "hdfc", txnDate: "2026-11-12", amount: "3333.33", direction: "CREDIT" as const },
+      { id: "s2", accountId: "hdfc", txnDate: "2026-11-12", amount: "3333.33", direction: "DEBIT" as const },
+      { id: "s3", accountId: "hdfc", txnDate: "2026-11-20", amount: "99.00", direction: "DEBIT" as const },
+    ];
+    const typed = [
+      { id: "t1", accountId: "hdfc", txnDate: "2026-11-11", amount: "3333.33", direction: "CREDIT" as const },
+      { id: "t2", accountId: "hdfc", txnDate: "2026-11-12", amount: "3333.33", direction: "CREDIT" as const },
+      { id: "t3", accountId: "kvb", txnDate: "2026-11-12", amount: "3333.33", direction: "DEBIT" as const },
+      { id: "t4", accountId: "hdfc", txnDate: "2026-11-12", amount: "3333.33", direction: "DEBIT" as const },
+      { id: "t5", accountId: "hdfc", txnDate: "2026-11-10", amount: "99.00", direction: "DEBIT" as const },
+    ];
+    expect(matchTypedEntries(rows, typed)).toEqual([["s1", "t2"], ["s2", "t4"]]);
+  });
+});

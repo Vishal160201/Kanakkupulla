@@ -17,7 +17,7 @@ export const MONEY_TABS = [
 export default function MoneyTabs() {
   const pathname = usePathname() || "";
   return (
-    <nav aria-label="Money sections" className="-mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+    <nav aria-label="My Wallet sections" className="-mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
       <ul className="flex w-max gap-1 rounded-2xl bg-white border border-slate-100 p-1 shadow-sm">
         {MONEY_TABS.map((tab) => {
           const isActive = tab.path === "/money" ? pathname === "/money" : pathname === tab.path || pathname.startsWith(`${tab.path}/`);

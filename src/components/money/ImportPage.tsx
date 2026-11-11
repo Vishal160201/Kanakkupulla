@@ -122,7 +122,11 @@ export default function ImportPage() {
     if (preview.type === "sheet") {
       toast.success(`${data.created} commitment${data.created === 1 ? "" : "s"} added${data.poolBalanceSet ? ", and the balance set" : ""}`);
     } else {
-      toast.success(`${data.inserted} transaction${data.inserted === 1 ? "" : "s"} imported${data.selfTransfers ? `, ${data.selfTransfers} self transfer${data.selfTransfers === 1 ? "" : "s"} matched` : ""}`);
+      toast.success(
+        `${data.inserted} transaction${data.inserted === 1 ? "" : "s"} imported` +
+          (data.selfTransfers ? `, ${data.selfTransfers} self transfer${data.selfTransfers === 1 ? "" : "s"} matched` : "") +
+          (data.replaced ? `, ${data.replaced} you'd typed in now from the statement` : ""),
+      );
     }
     reset();
     void refreshHistory();
