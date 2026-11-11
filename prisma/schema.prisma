@@ -1180,6 +1180,12 @@ model MoneyCommitment {
   notes              String?
   /// Text that identifies its payments in narrations (e.g. the person's name or UPI ID)
   matchPattern       String?
+  /// Savings goals: when the saved money goes out (LIC premium, Christmas shopping)
+  payoutDate         DateTime?             @db.Date
+  /// Savings goals that pay out on a cycle (LIC every 6 months): the next round starts itself
+  repeatMonths       Int?
+  paidOutOn          DateTime?             @db.Date
+  payoutTxnId        String?
   sortOrder          Int                   @default(0)
   status             MoneyCommitmentStatus @default(ACTIVE)
   /// A card EMI and the receivable that funds it (a friend paying back their share)

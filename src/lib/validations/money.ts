@@ -160,7 +160,15 @@ export const moneyCommitmentSchema = z.object({
   notes: optionalText(500),
   matchPattern: optionalText(80),
   linkedCommitmentId: id.nullish().transform((v) => v ?? null),
+  /** Savings goals: when the money goes out, and whether that repeats */
+  payoutDate: isoDay("Pay-out date").nullish().transform((v) => v ?? null),
+  repeatMonths: z.number().int().min(1, "Repeat every 1 to 24 months.").max(24, "Repeat every 1 to 24 months.").nullish().transform((v) => v ?? null),
   schedule: z.array(scheduleItem).max(120, "Up to 120 schedule entries.").optional(),
+});
+
+export const moneyPayoutSchema = z.object({
+  paidOn: isoDay("Paid out on"),
+  transactionId: id.nullish().transform((v) => v ?? null),
 });
 
 export const moneyScheduleCreateSchema = scheduleItem;
@@ -179,6 +187,7 @@ export const moneySuggestionActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("passThrough"), creditId: id, debitId: id, action: z.enum(["accept", "dismiss"]) }),
   z.object({ type: z.literal("schedule"), scheduleId: id, txnId: id, action: z.enum(["accept", "dismiss"]) }),
   z.object({ type: z.literal("unmatched"), txnId: id, action: z.enum(["markTransfer", "dismiss"]) }),
+  z.object({ type: z.literal("payout"), commitmentId: id, txnId: id, action: z.enum(["accept", "dismiss"]) }),
 ]);
 
 export const moneySheetOptionsSchema = z.object({

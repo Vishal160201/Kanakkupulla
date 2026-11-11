@@ -42,18 +42,20 @@ export function findHeader(lines: PdfLine[], specs: ColumnSpec[]): { index: numb
   return null;
 }
 
-/** Which column an item belongs to: numbers by right edge (they're right-aligned), text by left edge. */
+/** Which column an item belongs to: numbers by right edge (they're right-aligned), text by where it starts. */
 export function columnOf(item: PdfItem, columns: Column[]): Column | null {
   const numericCols = columns.filter((c) => c.numeric);
   if (isAmountToken(item.str) && numericCols.length > 0) {
     const nearest = numericCols.reduce((best, c) => (Math.abs(c.right - item.right) < Math.abs(best.right - item.right) ? c : best));
     if (Math.abs(nearest.right - item.right) < 60 || item.x >= numericCols[0].x - 30) return nearest;
   }
-  let chosen: Column | null = null;
-  for (const c of columns) {
-    if (item.x + 2 >= c.x) chosen = c;
+  // A text column's area starts where the previous heading ends: headings can be centred
+  // (HDFC's "Narration") while the text under them starts further left.
+  let chosen: Column | null = columns[0] ?? null;
+  for (let i = 1; i < columns.length; i++) {
+    if (item.x >= columns[i - 1].right + 1) chosen = columns[i];
   }
-  return chosen ?? columns[0] ?? null;
+  return chosen;
 }
 
 /**
@@ -69,6 +71,8 @@ export function extractRows(
     isRowStart: (cell: string) => boolean;
     continuationKeys: string[];
     stopAt?: RegExp;
+    /** A line that ends this page's part of the table (the page footer) */
+    endPageAt?: RegExp;
     /**
      * Lines closer than this (PDF units) are one transaction printed over several lines.
      * KVB staggers each row: reference above, date, value date and amounts, then time.
@@ -94,6 +98,9 @@ export function extractRows(
         stopped = true;
         return;
       }
+      if (opts.endPageAt?.test(line.text)) break;
+      // Page numbers ("4", "Page 2 of 5") sit between rows and belong to none of them
+      if (PAGE_NUMBER.test(line.text)) continue;
       const cells: Record<string, string[]> = {};
       for (const item of line.items) {
         const col = columnOf(item, columns);
@@ -117,6 +124,8 @@ export function extractRows(
   });
   return rows;
 }
+
+const PAGE_NUMBER = /^\s*(page\s*(no\.?)?\s*:?\s*)?\d{1,3}(\s*(of|\/)\s*\d{1,3})?\s*$/i;
 
 /** Joins runs of lines that sit within `gap` of each other into one line (items kept top to bottom). */
 function mergeClose(lines: PdfLine[], gap: number): PdfLine[] {

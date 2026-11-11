@@ -3,7 +3,7 @@ import { readPdfLines } from "@/lib/money/parsers/pdfText";
 import { detectHdfc, parseHdfc } from "@/lib/money/parsers/hdfc";
 import { detectKvb, parseKvb } from "@/lib/money/parsers/kvb";
 import { validateStatement } from "@/lib/money/parsers/validate";
-import { hdfcPdf, kvbPdf, kvbStaggeredPdf, type HdfcRow } from "./statementPdf";
+import { hdfcPdf, hdfcRealPdf, kvbPdf, kvbStaggeredPdf, type HdfcRow } from "./statementPdf";
 
 const HDFC_ROWS: HdfcRow[] = [
   { date: "30/10/26", narration: ["UPI-ACCOUNT HOLDER-me@okhdfc-", "KVBL0001234-100000000011-SELF"], ref: "0000100000000011", valueDate: "30/10/26", withdrawal: "4,500.00", balance: "15,500.00" },
@@ -125,6 +125,28 @@ describe("KVB statement PDF, real layout (each row over 4 staggered lines)", () 
     ]);
     expect(st.rows[0].narration).toBe("UPI-CR-300000000001-AC COUNT HOLDER-HDFC-5010");
     expect(st.rows.some((r) => /computer-generated/.test(r.narration))).toBe(false);
+    expect(validateStatement(st).warnings).toEqual([]);
+  });
+});
+
+describe("HDFC statement PDF, real layout (centred Narration heading)", () => {
+  it("keeps every narration, wrapped lines included", async () => {
+    const rows: HdfcRow[] = [
+      { date: "01/09/26", narration: ["UPI-ARUN KUMAR", "S-ARUN3101-4@OKICICI", "HDFC0000260-100000000011"], ref: "0000100000000011", valueDate: "01/09/26", withdrawal: "460.12", balance: "4,539.88" },
+      { date: "01/09/26", narration: ["UPI-AUTOPAY-APPLE MEDIA", "SERVICES-APPLESE", "RVICES@HDFCBANK-HDFC0MERUPI-1000", "00000022-EXECUTION TEST"], ref: "0000100000000022", valueDate: "01/09/26", withdrawal: "149.00", balance: "4,390.88" },
+      { date: "02/09/26", narration: ["UPI-MEENA K-MEENA@PTAXIS", "-ICIC0006091-100000000033-SENT"], ref: "0000100000000033", valueDate: "02/09/26", deposit: "1,000.00", balance: "5,390.88" },
+    ];
+    const st = parseHdfc(await readPdfLines(hdfcRealPdf({ opening: "5,000.00", rows })));
+    expect(st.accountLast4).toBe("1111");
+    expect(st.rows).toHaveLength(3);
+    expect(st.rows[0].narration).toBe("UPI-ARUN KUMAR S-ARUN3101-4@OKICICI HDFC0000260-100000000011");
+    expect(st.rows[1].narration.startsWith("UPI-AUTOPAY-APPLE MEDIA SERVICES")).toBe(true);
+    expect(st.rows.map((r) => [r.refNo, r.direction, r.amount, r.balanceAfter])).toEqual([
+      ["100000000011", "DEBIT", "460.12", "4539.88"],
+      ["100000000022", "DEBIT", "149.00", "4390.88"],
+      ["100000000033", "CREDIT", "1000.00", "5390.88"],
+    ]);
+    expect(st.openingBalance).toBe("5000.00");
     expect(validateStatement(st).warnings).toEqual([]);
   });
 });

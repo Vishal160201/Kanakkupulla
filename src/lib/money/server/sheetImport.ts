@@ -27,10 +27,12 @@ async function plan(userId: string, bytes: Uint8Array, options: SheetOptions): P
   });
   const poolId = pick(options.accounts.pool) ?? base.poolBalance?.accountId;
   const pool = poolId ? accounts.find((a) => a.id === poolId) : undefined;
+  // A statement is better than the sheet's figure: only set the balance when there isn't one
+  const hasStatement = pool ? (await prisma.moneyTransaction.count({ where: { userId, accountId: pool.id, balanceAfter: { not: null } } })) > 0 : false;
   return {
     months: sheet.months,
     commitments,
-    poolBalance: sheet.pool && pool ? { accountId: pool.id, amount: sheet.pool.amount, label: pool.name } : base.poolBalance,
+    poolBalance: hasStatement ? null : sheet.pool && pool ? { accountId: pool.id, amount: sheet.pool.amount, label: pool.name } : base.poolBalance,
   };
 }
 

@@ -157,3 +157,36 @@ export function kvbStaggeredPdf(opts: { opening: string; rows: KvbRow[]; pageBre
   doc.text("Note: This is a computer-generated statement.", 20, 800);
   return new Uint8Array(doc.output("arraybuffer"));
 }
+
+/**
+ * HDFC's real layout (PDF points): the "Narration" heading is centred over a column whose
+ * text starts much further left, near the dates; long narrations wrap onto lines below.
+ * Synthetic data, real geometry.
+ */
+export function hdfcRealPdf(opts: { opening: string; rows: HdfcRow[] }): Uint8Array {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  doc.setFontSize(7);
+  doc.text("Page No .: 1", 274, 74);
+  doc.text("HDFC BANK LTD", 366, 110);
+  doc.text("Account No", 316, 187);
+  doc.text(": 50100000001111", 366, 187);
+  doc.text("From : 01/09/2026", 48, 246);
+  doc.text("To : 10/11/2026", 153, 246);
+  [["Date", 53], ["Narration", 144], ["Chq./Ref.No.", 266], ["Value Dt", 335]].forEach(([t, x]) => doc.text(String(t), Number(x), 262));
+  doc.text("Withdrawal Amt.", 426, 262, { align: "right" });
+  doc.text("Deposit Amt.", 488, 262, { align: "right" });
+  doc.text("Closing Balance", 561, 262, { align: "right" });
+  let y = 278;
+  for (const r of opts.rows) {
+    doc.text(r.date, 48, y);
+    doc.text(r.narration[0], 81, y);
+    doc.text(r.ref, 263, y); // ends ~9pt before the value date, as in the real statement
+    doc.text(r.valueDate, 336, y);
+    if (r.withdrawal) doc.text(r.withdrawal, 430, y, { align: "right" });
+    if (r.deposit) doc.text(r.deposit, 498, y, { align: "right" });
+    doc.text(r.balance, 567, y, { align: "right" });
+    r.narration.slice(1).forEach((n, i) => doc.text(n, 78, y + 15 * (i + 1)));
+    y += 15 * r.narration.length;
+  }
+  return new Uint8Array(doc.output("arraybuffer"));
+}

@@ -3,6 +3,7 @@ import { getMoneyUser } from "@/lib/money/auth";
 import { isMoneyEncryptionConfigured } from "@/lib/money/crypto";
 import { ensureMoneySetup } from "@/lib/money/server/setup";
 import MoneyTabs from "@/components/money/MoneyTabs";
+import QuickAdd from "@/components/money/QuickAdd";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,10 @@ export default async function MoneyLayout({ children }: { children: React.ReactN
         </p>
       </div>
       {keyReady ? (
-        <div>{children}</div>
+        <div>
+          {children}
+          <QuickAdd />
+        </div>
       ) : (
         <section className="rounded-3xl border border-rose-100 bg-rose-50 p-6 text-rose-700">
           <p className="text-base font-extrabold flex items-center gap-2">

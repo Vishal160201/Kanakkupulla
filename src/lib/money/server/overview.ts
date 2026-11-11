@@ -89,6 +89,11 @@ function forecastEvents(today: string, days: number, balances: AccountBalance[],
   const end = addDays(today, days);
   const events: ForecastEvent[] = [];
   const poolIds = new Set(balances.filter((b) => b.isPool).map((b) => b.id));
+  // Savings goals: the saved money leaves on the pay-out date (it was set aside inside the pool)
+  for (const c of commitments) {
+    if (c.status === "COMPLETED" || c.type !== "SAVINGS_GOAL" || !c.payoutDate || c.payoutDate > end) continue;
+    events.push({ date: c.payoutDate, amount: money(dec(c.totalAmount).negated()), label: `${c.name} pay-out`, kind: "payout" });
+  }
   for (const c of commitments) {
     if (c.status === "COMPLETED" || c.type === "SAVINGS_GOAL") continue;
     for (const s of c.schedule) {
@@ -170,6 +175,22 @@ function buildAlerts(today: string, dueSoonDays: number, balances: AccountBalanc
       title: `${card.name} bill of about ${formatINR(card.amount)} due on ${formatMoneyDate(due)}`,
       detail: pool.lessThan(card.amount as string) ? `Available money (${formatINR(bal.poolMoney)}) doesn't cover it.` : "Available money covers it.",
       href: "/money/cards",
+    });
+  }
+
+  // Savings goals paying out soon, or already past their pay-out date
+  for (const c of commitments) {
+    if (c.status === "COMPLETED" || c.type !== "SAVINGS_GOAL" || !c.payoutDate || c.payoutDate > soonEnd) continue;
+    const past = c.payoutDate < today;
+    alerts.push({
+      id: `payout:${c.id}`,
+      level: past ? "warning" : pool.lessThan(c.totalAmount) ? "danger" : "info",
+      icon: "ph-piggy-bank",
+      title: past ? `Has ${c.name} been paid out? It was due on ${formatMoneyDate(c.payoutDate)}` : `${c.name}: ${formatINR(c.totalAmount)} goes out on ${formatMoneyDate(c.payoutDate)}`,
+      detail: past
+        ? "Mark it paid out on the Commitments page, so the money isn't counted as both spent and saved."
+        : pool.lessThan(c.totalAmount) ? `Available money (${formatINR(bal.poolMoney)}) doesn't cover it.` : "Available money covers it.",
+      href: "/money/commitments",
     });
   }
 

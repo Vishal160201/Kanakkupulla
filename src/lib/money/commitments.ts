@@ -230,3 +230,29 @@ export function splitAmount(total: string, parts: number): string[] {
   const each = paise.dividedToIntegerBy(parts);
   return Array.from({ length: parts }, (_, i) => (i === parts - 1 ? paise.minus(each.times(parts - 1)) : each).dividedBy(100).toFixed(2));
 }
+
+// ---------------------------------------------------------------------------
+// Savings goals that pay out (LIC every 6 months, Christmas shopping in December)
+// ---------------------------------------------------------------------------
+
+const addMonthsIso = (iso: string, n: number): string => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - 1 + n, 1));
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  return `${first.getUTCFullYear()}-${String(first.getUTCMonth() + 1).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+};
+
+/**
+ * After a repeating goal pays out: the next pay-out `repeatMonths` later, and a fresh schedule
+ * setting the target aside in equal monthly parts (on the 1st) up to that month.
+ * ₹12,000 paid out on 01 Dec 2026, every 6 months -> next 01 Jun 2027; Jan–Jun 2027, ₹2,000 each.
+ */
+export function nextPayoutRound(goal: { totalAmount: string; repeatMonths: number; payoutDate: string }): { payoutDate: string; schedule: { dueDate: string; amount: string }[] } {
+  const n = Math.max(1, Math.round(goal.repeatMonths));
+  const payoutDate = addMonthsIso(goal.payoutDate, n);
+  const parts = splitAmount(goal.totalAmount, n);
+  return {
+    payoutDate,
+    schedule: parts.map((amount, i) => ({ dueDate: `${addMonthsIso(goal.payoutDate, i + 1).slice(0, 7)}-01`, amount })),
+  };
+}

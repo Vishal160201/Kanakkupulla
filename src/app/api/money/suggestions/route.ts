@@ -4,6 +4,7 @@ import { json, moneyRoute, notFound } from "@/lib/money/server/route";
 import { addDismissed, getPreferences } from "@/lib/money/server/prefs";
 import { loadAccounts, loadCommitments, loadTxns } from "@/lib/money/server/rows";
 import { slimTxn } from "@/lib/money/server/overview";
+import { payOut } from "@/lib/money/server/commitmentsWrite";
 import { dec } from "@/lib/money/decimal";
 import { parseJsonBody } from "@/lib/validations/http";
 import { moneySuggestionActionSchema } from "@/lib/validations/money";
@@ -39,7 +40,21 @@ export const GET = moneyRoute("GET /api/money/suggestions", async ({ user }) => 
     .filter((id) => !dismissed.has(`unmatched:${id}`))
     .map((id) => slimTxn(byId.get(id)!));
 
-  return json({ passThrough: pass, schedule, unmatched });
+  // Savings goals paying out: a debit about the goal's size near its pay-out date (LIC premium)
+  const payout = commitments
+    .filter((c) => c.type === "SAVINGS_GOAL" && c.status !== "COMPLETED" && c.payoutDate)
+    .flatMap((c) => {
+      const target = Number(c.totalAmount);
+      const hit = txns
+        .filter((t) => t.direction === "DEBIT" && t.kind !== "SELF_TRANSFER" && !t.commitmentId)
+        .filter((t) => Math.abs(Number(t.amount) - target) <= Math.max(1, target * 0.02))
+        .filter((t) => Math.abs(Date.parse(t.txnDate) - Date.parse(c.payoutDate as string)) <= 15 * 86_400_000)
+        .filter((t) => !c.matchPattern || t.narration.toUpperCase().replace(/\s+/g, "").includes(c.matchPattern.toUpperCase().replace(/\s+/g, "")))
+        .find((t) => !dismissed.has(`payout:${c.id}:${t.id}`));
+      return hit ? [{ commitmentId: c.id, commitmentName: c.name, payoutDate: c.payoutDate as string, amount: c.totalAmount, repeats: !!c.repeatMonths, txn: slimTxn(hit) }] : [];
+    });
+
+  return json({ passThrough: pass, schedule, unmatched, payout });
 });
 
 // POST /api/money/suggestions — accept or dismiss one suggestion.
@@ -77,6 +92,17 @@ export const POST = moneyRoute("POST /api/money/suggestions", async ({ user, req
       prisma.moneyTransaction.update({ where: { id: txn.id }, data: { commitmentId: entry.commitmentId } }),
     ]);
     return json({ ok: true });
+  }
+
+  if (s.type === "payout") {
+    if (s.action === "dismiss") {
+      await addDismissed(user.id, `payout:${s.commitmentId}:${s.txnId}`);
+      return json({ ok: true });
+    }
+    const txn = await prisma.moneyTransaction.findFirst({ where: { id: s.txnId, userId: user.id }, select: { txnDate: true } });
+    if (!txn) return notFound("Transaction not found");
+    const result = await payOut(user.id, s.commitmentId, { paidOn: txn.txnDate.toISOString().slice(0, 10), transactionId: s.txnId });
+    return result ? json({ ok: true, ...result }) : notFound("Savings goal not found");
   }
 
   // Unmatched transfer: mark it as a transfer (left out of income and spending), or keep it as is

@@ -96,6 +96,10 @@ export interface CommitmentDTO extends CommitmentInput {
   notes: string | null;
   matchPattern: string | null;
   sortOrder: number;
+  payoutDate: string | null;
+  repeatMonths: number | null;
+  paidOutOn: string | null;
+  payoutTxnId: string | null;
 }
 
 export async function loadCommitments(userId: string): Promise<CommitmentDTO[]> {
@@ -115,6 +119,10 @@ export async function loadCommitments(userId: string): Promise<CommitmentDTO[]> 
     notes: decryptOptional(c.notes),
     matchPattern: decryptOptional(c.matchPattern),
     sortOrder: c.sortOrder,
+    payoutDate: day(c.payoutDate),
+    repeatMonths: c.repeatMonths,
+    paidOutOn: day(c.paidOutOn),
+    payoutTxnId: c.payoutTxnId,
     schedule: c.schedule.map((s) => ({
       id: s.id,
       dueDate: isoDate(s.dueDate),

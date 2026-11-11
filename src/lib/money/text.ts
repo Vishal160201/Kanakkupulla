@@ -36,7 +36,7 @@ export function parseTime(raw: string): string | null {
 /** Strips leading zeros; an all-zero reference ("000000000000000") is no reference. */
 export function normaliseRef(raw: string | null | undefined): string {
   const s = (raw ?? "").replace(/\s+/g, "").toUpperCase();
-  if (!s || /^0+$/.test(s)) return "";
+  if (!s || /^0+$/.test(s) || /^[-–—.]+$/.test(s)) return "";
   return s.replace(/^0+(?=.)/, "");
 }
 
@@ -72,7 +72,8 @@ export function extractCounterparty(narration: string): { counterparty: string |
   const upiId = UPI_ID.exec(text)?.[0]?.toLowerCase() ?? null;
   let counterparty: string | null = null;
 
-  let m = /^UPI-([^-]+)-/i.exec(text);
+  // "UPI-AUTOPAY-APPLE MEDIA SERVICES-…": the payee comes after AUTOPAY / MANDATE
+  let m = /^UPI-(?:(?:AUTOPAY|MANDATE|COLLECT)-)?([^-]+)-/i.exec(text);
   if (m) counterparty = m[1];
   if (!counterparty && (m = /^UPI\/(?:DR|CR|P2A|P2M)?\/?\d*\/([^/]+)\//i.exec(text))) counterparty = m[1];
   if (!counterparty && (m = /^(?:NEFT|RTGS)\s*(?:CR|DR)?-[A-Z]{4}0[A-Z0-9]{6}-([^-]+)-/i.exec(text))) counterparty = m[1];

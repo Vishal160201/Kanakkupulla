@@ -131,5 +131,7 @@ describe("counterparties from narrations", () => {
     expect(extractCounterparty("NEFT CR-UTIB0000123-ACME TRADERS PVT LTD-HOLDER-UTIBN123").counterparty).toBe("ACME TRADERS PVT LTD");
     expect(extractCounterparty("IMPS-123456789012-MEENA K-UTIB-XXXX1234-GIFT").counterparty).toBe("MEENA K");
     expect(extractCounterparty("INTEREST PAID TILL 30-SEP-2026")).toEqual({ counterparty: null, upiId: null });
+    expect(extractCounterparty("UPI-AUTOPAY-APPLE MEDIA SERVICES-APPLESE RVICES@HDFCBANK-HDFC0MERUPI-1234").counterparty).toBe("APPLE MEDIA SERVICES");
+    expect(normaliseRef("-")).toBe("");
   });
 });

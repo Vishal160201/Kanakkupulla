@@ -102,3 +102,23 @@ describe("splitAmount", () => {
     expect(splitAmount("10", 0)).toEqual([]);
   });
 });
+
+describe("savings goals that pay out", () => {
+  it("plans the next round of a repeating goal", async () => {
+    const { nextPayoutRound } = await import("@/lib/money/commitments");
+    const next = nextPayoutRound({ totalAmount: "12000", repeatMonths: 6, payoutDate: "2026-12-01" });
+    expect(next.payoutDate).toBe("2027-06-01");
+    expect(next.schedule.map((s) => s.dueDate)).toEqual(["2027-01-01", "2027-02-01", "2027-03-01", "2027-04-01", "2027-05-01", "2027-06-01"]);
+    expect(next.schedule.every((s) => s.amount === "2000.00")).toBe(true);
+    expect(nextPayoutRound({ totalAmount: "1000", repeatMonths: 3, payoutDate: "2026-11-30" }).schedule.map((s) => s.amount)).toEqual(["333.33", "333.33", "333.34"]);
+    expect(nextPayoutRound({ totalAmount: "1000", repeatMonths: 3, payoutDate: "2026-11-30" }).payoutDate).toBe("2027-02-28");
+  });
+
+  it("once paid out (completed), the saved money stops counting as held", () => {
+    const goal: CommitmentInput = { id: "g", name: "Festival", type: "SAVINGS_GOAL", status: "ACTIVE", totalAmount: "3000", schedule: [{ id: "1", dueDate: "2026-10-01", amount: "3000", paidAmount: "3000" }] };
+    // Before: 10000 in the pool, 3000 of it set aside
+    expect(computeBalForEmi({ pool: [{ name: "P", balance: "10000" }], commitments: [goal] }).balForEmi).toBe("7000.00");
+    // After spending it: the pool is 3000 lower and the goal is done, so Bal for EMI doesn't move
+    expect(computeBalForEmi({ pool: [{ name: "P", balance: "7000" }], commitments: [{ ...goal, status: "COMPLETED" }] }).balForEmi).toBe("7000.00");
+  });
+});

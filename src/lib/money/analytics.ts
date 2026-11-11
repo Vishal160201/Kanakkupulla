@@ -44,17 +44,28 @@ const signed = (t: ATxn): Dec => (t.direction === "CREDIT" ? dec(t.amount) : dec
 // Balances
 // ---------------------------------------------------------------------------
 
-/** Balance at the end of `onOrBefore` (default: latest), from the statement's running balance. */
+/**
+ * Balance at the end of `onOrBefore` (default: latest): the statement's last running balance (or a
+ * balance typed in later), plus entries you added yourself after that date. Entries dated on or
+ * before it are already in the statement.
+ */
 export function bankBalance(account: AAccount, txns: ATxn[], onOrBefore?: string): { balance: string; asOf: string; source: "statement" | "manual" } | null {
-  const own = txns.filter((t) => t.accountId === account.id && t.balanceAfter != null && (!onOrBefore || t.txnDate <= onOrBefore)).sort(byStatementOrder);
+  const upTo = (t: ATxn) => t.accountId === account.id && (!onOrBefore || t.txnDate <= onOrBefore);
+  const own = txns.filter((t) => upTo(t) && t.balanceAfter != null).sort(byStatementOrder);
   const last = own.at(-1);
   const manualUsable = account.manualBalance != null && account.manualBalanceAsOf != null && (!onOrBefore || account.manualBalanceAsOf <= onOrBefore);
+  let anchor: { balance: string; asOf: string; source: "statement" | "manual" } | null = null;
   if (manualUsable && (!last || (account.manualBalanceAsOf as string) > last.txnDate)) {
-    return { balance: money(account.manualBalance as string), asOf: account.manualBalanceAsOf as string, source: "manual" };
+    anchor = { balance: account.manualBalance as string, asOf: account.manualBalanceAsOf as string, source: "manual" };
+  } else if (last) {
+    anchor = { balance: last.balanceAfter as string, asOf: last.txnDate, source: "statement" };
+  } else if (manualUsable) {
+    anchor = { balance: account.manualBalance as string, asOf: account.manualBalanceAsOf as string, source: "manual" };
   }
-  if (last) return { balance: money(last.balanceAfter as string), asOf: last.txnDate, source: "statement" };
-  if (manualUsable) return { balance: money(account.manualBalance as string), asOf: account.manualBalanceAsOf as string, source: "manual" };
-  return null;
+  if (!anchor) return null;
+  const later = txns.filter((t) => upTo(t) && t.balanceAfter == null && t.txnDate > (anchor as { asOf: string }).asOf);
+  const latestDate = later.reduce((d, t) => (t.txnDate > d ? t.txnDate : d), anchor.asOf);
+  return { balance: money(dec(anchor.balance).plus(sum(later.map(signed)))), asOf: latestDate, source: anchor.source };
 }
 
 /** Opening balance of a period: the balance just before its first row. */
@@ -286,7 +297,7 @@ export interface ForecastEvent {
   date: string;
   amount: string; // signed: + money in, − money out
   label: string;
-  kind: "emi" | "bill" | "receivable" | "income" | "salary" | "payable";
+  kind: "emi" | "bill" | "receivable" | "income" | "salary" | "payable" | "payout";
 }
 
 /** Day-by-day projected available money; events before today land today. */

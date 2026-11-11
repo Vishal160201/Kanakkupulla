@@ -10,6 +10,7 @@ import DatePickerInput from "@/components/ui/DatePickerInput";
 import { formatINR, formatMoneyDate, normaliseMoney } from "@/lib/money/format";
 import type { commitmentsView } from "@/lib/money/server/overview";
 import type { CommitmentDTO, TxnDTO } from "@/lib/money/server/rows";
+import Checkbox from "@/components/ui/Checkbox";
 import { accountOption, useMoneyAccounts } from "./hooks";
 import { COMMITMENT_TYPES, ConfirmDialog, EmptyState, FieldError, FormDialog, MoneyInput, Panel, Segmented, inputClass, labelClass, primaryButton, secondaryButton, send } from "./ui";
 
@@ -124,7 +125,11 @@ export default function CommitmentsPage({ initial }: { initial: CommitmentsData 
                           <span className="w-7 h-7 shrink-0 rounded-lg text-white flex items-center justify-center" style={{ backgroundColor: t.color }}><i aria-hidden="true" className={`ph-fill ${t.icon}`} /></span>
                           <span>
                             <span className="block text-sm font-extrabold text-slate-800 whitespace-nowrap">{row.name}</span>
-                            <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">{t.label}{row.status !== "ACTIVE" ? ` · ${row.status === "PAUSED" ? "Paused" : "Done"}` : ""}</span>
+                            <span className="block text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                              {t.label}
+                              {row.status !== "ACTIVE" ? ` · ${row.status === "PAUSED" ? "Paused" : c.paidOutOn ? `Paid out ${formatMoneyDate(c.paidOutOn)}` : "Done"}` : ""}
+                              {row.status === "ACTIVE" && c.payoutDate ? ` · goes out ${formatMoneyDate(c.payoutDate)}${c.repeatMonths ? `, every ${c.repeatMonths} months` : ""}` : ""}
+                            </span>
                           </span>
                         </button>
                       </td>
@@ -169,7 +174,7 @@ export default function CommitmentsPage({ initial }: { initial: CommitmentsData 
 
       {editing && (
         <CommitmentForm
-          commitment={editing === "new" ? null : editing}
+          commitment={editing === "new" ? null : byId.get(editing.id) ?? editing}
           all={commitments}
           onClose={() => setEditing(null)}
           onSaved={() => void mutate()}
@@ -226,6 +231,9 @@ function CommitmentForm({ commitment, all, onClose, onSaved, onDelete }: { commi
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
   const [parts, setParts] = useState("1");
+  const [payoutDate, setPayoutDate] = useState(commitment?.payoutDate ?? "");
+  const [repeatMonths, setRepeatMonths] = useState(commitment?.repeatMonths ? String(commitment.repeatMonths) : "");
+  const [payingOut, setPayingOut] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
@@ -251,6 +259,8 @@ function CommitmentForm({ commitment, all, onClose, onSaved, onDelete }: { commi
     const body = {
       name: name.trim(), type, status, accountId: accountId || null, totalAmount: value, notes: notes.trim() || null,
       matchPattern: matchPattern.trim() || null, linkedCommitmentId: linkType ? linkId || null : null,
+      payoutDate: type === "SAVINGS_GOAL" ? payoutDate || null : null,
+      repeatMonths: type === "SAVINGS_GOAL" && payoutDate && repeatMonths ? Number(repeatMonths) : null,
       ...(commitment ? {} : { schedule: preview.map((p) => ({ ...p, paidAmount: "0" })) }),
     };
     const res = commitment ? await send(`/api/money/commitments/${commitment.id}`, "PUT", body) : await send("/api/money/commitments", "POST", body);
@@ -274,7 +284,12 @@ function CommitmentForm({ commitment, all, onClose, onSaved, onDelete }: { commi
       wide
       footer={
         <>
-          {onDelete && <button type="button" onClick={onDelete} className="h-11 rounded-xl border border-rose-200 px-4 text-sm font-bold text-rose-600 hover:bg-rose-50"><i aria-hidden="true" className="ph-bold ph-trash" /></button>}
+          {onDelete && <button type="button" aria-label="Delete commitment" onClick={onDelete} className="h-11 rounded-xl border border-rose-200 px-4 text-sm font-bold text-rose-600 hover:bg-rose-50"><i aria-hidden="true" className="ph-bold ph-trash" /></button>}
+          {commitment && commitment.type === "SAVINGS_GOAL" && commitment.status !== "COMPLETED" && (
+            <button type="button" onClick={() => setPayingOut(true)} className="h-11 rounded-xl border border-emerald-200 px-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50 inline-flex items-center gap-1.5">
+              <i aria-hidden="true" className="ph-bold ph-hand-coins" /> Paid out
+            </button>
+          )}
           <button type="button" onClick={onClose} disabled={busy} className={`flex-1 ${secondaryButton}`}>Cancel</button>
           <button type="button" onClick={save} disabled={busy} className={`flex-1 ${primaryButton}`}>{busy && <i aria-hidden="true" className="ph-bold ph-circle-notch animate-spin" />} Save</button>
         </>
@@ -329,6 +344,30 @@ function CommitmentForm({ commitment, all, onClose, onSaved, onDelete }: { commi
           <p className="mt-1.5 text-[11px] font-semibold text-slate-400">Used to suggest the transaction that pays each month.</p>
         </div>
       )}
+      {type === "SAVINGS_GOAL" && (
+        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <p className="text-sm font-extrabold text-slate-800">When the money goes out</p>
+          <p className="text-[11px] font-semibold text-slate-400">Like an insurance premium or festival shopping. It shows in the forecast, and once you mark it paid out the savings stop counting as held.</p>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <span className={labelClass}>Goes out on</span>
+              <DatePickerInput value={payoutDate || null} onChange={setPayoutDate} placeholder="No date" />
+              {payoutDate && <button type="button" onClick={() => setPayoutDate("")} className="mt-1 text-[11px] font-bold text-slate-400 hover:text-rose-600">Clear date</button>}
+            </div>
+            <div>
+              <span className={labelClass}>Repeats</span>
+              <CustomDropdown
+                options={[{ value: "", label: "Doesn't repeat" }, ...[1, 3, 6, 12].map((n) => ({ value: String(n), label: n === 1 ? "Every month" : `Every ${n} months` }))]}
+                value={payoutDate ? repeatMonths : ""}
+                onChange={setRepeatMonths}
+                placeholder="Doesn't repeat"
+              />
+              {repeatMonths && payoutDate && <p className="mt-1 text-[11px] font-semibold text-slate-400">After each pay-out, the next round starts with {repeatMonths} monthly parts.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+      {commitment && <ScheduleEditor commitment={commitment} onChanged={onSaved} />}
       {commitment ? (
         <div>
           <span className={labelClass}>Status</span>
@@ -354,7 +393,7 @@ function CommitmentForm({ commitment, all, onClose, onSaved, onDelete }: { commi
         <label htmlFor="c-notes" className={labelClass}>Notes</label>
         <input id="c-notes" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" className={inputClass} />
       </div>
-      {commitment && <p className="text-[11px] font-semibold text-slate-400">Change a month&apos;s amount or mark it paid from the grid.</p>}
+      {payingOut && commitment && <PayoutDialog goal={commitment} onClose={() => setPayingOut(false)} onDone={() => { onSaved(); onClose(); }} />}
     </FormDialog>
   );
 }
@@ -424,5 +463,153 @@ function EntryEditor({ entry, candidates, onSaved }: { entry: Entry; candidates:
         )}
       </div>
     </div>
+  );
+}
+
+/** Months of a commitment: remove one, or add one (for example a month you saved but the sheet left blank). */
+function ScheduleEditor({ commitment, onChanged }: { commitment: CommitmentDTO; onChanged: () => void }) {
+  const [date, setDate] = useState("");
+  const [amount, setAmount] = useState("");
+  const [paid, setPaid] = useState(true);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const add = async () => {
+    const value = normaliseMoney(amount);
+    if (!date) return setError("Pick the month's date.");
+    if (!value || Number(value) <= 0) return setError("Enter an amount like 2000.");
+    setError("");
+    setBusy(true);
+    const res = await send(`/api/money/commitments/${commitment.id}/entries`, "POST", { dueDate: date, amount: value, paidAmount: paid ? value : "0", paidOn: paid ? date : null });
+    setBusy(false);
+    if (res.ok) {
+      toast.success("Month added");
+      setDate("");
+      setAmount("");
+      onChanged();
+    }
+  };
+
+  const remove = async (id: string) => {
+    setBusy(true);
+    const res = await send(`/api/money/commitments/entries/${id}`, "DELETE");
+    setBusy(false);
+    setRemoving(null);
+    if (res.ok) {
+      toast.success("Month removed");
+      onChanged();
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-100 p-4">
+      <p className="text-sm font-extrabold text-slate-800">Months</p>
+      {commitment.schedule.length === 0 ? (
+        <p className="mt-1 text-xs font-semibold text-slate-400">No months yet.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-slate-50">
+          {commitment.schedule.map((s) => {
+            const isPaid = Number(s.paidAmount) >= Number(s.amount);
+            return (
+              <li key={s.id} className="flex items-center gap-2 py-1.5 text-xs">
+                <span className="w-24 shrink-0 font-bold text-slate-600">{formatMoneyDate(s.dueDate)}</span>
+                <span className="flex-1 font-extrabold tabular-nums text-slate-900">{formatINR(s.amount)}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${isPaid ? "bg-emerald-50 text-emerald-600" : Number(s.paidAmount) > 0 ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"}`}>
+                  {isPaid ? "Paid" : Number(s.paidAmount) > 0 ? `${formatINR(s.paidAmount)} paid` : "Not yet"}
+                </span>
+                {removing === s.id ? (
+                  <>
+                    <button type="button" disabled={busy} onClick={() => remove(s.id)} className="h-7 rounded-lg bg-rose-500 px-2 text-[11px] font-bold text-white">Remove</button>
+                    <button type="button" onClick={() => setRemoving(null)} className="h-7 rounded-lg border border-slate-200 px-2 text-[11px] font-bold text-slate-500">Keep</button>
+                  </>
+                ) : (
+                  <button type="button" aria-label={`Remove ${formatMoneyDate(s.dueDate)}`} onClick={() => setRemoving(s.id)} className="w-7 h-7 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center">
+                    <i aria-hidden="true" className="ph-bold ph-trash" />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <div>
+          <span className={labelClass}>Add a month</span>
+          <DatePickerInput value={date || null} onChange={setDate} placeholder="Date" />
+        </div>
+        <div>
+          <span className={labelClass}>Amount</span>
+          <MoneyInput id={`add-${commitment.id}`} value={amount} onChange={setAmount} placeholder="2000" error={!!error} />
+        </div>
+        <button type="button" disabled={busy} onClick={add} className={primaryButton}><i aria-hidden="true" className="ph-bold ph-plus" /> Add</button>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <Checkbox checked={paid} onChange={setPaid} label="Already paid / saved" tone="green" size="sm" />
+      </div>
+      <FieldError message={error} />
+    </div>
+  );
+}
+
+/** A savings goal's money went out: pick the date (and the transaction, if it's in a statement). */
+function PayoutDialog({ goal, onClose, onDone }: { goal: CommitmentDTO; onClose: () => void; onDone: () => void }) {
+  const today = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const around = goal.payoutDate ?? today;
+  const [paidOn, setPaidOn] = useState(goal.payoutDate && goal.payoutDate <= today ? goal.payoutDate : today);
+  const [txnId, setTxnId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { data } = useSWR<{ rows: TxnDTO[] }>(`/api/money/transactions?from=${addMonths(around, -1)}&to=${addMonths(around, 1)}&pageSize=200`, fetcher);
+  const debits = (data?.rows ?? []).filter((t) => t.direction === "DEBIT" && t.kind !== "SELF_TRANSFER");
+  const saved = goal.schedule.reduce((sum, s) => sum + Number(s.paidAmount), 0);
+  return (
+    <FormDialog
+      eyebrow="Pay out"
+      title={`${goal.name}: money went out`}
+      onClose={onClose}
+      busy={busy}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className={`flex-1 ${secondaryButton}`}>Cancel</button>
+          <button
+            type="button"
+            disabled={busy}
+            className={`flex-1 ${primaryButton}`}
+            onClick={async () => {
+              setBusy(true);
+              const res = await send<{ nextId: string | null }>(`/api/money/commitments/${goal.id}/payout`, "POST", { paidOn, transactionId: txnId || null });
+              setBusy(false);
+              if (res.ok) {
+                toast.success(res.data.nextId ? `${goal.name} paid out, next round started` : `${goal.name} paid out`);
+                onDone();
+              }
+            }}
+          >
+            {busy && <i aria-hidden="true" className="ph-bold ph-circle-notch animate-spin" />} Mark paid out
+          </button>
+        </>
+      }
+    >
+      <p className="text-sm font-semibold text-slate-600">
+        {formatINR(saved.toFixed(2))} saved of {formatINR(goal.totalAmount)}. Once it&apos;s paid out, this money stops counting as savings held, so it isn&apos;t counted as both spent and saved.
+        {goal.repeatMonths ? ` A new round starts, going out ${goal.repeatMonths} months after ${goal.payoutDate ? formatMoneyDate(goal.payoutDate) : "the pay-out"}.` : ""}
+      </p>
+      <div>
+        <span className={labelClass}>Paid out on</span>
+        <DatePickerInput value={paidOn} onChange={setPaidOn} disableFutureDates />
+      </div>
+      <div>
+        <span className={labelClass}>The payment in your statement</span>
+        <CustomDropdown
+          options={[{ value: "", label: "Not in a statement / several payments" }, ...debits.map((t) => ({ value: t.id, label: `${formatMoneyDate(t.txnDate).slice(0, 6)} · ${formatINR(t.amount)} · ${(t.counterparty ?? t.narration).slice(0, 28)}` }))]}
+          value={txnId}
+          onChange={setTxnId}
+          placeholder="Not in a statement / several payments"
+        />
+      </div>
+    </FormDialog>
   );
 }

@@ -49,6 +49,7 @@ export async function buildBackup(userId: string) {
     commitments: commitments.map((c) => ({
       id: c.id, name: decryptText(c.name), type: c.type, status: c.status, accountId: c.accountId, totalAmount: c.totalAmount.toFixed(2),
       notes: decryptOptional(c.notes), matchPattern: decryptOptional(c.matchPattern), linkedCommitmentId: c.linkedCommitmentId, sortOrder: c.sortOrder,
+      payoutDate: day(c.payoutDate), repeatMonths: c.repeatMonths, paidOutOn: day(c.paidOutOn), payoutTxnId: c.payoutTxnId,
       schedule: c.schedule.map((s) => ({ id: s.id, dueDate: isoDate(s.dueDate), amount: s.amount.toFixed(2), paidAmount: s.paidAmount.toFixed(2), paidOn: day(s.paidOn), transactionId: s.transactionId })),
     })),
     preferences: prefs,
@@ -87,6 +88,7 @@ const backupSchema = z.object({
   commitments: z.array(z.object({
     id, name: z.string().min(1).max(60), type: z.enum(["SAVINGS_GOAL", "CARD_BILL", "CARD_EMI", "RECEIVABLE", "PAYABLE", "EXPECTED_INCOME"]), status: z.enum(["ACTIVE", "COMPLETED", "PAUSED"]),
     accountId: id.nullable(), totalAmount: amt, notes: z.string().max(500).nullable(), matchPattern: z.string().max(80).nullable(), linkedCommitmentId: id.nullable(), sortOrder: z.number().int(),
+    payoutDate: date.nullable().optional(), repeatMonths: z.number().int().min(1).max(24).nullable().optional(), paidOutOn: date.nullable().optional(), payoutTxnId: id.nullable().optional(),
     schedule: z.array(z.object({ id, dueDate: date, amount: amt, paidAmount: amt, paidOn: date.nullable(), transactionId: id.nullable() })).max(120),
   })).max(1000),
   preferences: z.unknown().optional(),
@@ -167,6 +169,8 @@ export async function restoreBackup(userId: string, b: MoneyBackup): Promise<{ a
         data: {
           id: c.id, userId, name: encryptText(c.name), type: c.type, status: c.status, accountId: known(accountIds, c.accountId), totalAmount: c.totalAmount,
           notes: encryptOptional(c.notes), matchPattern: encryptOptional(c.matchPattern), sortOrder: c.sortOrder,
+          payoutDate: c.payoutDate ? dateFromIso(c.payoutDate) : null, repeatMonths: c.repeatMonths ?? null,
+          paidOutOn: c.paidOutOn ? dateFromIso(c.paidOutOn) : null, payoutTxnId: known(txnIds, c.payoutTxnId ?? null),
           schedule: { create: c.schedule.map((s) => ({ id: s.id, dueDate: dateFromIso(s.dueDate), amount: s.amount, paidAmount: s.paidAmount, paidOn: s.paidOn ? dateFromIso(s.paidOn) : null, transactionId: known(txnIds, s.transactionId) })) },
         },
       });

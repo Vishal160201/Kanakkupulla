@@ -65,6 +65,17 @@ describe("balances", () => {
     expect(bankBalance(kvb, [])).toBeNull();
   });
 
+  it("adds spends you typed in after the statement's last day", () => {
+    const rows = [
+      tx({ accountId: "kvb", txnDate: "2026-11-10", amount: "15.00", direction: "DEBIT", balanceAfter: "3000.00" }),
+      tx({ accountId: "kvb", txnDate: "2026-11-10", amount: "99.00", direction: "DEBIT" }), // same day: already in the statement
+      tx({ accountId: "kvb", txnDate: "2026-11-11", amount: "1999.00", direction: "DEBIT" }),
+      tx({ accountId: "kvb", txnDate: "2026-11-12", amount: "500.00", direction: "CREDIT" }),
+    ];
+    expect(bankBalance(kvb, rows)).toEqual({ balance: "1501.00", asOf: "2026-11-12", source: "statement" });
+    expect(bankBalance(kvb, rows, "2026-11-11")?.balance).toBe("1001.00");
+  });
+
   it("card used = typed amount + later spends − refunds − payments", () => {
     const kiwi = acct({ id: "kiwi", type: "CREDIT_CARD", outstanding: "30000.22", outstandingAsOf: "2026-11-10" });
     const rows = [

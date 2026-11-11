@@ -31,6 +31,7 @@ export function parseKvb(pages: PdfPage[]): ParsedStatement {
     isRowStart: (cell) => DATE_RE.test(cell.split(" ")[0] ?? ""),
     continuationKeys: ["date", "valueDate", "particulars", "ref"],
     mergeWithin: 7,
+    endPageAt: /^Note\s*:/i,
   });
 
   let opening: string | null = null;

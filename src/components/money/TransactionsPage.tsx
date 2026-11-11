@@ -28,6 +28,7 @@ interface Suggestions {
   passThrough: { creditId: string; debitId: string; credit: Slim; debit: Slim }[];
   schedule: { scheduleId: string; txnId: string; commitmentName: string; dueDate: string; amount: string; txn: Slim }[];
   unmatched: Slim[];
+  payout?: { commitmentId: string; commitmentName: string; payoutDate: string; amount: string; repeats: boolean; txn: Slim }[];
 }
 
 const iso = (d: Date | null) => (d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : "");
@@ -74,7 +75,7 @@ export default function TransactionsPage() {
 
   const { data, mutate, isLoading } = useSWR<TxnPage>(view === "suggestions" ? null : `/api/money/transactions?${qs}`, fetcher, { keepPreviousData: true });
   const { data: suggestions, mutate: refreshSuggestions } = useSWR<Suggestions>("/api/money/suggestions", fetcher);
-  const suggestionCount = (suggestions?.passThrough.length ?? 0) + (suggestions?.schedule.length ?? 0) + (suggestions?.unmatched.length ?? 0);
+  const suggestionCount = (suggestions?.passThrough.length ?? 0) + (suggestions?.schedule.length ?? 0) + (suggestions?.unmatched.length ?? 0) + (suggestions?.payout?.length ?? 0);
 
   const patch = async (t: TxnDTO, body: Record<string, unknown>, message?: string) => {
     const res = await send<TxnDTO>(`/api/money/transactions/${t.id}`, "PATCH", body);
@@ -331,10 +332,27 @@ function SuggestionsPanel({ data, accountById, onDone }: { data?: Suggestions; a
       <Amount value={t.amount} direction={t.direction} className="text-xs shrink-0" />
     </div>
   );
-  const empty = data.passThrough.length + data.schedule.length + data.unmatched.length === 0;
+  const payouts = data.payout ?? [];
+  const empty = data.passThrough.length + data.schedule.length + data.unmatched.length + payouts.length === 0;
   if (empty) return <EmptyState icon="ph-check-circle" title="Nothing to review" text="Pass-throughs, commitment payments and unmatched transfers will show up here after each import." />;
   return (
     <div className="space-y-4">
+      {payouts.length > 0 && (
+        <Panel title="Savings goals paying out" subtitle="A payment the size of the goal, near its pay-out date." icon="ph-piggy-bank">
+          <ul className="space-y-2">
+            {payouts.map((p) => (
+              <li key={`${p.commitmentId}:${p.txn.id}`} className="rounded-2xl border border-slate-100 p-3">
+                <p className="text-sm font-extrabold text-slate-800">{p.commitmentName}: {formatINR(p.amount)} going out {formatMoneyDate(p.payoutDate)}</p>
+                <div className="mt-1"><Row t={p.txn} /></div>
+                <div className="mt-2 flex gap-2">
+                  <button type="button" onClick={() => act({ type: "payout", commitmentId: p.commitmentId, txnId: p.txn.id, action: "accept" }, p.repeats ? "Paid out, next round started" : "Paid out")} className="h-9 rounded-xl bg-emerald-500 px-3 text-xs font-bold text-white">That&apos;s the pay-out</button>
+                  <button type="button" onClick={() => act({ type: "payout", commitmentId: p.commitmentId, txnId: p.txn.id, action: "dismiss" }, "Dismissed")} className="h-9 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-500">Not this one</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
       {data.schedule.length > 0 && (
         <Panel title="Payments that match a commitment" subtitle="Confirm to mark the month paid." icon="ph-calendar-check">
           <ul className="space-y-2">
