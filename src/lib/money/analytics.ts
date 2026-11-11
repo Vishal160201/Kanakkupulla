@@ -18,6 +18,8 @@ export interface ATxn {
   narration: string;
   counterparty: string | null;
   counterAccountId: string | null;
+  /** When the row was added (ISO); tells typed entries apart from a balance typed the same day */
+  createdAt?: string;
 }
 
 export interface AAccount {
@@ -28,6 +30,8 @@ export interface AAccount {
   lowBalanceAlert: string;
   manualBalance: string | null;
   manualBalanceAsOf: string | null;
+  /** When the typed balance was last saved (ISO) */
+  manualBalanceSetAt?: string | null;
   outstanding: string | null;
   outstandingAsOf: string | null;
   cycleStartDay: number | null;
@@ -46,8 +50,10 @@ const signed = (t: ATxn): Dec => (t.direction === "CREDIT" ? dec(t.amount) : dec
 
 /**
  * Balance at the end of `onOrBefore` (default: latest): the statement's last running balance (or a
- * balance typed in later), plus entries you added yourself after that date. Entries dated on or
- * before it are already in the statement.
+ * balance typed in later), plus entries you typed in since:
+ * - statement: typed entries from its last day on (imports replace the typed entries they contain,
+ *   so any left on that day aren't in the statement)
+ * - typed balance: entries after its date, and entries on its date added after it was saved
  */
 export function bankBalance(account: AAccount, txns: ATxn[], onOrBefore?: string): { balance: string; asOf: string; source: "statement" | "manual" } | null {
   const upTo = (t: ATxn) => t.accountId === account.id && (!onOrBefore || t.txnDate <= onOrBefore);
@@ -63,7 +69,14 @@ export function bankBalance(account: AAccount, txns: ATxn[], onOrBefore?: string
     anchor = { balance: account.manualBalance as string, asOf: account.manualBalanceAsOf as string, source: "manual" };
   }
   if (!anchor) return null;
-  const later = txns.filter((t) => upTo(t) && t.balanceAfter == null && t.txnDate > (anchor as { asOf: string }).asOf);
+  const a = anchor;
+  const setAt = account.manualBalanceSetAt ?? null;
+  const counts = (t: ATxn) => {
+    if (t.txnDate > a.asOf) return true;
+    if (t.txnDate < a.asOf) return false;
+    return a.source === "statement" ? true : !!(setAt && t.createdAt && t.createdAt > setAt);
+  };
+  const later = txns.filter((t) => upTo(t) && t.balanceAfter == null && counts(t));
   const latestDate = later.reduce((d, t) => (t.txnDate > d ? t.txnDate : d), anchor.asOf);
   return { balance: money(dec(anchor.balance).plus(sum(later.map(signed)))), asOf: latestDate, source: anchor.source };
 }

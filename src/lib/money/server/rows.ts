@@ -20,6 +20,7 @@ export function toAAccount(a: MoneyAccount): AAccount {
     lowBalanceAlert: a.lowBalanceAlert.toFixed(2),
     manualBalance: d2(a.manualBalance),
     manualBalanceAsOf: day(a.manualBalanceAsOf),
+    manualBalanceSetAt: a.manualBalance != null ? a.updatedAt.toISOString() : null,
     outstanding: d2(a.outstanding),
     outstandingAsOf: day(a.outstandingAsOf),
     cycleStartDay: a.cycleStartDay,
@@ -60,6 +61,7 @@ export function toTxnDTO(t: MoneyTransaction): TxnDTO {
     commitmentId: t.commitmentId,
     note: decryptOptional(t.note),
     importId: t.importId,
+    createdAt: t.createdAt.toISOString(),
   };
 }
 

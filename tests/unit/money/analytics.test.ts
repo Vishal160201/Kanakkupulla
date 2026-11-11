@@ -65,15 +65,25 @@ describe("balances", () => {
     expect(bankBalance(kvb, [])).toBeNull();
   });
 
-  it("adds spends you typed in after the statement's last day", () => {
+  it("adds entries you typed in from the statement's last day on", () => {
     const rows = [
+      tx({ accountId: "kvb", txnDate: "2026-11-09", amount: "50.00", direction: "DEBIT" }), // before: the statement covers it
       tx({ accountId: "kvb", txnDate: "2026-11-10", amount: "15.00", direction: "DEBIT", balanceAfter: "3000.00" }),
-      tx({ accountId: "kvb", txnDate: "2026-11-10", amount: "99.00", direction: "DEBIT" }), // same day: already in the statement
+      tx({ accountId: "kvb", txnDate: "2026-11-10", amount: "99.00", direction: "DEBIT" }), // last day, not replaced by the import: counts
       tx({ accountId: "kvb", txnDate: "2026-11-11", amount: "1999.00", direction: "DEBIT" }),
       tx({ accountId: "kvb", txnDate: "2026-11-12", amount: "500.00", direction: "CREDIT" }),
     ];
-    expect(bankBalance(kvb, rows)).toEqual({ balance: "1501.00", asOf: "2026-11-12", source: "statement" });
-    expect(bankBalance(kvb, rows, "2026-11-11")?.balance).toBe("1001.00");
+    expect(bankBalance(kvb, rows)).toEqual({ balance: "1402.00", asOf: "2026-11-12", source: "statement" });
+    expect(bankBalance(kvb, rows, "2026-11-11")?.balance).toBe("902.00");
+  });
+
+  it("adds a transfer typed in after a balance typed the same day", () => {
+    const typed = { ...kvb, manualBalance: "5000.00", manualBalanceAsOf: "2026-11-11", manualBalanceSetAt: "2026-11-11T05:00:00.000Z" };
+    const rows = [
+      tx({ accountId: "kvb", txnDate: "2026-11-11", amount: "200.00", direction: "DEBIT", createdAt: "2026-11-11T04:00:00.000Z" }), // before the balance was typed
+      tx({ accountId: "kvb", txnDate: "2026-11-11", amount: "1500.00", direction: "CREDIT", createdAt: "2026-11-11T06:30:00.000Z" }),
+    ];
+    expect(bankBalance(typed, rows)).toEqual({ balance: "6500.00", asOf: "2026-11-11", source: "manual" });
   });
 
   it("card used = typed amount + later spends − refunds − payments", () => {
