@@ -50,8 +50,8 @@ function CardSection({ card, onAdd }: { card: CardsData[number]; onAdd: () => vo
 
   return (
     <section className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="relative overflow-hidden rounded-3xl p-6 text-white shadow-lg" style={{ background: `linear-gradient(135deg, ${a.color}, ${a.color}cc 55%, #0f172a)` }}>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        <div className="relative col-span-2 lg:col-span-1 overflow-hidden rounded-3xl p-5 sm:p-6 text-white shadow-lg" style={{ background: `linear-gradient(135deg, ${a.color}, ${a.color}cc 55%, #0f172a)` }}>
           <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 w-44 h-44 rounded-full bg-white/10" />
           <div className="relative flex items-center gap-2">
             <i aria-hidden="true" className="ph-fill ph-credit-card text-xl" />
@@ -73,23 +73,23 @@ function CardSection({ card, onAdd }: { card: CardsData[number]; onAdd: () => vo
           </p>
         </div>
 
-        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-100 bg-white p-4 sm:p-6 shadow-sm">
           <p className="text-[11px] font-extrabold uppercase tracking-[1.5px] text-slate-400">Next bill</p>
-          <p className="mt-1 text-2xl font-extrabold tabular-nums text-slate-900">{formatINR(nextBill)}</p>
-          <p className="text-xs font-semibold text-slate-500">
+          <p className="mt-1 text-lg sm:text-2xl font-extrabold tabular-nums text-slate-900">{formatINR(nextBill)}</p>
+          <p className="text-[11px] sm:text-xs font-semibold text-slate-500">
             {lastClosed ? `Spends ${formatMoneyDate(lastClosed.from)} – ${formatMoneyDate(lastClosed.to)}` : "About what the card shows as used"}
             {nextDue ? `, due ${formatMoneyDate(nextDue)}.` : ". Set the due day in Settings to see the due date."}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" onClick={onAdd} className={primaryButton}><i aria-hidden="true" className="ph-bold ph-plus" /> Add spend</button>
-            <Link href="/money/import" className={secondaryButton}><i aria-hidden="true" className="ph-bold ph-file-csv" /> Import CSV</Link>
+          <div className="mt-3 sm:mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={onAdd} className={`${primaryButton} h-9 sm:h-11 px-3 text-xs sm:text-sm`}><i aria-hidden="true" className="ph-bold ph-plus" /> Spend</button>
+            <Link href="/money/import" className={`${secondaryButton} h-9 sm:h-11 px-3 text-xs sm:text-sm`}><i aria-hidden="true" className="ph-bold ph-file-csv" /> CSV</Link>
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
-          <p className="text-[11px] font-extrabold uppercase tracking-[1.5px] text-slate-400">Card bills paid</p>
+        <div className="rounded-3xl border border-slate-100 bg-white p-4 sm:p-6 shadow-sm">
+          <p className="text-[11px] font-extrabold uppercase tracking-[1.5px] text-slate-400">Bills paid</p>
           {card.payments.length === 0 ? (
-            <p className="mt-2 text-sm font-semibold text-slate-400">No payments to this card found in your bank statements yet.</p>
+            <p className="mt-2 text-xs sm:text-sm font-semibold text-slate-400">None found in your bank statements yet.</p>
           ) : (
             <ul className="mt-2 space-y-1.5">
               {card.payments.slice(0, 5).map((p) => (

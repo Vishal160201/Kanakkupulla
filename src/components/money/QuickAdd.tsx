@@ -52,6 +52,8 @@ export default function QuickAdd() {
   );
 }
 
+const sectionLabel = "mb-2.5 text-[11px] font-extrabold uppercase tracking-[2px] text-slate-400";
+
 function QuickAddSheet({ onClose }: { onClose: () => void }) {
   const { accounts } = useMoneyAccounts();
   const { categories } = useMoneyCategories();
@@ -68,6 +70,8 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const isSpend = direction === "DEBIT";
+
   // Cards first (daily spends), then bank accounts
   const ordered = useMemo(() => [...accounts.filter((a) => a.type === "CREDIT_CARD"), ...accounts.filter((a) => a.type === "BANK")], [accounts]);
   const chosenAccount = ordered.find((a) => a.id === accountId) ?? ordered[0];
@@ -80,6 +84,24 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
       .sort((a, b) => (use[b.id] ?? 0) - (use[a.id] ?? 0) || a.sortOrder - b.sortOrder);
   }, [categories]);
   const category = categories.find((c) => c.id === categoryId);
+
+  /** Amount from the clipboard (e.g. copied from a payment app): the first number in it. */
+  const paste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const match = /(\d[\d,]*(\.\d{1,2})?)/.exec(text.replace(/₹\s?/g, ""));
+      const value = match ? normaliseMoney(match[1]) : null;
+      if (value) {
+        setAmount(value.replace(/\.00$/, ""));
+        setError("");
+      } else {
+        toast.error("No amount found in what you copied.");
+      }
+    } catch {
+      toast.error("Couldn't read the clipboard. Type the amount instead.");
+    }
+    amountRef.current?.focus();
+  };
 
   const save = async (again: boolean) => {
     const value = normaliseMoney(amount);
@@ -114,7 +136,7 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
       const use = read<Record<string, number>>(CATEGORY_USE, {});
       write(CATEGORY_USE, { ...use, [categoryId]: (use[categoryId] ?? 0) + 1 });
     }
-    toast.success(`${formatINR(value)} ${direction === "DEBIT" ? "spent" : "received"}${category ? ` · ${category.name}` : ""}`);
+    toast.success(`${formatINR(value)} ${isSpend ? "spent" : "received"}${category ? ` · ${category.name}` : ""}`);
     // Every /money view that depends on transactions
     void mutate((key) => typeof key === "string" && key.startsWith("/api/money/"));
     if (again) {
@@ -127,15 +149,26 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const dateChoices: { key: string; label: string; day?: string }[] = [
+    { key: "today", label: "Today", day: localDay() },
+    { key: "yesterday", label: "Yesterday", day: localDay(-1) },
+    { key: "other", label: "Other day" },
+  ];
+  const activeDate = pickDate ? "other" : date === localDay() ? "today" : date === localDay(-1) ? "yesterday" : "other";
+
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
       <DialogContent
         showCloseButton={false}
-        className="w-[calc(100vw-1rem)] max-w-[480px] sm:max-w-[480px] max-h-[calc(100dvh-1rem)] flex flex-col rounded-3xl border-0 bg-white p-0 shadow-2xl gap-0 overflow-hidden"
+        className="w-[calc(100vw-1rem)] max-w-[500px] sm:max-w-[500px] max-h-[calc(100dvh-1rem)] flex flex-col rounded-[28px] border-0 bg-white p-0 shadow-2xl gap-0 overflow-hidden"
       >
-        <div className="shrink-0 flex items-center justify-between px-5 pt-5 pb-3">
-          <DialogTitle className="text-lg font-extrabold text-slate-900">Quick add</DialogTitle>
-          <div role="radiogroup" aria-label="Spend or income" className="flex gap-1 rounded-xl bg-slate-100 p-1">
+        {/* Header */}
+        <div className="shrink-0 flex items-start justify-between gap-3 px-5 pt-6 pb-4">
+          <div>
+            <DialogTitle className="text-2xl font-extrabold tracking-tight text-slate-900">Quick add</DialogTitle>
+            <p className="mt-0.5 text-sm font-medium text-slate-500">{isSpend ? "Add an expense in seconds" : "Add money you received"}</p>
+          </div>
+          <div role="radiogroup" aria-label="Spend or income" className="flex shrink-0 rounded-2xl bg-slate-100 p-1">
             {(["DEBIT", "CREDIT"] as const).map((d) => (
               <button
                 key={d}
@@ -143,7 +176,9 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
                 role="radio"
                 aria-checked={direction === d}
                 onClick={() => setDirection(d)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition ${direction === d ? (d === "DEBIT" ? "bg-white text-rose-600 shadow-sm" : "bg-white text-emerald-600 shadow-sm") : "text-slate-500"}`}
+                className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
+                  direction === d ? `bg-white shadow-[0_2px_8px_rgba(15,23,42,0.08)] ${d === "DEBIT" ? "text-rose-500" : "text-emerald-600"}` : "text-slate-500 hover:text-slate-700"
+                }`}
               >
                 {d === "DEBIT" ? "Spend" : "Income"}
               </button>
@@ -153,14 +188,23 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
 
         <form
           noValidate
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-4 space-y-4"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             void save(false);
           }}
         >
-          <div className={`flex items-center gap-2 rounded-2xl border-2 px-4 py-2 transition ${error && !normaliseMoney(amount) ? "border-rose-300" : "border-emerald-200 focus-within:border-emerald-500"}`}>
-            <span className={`text-3xl font-extrabold ${direction === "DEBIT" ? "text-rose-500" : "text-emerald-500"}`}>₹</span>
+          {/* Amount */}
+          <div
+            className={`flex items-center gap-4 rounded-3xl border-2 bg-gradient-to-br px-4 py-3.5 shadow-[0_6px_20px_rgba(16,185,129,0.08)] transition ${
+              error && !normaliseMoney(amount)
+                ? "border-rose-300 from-rose-50/60 to-white"
+                : "border-emerald-200 from-emerald-50/70 to-white focus-within:border-emerald-400"
+            }`}
+          >
+            <span className={`w-12 h-12 shrink-0 rounded-full text-white flex items-center justify-center text-2xl shadow-[0_6px_14px_rgba(0,0,0,0.15)] ${isSpend ? "bg-gradient-to-br from-rose-500 to-pink-500" : "bg-gradient-to-br from-emerald-500 to-teal-500"}`}>
+              <i aria-hidden="true" className="ph-bold ph-currency-inr" />
+            </span>
             <input
               ref={amountRef}
               autoFocus
@@ -170,13 +214,17 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
               autoComplete="off"
               placeholder="0"
               aria-label="Amount"
-              className="w-full bg-transparent text-4xl font-extrabold tabular-nums text-slate-900 outline-none placeholder:text-slate-300"
+              className="min-w-0 flex-1 bg-transparent text-5xl font-extrabold tabular-nums tracking-tight text-slate-900 outline-none placeholder:text-slate-900"
             />
+            <button type="button" onClick={paste} aria-label="Paste the amount" title="Paste the amount" className="w-10 h-10 shrink-0 rounded-xl text-slate-400 hover:bg-white hover:text-slate-600 flex items-center justify-center text-2xl transition">
+              <i aria-hidden="true" className="ph ph-clipboard-text" />
+            </button>
           </div>
 
+          {/* Category */}
           <div>
-            <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[1.5px] text-slate-400">Category</p>
-            <div role="radiogroup" aria-label="Category" className="grid grid-cols-4 gap-2">
+            <p className={sectionLabel}>Category</p>
+            <div role="radiogroup" aria-label="Category" className="grid grid-cols-4 gap-2.5">
               {sortedCategories.map((c) => {
                 const on = categoryId === c.id;
                 return (
@@ -186,32 +234,44 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
                     role="radio"
                     aria-checked={on}
                     onClick={() => setCategoryId(on ? "" : c.id)}
-                    className={`flex flex-col items-center gap-1 rounded-2xl px-1 py-2.5 text-center transition active:scale-95 ${on ? "ring-2 ring-offset-1" : "bg-slate-50 hover:bg-slate-100"}`}
-                    style={on ? { backgroundColor: `${c.color}1a`, boxShadow: `0 0 0 2px ${c.color}` } : undefined}
+                    className={`flex flex-col items-center gap-2 rounded-2xl border px-1 pt-3 pb-2.5 text-center transition active:scale-95 ${
+                      on ? "bg-white" : "border-slate-100 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.05)] hover:shadow-[0_4px_14px_rgba(15,23,42,0.08)]"
+                    }`}
+                    style={on ? { borderColor: c.color, boxShadow: `0 0 0 2px ${c.color}, 0 6px 16px ${c.color}33` } : undefined}
                   >
-                    <span className="w-10 h-10 rounded-xl text-white flex items-center justify-center text-lg shadow-sm" style={{ backgroundColor: c.color }}>
+                    <span
+                      className="w-12 h-12 rounded-2xl text-white flex items-center justify-center text-2xl"
+                      style={{ background: `linear-gradient(145deg, ${c.color}, ${c.color}d9)`, boxShadow: `0 6px 14px ${c.color}55` }}
+                    >
                       <i aria-hidden="true" className={`ph-fill ${c.icon}`} />
                     </span>
-                    <span className="line-clamp-2 text-[11px] font-bold leading-tight text-slate-700">{c.name}</span>
+                    <span className="line-clamp-2 px-0.5 text-[12px] font-semibold leading-tight text-slate-700">{c.name}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <input
-            value={what}
-            maxLength={200}
-            onChange={(e) => setWhat(e.target.value)}
-            placeholder="What for? (optional: Swiggy, auto, tea…)"
-            aria-label="What for"
-            className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15"
-          />
+          {/* What for */}
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/10 transition">
+            <span className="w-9 h-9 shrink-0 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <i aria-hidden="true" className="ph-bold ph-pencil-simple" />
+            </span>
+            <input
+              value={what}
+              maxLength={200}
+              onChange={(e) => setWhat(e.target.value)}
+              placeholder="What for? (optional: Swiggy, auto, tea...)"
+              aria-label="What for"
+              className="min-w-0 flex-1 h-9 bg-transparent text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400"
+            />
+          </div>
 
-          {ordered.length > 1 && (
+          {/* Paid with */}
+          {ordered.length > 0 && (
             <div>
-              <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[1.5px] text-slate-400">Paid with</p>
-              <div className="-mx-5 px-5 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+              <p className={sectionLabel}>{isSpend ? "Paid with" : "Received in"}</p>
+              <div className="flex flex-wrap gap-2">
                 {ordered.map((a) => {
                   const on = chosenAccount?.id === a.id;
                   return (
@@ -220,10 +280,10 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
                       type="button"
                       onClick={() => setAccountId(a.id)}
                       aria-pressed={on}
-                      className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${on ? "text-white shadow" : "bg-slate-50 text-slate-600"}`}
-                      style={on ? { backgroundColor: a.color } : undefined}
+                      className={`inline-flex items-center gap-2 rounded-2xl border px-3.5 py-2.5 text-sm font-semibold transition ${on ? "" : "border-slate-100 bg-white text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)]"}`}
+                      style={on ? { borderColor: a.color, color: a.color, backgroundColor: `${a.color}12`, boxShadow: `0 0 0 1px ${a.color}` } : undefined}
                     >
-                      <i aria-hidden="true" className={`ph-fill ${a.type === "CREDIT_CARD" ? "ph-credit-card" : "ph-bank"}`} />
+                      <i aria-hidden="true" className={`${on ? "ph-fill" : "ph"} ${a.type === "CREDIT_CARD" ? "ph-credit-card" : "ph-bank"} text-lg`} style={on ? undefined : { color: "#334155" }} />
                       {a.name}
                     </button>
                   );
@@ -232,41 +292,73 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              ["Today", localDay()],
-              ["Yesterday", localDay(-1)],
-            ].map(([label, d]) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => {
-                  setDate(d);
-                  setPickDate(false);
-                }}
-                className={`rounded-xl px-3 py-2 text-xs font-bold ${date === d && !pickDate ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600"}`}
-              >
-                {label}
-              </button>
-            ))}
-            <button type="button" onClick={() => setPickDate(true)} className={`rounded-xl px-3 py-2 text-xs font-bold ${pickDate ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600"}`}>
-              <i aria-hidden="true" className="ph-bold ph-calendar-blank mr-1" />Other day
-            </button>
+          {/* Date */}
+          <div>
+            <p className={sectionLabel}>Date</p>
+            <div className="flex flex-wrap gap-2">
+              {dateChoices.map((c) => {
+                const on = activeDate === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => {
+                      if (c.day) {
+                        setDate(c.day);
+                        setPickDate(false);
+                      } else {
+                        setPickDate(true);
+                      }
+                    }}
+                    className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
+                      on ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-[0_6px_14px_rgba(16,185,129,0.3)]" : "border border-slate-100 bg-white text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)]"
+                    }`}
+                  >
+                    <i aria-hidden="true" className="ph ph-calendar-blank text-lg" />
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+            {pickDate && (
+              <div className="mt-2">
+                <DatePickerInput value={date} onChange={setDate} disableFutureDates />
+              </div>
+            )}
           </div>
-          {pickDate && <DatePickerInput value={date} onChange={setDate} disableFutureDates />}
 
-          {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
+          {error && <p className="text-sm font-semibold text-rose-600">{error}</p>}
         </form>
 
-        <div className="shrink-0 flex gap-2 border-t border-slate-100 px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className="h-12 w-12 shrink-0 rounded-xl border border-slate-200 text-slate-500 flex items-center justify-center">
+        {/* Footer */}
+        <div className="shrink-0 flex gap-2.5 border-t border-slate-100 bg-white px-5 py-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Close"
+            className="h-14 w-14 shrink-0 rounded-2xl bg-white text-slate-500 shadow-[0_2px_10px_rgba(15,23,42,0.1)] flex items-center justify-center text-xl hover:text-slate-700"
+          >
             <i aria-hidden="true" className="ph-bold ph-x" />
           </button>
-          <button type="button" onClick={() => save(true)} disabled={busy} className="h-12 flex-1 rounded-xl border border-emerald-200 text-sm font-bold text-emerald-700 hover:bg-emerald-50">
-            Save &amp; add another
+          <button
+            type="button"
+            onClick={() => save(true)}
+            disabled={busy}
+            className="h-14 flex-1 rounded-2xl border-2 border-emerald-200 bg-white text-[15px] font-bold text-emerald-700 hover:bg-emerald-50 inline-flex items-center justify-center gap-2 transition"
+          >
+            <i aria-hidden="true" className="ph-bold ph-plus text-lg" />
+            <span className="truncate">Save &amp; add another</span>
           </button>
-          <button type="button" onClick={() => save(false)} disabled={busy} className="h-12 flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(16,185,129,0.35)] inline-flex items-center justify-center gap-2">
-            {busy && <i aria-hidden="true" className="ph-bold ph-circle-notch animate-spin" />} Save
+          <button
+            type="button"
+            onClick={() => save(false)}
+            disabled={busy}
+            className="h-14 flex-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-base font-extrabold text-white shadow-[0_8px_20px_rgba(16,185,129,0.35)] inline-flex items-center justify-center gap-2 transition hover:brightness-105"
+          >
+            <i aria-hidden="true" className={`ph-bold ${busy ? "ph-circle-notch animate-spin" : "ph-check"} text-lg`} />
+            Save
           </button>
         </div>
       </DialogContent>

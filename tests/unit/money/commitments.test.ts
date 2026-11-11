@@ -122,3 +122,23 @@ describe("savings goals that pay out", () => {
     expect(computeBalForEmi({ pool: [{ name: "P", balance: "7000" }], commitments: [{ ...goal, status: "COMPLETED" }] }).balForEmi).toBe("7000.00");
   });
 });
+
+describe("commitments on other accounts", () => {
+  it("leaves income, owed money and savings on a personal account out of Bal for EMI", () => {
+    const base = { status: "ACTIVE" as const, schedule: [] };
+    const r = computeBalForEmi({
+      pool: [{ id: "kvb", name: "KVB", balance: "10000" }],
+      poolAccountIds: ["kvb"],
+      commitments: [
+        { ...base, id: "a", name: "Into KVB", type: "EXPECTED_INCOME", totalAmount: "3000", accountId: "kvb" },
+        { ...base, id: "b", name: "Into HDFC", type: "EXPECTED_INCOME", totalAmount: "2000", accountId: "hdfc" },
+        { ...base, id: "c", name: "No account", type: "EXPECTED_INCOME", totalAmount: "500" },
+        { ...base, id: "d", name: "Owe from HDFC", type: "PAYABLE", totalAmount: "700", accountId: "hdfc" },
+        { ...base, id: "e", name: "Card bill", type: "CARD_BILL", totalAmount: "4000", accountId: "card" },
+      ],
+    });
+    expect(r.incoming).toBe("3500.00");
+    expect(r.bills).toBe("4000.00");
+    expect(r.balForEmi).toBe("9500.00");
+  });
+});

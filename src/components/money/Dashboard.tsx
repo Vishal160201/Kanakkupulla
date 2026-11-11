@@ -45,11 +45,11 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
         {/* Bal for EMI */}
         <Link
           href="/money/commitments"
-          className={`relative overflow-hidden rounded-3xl p-6 text-white shadow-lg lg:col-span-2 transition hover:brightness-105 ${negative ? "bg-gradient-to-br from-rose-500 via-red-500 to-orange-500" : "bg-gradient-to-br from-emerald-500 via-teal-500 to-sky-600"}`}
+          className={`relative overflow-hidden rounded-3xl p-5 sm:p-6 text-white shadow-lg lg:col-span-2 transition hover:brightness-105 ${negative ? "bg-gradient-to-br from-rose-500 via-red-500 to-orange-500" : "bg-gradient-to-br from-emerald-500 via-teal-500 to-sky-600"}`}
         >
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/10" />
           <p className="relative text-xs font-extrabold uppercase tracking-[2px] text-white/80">Bal for EMI</p>
-          <p className="relative mt-1 text-4xl md:text-5xl font-extrabold tabular-nums">{formatINR(bal.balForEmi)}</p>
+          <p className="relative mt-1 text-[2.5rem] leading-tight md:text-5xl font-extrabold tabular-nums">{formatINR(bal.balForEmi)}</p>
           <p className="relative mt-2 text-sm font-semibold text-white/85">
             {negative ? "Short after every commitment is paid." : "Left after every commitment is paid."} Tap to see how it adds up.
           </p>
@@ -68,10 +68,10 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
           </div>
         </Link>
 
-        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm flex flex-col justify-between gap-4">
+        <div className="rounded-3xl border border-slate-100 bg-white p-4 sm:p-6 shadow-sm flex flex-col justify-between gap-3 sm:gap-4">
           <div>
             <p className="text-[11px] font-extrabold uppercase tracking-[1.5px] text-slate-400">Cash position</p>
-            <p className={`mt-1 text-3xl font-extrabold tabular-nums ${bal.cashPosition.startsWith("-") ? "text-rose-600" : "text-slate-900"}`}>{formatINR(bal.cashPosition)}</p>
+            <p className={`mt-1 text-2xl sm:text-3xl font-extrabold tabular-nums ${bal.cashPosition.startsWith("-") ? "text-rose-600" : "text-slate-900"}`}>{formatINR(bal.cashPosition)}</p>
             <p className="mt-1 text-xs font-semibold text-slate-500">
               {fronted
                 ? `${formatINR(bal.frontedForOthers)} paid for ${frontedNames}, not yet received.`
@@ -108,26 +108,26 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {balances.map((b) => {
           const isCard = b.type === "CREDIT_CARD";
           const pct = isCard && b.amount && b.creditLimit ? Math.min(100, (Number(b.amount) / Number(b.creditLimit)) * 100) : null;
           return (
-            <div key={b.id} className="relative overflow-hidden rounded-3xl p-5 text-white shadow-md" style={{ background: `linear-gradient(135deg, ${b.color}, ${b.color}cc 55%, #0f172a)` }}>
+            <div key={b.id} className="relative overflow-hidden rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 text-white shadow-md" style={{ background: `linear-gradient(135deg, ${b.color}, ${b.color}cc 55%, #0f172a)` }}>
               <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-10 w-36 h-36 rounded-full bg-white/10" />
-              <div className="relative flex items-center gap-2">
-                <i aria-hidden="true" className={`ph-fill ${isCard ? "ph-credit-card" : "ph-bank"} text-lg`} />
-                <p className="truncate text-sm font-extrabold">{b.name}</p>
-                <span className="ml-auto text-xs font-bold tracking-widest text-white/70">{maskLast4(b.last4)}</span>
+              <div className="relative flex items-center gap-1.5 sm:gap-2">
+                <i aria-hidden="true" className={`ph-fill ${isCard ? "ph-credit-card" : "ph-bank"} text-base sm:text-lg`} />
+                <p className="truncate text-xs sm:text-sm font-extrabold">{b.name}</p>
+                <span className="ml-auto hidden sm:inline text-xs font-bold tracking-widest text-white/70">{maskLast4(b.last4)}</span>
               </div>
-              <p className="relative mt-4 text-[10px] font-extrabold uppercase tracking-wider text-white/70">{isCard ? "Used" : b.isPool ? "Available money" : "Balance"}</p>
-              <p className="relative text-2xl font-extrabold tabular-nums">{b.amount != null ? formatINR(b.amount) : isCard ? "No spends yet" : "No statement yet"}</p>
+              <p className="relative mt-3 sm:mt-4 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-white/70">{isCard ? "Used" : b.isPool ? "Available money" : "Balance"}</p>
+              <p className="relative text-lg sm:text-2xl font-extrabold tabular-nums leading-tight">{b.amount != null ? formatINR(b.amount) : isCard ? "No spends yet" : "No statement yet"}</p>
               {pct != null && (
                 <div className="relative mt-2 h-1.5 rounded-full bg-white/25">
                   <div className="h-1.5 rounded-full bg-white" style={{ width: `${pct}%` }} />
                 </div>
               )}
-              <p className="relative mt-2 text-[11px] font-semibold text-white/75">
+              <p className="relative mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] font-semibold text-white/75 line-clamp-2">
                 {[b.asOf && !isCard ? `${b.source === "manual" ? "Typed in" : "Statement"} · ${formatMoneyDate(b.asOf)}` : null, isCard && b.creditLimit ? `Limit ${formatINR(b.creditLimit)}` : null, isCard && b.dueDay ? `Due day ${b.dueDay}` : null]
                   .filter(Boolean)
                   .join(" · ")}

@@ -37,6 +37,8 @@ export interface CommitmentInput {
   status: CommitmentStatus;
   totalAmount: string;
   linkedCommitmentId?: string | null;
+  /** The account the money comes into or goes out of (cards for card bills and EMIs) */
+  accountId?: string | null;
   schedule: ScheduleEntry[];
 }
 
@@ -88,8 +90,16 @@ export interface BalForEmi {
   pairs: { emiId: string; receivableId: string; emiName: string; receivableName: string; emiRemaining: string; receivableRemaining: string; myOutstanding: string; fronted: string }[];
 }
 
-export function computeBalForEmi(input: { pool: { id?: string; name: string; balance: string }[]; commitments: CommitmentInput[] }): BalForEmi {
-  const live = input.commitments.filter((c) => c.status !== "COMPLETED");
+/**
+ * `poolAccountIds`: the accounts counted as available money. Income, money owed either way and
+ * savings tied to any other bank account (personal spending money) stay out of Bal for EMI.
+ * Card bills and card EMIs always count (they're paid from the pool).
+ */
+export function computeBalForEmi(input: { pool: { id?: string; name: string; balance: string }[]; commitments: CommitmentInput[]; poolAccountIds?: string[] }): BalForEmi {
+  const poolIds = input.poolAccountIds ? new Set(input.poolAccountIds) : null;
+  const counts = (c: CommitmentInput) =>
+    c.type === "CARD_BILL" || c.type === "CARD_EMI" || !poolIds || !c.accountId || poolIds.has(c.accountId);
+  const live = input.commitments.filter((c) => c.status !== "COMPLETED" && counts(c));
   const pairs = linkedPairs(live);
   const paired = new Set(pairs.flatMap((p) => [p.emi.id, p.receivable.id]));
 

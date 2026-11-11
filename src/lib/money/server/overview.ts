@@ -54,6 +54,7 @@ export function balForEmiFrom(balances: AccountBalance[], commitments: Commitmen
   return computeBalForEmi({
     pool: balances.filter((b) => b.type === "BANK" && b.isPool && b.amount != null).map((b) => ({ id: b.id, name: b.name, balance: b.amount as string })),
     commitments,
+    poolAccountIds: balances.filter((b) => b.type === "BANK" && b.isPool).map((b) => b.id),
   });
 }
 
@@ -92,6 +93,7 @@ function forecastEvents(today: string, days: number, balances: AccountBalance[],
   // Savings goals: the saved money leaves on the pay-out date (it was set aside inside the pool)
   for (const c of commitments) {
     if (c.status === "COMPLETED" || c.type !== "SAVINGS_GOAL" || !c.payoutDate || c.payoutDate > end) continue;
+    if (c.accountId && !poolIds.has(c.accountId)) continue;
     events.push({ date: c.payoutDate, amount: money(dec(c.totalAmount).negated()), label: `${c.name} pay-out`, kind: "payout" });
   }
   for (const c of commitments) {
@@ -99,8 +101,10 @@ function forecastEvents(today: string, days: number, balances: AccountBalance[],
     for (const s of c.schedule) {
       const left = remainingOfEntry(s);
       if (left.lessThanOrEqualTo(0) || s.dueDate > end) continue;
+      const inPool = !c.accountId || poolIds.has(c.accountId);
+      if (c.type === "PAYABLE" && !inPool) continue;
       if (OUT_TYPES.has(c.type)) events.push({ date: s.dueDate, amount: money(left.negated()), label: c.name, kind: c.type === "CARD_EMI" ? "emi" : c.type === "PAYABLE" ? "payable" : "bill" });
-      else if (c.type === "EXPECTED_INCOME" || (c.type === "RECEIVABLE" && (!c.accountId || poolIds.has(c.accountId))))
+      else if ((c.type === "EXPECTED_INCOME" || c.type === "RECEIVABLE") && inPool)
         events.push({ date: s.dueDate, amount: money(left), label: c.name, kind: c.type === "RECEIVABLE" ? "receivable" : "income" });
     }
   }

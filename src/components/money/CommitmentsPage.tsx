@@ -31,10 +31,10 @@ export default function CommitmentsPage({ initial }: { initial: CommitmentsData 
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap justify-end gap-2">
-        <Link href="/money/import" className={secondaryButton}><i aria-hidden="true" className="ph-bold ph-microsoft-excel-logo" /> Import your sheet</Link>
-        <a href="/api/money/export?what=commitments" className={secondaryButton}><i aria-hidden="true" className="ph-bold ph-download-simple" /> Export to Excel</a>
-        <button type="button" onClick={() => setEditing("new")} className={primaryButton}><i aria-hidden="true" className="ph-bold ph-plus" /> Add commitment</button>
+      <div className="flex justify-end gap-2">
+        <Link href="/money/import" aria-label="Import your sheet" className={`${secondaryButton} px-3`}><i aria-hidden="true" className="ph-bold ph-microsoft-excel-logo" /><span className="hidden sm:inline">Import your sheet</span></Link>
+        <a href="/api/money/export?what=commitments" aria-label="Export to Excel" className={`${secondaryButton} px-3`}><i aria-hidden="true" className="ph-bold ph-download-simple" /><span className="hidden sm:inline">Export to Excel</span></a>
+        <button type="button" onClick={() => setEditing("new")} className={primaryButton}><i aria-hidden="true" className="ph-bold ph-plus" /> Add<span className="hidden sm:inline"> commitment</span></button>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -102,7 +102,63 @@ export default function CommitmentsPage({ initial }: { initial: CommitmentsData 
         {commitments.length === 0 ? (
           <EmptyState icon="ph-calendar-check" title="No commitments yet" text="Import your EMI sheet, or add savings goals, card EMIs, money someone owes you and card bills by hand." action={<Link href="/money/import" className={primaryButton}>Import the sheet</Link>} />
         ) : (
-          <div className="-mx-5 md:mx-0 overflow-x-auto">
+          <>
+          {/* Phone: one card per commitment, months scroll sideways */}
+          <ul className="md:hidden space-y-3">
+            {grid.rows.map((row) => {
+              const c = byId.get(row.id);
+              if (!c) return null;
+              const t = COMMITMENT_TYPES[row.type];
+              const pct = Number(row.target) > 0 ? Math.min(100, (Number(row.totalReceived) / Number(row.target)) * 100) : 0;
+              const months = row.cells.filter((x) => x.entries.length > 0);
+              return (
+                <li key={row.id} className={`rounded-2xl border border-slate-100 p-3.5 ${row.status === "COMPLETED" ? "opacity-60" : ""}`}>
+                  <button type="button" onClick={() => setEditing(c)} className="flex w-full items-center gap-3 text-left">
+                    <span className="w-10 h-10 shrink-0 rounded-xl text-white flex items-center justify-center text-lg" style={{ backgroundColor: t.color }}><i aria-hidden="true" className={`ph-fill ${t.icon}`} /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-extrabold text-slate-800">{row.name}</span>
+                      <span className="block truncate text-[11px] font-semibold text-slate-400">
+                        {t.label}
+                        {row.status === "COMPLETED" ? (c.paidOutOn ? ` · paid out ${formatMoneyDate(c.paidOutOn).slice(0, 6)}` : " · done") : row.status === "PAUSED" ? " · paused" : ""}
+                        {row.status === "ACTIVE" && c.payoutDate ? ` · goes out ${formatMoneyDate(c.payoutDate).slice(0, 6)}` : ""}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-sm font-extrabold tabular-nums text-slate-900">{formatINR(row.totalReceived)}</span>
+                      <span className="block text-[10px] font-bold text-slate-400">of {formatINR(row.target)}</span>
+                    </span>
+                  </button>
+                  <div className="mt-2.5 h-1.5 rounded-full bg-slate-100">
+                    <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: t.color }} />
+                  </div>
+                  {months.length > 0 && (
+                    <div className="-mx-3.5 mt-3 flex gap-1.5 overflow-x-auto px-3.5 pb-0.5" style={{ scrollbarWidth: "none" }}>
+                      {months.map((cellData) => {
+                        const paid = Number(cellData.paid);
+                        const full = paid >= Number(cellData.due);
+                        return (
+                          <button
+                            key={cellData.month}
+                            type="button"
+                            onClick={() => setCell({ commitment: c, month: cellData.month })}
+                            className={`shrink-0 rounded-xl px-2.5 py-1.5 text-left ${full ? "bg-emerald-50 text-emerald-700" : paid > 0 ? "bg-amber-50 text-amber-700" : "bg-slate-50 text-slate-500"}`}
+                          >
+                            <span className="block text-[10px] font-extrabold uppercase">{monthLabel(cellData.month)}</span>
+                            <span className="block text-xs font-extrabold tabular-nums">
+                              {formatINR(paid > 0 ? cellData.paid : cellData.due, { symbol: false }).replace(/\.00$/, "")}
+                              {cellData.entries.some((e) => e.transactionId) && <i aria-hidden="true" className="ph-bold ph-link ml-1 text-[9px]" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {Number(row.balance) > 0 && row.status !== "COMPLETED" && <p className="mt-2 text-[11px] font-bold text-rose-600">{formatINR(row.balance)} still to go</p>}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full text-xs">
               <thead>
                 <tr className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -162,6 +218,7 @@ export default function CommitmentsPage({ initial }: { initial: CommitmentsData 
               </tbody>
             </table>
           </div>
+          </>
         )}
         {commitments.some((c) => c.schedule.length === 0) && (
           <p className="mt-3 text-xs font-semibold text-slate-400">
@@ -329,6 +386,9 @@ function CommitmentForm({ commitment, all, onClose, onSaved, onDelete }: { commi
         <div>
           <span className={labelClass}>{type === "CARD_BILL" || type === "CARD_EMI" ? "Card" : "Account"}</span>
           <CustomDropdown options={[{ value: "", label: "None" }, ...accountChoices.map(accountOption)]} value={accountId} onChange={setAccountId} placeholder="None" />
+          {type !== "CARD_BILL" && type !== "CARD_EMI" && accountId && accounts.find((a) => a.id === accountId && !a.isPool) && (
+            <p className="mt-1.5 text-[11px] font-semibold text-amber-600">This account isn&apos;t counted as available money, so this stays out of Bal for EMI.</p>
+          )}
         </div>
         {linkType && (
           <div>

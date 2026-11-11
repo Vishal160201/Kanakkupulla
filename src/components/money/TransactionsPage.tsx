@@ -47,6 +47,8 @@ export default function TransactionsPage() {
   const [adding, setAdding] = useState(false);
   const [always, setAlways] = useState<TxnDTO | null>(null);
   const [deleting, setDeleting] = useState<TxnDTO | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Search after typing stops
   useEffect(() => {
@@ -95,50 +97,63 @@ export default function TransactionsPage() {
   };
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const activeFilters = [range.start, accountId, categoryId, kind].filter(Boolean).length;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <Segmented
-          label="View"
-          value={view}
-          onChange={(v) => {
-            setView(v);
-            setPage(1);
-          }}
-          options={[
-            { value: "all", label: "All", icon: "ph-list-bullets" },
-            { value: "suggestions", label: `Suggestions${suggestionCount ? ` (${suggestionCount})` : ""}`, icon: "ph-lightbulb" },
-            { value: "unmatched", label: "Unmatched transfers", icon: "ph-arrows-left-right" },
-          ]}
-        />
-        <div className="flex flex-wrap gap-2">
-          <a href={exportHref("xlsx")} className={secondaryButton}><i aria-hidden="true" className="ph-bold ph-microsoft-excel-logo" /> Excel</a>
-          <a href={exportHref("csv")} className={secondaryButton}><i aria-hidden="true" className="ph-bold ph-file-csv" /> CSV</a>
-          <button type="button" onClick={() => setAdding(true)} className={primaryButton}><i aria-hidden="true" className="ph-bold ph-plus" /> Add spend</button>
+      <div className="flex items-center gap-2 md:justify-between">
+        <div className="min-w-0 flex-1 md:flex-none">
+          <Segmented
+            label="View"
+            value={view}
+            onChange={(v) => {
+              setView(v);
+              setPage(1);
+            }}
+            options={[
+              { value: "all", label: "All", icon: "ph-list-bullets" },
+              { value: "suggestions", label: `Suggestions${suggestionCount ? ` (${suggestionCount})` : ""}`, icon: "ph-lightbulb" },
+              { value: "unmatched", label: "Unmatched", icon: "ph-arrows-left-right" },
+            ]}
+          />
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <a href={exportHref("xlsx")} aria-label="Download Excel" className={`${secondaryButton} px-3`}><i aria-hidden="true" className="ph-bold ph-microsoft-excel-logo" /><span className="hidden sm:inline">Excel</span></a>
+          <a href={exportHref("csv")} aria-label="Download CSV" className={`${secondaryButton} px-3 hidden sm:inline-flex`}><i aria-hidden="true" className="ph-bold ph-file-csv" /> CSV</a>
+          <button type="button" onClick={() => setAdding(true)} className={`${primaryButton} hidden md:inline-flex`}><i aria-hidden="true" className="ph-bold ph-plus" /> Add spend</button>
         </div>
       </div>
 
       {view !== "suggestions" && (
         <Panel>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-            <div className="relative xl:col-span-2">
+          <div className="flex gap-2">
+            <div className="relative min-w-0 flex-1">
               <i aria-hidden="true" className="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search narration, person, UPI ID, amount" className={`${inputClass} pl-9`} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search narration, person, amount" className={`${inputClass} pl-9`} />
             </div>
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              aria-expanded={showFilters}
+              className={`lg:hidden h-11 shrink-0 rounded-xl border px-3 text-sm font-bold inline-flex items-center gap-1.5 ${activeFilters ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600"}`}
+            >
+              <i aria-hidden="true" className="ph-bold ph-funnel-simple" /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
+            </button>
+          </div>
+          <div className={`${showFilters ? "grid" : "hidden"} lg:grid mt-3 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4`}>
             <CustomDateRangePicker value={range} onChange={(r) => { setRange(r); setPage(1); }} placeholder="Any date" />
             <CustomDropdown options={[{ value: "", label: "All accounts" }, ...accounts.map(accountOption)]} value={accountId} onChange={(v) => { setAccountId(v); setPage(1); }} placeholder="All accounts" />
             <CustomDropdown options={[{ value: "", label: "All categories" }, { value: "none", label: "Uncategorised" }, ...categories.map(categoryOption)]} value={categoryId} onChange={(v) => { setCategoryId(v); setPage(1); }} placeholder="All categories" />
             <CustomDropdown options={[{ value: "", label: "All kinds" }, ...KIND_OPTIONS]} value={kind} onChange={(v) => { setKind(v); setPage(1); }} placeholder="All kinds" />
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
               <Switch checked={hideSelf} onChange={(v) => { setHideSelf(v); setPage(1); }} label="Hide self transfers" size="sm" /> Hide self transfers
             </label>
             {data && (
               <p className="text-xs font-bold text-slate-500">
-                {data.total} transaction{data.total === 1 ? "" : "s"} · in <span className="text-emerald-600">{formatINR(data.totals.in)}</span> · out <span className="text-rose-600">{formatINR(data.totals.out)}</span>
-                <span className="text-slate-400"> (self transfers left out)</span>
+                {data.total} · in <span className="text-emerald-600">{formatINR(data.totals.in)}</span> · out <span className="text-rose-600">{formatINR(data.totals.out)}</span>
+                <span className="hidden sm:inline text-slate-400"> (self transfers left out)</span>
               </p>
             )}
           </div>
@@ -161,38 +176,87 @@ export default function TransactionsPage() {
             const linked = t.linkedTxnId ? data.linked[t.linkedTxnId] : undefined;
             const category = t.categoryId ? categoryById.get(t.categoryId) : undefined;
             const isManual = !t.importId;
+            const title = t.counterparty && t.counterparty !== t.narration.toUpperCase() ? t.counterparty : t.narration;
+            const showRaw = !!t.counterparty && t.counterparty !== t.narration.toUpperCase();
+            const account = accountById.get(t.accountId);
+            const open = openId === t.id;
+            const plainKind = t.kind === "EXPENSE" || t.kind === "INCOME";
+            const linkedLine = linked && (
+              <p className="mt-1 text-[11px] font-bold text-sky-600 flex items-center gap-1">
+                <i aria-hidden="true" className="ph-bold ph-arrows-left-right" /> {t.direction === "DEBIT" ? "Arrived in" : "Came from"} {accountById.get(linked.accountId)?.name ?? "another account"} on {formatMoneyDate(linked.txnDate)}
+              </p>
+            );
+            const categoryPicker = (
+              <CustomDropdown
+                options={[{ value: "", label: "Uncategorised" }, ...categories.map(categoryOption)]}
+                value={t.categoryId ?? ""}
+                onChange={(v) => patch(t, { categoryId: v || null })}
+                placeholder={category?.name ?? "Uncategorised"}
+              />
+            );
+            const kindPicker = <CustomDropdown options={KIND_OPTIONS} value={t.kind} onChange={(v) => patch(t, { kind: v }, `Marked as ${KIND_LABELS[v]?.label.toLowerCase()}`)} />;
             return (
-              <article key={t.id} className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+              <article key={t.id} className={`rounded-2xl border bg-white px-3.5 py-3 sm:px-4 shadow-sm transition ${open ? "border-emerald-200" : "border-slate-100"}`}>
+                {/* Phone: one compact line; tap to edit */}
+                <button type="button" onClick={() => setOpenId(open ? null : t.id)} aria-expanded={open} className="lg:hidden flex w-full items-center gap-3 text-left">
+                  <span className="w-10 h-10 shrink-0 rounded-xl text-white flex items-center justify-center text-lg" style={{ backgroundColor: category?.color ?? (t.kind === "SELF_TRANSFER" ? "#0ea5e9" : "#cbd5e1") }}>
+                    <i aria-hidden="true" className={`ph-fill ${category?.icon ?? KIND_LABELS[t.kind]?.icon ?? "ph-tag"}`} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-slate-800">{title}</span>
+                    <span className="block truncate text-[11px] font-semibold text-slate-400">
+                      {formatMoneyDate(t.txnDate).slice(0, 6)} · {account?.name}{plainKind ? "" : ` · ${KIND_LABELS[t.kind]?.label}`}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <Amount value={t.amount} direction={t.direction} className="block text-sm whitespace-nowrap" />
+                    <span className={`block text-[10px] font-bold ${category ? "text-slate-500" : "text-amber-600"}`}>{category?.name ?? (plainKind ? "Uncategorised" : "")}</span>
+                  </span>
+                </button>
+                {open && (
+                  <div className="lg:hidden mt-3 space-y-3 border-t border-slate-100 pt-3">
+                    <div>
+                      <p className="text-[11px] font-semibold text-slate-500 break-all">{t.narration}</p>
+                      {t.txnTime && <p className="text-[11px] font-semibold text-slate-400">{formatMoneyDate(t.txnDate)} · {t.txnTime.slice(0, 5)}</p>}
+                      {t.kind === "CARD_PAYMENT" && t.counterAccountId && <p className="text-[11px] font-bold text-slate-500">Paid to {accountById.get(t.counterAccountId)?.name}</p>}
+                      {linkedLine}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {categoryPicker}
+                      {kindPicker}
+                    </div>
+                    <NoteEditor value={t.note} onSave={(note) => patch(t, { note })} />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setAlways(t)} className="h-10 flex-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 inline-flex items-center justify-center gap-1.5">
+                        <i aria-hidden="true" className="ph-bold ph-magic-wand" /> Always categorise like this
+                      </button>
+                      {isManual && (
+                        <button type="button" aria-label="Delete" onClick={() => setDeleting(t)} className="w-10 h-10 rounded-xl border border-slate-200 text-rose-500 flex items-center justify-center">
+                          <i aria-hidden="true" className="ph-bold ph-trash" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Desktop: everything inline */}
+                <div className="hidden lg:flex lg:flex-row lg:items-start gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-extrabold text-slate-500">{formatMoneyDate(t.txnDate)}{t.txnTime ? ` · ${t.txnTime.slice(0, 5)}` : ""}</span>
-                      <AccountChip account={accountById.get(t.accountId)} />
+                      <AccountChip account={account} />
                       <KindBadge kind={t.kind} />
                       {t.kind === "CARD_PAYMENT" && t.counterAccountId && <span className="text-[11px] font-bold text-slate-400">to {accountById.get(t.counterAccountId)?.name}</span>}
                     </div>
-                    <p className="mt-1 text-sm font-bold text-slate-800 break-words">{t.counterparty && t.counterparty !== t.narration.toUpperCase() ? t.counterparty : t.narration}</p>
-                    {t.counterparty && t.counterparty !== t.narration.toUpperCase() && <p className="text-[11px] font-semibold text-slate-400 break-all">{t.narration}</p>}
-                    {linked && (
-                      <p className="mt-1 text-[11px] font-bold text-sky-600 flex items-center gap-1">
-                        <i aria-hidden="true" className="ph-bold ph-arrows-left-right" /> {t.direction === "DEBIT" ? "Arrived in" : "Came from"} {accountById.get(linked.accountId)?.name ?? "another account"} on {formatMoneyDate(linked.txnDate)}
-                      </p>
-                    )}
+                    <p className="mt-1 text-sm font-bold text-slate-800 break-words">{title}</p>
+                    {showRaw && <p className="text-[11px] font-semibold text-slate-400 break-all">{t.narration}</p>}
+                    {linkedLine}
                     <NoteEditor value={t.note} onSave={(note) => patch(t, { note })} />
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:shrink-0 lg:justify-end">
-                    <Amount value={t.amount} direction={t.direction} className="text-base mr-auto lg:mr-2 lg:min-w-[110px] lg:text-right whitespace-nowrap" />
-                    <div className="w-[calc(50%-1.5rem)] sm:w-44">
-                      <CustomDropdown
-                        options={[{ value: "", label: "Uncategorised" }, ...categories.map(categoryOption)]}
-                        value={t.categoryId ?? ""}
-                        onChange={(v) => patch(t, { categoryId: v || null })}
-                        placeholder={category?.name ?? "Uncategorised"}
-                      />
-                    </div>
-                    <div className="w-[calc(50%-1.5rem)] sm:w-40">
-                      <CustomDropdown options={KIND_OPTIONS} value={t.kind} onChange={(v) => patch(t, { kind: v }, `Marked as ${KIND_LABELS[v]?.label.toLowerCase()}`)} />
-                    </div>
+                  <div className="flex flex-nowrap shrink-0 items-center justify-end gap-2">
+                    <Amount value={t.amount} direction={t.direction} className="text-base mr-2 min-w-[110px] text-right whitespace-nowrap" />
+                    <div className="w-44">{categoryPicker}</div>
+                    <div className="w-40">{kindPicker}</div>
                     <button type="button" title="Always categorise like this" aria-label="Always categorise like this" onClick={() => setAlways(t)} className="w-10 h-10 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center">
                       <i aria-hidden="true" className="ph-bold ph-magic-wand" />
                     </button>

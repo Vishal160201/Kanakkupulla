@@ -26,13 +26,15 @@ export function CategoriesSettings() {
   const [deleting, setDeleting] = useState<MoneyCategoryDTO | null>(null);
   return (
     <Panel title="Categories" subtitle="What your spending is grouped by." icon="ph-tag" actions={<button type="button" onClick={() => setEditing("new")} className={primaryButton}><i aria-hidden="true" className="ph-bold ph-plus" /> Add</button>}>
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid grid-cols-2 gap-2 xl:grid-cols-3">
         {categories.map((c) => (
-          <li key={c.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 px-3 py-2">
-            <span className="w-9 h-9 shrink-0 rounded-xl text-white flex items-center justify-center" style={{ backgroundColor: c.color }}><i aria-hidden="true" className={`ph-fill ${c.icon}`} /></span>
-            <span className="flex-1 truncate text-sm font-bold text-slate-800">{c.name}</span>
-            <button type="button" aria-label={`Edit ${c.name}`} onClick={() => setEditing(c)} className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-700 flex items-center justify-center"><i aria-hidden="true" className="ph-bold ph-pencil-simple" /></button>
-            <button type="button" aria-label={`Delete ${c.name}`} onClick={() => setDeleting(c)} className="w-8 h-8 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center"><i aria-hidden="true" className="ph-bold ph-trash" /></button>
+          <li key={c.id} className="flex items-center gap-2 sm:gap-3 rounded-2xl border border-slate-100 px-2 sm:px-3 py-2">
+            <button type="button" onClick={() => setEditing(c)} className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 text-left">
+              <span className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl text-white flex items-center justify-center" style={{ backgroundColor: c.color }}><i aria-hidden="true" className={`ph-fill ${c.icon}`} /></span>
+              <span className="min-w-0 flex-1 line-clamp-2 break-words text-xs sm:text-sm font-bold leading-tight text-slate-800">{c.name}</span>
+            </button>
+            <button type="button" aria-label={`Edit ${c.name}`} onClick={() => setEditing(c)} className="hidden sm:flex w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-700 items-center justify-center"><i aria-hidden="true" className="ph-bold ph-pencil-simple" /></button>
+            <button type="button" aria-label={`Delete ${c.name}`} onClick={() => setDeleting(c)} className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center"><i aria-hidden="true" className="ph-bold ph-trash" /></button>
           </li>
         ))}
       </ul>
@@ -116,7 +118,10 @@ export function RulesSettings() {
   const [editing, setEditing] = useState<RuleInput | "new" | null>(null);
   const [deleting, setDeleting] = useState<RuleInput | null>(null);
   const [q, setQ] = useState("");
-  const shown = rules.filter((r) => r.pattern.toUpperCase().includes(q.trim().toUpperCase()));
+  const [showAll, setShowAll] = useState(false);
+  const matching = rules.filter((r) => r.pattern.toUpperCase().includes(q.trim().toUpperCase()));
+  // The seeded list is long: show a handful until you search or ask for all
+  const shown = q.trim() || showAll ? matching : matching.slice(0, 8);
   return (
     <Panel title="Rules" subtitle="Applied to every new transaction, lowest number first. Text matches ignore case and spaces." icon="ph-magic-wand" actions={<button type="button" onClick={() => setEditing("new")} className={primaryButton}><i aria-hidden="true" className="ph-bold ph-plus" /> Add rule</button>}>
       <div className="relative mb-3">
@@ -130,7 +135,7 @@ export function RulesSettings() {
             <li key={r.id} className="flex flex-wrap items-center gap-2 py-2.5">
               <span className="w-9 shrink-0 text-center text-[11px] font-extrabold text-slate-400">{r.priority}</span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-800 break-all">
+                <p className="text-[13px] sm:text-sm font-bold text-slate-800 break-words">
                   <span className="text-slate-400">{FIELD_LABELS[r.field]} {r.isRegex ? "matches" : "contains"} </span>
                   <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[12px]">{r.pattern}</code>
                   {r.direction && <span className="text-slate-400"> · {r.direction === "DEBIT" ? "debits only" : "credits only"}</span>}
@@ -145,6 +150,11 @@ export function RulesSettings() {
           );
         })}
       </ul>
+      {shown.length < matching.length && (
+        <button type="button" onClick={() => setShowAll(true)} className="mt-2 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">
+          Show all {matching.length} rules
+        </button>
+      )}
       {editing && <RuleDialog rule={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={() => void mutate()} />}
       {deleting && (
         <ConfirmDialog title="Delete this rule?" text="Transactions it already categorised keep their category." onClose={() => setDeleting(null)} onConfirm={async () => {
