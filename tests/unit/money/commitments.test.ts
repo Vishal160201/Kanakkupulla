@@ -142,3 +142,17 @@ describe("commitments on other accounts", () => {
     expect(r.balForEmi).toBe("9500.00");
   });
 });
+
+describe("Bal for EMI with new card spends", () => {
+  it("takes card spends not on a bill yet away, as a bill line", () => {
+    const r = computeBalForEmi({
+      pool: [{ name: "Savings", balance: "10000.00" }],
+      commitments: [],
+      cardSpends: [{ id: "cc", name: "Card A", amount: "1500.50" }, { id: "cc2", name: "Card B", amount: "0.00" }],
+    });
+    expect(r.balForEmi).toBe("8499.50");
+    expect(r.bills).toBe("1500.50");
+    const bills = r.lines.find((l) => l.key === "bills");
+    expect(bills?.items).toEqual([{ id: "cc", name: "Card A", amount: "1500.50", detail: "New card spends, not on a bill yet" }]);
+  });
+});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bankBalance, cardCycles, cardOutstanding, cycleFor, dueDateAfter, forecast, lastWorkingDay,
+  bankBalance, cardCycles, cardNewSpends, cardOutstanding, cycleFor, dueDateAfter, forecast, lastWorkingDay,
   openingBalance, peopleLedger, periodReport, recurringPayments, salaryCycles, type AAccount, type ATxn,
 } from "@/lib/money/analytics";
 
@@ -95,6 +95,50 @@ describe("balances", () => {
       tx({ accountId: "kvb", txnDate: "2026-11-15", amount: "20000.00", direction: "DEBIT", kind: "CARD_PAYMENT", counterAccountId: "kiwi" }),
     ];
     expect(cardOutstanding(kiwi, rows)).toBe("10400.22");
+  });
+});
+
+describe("card spends not covered by a bill or EMI", () => {
+  const card = acct({ id: "cc", type: "CREDIT_CARD", outstanding: "50000.00", outstandingAsOf: "2026-11-10", outstandingSetAt: "2026-11-10T09:00:00.000Z" });
+
+  it("counts spends after the typed used amount, less refunds and loose payments", () => {
+    const rows = [
+      tx({ accountId: "cc", txnDate: "2026-11-09", amount: "900.00", direction: "DEBIT" }), // already in the typed amount
+      tx({ accountId: "cc", txnDate: "2026-11-13", amount: "1500.00", direction: "DEBIT" }),
+      tx({ accountId: "cc", txnDate: "2026-11-14", amount: "250.50", direction: "DEBIT" }),
+      tx({ accountId: "cc", txnDate: "2026-11-14", amount: "100.00", direction: "CREDIT" }),
+      tx({ accountId: "kvb", txnDate: "2026-11-15", amount: "400.00", direction: "DEBIT", kind: "CARD_PAYMENT", counterAccountId: "cc" }),
+    ];
+    expect(cardNewSpends(card, rows)).toBe("1250.50");
+    expect(cardOutstanding(card, rows)).toBe("51250.50");
+  });
+
+  it("leaves out rows tied to a commitment part", () => {
+    const rows = [
+      tx({ accountId: "cc", txnDate: "2026-11-13", amount: "1500.00", direction: "DEBIT" }),
+      tx({ accountId: "cc", txnDate: "2026-11-13", amount: "6621.00", direction: "DEBIT", commitmentId: "emi" }),
+      tx({ accountId: "kvb", txnDate: "2026-11-14", amount: "20000.00", direction: "DEBIT", kind: "CARD_PAYMENT", counterAccountId: "cc", commitmentId: "bill" }),
+    ];
+    expect(cardNewSpends(card, rows)).toBe("1500.00");
+  });
+
+  it("never goes below zero", () => {
+    const rows = [tx({ accountId: "kvb", txnDate: "2026-11-14", amount: "5000.00", direction: "DEBIT", kind: "CARD_PAYMENT", counterAccountId: "cc" })];
+    expect(cardNewSpends(card, rows)).toBe("0.00");
+  });
+
+  it("counts a same-day spend added after the used amount was saved", () => {
+    const rows = [
+      tx({ accountId: "cc", txnDate: "2026-11-10", amount: "300.00", direction: "DEBIT", createdAt: "2026-11-10T08:00:00.000Z" }),
+      tx({ accountId: "cc", txnDate: "2026-11-10", amount: "700.00", direction: "DEBIT", createdAt: "2026-11-10T10:00:00.000Z" }),
+    ];
+    expect(cardNewSpends(card, rows)).toBe("700.00");
+    expect(cardOutstanding(card, rows)).toBe("50700.00");
+  });
+
+  it("counts every spend on a card with no typed used amount", () => {
+    const fresh = acct({ id: "cc", type: "CREDIT_CARD" });
+    expect(cardNewSpends(fresh, [tx({ accountId: "cc", txnDate: "2026-11-01", amount: "99.99", direction: "DEBIT" })])).toBe("99.99");
   });
 });
 

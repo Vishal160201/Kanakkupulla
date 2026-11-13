@@ -95,7 +95,13 @@ export interface BalForEmi {
  * savings tied to any other bank account (personal spending money) stay out of Bal for EMI.
  * Card bills and card EMIs always count (they're paid from the pool).
  */
-export function computeBalForEmi(input: { pool: { id?: string; name: string; balance: string }[]; commitments: CommitmentInput[]; poolAccountIds?: string[] }): BalForEmi {
+export function computeBalForEmi(input: {
+  pool: { id?: string; name: string; balance: string }[];
+  commitments: CommitmentInput[];
+  poolAccountIds?: string[];
+  /** Card spends not on any card bill or EMI yet; they're paid from the pool when the bill comes */
+  cardSpends?: { id?: string; name: string; amount: string }[];
+}): BalForEmi {
   const poolIds = input.poolAccountIds ? new Set(input.poolAccountIds) : null;
   const counts = (c: CommitmentInput) =>
     c.type === "CARD_BILL" || c.type === "CARD_EMI" || !poolIds || !c.accountId || poolIds.has(c.accountId);
@@ -114,6 +120,9 @@ export function computeBalForEmi(input: { pool: { id?: string; name: string; bal
     ...live.filter((c) => c.type === "CARD_BILL").map((c) => item(c, remainingOf(c), "Card bill outstanding")),
     ...live.filter((c) => c.type === "PAYABLE").map((c) => item(c, remainingOf(c), "You owe")),
     ...live.filter((c) => c.type === "CARD_EMI" && !paired.has(c.id)).map((c) => item(c, remainingOf(c), "Card EMI remaining")),
+    ...(input.cardSpends ?? [])
+      .filter((s) => dec(s.amount).greaterThan(0))
+      .map((s) => ({ id: s.id, name: s.name, amount: money(s.amount), detail: "New card spends, not on a bill yet" })),
   ];
   const savingsItems = live.filter((c) => c.type === "SAVINGS_GOAL").map((c) => item(c, paidOf(c), `Saved of ${money(c.totalAmount)}`));
 

@@ -20,6 +20,8 @@ export interface ATxn {
   counterAccountId: string | null;
   /** When the row was added (ISO); tells typed entries apart from a balance typed the same day */
   createdAt?: string;
+  /** Set when the row pays (or is) a commitment's monthly part */
+  commitmentId?: string | null;
 }
 
 export interface AAccount {
@@ -34,6 +36,8 @@ export interface AAccount {
   manualBalanceSetAt?: string | null;
   outstanding: string | null;
   outstandingAsOf: string | null;
+  /** When the typed used amount was last saved (ISO) */
+  outstandingSetAt?: string | null;
   cycleStartDay: number | null;
   dueDay: number | null;
   creditLimit: string | null;
@@ -89,14 +93,38 @@ export function openingBalance(account: AAccount, txns: ATxn[], from: string): s
   return first ? money(dec(first.balanceAfter as string).minus(signed(first))) : null;
 }
 
-/** What a card has used now: the amount you typed, plus spends after that date, minus refunds and payments. */
-export function cardOutstanding(card: AAccount, txns: ATxn[]): string {
+/** Rows after the typed used amount: later dates, or the same day but added after it was saved. */
+function afterCardSnapshot(card: AAccount) {
   const since = card.outstandingAsOf;
-  const after = (t: ATxn) => !since || t.txnDate > since;
+  const setAt = card.outstandingSetAt ?? null;
+  return (t: ATxn) => {
+    if (!since || t.txnDate > since) return true;
+    if (t.txnDate < since) return false;
+    return !!(setAt && t.createdAt && t.createdAt > setAt);
+  };
+}
+
+/** What a card has used now: the amount you typed, plus spends after that, minus refunds and payments. */
+export function cardOutstanding(card: AAccount, txns: ATxn[]): string {
+  const after = afterCardSnapshot(card);
   const spends = sum(txns.filter((t) => t.accountId === card.id && t.direction === "DEBIT" && after(t)).map((t) => t.amount));
   const refunds = sum(txns.filter((t) => t.accountId === card.id && t.direction === "CREDIT" && after(t)).map((t) => t.amount));
   const payments = sum(txns.filter((t) => t.kind === "CARD_PAYMENT" && t.counterAccountId === card.id && t.accountId !== card.id && after(t)).map((t) => t.amount));
   return money(dec(card.outstanding ?? 0).plus(spends).minus(refunds).minus(payments));
+}
+
+/**
+ * Card money not covered by any commitment yet: spends after the typed used amount, less refunds
+ * and payments made after it. Rows tied to a card bill or EMI part are already counted there.
+ */
+export function cardNewSpends(card: AAccount, txns: ATxn[]): string {
+  const after = afterCardSnapshot(card);
+  const free = (t: ATxn) => after(t) && !t.commitmentId;
+  const spends = sum(txns.filter((t) => t.accountId === card.id && t.direction === "DEBIT" && free(t)).map((t) => t.amount));
+  const refunds = sum(txns.filter((t) => t.accountId === card.id && t.direction === "CREDIT" && free(t)).map((t) => t.amount));
+  const payments = sum(txns.filter((t) => t.kind === "CARD_PAYMENT" && t.counterAccountId === card.id && t.accountId !== card.id && free(t)).map((t) => t.amount));
+  const left = spends.minus(refunds).minus(payments);
+  return money(left.greaterThan(0) ? left : ZERO);
 }
 
 // ---------------------------------------------------------------------------

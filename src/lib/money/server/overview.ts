@@ -2,7 +2,7 @@ import type { MoneyAccount } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { dec, money, sum } from "../decimal";
 import {
-  bankBalance, cardCycles, cardOutstanding, dueDateAfter, cycleFor, forecast, lastWorkingDay, periodReport, salaryCycles,
+  bankBalance, cardCycles, cardNewSpends, cardOutstanding, dueDateAfter, cycleFor, forecast, lastWorkingDay, periodReport, salaryCycles,
   type ATxn, type ForecastEvent,
 } from "../analytics";
 import { buildMonthGrid, computeBalForEmi, linkedPairs, type BalForEmi } from "../commitments";
@@ -27,6 +27,8 @@ export interface AccountBalance {
   isPool: boolean;
   /** Bank: balance. Card: amount used. */
   amount: string | null;
+  /** Card: spends after the typed used amount that no card bill or EMI covers */
+  newSpends?: string;
   asOf: string | null;
   source: "statement" | "manual" | "cards" | null;
   creditLimit: string | null;
@@ -43,7 +45,13 @@ export function accountBalances(accounts: MoneyAccount[], txns: ATxn[]): Account
     };
     if (a.type === "CREDIT_CARD") {
       const hasData = aa.outstanding != null || txns.some((t) => t.accountId === a.id || t.counterAccountId === a.id);
-      return { ...base, amount: hasData ? cardOutstanding(aa, txns) : null, asOf: hasData ? todayIso() : null, source: hasData ? "cards" : null };
+      return {
+        ...base,
+        amount: hasData ? cardOutstanding(aa, txns) : null,
+        newSpends: hasData ? cardNewSpends(aa, txns) : undefined,
+        asOf: hasData ? todayIso() : null,
+        source: hasData ? "cards" : null,
+      };
     }
     const b = bankBalance(aa, txns);
     return { ...base, amount: b?.balance ?? null, asOf: b?.asOf ?? null, source: b?.source ?? null };
@@ -55,6 +63,7 @@ export function balForEmiFrom(balances: AccountBalance[], commitments: Commitmen
     pool: balances.filter((b) => b.type === "BANK" && b.isPool && b.amount != null).map((b) => ({ id: b.id, name: b.name, balance: b.amount as string })),
     commitments,
     poolAccountIds: balances.filter((b) => b.type === "BANK" && b.isPool).map((b) => b.id),
+    cardSpends: balances.filter((b) => b.type === "CREDIT_CARD" && b.newSpends).map((b) => ({ id: b.id, name: b.name, amount: b.newSpends as string })),
   });
 }
 
@@ -113,6 +122,11 @@ function forecastEvents(today: string, days: number, balances: AccountBalance[],
   for (const card of balances.filter((b) => b.type === "CREDIT_CARD" && b.dueDay && !covered.has(b.id))) {
     const due = dueDateAfter(addDays(today, -1), card.dueDay);
     if (due && due <= end && card.amount && dec(card.amount).greaterThan(0)) events.push({ date: due, amount: money(dec(card.amount).negated()), label: `${card.name} bill`, kind: "bill" });
+  }
+  // Cards whose bills are commitments: new spends that no bill or EMI covers yet
+  for (const card of balances.filter((b) => b.type === "CREDIT_CARD" && b.dueDay && covered.has(b.id) && b.newSpends && dec(b.newSpends).greaterThan(0))) {
+    const due = dueDateAfter(addDays(today, -1), card.dueDay);
+    if (due && due <= end) events.push({ date: due, amount: money(dec(card.newSpends as string).negated()), label: `${card.name} new spends`, kind: "bill" });
   }
   if (salaryInForecast) {
     const lastSalary = txns.filter((t) => t.kind === "SALARY" && t.direction === "CREDIT").at(-1);

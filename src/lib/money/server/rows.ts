@@ -23,6 +23,7 @@ export function toAAccount(a: MoneyAccount): AAccount {
     manualBalanceSetAt: a.manualBalance != null ? a.updatedAt.toISOString() : null,
     outstanding: d2(a.outstanding),
     outstandingAsOf: day(a.outstandingAsOf),
+    outstandingSetAt: a.outstanding != null ? a.updatedAt.toISOString() : null,
     cycleStartDay: a.cycleStartDay,
     dueDay: a.dueDay,
     creditLimit: d2(a.creditLimit),
