@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { STUDIO_DETAILS } from "@/lib/constants";
 
 const RANGES = ['today', 'this-week', 'this-month', 'this-year', 'custom'];
 
@@ -55,7 +56,7 @@ export default function AnalyticsHeader({ dateRange, onRangeChange, onConfirmCus
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Analytics Studio</h1>
           </div>
-          <p className="text-sm font-medium text-slate-500 mt-1">Moondot Studio Performance Dashboard</p>
+          <p className="text-sm font-medium text-slate-500 mt-1">{STUDIO_DETAILS.name} Performance Dashboard</p>
         </div>
 
         <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">

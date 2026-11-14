@@ -9,6 +9,8 @@ import { ShopProvider } from "@/components/providers/ShopProvider";
 import GlobalModals from "@/components/layout/GlobalModals";
 import ShopRouteGuard from "@/components/shops/ShopRouteGuard";
 import React from "react";
+import DemoBanner from "@/components/demo/DemoBanner";
+import { isDemo } from "@/lib/demo/mode";
 
 export default function MainLayout({
   children,
@@ -23,6 +25,7 @@ export default function MainLayout({
           <GlobalFormProvider>
             <Sidebar />
             <main className="flex-1 min-w-0 flex flex-col h-[100dvh] overflow-hidden">
+              {isDemo() && <DemoBanner />}
               <TopNavigation />
               <div className="flex-1 overflow-x-hidden overflow-y-auto bg-[#fafafa] p-4 md:p-8 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8 relative">
                 {/* One content width for every page, so edges line up across the app */}

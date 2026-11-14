@@ -5,8 +5,14 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
+import { isDemo } from "@/lib/demo/mode";
+import DemoEntry from "@/components/demo/DemoEntry";
 
 export default function LoginPage() {
+  return isDemo() ? <DemoEntry /> : <SignInForm />;
+}
+
+function SignInForm() {
   const router = useRouter();
   const [data, setData] = useState({
     email: "",

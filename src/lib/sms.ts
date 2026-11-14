@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import prisma from "@/lib/prisma";
 import { ShopError } from "@/lib/shops";
+import { isDemoServer } from "@/lib/demo/mode";
 import {
   CABLE_TEMPLATES,
   SERVICE_TEXT,
@@ -57,6 +58,7 @@ export function recentOutbox(shopId: string) {
 
 /** Queues one SMS for the shop's sender app. Throws when the phone isn't paired or the number is unusable. */
 export async function enqueueSms(shopId: string, to: string, content: string, meta: { subscriberId?: string; createdById?: string } = {}) {
+  if (isDemoServer()) throw new SmsError("SMS is turned off on the demo.", 403);
   const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { smsDeviceTokenHash: true } });
   if (!shop?.smsDeviceTokenHash) throw new SmsError("No phone is paired for SMS. Pair the sender app in Settings first.", 422);
   const phone = normalizePhone(to);

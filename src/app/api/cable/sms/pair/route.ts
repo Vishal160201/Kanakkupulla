@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { demoBlocked } from "@/lib/demo/guard";
 import prisma from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
 import { getCableShop } from "@/lib/cableSync";
@@ -9,6 +10,8 @@ import { cableShopBody } from "@/lib/validations/cable";
 
 // POST /api/cable/sms/pair — issue a device token for the SMS sender app (old one stops working).
 export async function POST(request: Request) {
+  const blocked = demoBlocked("Pairing an SMS phone is turned off on the demo.");
+  if (blocked) return blocked;
   const auth = await requireUser();
   if (auth.error) return auth.error;
   const body = await parseJsonBody(request, cableShopBody);

@@ -12,6 +12,7 @@ export function moneyTrackerEmail(): string | null {
 }
 
 export function canUseMoneyTracker(email: string | null | undefined): boolean {
+  if (process.env.DEMO_MODE === "1") return false; // never on the demo site
   const allowed = moneyTrackerEmail();
   return !!allowed && !!email && email.trim().toLowerCase() === allowed;
 }

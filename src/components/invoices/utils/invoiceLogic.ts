@@ -200,8 +200,8 @@ function buildCore(c: CoreInput) {
     review: status === 'PAID' ? { url: setting('studio_review_url') } : undefined,
     terms: setting(c.termsKey)?.split('\n').map((t) => t.trim()).filter(Boolean) ?? c.defaultTerms,
     contacts: lines(
-      ['instagram', setting('studio_instagram') ?? 'instagram.com/moondot.studio'],
-      ['globe', setting('studio_website') ?? 'www.moondotstudio.com'],
+      ['instagram', setting('studio_instagram') ?? STUDIO_DETAILS.instagram],
+      ['globe', setting('studio_website') ?? STUDIO_DETAILS.website],
       ['phone', studioPhone],
       ['mail', studioEmail]
     ),
@@ -256,7 +256,7 @@ export const buildInvoiceViewModel = (
 
   return {
     ...core,
-    heroImageUrl: heroImageUrl ?? core.assets.photoPlaceholder,
+    heroImageUrl: heroImageUrl ?? (STUDIO_DETAILS.showSamplePhotos ? core.assets.photoPlaceholder : undefined),
     billTo: {
       name: booking.client.name,
       lines: lines(['phone', text(booking.client.phone)], ['mail', text(booking.client.email)], ['calendar', formatDate(booking.date) && `Event date: ${formatDate(booking.date)}`], ['pin', venue && `Venue: ${venue}`]),

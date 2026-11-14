@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { InvoiceSettingKey } from "@/lib/invoiceSettings";
 import { cn } from "@/lib/utils";
+import { STUDIO_DETAILS } from "@/lib/constants";
 
 type Values = Partial<Record<InvoiceSettingKey, string>>;
 
@@ -37,7 +38,7 @@ const GROUPS: { title: string; icon: string; description: string; fields: Field[
     description: "How clients pay the balance",
     fields: [
       { key: "studio_upi_id", label: "UPI ID", hint: "The QR on the invoice fills in the balance for the client" },
-      { key: "studio_bank_account_name", label: "Account name", hint: "Defaults to the studio name", example: "Moondot Studio" },
+      { key: "studio_bank_account_name", label: "Account name", hint: "Defaults to the studio name", example: STUDIO_DETAILS.name },
       { key: "studio_bank_account_number", label: "Account number", hint: "The bank block shows once the number and IFSC are filled", example: "50200012345678" },
       { key: "studio_bank_ifsc", label: "IFSC code", example: "HDFC0001234" },
       { key: "studio_bank_name", label: "Bank and branch", example: "HDFC Bank, Tenkasi" },

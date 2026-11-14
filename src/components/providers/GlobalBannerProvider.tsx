@@ -7,6 +7,7 @@ import Image from "next/image";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { fetcher } from "@/lib/fetcher";
+import { STUDIO_DETAILS } from "@/lib/constants";
 
 interface BannerBooking {
   id: string;
@@ -161,8 +162,8 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
 
           {/* Right Panel */}
           <div className="w-full md:w-[55%] relative z-20 flex flex-col justify-end p-6 md:p-8 pt-0 md:pt-8 min-h-[300px] md:min-h-0">
-            {/* Photographer Image Container */}
-            <div className="absolute inset-0 z-10 hidden md:block pointer-events-none overflow-visible">
+            {/* Photographer Image Container (not on the demo) */}
+            {STUDIO_DETAILS.showSamplePhotos && <div className="absolute inset-0 z-10 hidden md:block pointer-events-none overflow-visible">
               <Image
                 src="/banner-photographer.png"
                 alt="Photographer"
@@ -171,7 +172,7 @@ export default function GlobalBannerProvider({ children }: { children: React.Rea
                 style={{ objectFit: 'contain', objectPosition: 'bottom center' }}
                 className="drop-shadow-[0_0_40px_rgba(139,92,246,0.6)] scale-[1.35] origin-bottom -translate-y-20"
               />
-            </div>
+            </div>}
 
             {/* Booking Cards */}
             <div className={`relative z-30 w-full grid ${day1.length > 0 && day2.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>

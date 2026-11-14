@@ -24,7 +24,7 @@ export const invoiceData = {
     date: '28 June 2026',
     venue: 'Le Royal Meridien, Kochi',
     package: 'Engagement Premium',
-    photographer: 'Team Moondot',
+    photographer: STUDIO_DETAILS.team,
   },
   items: [
     {
@@ -79,12 +79,12 @@ export const invoiceData = {
   },
   paymentMethods: {
     bankTransfer: {
-      accountName: 'Moondot Studio',
+      accountName: STUDIO_DETAILS.name,
       accountNumber: '50200012345678',
       ifsc: 'HDFC0001234',
       bank: 'HDFC Bank',
     },
-    upi: 'moondotstudio@okaxis',
+    upi: STUDIO_DETAILS.upiId,
     whatsappPhone: STUDIO_DETAILS.phone,
   },
   terms: [
@@ -95,8 +95,8 @@ export const invoiceData = {
     'Cancellation 15 days before the event is non-refundable.',
   ],
   socials: {
-    instagram: 'instagram.com/moondot.studio',
-    website: 'www.moondotstudio.com',
+    instagram: STUDIO_DETAILS.instagram,
+    website: STUDIO_DETAILS.website,
     phone: STUDIO_DETAILS.phone,
     email: STUDIO_DETAILS.email,
   }

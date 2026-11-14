@@ -1,6 +1,7 @@
 import { alexBrush, montserrat } from "@/lib/fonts";
+import { STUDIO_DETAILS } from "@/lib/constants";
 
-/** "Moondot Studio" wordmark shown in the top bar on the dashboard. */
+/** Studio wordmark ("Moondot Studio") shown in the top bar on the dashboard. */
 export default function StudioBrand() {
   return (
     <div className={`relative hidden sm:block ${alexBrush.variable} ${montserrat.variable}`}>
@@ -34,7 +35,7 @@ export default function StudioBrand() {
         }
       `}</style>
       <div className="studio-brand">
-        Moondot <span className="studio-brand-accent hidden md:inline">Studio</span>
+        {STUDIO_DETAILS.wordmark[0]} <span className="studio-brand-accent hidden md:inline">{STUDIO_DETAILS.wordmark[1]}</span>
       </div>
     </div>
   );

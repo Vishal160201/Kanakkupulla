@@ -9,6 +9,7 @@ import type { JWT } from "next-auth/jwt";
 import { identifierLookup } from "@/lib/auth/username";
 import { canUseMoneyTracker } from "@/lib/money/access";
 import { MINUTE, clearRateLimit, clientIp, rateLimit } from "@/lib/rateLimit";
+import { DEMO_OWNER_ID, isDemoServer } from "@/lib/demo/mode";
 
 const ROLE_REFRESH_MS = 60 * 1000;
 
@@ -22,7 +23,22 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   providers: [
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    // Demo site: visitors are signed in as the demo owner without a password
+    ...(isDemoServer()
+      ? [
+        CredentialsProvider({
+          id: "demo",
+          name: "Demo",
+          credentials: {},
+          async authorize() {
+            if (!isDemoServer()) return null;
+            const user = await prisma.user.findUnique({ where: { id: DEMO_OWNER_ID } });
+            return user && user.status !== "INACTIVE" ? user : null;
+          },
+        }),
+      ]
+      : []),
+    ...(!isDemoServer() && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? [
         GoogleProvider({
           clientId: process.env.GOOGLE_CLIENT_ID,
@@ -44,7 +60,7 @@ export const authOptions: NextAuthOptions = {
         }),
       ]
       : []),
-    ...(process.env.APPLE_ID && process.env.APPLE_SECRET
+    ...(!isDemoServer() && process.env.APPLE_ID && process.env.APPLE_SECRET
       ? [
         AppleProvider({
           clientId: process.env.APPLE_ID,

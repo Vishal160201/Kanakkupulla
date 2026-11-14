@@ -1,3 +1,4 @@
+import { demoBlocked } from "@/lib/demo/guard";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
@@ -7,6 +8,8 @@ import { identifierLookup } from "@/lib/auth/username";
 import { MINUTE, limitRequest } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
+  const blocked = demoBlocked("Password emails are turned off on the demo.");
+  if (blocked) return blocked;
   try {
     const limited = await limitRequest(req, "forgot-password", 5, 15 * MINUTE);
     if (limited) return limited;

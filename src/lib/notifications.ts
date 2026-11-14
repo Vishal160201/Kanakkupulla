@@ -8,7 +8,7 @@ import type { NotificationTypeKey } from "./access";
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
 
-const pushEnabled = !!(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+const pushEnabled = process.env.DEMO_MODE !== "1" && !!(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 if (pushEnabled) {
   webpush.setVapidDetails(
     "mailto:admin@moondotstudio.com",
@@ -90,7 +90,7 @@ async function deliver(user: Recipient, content: NotificationContent): Promise<s
   }
 
   // 2. Email
-  if (transporter && user.emailNotifications && user.email) {
+  if (transporter && process.env.DEMO_MODE !== "1" && user.emailNotifications && user.email) {
     try {
       await transporter.sendMail({
         from: '"Moondot Studio" <notifications@moondotstudio.com>',

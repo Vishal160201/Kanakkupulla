@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Svg, Defs, ClipPath, Path, Image as SvgImage, L
 import type { InvoiceViewModel } from '../types/invoiceViewModel';
 import { StatusPill } from '../ui/StatusPill';
 import { colors, typography } from '../theme/invoiceTheme';
+import { STUDIO_DETAILS } from "@/lib/constants";
 
 // The couple photo sits in the page's top-left corner with a sweeping right edge, outlined in gold.
 const HERO_W = 140;
@@ -58,8 +59,8 @@ export const Header = ({ viewModel: vm }: { viewModel: InvoiceViewModel }) => {
     <View style={styles.row}>
       {hasPhoto && <View style={styles.heroSpace} />}
       <View style={[styles.brand, hasPhoto ? {} : { alignItems: 'flex-start' }]}>
-        <Text style={styles.brandName}>MOONDOT</Text>
-        <Text style={styles.brandStudio}>STUDIO</Text>
+        <Text style={styles.brandName}>{STUDIO_DETAILS.wordmark[0].toUpperCase()}</Text>
+        <Text style={styles.brandStudio}>{STUDIO_DETAILS.wordmark[1].toUpperCase()}</Text>
         <Text style={styles.brandTagline}>{vm.studio.tagline}</Text>
       </View>
       <View style={styles.title}>

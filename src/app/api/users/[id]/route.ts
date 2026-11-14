@@ -6,6 +6,8 @@ import { ShopError } from "@/lib/shops";
 import { formatAssignments, setUserAssignments, userAssignmentsSelect, validateAssignments } from "@/lib/userAccess";
 import { parseJsonBody } from "@/lib/validations/http";
 import { userUpdateSchema } from "@/lib/validations/users";
+import { demoBlocked } from "@/lib/demo/guard";
+import { DEMO_OWNER_ID } from "@/lib/demo/mode";
 
 /** The personal-tracker account is the primary owner: only they can change or delete it (the UI hides it too). */
 const PRIMARY_OWNER_EMAIL = process.env.NEXT_PUBLIC_PERSONAL_TRACKER_EMAIL?.toLowerCase();
@@ -22,6 +24,8 @@ export async function PUT(
 
   try {
     const { id } = await params;
+    const locked = id === DEMO_OWNER_ID ? demoBlocked("The demo owner can't be changed.") : null;
+    if (locked) return locked;
     const parsed = await parseJsonBody(request, userUpdateSchema);
     if (parsed.error) return parsed.error;
     const { status, name, username, phone, isOwner, assignments } = parsed.data;
@@ -95,6 +99,8 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+    const locked = id === DEMO_OWNER_ID ? demoBlocked("The demo owner can't be deleted.") : null;
+    if (locked) return locked;
 
     if (id === currentUserId) {
       return NextResponse.json({ error: "You cannot delete your own account" }, { status: 400 });

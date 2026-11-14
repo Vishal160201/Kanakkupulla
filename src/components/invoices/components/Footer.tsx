@@ -6,6 +6,7 @@ import { Section } from '../ui/Section';
 import { IconTile } from '../ui/InfoRow';
 import { Icon } from '../icons';
 import { colors, radius, typography } from '../theme/invoiceTheme';
+import { STUDIO_DETAILS } from "@/lib/constants";
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', marginTop: 8 },
@@ -160,7 +161,7 @@ export const ClosingSection = ({ viewModel: vm }: { viewModel: InvoiceViewModel 
           </View>
         ))}
         <ThankYou />
-        <PdfImage src={vm.assets.stamp} style={styles.stamp} />
+        {STUDIO_DETAILS.showStamp && <PdfImage src={vm.assets.stamp} style={styles.stamp} />}
       </View>
     </View>
   );

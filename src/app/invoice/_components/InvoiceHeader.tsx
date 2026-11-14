@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { playfair } from '@/lib/fonts';
 import { invoiceData } from './invoiceData';
+import { STUDIO_DETAILS } from '@/lib/constants';
 
 /** Background florals, logo / title / meta header and the arch photo. */
 export default function InvoiceHeader() {
@@ -34,9 +35,9 @@ export default function InvoiceHeader() {
                <div className="absolute bottom-1 left-2 w-3 h-3 border border-[#c39b6a] rounded-full"></div>
              </div>
              <h1 className={`${playfair.className} text-3xl font-medium tracking-[0.2em] text-[#2c2c2c]`}>
-               MOONDOT
+               {STUDIO_DETAILS.wordmark[0].toUpperCase()}
              </h1>
-             <p className="text-[10px] tracking-[0.3em] font-medium text-gray-500 mt-1">STUDIO</p>
+             <p className="text-[10px] tracking-[0.3em] font-medium text-gray-500 mt-1">{STUDIO_DETAILS.wordmark[1].toUpperCase()}</p>
              <p className="text-[7px] tracking-[0.2em] text-gray-400 mt-2">CAPTURING YOUR MEMORIES</p>
           </div>
         </div>
@@ -72,10 +73,12 @@ export default function InvoiceHeader() {
         </div>
       </div>
 
-      {/* Top Left Arch Image */}
-      <div className="absolute top-0 left-0 w-[160px] h-[220px] rounded-br-[100px] overflow-hidden border-r-[4px] border-b-[4px] border-[#c39b6a] z-20 shadow-lg bg-white">
-        <Image src="/booking-invoice-assets/couple.png" alt="Couple" fill className="object-cover" />
-      </div>
+      {/* Top Left Arch Image (not on the demo) */}
+      {STUDIO_DETAILS.showSamplePhotos && (
+        <div className="absolute top-0 left-0 w-[160px] h-[220px] rounded-br-[100px] overflow-hidden border-r-[4px] border-b-[4px] border-[#c39b6a] z-20 shadow-lg bg-white">
+          <Image src="/booking-invoice-assets/couple.png" alt="Couple" fill className="object-cover" />
+        </div>
+      )}
     </>
   );
 }

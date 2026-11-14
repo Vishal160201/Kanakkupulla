@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { invoiceData } from './invoiceData';
+import { STUDIO_DETAILS } from "@/lib/constants";
 
 /** Contact footer and the studio stamp. */
 export default function InvoiceFooter() {
@@ -31,10 +32,12 @@ export default function InvoiceFooter() {
          </div>
       </div>
 
-      {/* Moondot Stamp overlapping the footer */}
-      <div className="absolute bottom-2 right-10 z-30 w-24 h-24">
-         <Image src="/booking-invoice-assets/mdStamp.png" alt="MD Stamp" fill className="object-contain" />
-      </div>
+      {/* Studio stamp overlapping the footer (not on the demo) */}
+      {STUDIO_DETAILS.showStamp && (
+        <div className="absolute bottom-2 right-10 z-30 w-24 h-24">
+          <Image src="/booking-invoice-assets/mdStamp.png" alt="MD Stamp" fill className="object-contain" />
+        </div>
+      )}
     </>
   );
 }

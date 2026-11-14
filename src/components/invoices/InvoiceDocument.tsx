@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
 /** The one invoice template; status (pending / partial / paid / overdue) only changes what's shown. */
 export default function InvoiceDocument({ viewModel: vm }: { viewModel: InvoiceViewModel }) {
   return (
-    <Document title={vm.meta.title} author={vm.studio.name} subject={vm.meta.subject} keywords={`${vm.meta.keywords}, template ${vm.meta.templateVersion}`} creator="Moondot Studio / Kanakkupulla" producer="Kanakkupulla">
+    <Document title={vm.meta.title} author={vm.studio.name} subject={vm.meta.subject} keywords={`${vm.meta.keywords}, template ${vm.meta.templateVersion}`} creator={`${vm.studio.name} / Kanakkupulla`} producer="Kanakkupulla">
       <Page size="A4" style={styles.page}>
         <BackgroundDecoration assets={vm.assets} />
         {/* No photo (e.g. a gift order without a reference image): the header simply starts at the margin */}
