@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { encryptOptional, encryptText } from "@/lib/money/crypto";
+import { decryptText, encryptOptional, encryptText } from "@/lib/money/crypto";
 import { dateFromIso } from "@/lib/money/text";
 import { json, moneyRoute } from "@/lib/money/server/route";
 import { manualDedupeKey } from "@/lib/money/server/importer";
@@ -9,7 +9,8 @@ import { moneyTransferSchema } from "@/lib/validations/money";
 /**
  * POST /api/money/transactions/transfer — money moved between your accounts, typed in.
  * Bank -> bank: both sides, linked as a self transfer (left out of income and spending).
- * Bank -> card: a card bill payment, which lowers the card's used amount.
+ * Bank -> card: a card bill payment, which lowers the card's used amount. With scheduleEntryId it
+ * also pays that card bill or EMI part, so the commitment stops counting in Bal for EMI.
  * When the statements arrive, their rows replace these typed ones (see replaceTypedEntries).
  */
 export const POST = moneyRoute("POST /api/money/transactions/transfer", async ({ user, request }) => {
@@ -26,11 +27,35 @@ export const POST = moneyRoute("POST /api/money/transactions/transfer", async ({
   const base = { userId: user.id, txnDate: dateFromIso(d.txnDate), amount: d.amount, seq: 0, note: encryptOptional(d.note) };
 
   if (to.type === "CREDIT_CARD") {
+    const entry = d.scheduleEntryId
+      ? await prisma.moneyCommitmentSchedule.findFirst({ where: { id: d.scheduleEntryId, commitment: { userId: user.id } }, include: { commitment: true } })
+      : null;
+    if (d.scheduleEntryId) {
+      const bad = (msg: string) => json({ error: msg, errors: { scheduleEntryId: msg } }, { status: 422 });
+      if (!entry) return bad("That bill or EMI part wasn't found.");
+      if (entry.commitment.type !== "CARD_EMI" && entry.commitment.type !== "CARD_BILL") return bad("Pick a card bill or EMI part.");
+      if (entry.commitment.accountId && entry.commitment.accountId !== to.id) return bad(`That part belongs to another card, not ${to.name}.`);
+      if (entry.transactionId) return bad("That part is already linked to a payment.");
+    }
     const bill = await prisma.moneyCategory.findFirst({ where: { userId: user.id, name: "Card Bills" }, select: { id: true } });
-    const row = await prisma.moneyTransaction.create({
-      data: { ...base, accountId: from.id, direction: "DEBIT", kind: "CARD_PAYMENT", counterAccountId: to.id, categoryId: bill?.id ?? null, narration: encryptText(`Card bill paid: ${to.name}`), dedupeKey: manualDedupeKey() },
+    const id = await prisma.$transaction(async (tx) => {
+      const row = await tx.moneyTransaction.create({
+        data: {
+          ...base, accountId: from.id, direction: "DEBIT", kind: "CARD_PAYMENT", counterAccountId: to.id, categoryId: bill?.id ?? null,
+          narration: encryptText(entry ? `${decryptText(entry.commitment.name)} paid: ${to.name}` : `Card bill paid: ${to.name}`),
+          dedupeKey: manualDedupeKey(), commitmentId: entry?.commitmentId ?? null,
+        },
+      });
+      if (entry) {
+        const paid = entry.paidAmount.plus(d.amount);
+        await tx.moneyCommitmentSchedule.update({
+          where: { id: entry.id },
+          data: { transactionId: row.id, paidAmount: (paid.greaterThan(entry.amount) ? entry.amount : paid).toFixed(2), paidOn: base.txnDate },
+        });
+      }
+      return row.id;
     });
-    return json({ ids: [row.id], kind: "CARD_PAYMENT" }, { status: 201 });
+    return json({ ids: [id], kind: "CARD_PAYMENT", paidFor: entry ? decryptText(entry.commitment.name) : null }, { status: 201 });
   }
 
   const ids = await prisma.$transaction(async (tx) => {

@@ -216,5 +216,7 @@ export const moneyTransferSchema = z
     txnDate: isoDay("Date"),
     amount: positive("Amount"),
     note: optionalText(500),
+    /** Card payments: the card bill or EMI part this pays */
+    scheduleEntryId: id.nullable().optional(),
   })
   .refine((t) => t.fromAccountId !== t.toAccountId, { message: "Pick two different accounts.", path: ["toAccountId"] });

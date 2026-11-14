@@ -48,8 +48,16 @@ export const DELETE = moneyRoute<P>("DELETE /api/money/transactions/:id", async 
     return json({ error: "Statement rows can't be deleted one by one. Delete the import instead." }, { status: 409 });
   }
   if (txn.linkedTxnId) await unlinkPair(user.id, txn.id);
+  const paidParts = await prisma.moneyCommitmentSchedule.findMany({ where: { transactionId: txn.id } });
   await prisma.$transaction([
-    prisma.moneyCommitmentSchedule.updateMany({ where: { transactionId: txn.id }, data: { transactionId: null } }),
+    // A part this row paid loses what it paid
+    ...paidParts.map((s) => {
+      const left = s.paidAmount.minus(txn.amount);
+      return prisma.moneyCommitmentSchedule.update({
+        where: { id: s.id },
+        data: { transactionId: null, paidAmount: left.greaterThan(0) ? left.toFixed(2) : "0.00", ...(left.greaterThan(0) ? {} : { paidOn: null }) },
+      });
+    }),
     prisma.moneyTransaction.delete({ where: { id: txn.id } }),
   ]);
   return json({ ok: true });

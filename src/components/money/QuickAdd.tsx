@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useSWRConfig } from "swr";
+import useSWR, { useSWRConfig } from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DatePickerInput from "@/components/ui/DatePickerInput";
-import { formatINR, normaliseMoney } from "@/lib/money/format";
+import { formatINR, formatMoneyDate, normaliseMoney } from "@/lib/money/format";
+import type { CommitmentsData } from "./CommitmentsPage";
 import { useMoneyAccounts, useMoneyCategories } from "./hooks";
 import { send } from "./ui";
 
@@ -34,6 +36,13 @@ const localDay = (offset = 0) => {
   d.setDate(d.getDate() + offset);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+
+/** Exact paise from "1234.50" (amounts from the API are plain non-negative decimals). */
+const paise = (v: string) => {
+  const [whole, frac = ""] = v.split(".");
+  return BigInt(whole || "0") * BigInt(100) + BigInt((frac + "00").slice(0, 2));
+};
+const fromPaise = (p: bigint) => `${p / BigInt(100)}.${String(p % BigInt(100)).padStart(2, "0")}`;
 
 /** Floating "+" on every /money page: amount, a category tile, save. Built for one-handed use on a phone. */
 export default function QuickAdd() {
@@ -86,6 +95,23 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
   const toChoices = useMemo(() => [...banks.filter((a) => a.isPool), ...banks.filter((a) => !a.isPool), ...accounts.filter((a) => a.type === "CREDIT_CARD")].filter((a) => a.id !== fromAccount?.id), [accounts, banks, fromAccount]);
   const toAccount = toChoices.find((a) => a.id === toId) ?? toChoices[0];
 
+  // Paying a card: the card bill or EMI part it pays, so that commitment stops counting
+  const payingCard = isTransfer && toAccount?.type === "CREDIT_CARD";
+  const { data: commitmentsData } = useSWR<CommitmentsData>(payingCard ? "/api/money/commitments" : null, fetcher);
+  const cardParts = useMemo(() => {
+    if (!payingCard || !toAccount) return [];
+    return (commitmentsData?.commitments ?? [])
+      .filter((c) => (c.type === "CARD_EMI" || c.type === "CARD_BILL") && c.status !== "COMPLETED" && (!c.accountId || c.accountId === toAccount.id))
+      .flatMap((c) => {
+        const next = c.schedule.find((e) => !e.transactionId && paise(e.amount) > paise(e.paidAmount));
+        return next ? [{ id: next.id, name: c.name, dueDate: next.dueDate, left: fromPaise(paise(next.amount) - paise(next.paidAmount)) }] : [];
+      })
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }, [payingCard, toAccount, commitmentsData]);
+  // "" = the first part due; "spends" = no part, just card spends
+  const [payFor, setPayFor] = useState("");
+  const payPart = payFor === "spends" ? undefined : (cardParts.find((p) => p.id === payFor) ?? (payFor ? undefined : cardParts[0]));
+
   // Most used categories first
   const sortedCategories = useMemo(() => {
     const use = read<Record<string, number>>(CATEGORY_USE, {});
@@ -133,11 +159,13 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
         txnDate: date,
         amount: value,
         note: what.trim() || null,
+        scheduleEntryId: payingCard ? (payPart?.id ?? null) : null,
       });
       setBusy(false);
       if (!res.ok) return;
       write(LAST_TRANSFER, { from: fromAccount.id, to: toAccount.id });
-      toast.success(res.data.kind === "CARD_PAYMENT" ? `${formatINR(value)} paid to ${toAccount.name}` : `${formatINR(value)} moved from ${fromAccount.name} to ${toAccount.name}`);
+      setPayFor("");
+      toast.success(res.data.kind === "CARD_PAYMENT" ? `${formatINR(value)} paid to ${toAccount.name}${payPart ? ` for ${payPart.name}` : ""}` : `${formatINR(value)} moved from ${fromAccount.name} to ${toAccount.name}`);
       void mutate((key) => typeof key === "string" && key.startsWith("/api/money/"));
       if (again) {
         setAmount("");
@@ -206,7 +234,7 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
         <div className="shrink-0 flex items-start justify-between gap-3 px-5 pt-6 pb-4">
           <div>
             <DialogTitle className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 whitespace-nowrap">Quick add</DialogTitle>
-            <p className="mt-0.5 text-sm font-medium text-slate-500">{isTransfer ? "Between your accounts" : isSpend ? "Add an expense" : "Add money you received"}</p>
+            <p className="mt-0.5 text-sm font-medium text-slate-500">{payingCard ? "Pay a card bill or EMI" : isTransfer ? "Between your accounts" : isSpend ? "Add an expense" : "Add money you received"}</p>
           </div>
           <div role="radiogroup" aria-label="Spend, income or transfer" className="flex shrink-0 rounded-2xl bg-slate-100 p-1">
             {(["DEBIT", "CREDIT", "TRANSFER"] as const).map((d) => (
@@ -321,7 +349,7 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
             <>
               {([
                 ["From", banks, fromAccount, (id: string) => setFromId(id)],
-                ["To", toChoices, toAccount, (id: string) => setToId(id)],
+                ["To", toChoices, toAccount, (id: string) => { setToId(id); setPayFor(""); }],
               ] as const).map(([label, list, chosen, pick]) => (
                 <div key={label}>
                   <p className={sectionLabel}>{label}</p>
@@ -345,7 +373,42 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
                   </div>
                 </div>
               ))}
-              {toAccount?.type === "CREDIT_CARD" && <p className="-mt-2 text-[11px] font-semibold text-slate-500">Saved as a card bill payment: it lowers {toAccount.name}&apos;s used amount.</p>}
+              {payingCard && toAccount && (
+                <div>
+                  <p className={sectionLabel}>Pays for</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[...cardParts.map((p) => ({ key: p.id, title: p.name, sub: `${formatINR(p.left)} · due ${formatMoneyDate(p.dueDate)}`, icon: "ph-calendar-check", fill: p.left })), { key: "spends", title: "Card spends", sub: "Not an EMI or bill part", icon: "ph-shopping-bag", fill: null }].map((o) => {
+                      const on = o.key === "spends" ? !payPart : payPart?.id === o.key;
+                      return (
+                        <button
+                          key={o.key}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => {
+                            setPayFor(o.key);
+                            if (o.fill) {
+                              setAmount(o.fill.replace(/\.00$/, ""));
+                              setError("");
+                            }
+                          }}
+                          className={`inline-flex min-w-0 max-w-full items-center gap-2.5 rounded-2xl border px-3.5 py-2 text-left transition-colors ${on ? "border-indigo-400 bg-indigo-50 shadow-[0_0_0_1px_#818cf8]" : "border-slate-200/80 bg-white"}`}
+                        >
+                          <i aria-hidden="true" className={`${on ? "ph-fill text-indigo-500" : "ph text-slate-500"} ${o.icon} text-lg shrink-0`} />
+                          <span className="min-w-0">
+                            <span className={`block truncate text-sm font-semibold ${on ? "text-indigo-700" : "text-slate-700"}`}>{o.title}</span>
+                            <span className="block truncate text-[11px] font-semibold text-slate-500">{o.sub}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[11px] font-semibold text-slate-500">
+                    {payPart
+                      ? `Takes it out of ${fromAccount?.name ?? "the bank"}, lowers ${toAccount.name}'s used amount and marks ${payPart.name}'s ${formatMoneyDate(payPart.dueDate)} part paid.`
+                      : `Takes it out of ${fromAccount?.name ?? "the bank"} and lowers ${toAccount.name}'s used amount.`}
+                  </p>
+                </div>
+              )}
               {toAccount?.type === "BANK" && <p className="-mt-2 text-[11px] font-semibold text-slate-500">Saved as a self transfer: left out of income and spending. When the statements come in, they replace it.</p>}
             </>
           )}
