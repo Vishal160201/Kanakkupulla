@@ -40,7 +40,8 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(new Pool({ connectionStr
 async function main() {
   const [users, shops, clients, bookings, txns] = await Promise.all([
     prisma.user.count({ where: { id: { not: DEMO_OWNER_ID } } }),
-    prisma.shop.count(),
+    // The migrations add these two starter shops to every new database
+    prisma.shop.count({ where: { id: { notIn: ["shop_main", "shop_manju_agency"] } } }),
     prisma.client.count(),
     prisma.booking.count(),
     prisma.transaction.count(),
